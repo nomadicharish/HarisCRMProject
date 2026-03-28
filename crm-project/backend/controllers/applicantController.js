@@ -585,7 +585,7 @@ const addAppointment = async (req, res) => {
     const userId = req.user?.uid || "testUser123";
     const userRole = req.user?.role || "EMPLOYER";
 
-    const allowedTypes = ["BIOMETRIC", "INTERVIEW", "VISA_COLLECTION"];
+    const allowedTypes = ["EMBASSY_APPOINTMENT", "EMBASSY_INTERVIEW", "VISA_COLLECTION", "BIOMETRIC", "INTERVIEW"];
     if (!allowedTypes.includes(type)) {
       return res.status(400).json({ message: "Invalid appointment type" });
     }
@@ -662,30 +662,36 @@ const approveAppointment = async (req, res) => {
       approvedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    // 🔁 AUTO STAGE MOVE BASED ON APPOINTMENT TYPE
+    // 🔁 STAGE TRANSITION BASED ON APPOINTMENT TYPE
     let newStage = null;
 
-    if (type === "BIOMETRIC") newStage = 7;
-    if (type === "INTERVIEW") newStage = 9;
-    if (type === "VISA_COLLECTION") newStage = 11;
+    if (type === "EMBASSY_APPOINTMENT") newStage = 6;
+    if (type === "EMBASSY_INTERVIEW") newStage = 8;
+    if (type === "VISA_COLLECTION") newStage = 10;
+
+    // backward compatibility for older values
+    if (type === "BIOMETRIC") newStage = 8;
+    if (type === "INTERVIEW") newStage = 10;
 
     if (newStage !== null) {
       const applicantSnap = await applicantRef.get();
       const currentStage = applicantSnap.data().stage || 1;
 
-      // Move only forward unless super user overrides manually elsewhere
       if (newStage > currentStage) {
         await applicantRef.update({ stage: newStage });
 
-        // Stage log
-        await db.collection("stageLogs").add({
+        await addStageLog({
           applicantId,
           fromStage: currentStage,
           toStage: newStage,
           role: "SUPER_USER",
-          action: `AUTO_MOVE_AFTER_${type}_APPROVAL`,
-          timestamp: admin.firestore.FieldValue.serverTimestamp()
+          action: `APPOINTMENT_APPROVAL_${type}`
         });
+
+        // auto stages move
+        if (AUTO_STAGE_IDS.includes(newStage)) {
+          await autoAdvanceStage(applicantId, newStage, `AUTO_AFTER_${type}_APPROVAL`);
+        }
       }
     }
 
@@ -699,12 +705,59 @@ const approveAppointment = async (req, res) => {
   }
 };
 
+const MANUAL_STAGE_IDS = [1, 2, 4, 5, 7, 9, 11];
+const AUTO_STAGE_IDS = [3, 6, 8, 10];
+const MAX_STAGE = 11;
+
 const getAllowedRoleForStage = (stage) => {
-  if (stage >= 1 && stage <= 3) return "AGENCY";
-  if (stage >= 4 && stage <= 10) return "EMPLOYER";
-  if (stage >= 11 && stage <= 13) return "AGENCY";
-  if (stage === 14) return "SUPER_USER";
+  // Update as needed for additional workflow/authorization rules
+  if (stage >= 1 && stage <= 2) return "AGENCY";
+  if (stage >= 3 && stage <= 6) return "EMPLOYER";
+  if (stage >= 7 && stage <= 10) return "EMPLOYER";
+  if (stage === 11) return "SUPER_USER";
   return null;
+};
+
+const addStageLog = async ({ applicantId, fromStage, toStage, role, action }) => {
+  await db.collection("stageLogs").add({
+    applicantId,
+    fromStage,
+    toStage,
+    role,
+    action,
+    timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+};
+
+const autoAdvanceStage = async (applicantId, currentStage, reason = "AUTO_ADVANCE") => {
+  if (!AUTO_STAGE_IDS.includes(currentStage)) {
+    return;
+  }
+
+  const next = currentStage + 1;
+  if (next > MAX_STAGE) {
+    return;
+  }
+
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantSnap = await applicantRef.get();
+  if (!applicantSnap.exists) return;
+
+  const current = applicantSnap.data().stage || currentStage;
+  if (current !== currentStage) return; // if stage changed meanwhile
+
+  await applicantRef.update({
+    stage: next,
+    stageUpdatedAt: new Date()
+  });
+
+  await addStageLog({
+    applicantId,
+    fromStage: currentStage,
+    toStage: next,
+    role: "SYSTEM",
+    action: reason
+  });
 };
 
 
@@ -737,11 +790,15 @@ const approveAndMoveStage = async (req, res) => {
     const currentStage = applicant.stage || 1;
 
     // ✅ Max stages
-    const MAX_STAGE = 5;
-
     if (currentStage >= MAX_STAGE) {
       return res.status(400).json({
         message: "Applicant already at final stage"
+      });
+    }
+
+    if (!MANUAL_STAGE_IDS.includes(currentStage)) {
+      return res.status(400).json({
+        message: "Current stage is automated and cannot be manually approved"
       });
     }
 
@@ -756,13 +813,21 @@ const approveAndMoveStage = async (req, res) => {
         .collection("documents")
         .get();
 
-      const uploadedDocs = {};
+      let uploadedDocs = {};
 
-      docsSnap.forEach(doc => {
-        uploadedDocs[doc.id] = doc.data();
-      });
+      for (let doc of docsSnap.docs) {
 
-      // ✅ Required documents
+        const versionsSnap = await doc.ref
+          .collection("versions")
+          .orderBy("uploadedAt", "desc")
+          .limit(1)
+          .get();
+
+        if (!versionsSnap.empty) {
+          uploadedDocs[doc.id] = versionsSnap.docs[0].data(); // latest version
+        }
+      }
+
       let requiredDocs = [
         "PASSPORT",
         "PAN_CARD",
@@ -773,7 +838,6 @@ const approveAndMoveStage = async (req, res) => {
         "MEDICAL_CERTIFICATE"
       ];
 
-      // ✅ Conditional documents
       if (applicant.maritalStatus === "Single") {
         requiredDocs.push("UNMARRIED_CERTIFICATE");
       }
@@ -782,7 +846,6 @@ const approveAndMoveStage = async (req, res) => {
         requiredDocs.push("MARRIAGE_CERTIFICATE");
       }
 
-      // ❌ Validate documents
       for (let docType of requiredDocs) {
 
         if (!uploadedDocs[docType]) {
@@ -810,10 +873,25 @@ const approveAndMoveStage = async (req, res) => {
       lastActionBy: req.user.uid
     });
 
+    await addStageLog({
+      applicantId,
+      fromStage: currentStage,
+      toStage: nextStage,
+      role: req.user.role,
+      action: "MANUAL_STAGE_APPROVAL"
+    });
+
+    if (AUTO_STAGE_IDS.includes(nextStage)) {
+      await autoAdvanceStage(applicantId, nextStage, "AUTO_AFTER_MANUAL_APPROVAL");
+    }
+
+    const finalApplicant = await docRef.get();
+    const finalStage = finalApplicant.exists ? finalApplicant.data().stage : nextStage;
+
     res.json({
       message: "Stage approved and moved successfully",
       previousStage: currentStage,
-      newStage: nextStage
+      newStage: finalStage
     });
 
   } catch (error) {
@@ -923,14 +1001,6 @@ exports.uploadDocument = async (req, res) => {
     const { id } = req.params;
     const { documentType } = req.body;
 
-    if (!req.file) {
-      return res.status(400).json({ message: "File required" });
-    }
-
-    if (!documentType) {
-      return res.status(400).json({ message: "Document type required" });
-    }
-
     const bucket = admin.storage().bucket();
 
     const fileName = `applicants/${id}/${documentType}_${Date.now()}`;
@@ -940,26 +1010,26 @@ exports.uploadDocument = async (req, res) => {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
+
     await fileUpload.makePublic();
 
     const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
 
+    // 🔥 SAVE AS NEW VERSION
     await db
       .collection("applicants")
       .doc(id)
       .collection("documents")
       .doc(documentType)
-      .set({
+      .collection("versions")
+      .add({
         fileUrl,
         status: "PENDING",
         rejectedReason: "",
         uploadedAt: new Date()
       });
 
-    res.json({
-      message: "Uploaded",
-      documentType
-    });
+    res.json({ message: "Uploaded successfully" });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -978,13 +1048,22 @@ exports.getDocuments = async (req, res) => {
       .collection("documents")
       .get();
 
-    const docs = {};
+    const result = {};
 
-    snapshot.forEach(doc => {
-      docs[doc.id] = doc.data();
-    });
+    for (let doc of snapshot.docs) {
 
-    res.json(docs);
+      const versionsSnap = await doc.ref
+        .collection("versions")
+        .orderBy("uploadedAt", "desc")
+        .get();
+
+      result[doc.id] = versionsSnap.docs.map(v => ({
+        id: v.id,
+        ...v.data()
+      }));
+    }
+
+    res.json(result);
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -997,7 +1076,7 @@ exports.getDocuments = async (req, res) => {
 exports.rejectDocument = async (req, res) => {
   try {
 
-    const { id, docType } = req.params;
+    const { id, docType, versionId } = req.params;
     const { reason } = req.body;
 
     await db
@@ -1005,13 +1084,15 @@ exports.rejectDocument = async (req, res) => {
       .doc(id)
       .collection("documents")
       .doc(docType)
+      .collection("versions")
+      .doc(versionId)
       .update({
         status: "REJECTED",
-        rejectedReason: reason || "",
+        rejectedReason: reason,
         reviewedAt: new Date()
       });
 
-    res.json({ message: "Document rejected" });
+    res.json({ message: "Rejected" });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1043,6 +1124,729 @@ exports.deferDocument = async (req, res) => {
   }
 };
 
+// ===============================
+// APPROVE DOCUMENT
+// ===============================
+exports.approveDocument = async (req, res) => {
+  try {
+
+    const { id, docType, versionId } = req.params;
+
+    // 🔒 Only Super User
+    if (req.user.role !== "SUPER_USER") {
+      return res.status(403).json({
+        message: "Only Super User can approve documents"
+      });
+    }
+
+    await db
+      .collection("applicants")
+      .doc(id)
+      .collection("documents")
+      .doc(docType)
+      .collection("versions")
+      .doc(versionId)
+      .update({
+        status: "APPROVED",
+        reviewedAt: new Date(),
+	      reviewedBy: req.user.uid
+      });
+
+    res.json({ message: "Document approved" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// ADD DISPATCH
+// ===============================  
+exports.addDispatch = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { note, trackingUrl, awbNumber } = req.body;
+
+    if (!note || !awbNumber) {
+      return res.status(400).json({
+        message: "Note and AWB Number are required"
+      });
+    }
+
+    const docRef = await db
+      .collection("applicants")
+      .doc(applicantId)
+      .collection("dispatches")
+      .add({
+        note,
+        trackingUrl: trackingUrl || "",
+        awbNumber,
+        createdBy: req.user.uid,
+        createdAt: new Date()
+      });
+
+    // Auto advance stage 3 -> 4
+    const applicantRef = db.collection("applicants").doc(applicantId);
+    const applicantSnap = await applicantRef.get();
+    const applicantStage = applicantSnap.data()?.stage || 1;
+
+    if (applicantStage === 3) {
+      await autoAdvanceStage(applicantId, 3, "AUTO_AFTER_DISPATCH");
+    }
+
+    res.json({
+      message: "Dispatch added successfully",
+      id: docRef.id
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};  
+
+// ===============================
+// GET DISPATCHES FOR APPLICANT
+// ===============================
+
+exports.getDispatches = async (req, res) => {
+  try {
+
+    const snapshot = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .collection("dispatches")
+      .orderBy("createdAt", "desc")
+      .get();
+
+    const dispatches = snapshot.docs.map((doc) => {
+      const data = doc.data();
+      const createdAt = data?.createdAt;
+
+      let createdAtMs = null;
+      if (createdAt) {
+        if (typeof createdAt.toMillis === "function") {
+          createdAtMs = createdAt.toMillis();
+        } else if (createdAt instanceof Date) {
+          createdAtMs = createdAt.getTime();
+        } else if (typeof createdAt === "number") {
+          createdAtMs = createdAt;
+        } else if (typeof createdAt === "object" && createdAt._seconds) {
+          createdAtMs = createdAt._seconds * 1000;
+        }
+      }
+
+      return {
+        id: doc.id,
+        ...data,
+        createdAt: createdAtMs
+      };
+    });
+
+    res.json(dispatches);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// UPLOAD CONTRACT
+// ===============================
+exports.uploadContract = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+
+    // 🔒 Only SUPER_USER & EMPLOYER
+    if (
+      req.user.role !== "SUPER_USER" &&
+      req.user.role !== "EMPLOYER"
+    ) {
+      return res.status(403).json({
+        message: "Only Super User or Employer can upload contract"
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        message: "File required"
+      });
+    }
+
+    const bucket = admin.storage().bucket();
+
+    const fileName = `contracts/${applicantId}_${Date.now()}`;
+
+    const fileUpload = bucket.file(fileName);
+
+    await fileUpload.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype }
+    });
+
+    await fileUpload.makePublic();
+
+    const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+    // Save in Firestore
+    const applicantRef = db.collection("applicants").doc(applicantId);
+    
+    await applicantRef.set({
+      contract: {
+        fileUrl,
+        uploadedBy: req.user.uid,
+        uploadedByRole: req.user.role,
+        uploadedAt: new Date()
+      }
+    }, { merge: true });
+
+    // 🔁 Auto advance stage 4 → 5 when super user uploads contract
+    if (req.user.role === "SUPER_USER") {
+      const applicantSnap = await applicantRef.get();
+      const currentStage = applicantSnap.data()?.stage || 1;
+
+      if (currentStage === 4) {
+        await applicantRef.update({
+          stage: 5,
+          stageUpdatedAt: new Date()
+        });
+
+        await addStageLog({
+          applicantId,
+          fromStage: 4,
+          toStage: 5,
+          role: "SUPER_USER",
+          action: "AUTO_ADVANCE_CONTRACT_UPLOADED"
+        });
+      }
+    }
+
+    res.json({
+      message: "Contract uploaded successfully",
+      fileUrl
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET CONTRACT FOR APPLICANT
+// ===============================
+exports.getContract = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data();
+
+    res.json(data.contract || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// ADD EMBASSY APPOINTMENT
+// ===============================
+exports.addEmbassyAppointment = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { dateTime } = req.body;
+
+    // 🔒 Only SUPER_USER or EMPLOYER
+    if (
+      req.user.role !== "SUPER_USER" &&
+      req.user.role !== "EMPLOYER"
+    ) {
+      return res.status(403).json({
+        message: "Only Super User or Employer can add appointment"
+      });
+    }
+
+    if (!dateTime) {
+      return res.status(400).json({
+        message: "Date & Time required"
+      });
+    }
+
+    let fileUrl = "";
+
+    // Optional file upload
+    if (req.file) {
+
+      const bucket = admin.storage().bucket();
+
+      const fileName = `appointments/${applicantId}_${Date.now()}`;
+
+      const fileUpload = bucket.file(fileName);
+
+      await fileUpload.save(req.file.buffer, {
+        metadata: { contentType: req.file.mimetype }
+      });
+
+      await fileUpload.makePublic();
+
+      fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    }
+
+    // Save appointment
+    await db
+      .collection("applicants")
+      .doc(applicantId)
+      .set({
+        embassyAppointment: {
+          dateTime,
+          fileUrl,
+          createdBy: req.user.uid,
+          createdByRole: req.user.role,
+          createdAt: new Date()
+        }
+      }, { merge: true });
+
+    // 🔥 AUTO STAGE MOVE if SUPER USER
+    if (req.user.role === "SUPER_USER") {
+
+      const docRef = db.collection("applicants").doc(applicantId);
+      const doc = await docRef.get();
+      const applicant = doc.data();
+
+      const currentStage = applicant.stage || 1;
+
+      await docRef.update({
+        stage: currentStage + 1,
+        stageUpdatedAt: new Date()
+      });
+    }
+
+    res.json({
+      message: "Embassy appointment added"
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET EMBASSY APPOINTMENT
+// ===============================
+exports.getEmbassyAppointment = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data();
+
+    res.json(data.embassyAppointment || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// ADD TRAVEL DETAILS
+// ===============================
+exports.addTravelDetails = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { travelDate, time, ticketNumber } = req.body;
+
+    // 🔒 Only AGENT or SUPER USER
+    if (
+      req.user.role !== "AGENCY" &&
+      req.user.role !== "SUPER_USER"
+    ) {
+      return res.status(403).json({
+        message: "Only Agent or Super User can upload travel details"
+      });
+    }
+
+    if (!travelDate || !time) {
+      return res.status(400).json({
+        message: "Travel Date and Time are required"
+      });
+    }
+
+    let fileUrl = "";
+
+    // Optional file upload
+    if (req.file) {
+
+      const bucket = admin.storage().bucket();
+
+      const fileName = `travel/${applicantId}_${Date.now()}`;
+
+      const fileUpload = bucket.file(fileName);
+
+      await fileUpload.save(req.file.buffer, {
+        metadata: { contentType: req.file.mimetype }
+      });
+
+      await fileUpload.makePublic();
+
+      fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    }
+
+    // Ensure travel details does not auto-advance applicant stage.
+    const applicantRef = db.collection("applicants").doc(applicantId);
+    const applicantSnap = await applicantRef.get();
+
+    if (!applicantSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const currentStage = applicantSnap.data()?.stage || 1;
+
+    // Travel details are a stage 6+ activity. Do not allow you to set it from stage 5.
+    if (currentStage < 6) {
+      return res.status(400).json({
+        message: "Cannot add travel details before stage 6. Complete current stage first."
+      });
+    }
+
+    await applicantRef.set({
+      travelDetails: {
+        travelDate,
+        time,
+        ticketNumber: ticketNumber || "",
+        fileUrl,
+        uploadedBy: req.user.uid,
+        uploadedByRole: req.user.role,
+        createdAt: new Date()
+      }
+    }, { merge: true });
+
+    res.json({
+      message: "Travel details saved"
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET TRAVEL DETAILS
+// ===============================
+exports.getTravelDetails = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data();
+
+    res.json(data.travelDetails || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// UPLOAD BIOMETRIC SLIP
+// ===============================
+exports.uploadBiometricSlip = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+
+    // 🔒 Only AGENCY
+    if (req.user.role !== "AGENCY") {
+      return res.status(403).json({
+        message: "Only Agency can upload biometric slip"
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        message: "File required"
+      });
+    }
+
+    const bucket = admin.storage().bucket();
+
+    const fileName = `biometric/${applicantId}_${Date.now()}`;
+
+    const fileUpload = bucket.file(fileName);
+
+    await fileUpload.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype }
+    });
+
+    await fileUpload.makePublic();
+
+    const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    // Save biometric slip
+    await docRef.set({
+      biometricSlip: {
+        fileUrl,
+        uploadedBy: req.user.uid,
+        uploadedByRole: req.user.role,
+        uploadedAt: new Date()
+      }
+    }, { merge: true });
+
+    // 🔥 AUTO STAGE COMPLETE
+    await docRef.update({
+      stage: 7,
+      stageUpdatedAt: new Date()
+    });
+
+    res.json({
+      message: "Biometric slip uploaded & stage completed"
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET BIOMETRIC SLIP
+// ===============================
+exports.getBiometricSlip = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data();
+
+    res.json(data.biometricSlip || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// ADD EMBASSY INTERVIEW
+// ===============================
+exports.addEmbassyInterview = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { dateTime } = req.body;
+
+    // 🔒 Only SUPER_USER or EMPLOYER
+    if (
+      req.user.role !== "SUPER_USER" &&
+      req.user.role !== "EMPLOYER"
+    ) {
+      return res.status(403).json({
+        message: "Only Super User or Employer can add interview"
+      });
+    }
+
+    if (!dateTime) {
+      return res.status(400).json({
+        message: "Date & Time required"
+      });
+    }
+
+    const isSuperUser = req.user.role === "SUPER_USER";
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    await docRef.set({
+      embassyInterview: {
+        dateTime,
+        createdBy: req.user.uid,
+        createdByRole: req.user.role,
+        approved: isSuperUser, // auto approve if super user
+        approvedBy: isSuperUser ? req.user.uid : null,
+        createdAt: new Date()
+      }
+    }, { merge: true });
+
+    // 🔥 AUTO STAGE MOVE if SUPER USER
+    if (isSuperUser) {
+
+      const doc = await docRef.get();
+      const applicant = doc.data();
+      const currentStage = applicant.stage || 1;
+
+      await docRef.update({
+        stage: currentStage + 1,
+        stageUpdatedAt: new Date()
+      });
+    }
+
+    res.json({
+      message: "Embassy interview added"
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// APPROVE EMBASSY INTERVIEW & MOVE STAGE
+// ===============================
+exports.approveEmbassyInterview = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+
+    if (req.user.role !== "SUPER_USER") {
+      return res.status(403).json({
+        message: "Only Super User can approve"
+      });
+    }
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    const doc = await docRef.get();
+    const applicant = doc.data();
+
+    if (!applicant.embassyInterview) {
+      return res.status(400).json({
+        message: "No interview data"
+      });
+    }
+
+    await docRef.update({
+      "embassyInterview.approved": true,
+      "embassyInterview.approvedBy": req.user.uid,
+      stage: (applicant.stage || 1) + 1,
+      stageUpdatedAt: new Date()
+    });
+
+    res.json({
+      message: "Interview approved & stage moved"
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET EMBASSY INTERVIEW
+// ===============================
+exports.getEmbassyInterview = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data();
+
+    res.json(data.embassyInterview || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// ADD INTERVIEW TICKET
+// ===============================
+exports.addInterviewTicket = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { date, time } = req.body;
+
+    // 🔒 Only AGENCY
+    if (req.user.role !== "AGENCY") {
+      return res.status(403).json({
+        message: "Only Agency can upload interview ticket"
+      });
+    }
+
+    if (!date || !time) {
+      return res.status(400).json({
+        message: "Date and Time required"
+      });
+    }
+
+    let fileUrl = "";
+
+    // Optional file upload
+    if (req.file) {
+
+      const bucket = admin.storage().bucket();
+
+      const fileName = `interview-ticket/${applicantId}_${Date.now()}`;
+
+      const fileUpload = bucket.file(fileName);
+
+      await fileUpload.save(req.file.buffer, {
+        metadata: { contentType: req.file.mimetype }
+      });
+
+      await fileUpload.makePublic();
+
+      fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    }
+
+    await db
+      .collection("applicants")
+      .doc(applicantId)
+      .set({
+        interviewTicket: {
+          date,
+          time,
+          fileUrl,
+          uploadedBy: req.user.uid,
+          uploadedByRole: req.user.role,
+          createdAt: new Date()
+        }
+      }, { merge: true });
+
+    res.json({
+      message: "Interview ticket saved"
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET INTERVIEW TICKET
+// ===============================
+exports.getInterviewTicket = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data();
+
+    res.json(data.interviewTicket || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // ✅ EXPORTS (THIS IS CRITICAL)
 module.exports = {
   createApplicant,
@@ -1061,5 +1865,21 @@ module.exports = {
   approveAppointment,
   addAppointment,
   getDocuments: exports.getDocuments,
-  rejectDocument: exports.rejectDocument
+  rejectDocument: exports.rejectDocument,
+  approveDocument: exports.approveDocument,
+  addDispatch: exports.addDispatch,
+  getDispatches: exports.getDispatches,
+  uploadContract: exports.uploadContract,
+  getContract: exports.getContract, 
+  addEmbassyAppointment: exports.addEmbassyAppointment,
+  getEmbassyAppointment: exports.getEmbassyAppointment,
+  addTravelDetails: exports.addTravelDetails,
+  getTravelDetails: exports.getTravelDetails,
+  uploadBiometricSlip: exports.uploadBiometricSlip,
+  getBiometricSlip: exports.getBiometricSlip,
+  addEmbassyInterview: exports.addEmbassyInterview,
+  approveEmbassyInterview: exports.approveEmbassyInterview,
+  getEmbassyInterview: exports.getEmbassyInterview,
+  addInterviewTicket: exports.addInterviewTicket,
+  getInterviewTicket: exports.getInterviewTicket
 };

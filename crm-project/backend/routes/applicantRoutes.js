@@ -4,6 +4,11 @@ const router = express.Router();
 const applicantController = require("../controllers/applicantController");
 const { verifyToken } = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
+const {
+  addDispatch,
+  getDispatches
+} = require("../controllers/applicantController");
+const uploadDoc = require("../middleware/upload");
 
 router.use(verifyToken);
 
@@ -75,11 +80,105 @@ router.get("/:id/documents", verifyToken, applicantController.getDocuments);
 
 // Reject document (Super User)
 router.patch(
-  "/:id/documents/:docType/reject",
+  "/:id/documents/:docType/:versionId/reject",
   verifyToken,
   applicantController.rejectDocument
 );
 
+// Defer document (Super User)
 router.patch("/:id/documents/:docType/defer", verifyToken, applicantController.deferDocument);
+
+// Approve document (Super User)
+router.patch(
+  "/:id/documents/:docType/:versionId/approve",
+  verifyToken,
+  applicantController.approveDocument
+);
+
+// Add dispatch
+router.post("/:id/dispatch", verifyToken, applicantController.addDispatch);
+
+// Get dispatches
+router.get("/:id/dispatch", verifyToken, applicantController.getDispatches);
+
+// Upload Contract
+router.post(
+  "/:id/contract",
+  verifyToken,
+  uploadDoc.single("file"),
+  applicantController.uploadContract
+);
+
+// Get Contract
+router.post(
+  "/:id/embassy-appointment",
+  verifyToken,
+  uploadDoc.single("file"),
+  applicantController.addEmbassyAppointment
+);
+
+// Get Embassy Appointment
+router.get(
+  "/:id/embassy-appointment",
+  verifyToken,
+  applicantController.getEmbassyAppointment
+);
+
+// Get Contract
+router.get("/:id/contract", verifyToken, applicantController.getContract);
+
+// Add Travel Details
+router.post(
+  "/:id/travel",
+  verifyToken,
+  upload.single("file"),
+  applicantController.addTravelDetails
+);
+
+// Get Travel Details
+router.get(
+  "/:id/travel",
+  verifyToken,
+  applicantController.getTravelDetails
+);
+
+// Upload Biometric Slip
+router.post(
+  "/:id/biometric",
+  verifyToken,
+  upload.single("file"),
+  applicantController.uploadBiometricSlip
+);
+
+// Get Biometric Slip
+router.get( 
+  "/:id/biometric",
+  verifyToken,
+  applicantController.getBiometricSlip
+);
+
+// Add Embassy Interview
+router.post("/:id/interview", verifyToken, applicantController.addEmbassyInterview);
+
+// Get Embassy Interview
+router.get("/:id/interview", verifyToken, applicantController.getEmbassyInterview);
+
+// Approve Embassy Interview
+router.patch("/:id/interview/approve", verifyToken, applicantController.approveEmbassyInterview);
+
+// Add Interview Ticket
+router.post(
+  "/:id/interview-ticket",
+  verifyToken,
+  upload.single("file"),
+  applicantController.addInterviewTicket
+);
+
+// Get Interview Ticket
+router.get(
+  "/:id/interview-ticket",
+  verifyToken,
+  applicantController.getInterviewTicket
+);
 
 module.exports = router;

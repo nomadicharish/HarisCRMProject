@@ -3,7 +3,13 @@ import { useParams } from "react-router-dom";
 import API from "../services/api";
 import "../styles/forms.css";
 import PipelineTracker from "../components/PipelineTracker";
-import DocumentUploader from "../components/DocumentUploader";
+import DispatchSection from "../components/DispatchSection";
+import ContractSection from "../components/ContractSection";
+import EmbassyAppointment from "../components/EmbassyAppointment";
+import TravelSection from "../components/TravelSection";
+import BiometricSection from "../components/BiometricSection";
+import EmbassyInterview from "../components/EmbassyInterview";
+import InterviewTicket from "../components/InterviewTicket";
 
 function ApplicantProfile() {
   const { id } = useParams();
@@ -21,19 +27,19 @@ function ApplicantProfile() {
   };
 
   const DOCUMENTS = [
-  { key: "PASSPORT", label: "Passport Copy", required: true },
-  { key: "PAN_CARD", label: "Pan Card Copy", required: true },
-  { key: "EDUCATION_10TH", label: "10th Certificate", required: true },
-  { key: "EDUCATION_12TH", label: "12th Certificate", required: true },
-  { key: "DEGREE", label: "Degree", required: false },
-  { key: "PHOTO", label: "Passport Photo", required: true },
-  { key: "WORK_MEASUREMENT", label: "Work Measurement", required: false },
-  { key: "IDP", label: "International Driving Permit", required: false },
-  { key: "UNMARRIED_CERTIFICATE", label: "Unmarried Certificate", required: false },
-  { key: "MARRIAGE_CERTIFICATE", label: "Marriage Certificate", required: false },
-  { key: "BIRTH_CERTIFICATE", label: "Birth Certificate", required: true },
-  { key: "MEDICAL_CERTIFICATE", label: "Medical Certificate", required: true }
-];
+    { key: "PASSPORT", label: "Passport Copy", required: true },
+    { key: "PAN_CARD", label: "Pan Card Copy", required: true },
+    { key: "EDUCATION_10TH", label: "10th Certificate", required: true },
+    { key: "EDUCATION_12TH", label: "12th Certificate", required: true },
+    { key: "DEGREE", label: "Degree", required: false },
+    { key: "PHOTO", label: "Passport Photo", required: true },
+    { key: "WORK_MEASUREMENT", label: "Work Measurement", required: false },
+    { key: "IDP", label: "International Driving Permit", required: false },
+    { key: "UNMARRIED_CERTIFICATE", label: "Unmarried Certificate", required: false },
+    { key: "MARRIAGE_CERTIFICATE", label: "Marriage Certificate", required: false },
+    { key: "BIRTH_CERTIFICATE", label: "Birth Certificate", required: true },
+    { key: "MEDICAL_CERTIFICATE", label: "Medical Certificate", required: true }
+  ];
   const loadDocuments = async () => {
     const res = await API.get(`/applicants/${id}/documents`);
     setDocuments(res.data || {});
@@ -79,72 +85,89 @@ function ApplicantProfile() {
   const total = applicant.payment?.total ?? 0;
   const paid = applicant.payment?.paid ?? 0;
   const pending = applicant.payment?.pending ?? Math.max(0, total - paid);
-  
+
   const approveStage = async () => {
-  try {
+    try {
 
-    await API.patch(`/applicants/${id}/approve-stage`);
+      await API.patch(`/applicants/${id}/approve-stage`);
 
-    alert("Stage approved!");
+      alert("Stage approved!");
+      loadApplicant();
 
-    loadApplicant(); // refresh data
+    } catch (err) {
+      console.error("FULL ERROR:", err.response?.data || err);
+      alert(err.response?.data?.message || "Error approving stage");
+    }
+  };
 
-  } catch (err) {
-    console.error(err);
-    alert("Error approving stage");
-  }
-};
+  const uploadDoc = async (docType, file) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("documentType", docType);
 
-const uploadDoc = async (docType, file) => {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("documentType", docType);
+      await API.post(
+        `/applicants/${id}/upload-document`,
+        formData
+      );
 
-    await API.post(
-      `/applicants/${id}/upload-document`,
-      formData
-    );
+      // ✅ CLEAR selected file after upload
+      setSelectedFiles((prev) => {
+        const updated = { ...prev };
+        delete updated[docType];
+        return updated;
+      });
 
-    // ✅ CLEAR selected file after upload
-    setSelectedFiles((prev) => {
-      const updated = { ...prev };
-      delete updated[docType];
-      return updated;
-    });
+      // ✅ Reload documents from backend
+      await loadDocuments();
 
-    // ✅ Reload documents from backend
-    await loadDocuments();
+    } catch (err) {
+      console.error(err);
+      alert("Upload failed");
+    }
+  };
 
-  } catch (err) {
-    console.error(err);
-    alert("Upload failed");
-  }
-};
+  const rejectDoc = async (docType, versionId) => {
+    const reason = prompt("Enter reason");
+    await API.patch(`/applicants/${id}/documents/${docType}/${versionId}/reject`, { reason });
+    loadDocuments();
+  };
 
-const rejectDoc = async (docType) => {
-  const reason = prompt("Enter rejection reason");
+  const deferDoc = async (docType) => {
+    await API.patch(`/applicants/${id}/documents/${docType}/defer`);
+    loadDocuments();
+  };
 
-  await API.patch(
-    `/applicants/${id}/documents/${docType}/reject`,
-    { reason }
-  );
+  const requiredDocs = DOCUMENTS
+    .filter(d => d.required)
+    .map(d => d.key);
 
-  loadDocuments();
-};
+  const approveDoc = async (docType, versionId) => {
+    await API.patch(`/applicants/${id}/documents/${docType}/${versionId}/approve`);
+    loadDocuments();
+    loadApplicant();
+  };
 
-const deferDoc = async (docType) => {
-  await API.patch(`/applicants/${id}/documents/${docType}/defer`);
-  loadDocuments();
-};
+  const allApproved = requiredDocs.every((docType) => {
 
-const requiredDocs = DOCUMENTS
-  .filter(d => d.required)
-  .map(d => d.key);
+    const versions = documents[docType];
 
-const allApproved = requiredDocs.every(
-  d => documents[d] && documents[d].status === "APPROVED"
-);
+    if (!versions || versions.length === 0) {
+      return false; // not uploaded
+    }
+
+    const latest = versions[0]; // newest version
+
+    return latest.status === "APPROVED";
+  });
+
+  const manualStages = [1, 2, 4, 5, 7, 9, 11];
+  const isManualStage = manualStages.includes(applicant.stage);
+  const hasNextStage = applicant.stage < 11;
+  const canApproveStage =
+    isManualStage &&
+    hasNextStage &&
+    (applicant.stage !== 2 || allApproved); // Stage 2 needs doc approval
 
   return (
     <div className="page-container">
@@ -176,7 +199,7 @@ const allApproved = requiredDocs.every(
           {user?.role === "SUPER_USER" && (
             <button
               className="submit-btn"
-              disabled={!allApproved}
+              disabled={!canApproveStage}
               onClick={approveStage}
             >
               Approve & Move to Next Stage
@@ -187,72 +210,173 @@ const allApproved = requiredDocs.every(
         <div className="card">
           <h3>Documents</h3>
 
-          {DOCUMENTS.map(doc => {
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th>Document</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
 
-            // conditional docs
-            if (doc.key === "UNMARRIED_CERTIFICATE" && applicant.maritalStatus !== "Single") return null;
-            if (doc.key === "MARRIAGE_CERTIFICATE" && applicant.maritalStatus !== "Married") return null;
+            <tbody>
 
-            const existing = documents[doc.key];
-            const selected = selectedFiles[doc.key];
+              {DOCUMENTS.map(doc => {
 
-            return (
-              <div key={doc.key} style={{ marginBottom: "15px" }}>
+                if (doc.key === "UNMARRIED_CERTIFICATE" && applicant.maritalStatus !== "Single") return null;
+                if (doc.key === "MARRIAGE_CERTIFICATE" && applicant.maritalStatus !== "Married") return null;
 
-              <b>{doc.label}</b>
+                const versions = documents[doc.key] || [];
+                const selected = selectedFiles[doc.key];
 
-              {/* STATUS */}
-              {existing && (
-                <span>
-                  {existing.status === "APPROVED" && " ✅ Approved"}
-                  {existing.status === "PENDING" && " ⏳ Waiting for approval"}
-                  {existing.status === "REJECTED" && " ❌ Rejected"}
-                  {existing.status === "DEFERRED" && " ⏸ Deferred"}
-                </span>
-              )}
+                // Latest version (important)
+                const latest = versions[0];
 
-              {/* VIEW */}
-              {existing && existing.fileUrl && (
-                <div>
-                  <a href={existing.fileUrl} target="_blank">
-                    View Document
-                  </a>
-                </div>
-              )}
+                return (
+                  <React.Fragment key={doc.key}>
 
-              {/* FILE SELECT */}
-              {(!existing || existing.status === "REJECTED") && (
-                <input
-                  type="file"
-                  onChange={(e) => handleFileSelect(doc.key, e.target.files[0])}
-                />
-              )}
+                    {/* DOCUMENT HEADER ROW */}
+                    <tr style={{ background: "#f9f9f9" }}>
+                      <td>
+                        <b>{doc.label}</b> {doc.required && "*"}
+                      </td>
 
-              {/* UPLOAD */}
-              {selected && !existing && (
-                <button onClick={() => uploadDoc(doc.key, selected)}>
-                  Upload
-                </button>
-              )}
+                      <td>
+                        {!latest && "Not Uploaded"}
 
-              {/* DEFER */}
-              {doc.required && !existing && (
-                <button onClick={() => deferDoc(doc.key)}>
-                  Defer
-                </button>
-              )}
+                        {latest?.status === "PENDING" && "⏳ Pending"}
+                        {latest?.status === "APPROVED" && "✅ Approved"}
+                        {latest?.status === "REJECTED" && "❌ Rejected"}
+                        {latest?.status === "DEFERRED" && "⏸ Deferred"}
+                      </td>
 
-              {/* REJECT (SUPER USER) */}
-              {user?.role === "SUPER_USER" && existing?.status === "PENDING" && (
-                <button onClick={() => rejectDoc(doc.key)}>
-                  Reject
-                </button>
-              )}
+                      <td>
 
-            </div>
-            );
-          })}
+                        {/* FILE SELECT */}
+                        {(!latest || latest.status === "REJECTED") && (
+                          <>
+                            <input
+                              type="file"
+                              onChange={(e) =>
+                                handleFileSelect(doc.key, e.target.files[0])
+                              }
+                            />
+
+                            {selected && (
+                              <button onClick={() => uploadDoc(doc.key, selected)}>
+                                Upload
+                              </button>
+                            )}
+                          </>
+                        )}
+
+                        {/* DEFER */}
+                        {!doc.required && !latest && (
+                          <button onClick={() => deferDoc(doc.key)}>
+                            Defer
+                          </button>
+                        )}
+
+                      </td>
+                    </tr>
+
+                    {/* VERSION ROWS */}
+                    {versions.map((v, index) => (
+                      <tr key={v.id} style={{ background: "#fff" }}>
+
+                        {/* VERSION LABEL */}
+                        <td style={{ paddingLeft: "30px" }}>
+                          Version {versions.length - index}
+                        </td>
+
+                        {/* STATUS */}
+                        <td>
+                          {v.status === "PENDING" && "⏳ Pending"}
+                          {v.status === "APPROVED" && "✅ Approved"}
+                          {v.status === "REJECTED" && "❌ Rejected"}
+                        </td>
+
+                        {/* ACTIONS */}
+                        <td>
+
+                          {/* VIEW */}
+                          <a href={v.fileUrl} target="_blank">
+                            View
+                          </a>
+
+                          {/* REJECTION REASON */}
+                          {v.status === "REJECTED" && (
+                            <div style={{ color: "red", fontSize: "12px" }}>
+                              Reason: {v.rejectedReason}
+                            </div>
+                          )}
+
+                          {/* APPROVE / REJECT */}
+                          {user?.role === "SUPER_USER" && v.status === "PENDING" && (
+                            <>
+                              <button onClick={() => approveDoc(doc.key, v.id)}>
+                                Approve
+                              </button>
+
+                              <button onClick={() => rejectDoc(doc.key, v.id)}>
+                                Reject
+                              </button>
+                            </>
+                          )}
+
+                        </td>
+
+                      </tr>
+                    ))}
+
+                  </React.Fragment>
+                );
+              })}
+
+            </tbody>
+          </table>
         </div>
+
+        {applicant.stage >= 3 && (
+          <DispatchSection applicantId={id} />
+        )}
+
+        {applicant.stage >= 4 && (
+          <ContractSection applicantId={id} user={user} />
+        )}
+
+        {applicant.stage >= 5 && (
+            <EmbassyAppointment
+              applicantId={id}
+              user={user}
+              loadApplicant={loadApplicant}
+            />
+          )}
+
+        {applicant.stage >= 6 && (
+            <TravelSection applicantId={id} user={user} />
+        )}
+
+        {applicant.stage >= 6 && (
+          <BiometricSection
+            applicantId={id}
+            user={user}
+            loadApplicant={loadApplicant}
+          />
+        )}
+
+        {applicant.stage >= 6 && (
+          <EmbassyInterview
+            applicantId={id}
+            user={user}
+            loadApplicant={loadApplicant}
+          />
+        )}
+
+        {applicant.stage >= 6 && (
+          <InterviewTicket applicantId={id} user={user} />
+        )}
+
 
         <div className="card">
           <h3>Payment Summary</h3>
