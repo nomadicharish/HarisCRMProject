@@ -232,4 +232,26 @@ router.get(
   applicantController.getVisaTravel
 );
 
+// Upload Residence Permit
+router.post(
+  "/:id/residence-permit",
+  verifyToken,
+  upload.single("file"),
+  applicantController.uploadResidencePermit
+);
+
+// Get Residence Permit
+router.get(
+  "/:id/residence-permit",
+  verifyToken,
+  applicantController.getResidencePermit
+);
+
+// Mark Applicant as Complete
+router.patch(
+  "/:id/complete",
+  verifyToken,
+  applicantController.completeApplicant
+);
+
 module.exports = router;

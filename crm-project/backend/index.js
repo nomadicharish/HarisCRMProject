@@ -31,6 +31,13 @@ const { admin, db } = require("./config/firebase");
 
 
 // ===============================
+// DASHBOARD ROUTES
+// ===============================
+const dashboardRoutes = require("./routes/dashboardRoutes");
+app.use("/api/dashboard", dashboardRoutes);
+
+
+// ===============================
 // TEST ROUTES
 // ================================
 
@@ -286,6 +293,7 @@ app.get("/api/agencies", verifyToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 
 app.listen(PORT, () => {

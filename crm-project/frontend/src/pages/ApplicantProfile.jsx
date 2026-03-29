@@ -13,6 +13,7 @@ import InterviewTicket from "../components/InterviewTicket";
 import InterviewBiometric from "../components/InterviewBiometric";
 import VisaCollection from "../components/VisaCollection";
 import VisaTravel from "../components/VisaTravel";
+import ResidencePermit from "../components/ResidencePermit";
 
 function ApplicantProfile() {
   const { id } = useParams();
@@ -176,6 +177,22 @@ function ApplicantProfile() {
     isManualStage &&
     hasNextStage &&
     (applicant.stage !== 2 || allApproved); // Stage 2 needs doc approval
+
+
+    const completeProcess = async () => {
+      try {
+
+        await API.patch(`/applicants/${id}/complete`);
+
+        alert("Process Completed ✅");
+
+        loadApplicant();
+
+      } catch (err) {
+        console.error(err);
+        alert("Error completing process");
+      }
+    };
 
   return (
     <div className="page-container">
@@ -403,6 +420,36 @@ function ApplicantProfile() {
 
         {applicant.stage >= 10 && (
           <VisaTravel applicantId={id} user={user} />
+        )}
+
+        {applicant.stage >= 10 && (
+          <ResidencePermit
+            applicantId={id}
+            user={user}
+            loadApplicant={loadApplicant}
+          />
+        )}
+
+        {user?.role === "SUPER_USER" && applicant.stage == 11 && (
+          <button
+            style={{
+              marginTop: "20px",
+              background: "green",
+              color: "white",
+              padding: "10px 15px",
+              border: "none",
+              cursor: "pointer"
+            }}
+            onClick={completeProcess}
+          >
+            Mark as Completed
+          </button>
+        )}
+
+        {applicant.stage === 12 && (
+          <p style={{ color: "green", fontWeight: "bold" }}>
+            ✅ Candidate Arrived / Process Completed
+          </p>
         )}
 
 

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "../firebase";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 function getLoginErrorMessage(err) {
   if (axios.isAxiosError(err)) {
@@ -39,6 +40,7 @@ function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -73,14 +75,8 @@ function Login() {
 
       if (userData.forcePasswordReset) {
           window.location.href = "/change-password";
-        } else if (userData.role === "SUPER_USER") {
-          window.location.href = "/admin";
-        } else if (userData.role === "AGENCY") {
-          window.location.href = "/agency";
-        } else if (userData.role === "EMPLOYER") {
-          window.location.href = "/employer";
-        } else if (userData.role === "ACCOUNTANT") {
-          window.location.href = "/accounts";
+        } else {
+          navigate("/dashboard");
         }
     } catch (err) {
       console.error(err);

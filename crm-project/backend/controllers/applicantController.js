@@ -2136,6 +2136,142 @@ exports.getVisaTravel = async (req, res) => {
   }
 };
 
+// ===============================
+// UPLOAD RESIDENCE PERMIT (FRONT/BACK)
+// ===============================
+exports.uploadResidencePermit = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { type } = req.body;
+
+    if (req.user.role !== "AGENCY") {
+      return res.status(403).json({ message: "Only Agency allowed" });
+    }
+
+    const bucket = admin.storage().bucket();
+
+    const fileName = `residence/${applicantId}_${type}_${Date.now()}`;
+
+    const fileUpload = bucket.file(fileName);
+
+    await fileUpload.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype }
+    });
+
+    await fileUpload.makePublic();
+
+    const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    // ✅ GET EXISTING
+    const doc = await docRef.get();
+    const existing = doc.data()?.residencePermit || {};
+
+    // ✅ MERGE PROPERLY
+    const updatedPermit = {
+      ...existing,
+      [type === "FRONT" ? "frontUrl" : "backUrl"]: fileUrl,
+      uploadedBy: req.user.uid,
+      uploadedByRole: req.user.role,
+      uploadedAt: new Date()
+    };
+
+    await docRef.set({
+      residencePermit: updatedPermit
+    }, { merge: true });
+
+    // ✅ FETCH AGAIN (IMPORTANT)
+    const updatedDoc = await docRef.get();
+    const data = updatedDoc.data()?.residencePermit;
+
+    // ✅ AUTO STAGE COMPLETE
+    if (data?.frontUrl && data?.backUrl) {
+      await docRef.update({
+        stage: 11,
+        stageUpdatedAt: new Date()
+      });
+    }
+
+    res.json({ message: "Uploaded successfully" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET RESIDENCE PERMIT
+// ===============================
+exports.getResidencePermit = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    res.json(doc.data()?.residencePermit || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// COMPLETE APPLICANT PROCESS
+// ===============================
+exports.completeApplicant = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+
+    // 🔒 Only Super User
+    if (req.user.role !== "SUPER_USER") {
+      return res.status(403).json({
+        message: "Only Super User can complete process"
+      });
+    }
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({
+        message: "Applicant not found"
+      });
+    }
+
+    const data = doc.data();
+
+    // Optional safety: only allow completion if stage >= 10
+    if ((data.stage || 0) < 10) {
+      return res.status(400).json({
+        message: "Process not ready for completion"
+      });
+    }
+
+    await docRef.update({
+      stage: 12,
+      completedAt: new Date(),
+      completedBy: req.user.uid,
+      stageUpdatedAt: new Date()
+    });
+
+    res.json({
+      message: "Process completed successfully"
+    });
+
+  } catch (err) {
+    console.error("Complete Applicant Error:", err);
+    res.status(500).json({
+      message: "Internal Server Error"
+    });
+  }
+};
 
 
 // ✅ EXPORTS (THIS IS CRITICAL)
@@ -2179,5 +2315,8 @@ module.exports = {
   approveVisaCollection: exports.approveVisaCollection,
   getVisaCollection: exports.getVisaCollection,
   addVisaTravel: exports.addVisaTravel,
-  getVisaTravel: exports.getVisaTravel
+  getVisaTravel: exports.getVisaTravel,
+  uploadResidencePermit: exports.uploadResidencePermit,
+  getResidencePermit: exports.getResidencePermit,
+  completeApplicant: exports.completeApplicant
 };
