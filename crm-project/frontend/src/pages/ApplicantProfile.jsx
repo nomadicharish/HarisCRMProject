@@ -10,6 +10,9 @@ import TravelSection from "../components/TravelSection";
 import BiometricSection from "../components/BiometricSection";
 import EmbassyInterview from "../components/EmbassyInterview";
 import InterviewTicket from "../components/InterviewTicket";
+import InterviewBiometric from "../components/InterviewBiometric";
+import VisaCollection from "../components/VisaCollection";
+import VisaTravel from "../components/VisaTravel";
 
 function ApplicantProfile() {
   const { id } = useParams();
@@ -66,7 +69,7 @@ function ApplicantProfile() {
     loadApplicant();
     loadUser();
     loadDocuments();
-  }, [loadApplicant]);
+  }, []);
 
   if (loading) {
     return <div style={{ padding: "40px" }}>Loading...</div>;
@@ -150,13 +153,18 @@ function ApplicantProfile() {
 
   const allApproved = requiredDocs.every((docType) => {
 
-    const versions = documents[docType];
+    const versions = Array.isArray(documents[docType])
+      ? documents[docType]
+      : [];
 
-    if (!versions || versions.length === 0) {
-      return false; // not uploaded
-    }
+    if (versions.length === 0) return false;
 
-    const latest = versions[0]; // newest version
+    // ✅ Find latest version manually
+    const latest = versions.reduce((latest, current) => {
+      return new Date(current.uploadedAt) > new Date(latest.uploadedAt)
+        ? current
+        : latest;
+    });
 
     return latest.status === "APPROVED";
   });
@@ -365,7 +373,7 @@ function ApplicantProfile() {
           />
         )}
 
-        {applicant.stage >= 6 && (
+        {applicant.stage >= 7 && (
           <EmbassyInterview
             applicantId={id}
             user={user}
@@ -373,8 +381,28 @@ function ApplicantProfile() {
           />
         )}
 
-        {applicant.stage >= 6 && (
+        {applicant.stage >= 8 && (
           <InterviewTicket applicantId={id} user={user} />
+        )}
+
+        {applicant.stage >= 8 && (
+          <InterviewBiometric
+            applicantId={id}
+            user={user}
+            loadApplicant={loadApplicant}
+          />
+        )}
+
+        {applicant.stage >= 9 && (
+          <VisaCollection
+            applicantId={id}
+            user={user}
+            loadApplicant={loadApplicant}
+          />
+        )}
+
+        {applicant.stage >= 10 && (
+          <VisaTravel applicantId={id} user={user} />
         )}
 
 

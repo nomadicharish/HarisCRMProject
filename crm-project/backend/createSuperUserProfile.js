@@ -19,7 +19,6 @@ const SUPER_USER_EMAIL = "harishnomadic@gmail.com";
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
-    console.log("✅ Super User profile created in Firestore");
     process.exit();
   } catch (error) {
     console.error("❌ Error creating Super User profile:", error);

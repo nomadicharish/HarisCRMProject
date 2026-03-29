@@ -82,8 +82,6 @@ const createApplicant = async (req, res) => {
     const docRef = await db.collection("applicants").add(applicant);
     const applicantId = docRef.id;
 
-    console.log("DEBUG companyId:", companyId);
-
     // 🔹 Copy document templates from company
     const templatesSnap = await db
       .collection("companies")
@@ -91,7 +89,6 @@ const createApplicant = async (req, res) => {
       .collection("documentTemplates")
       .get();
 
-      console.log("DEBUG companyId:", companyId);
     const batch = db.batch();
 
     templatesSnap.forEach((doc) => {
@@ -881,10 +878,6 @@ const approveAndMoveStage = async (req, res) => {
       action: "MANUAL_STAGE_APPROVAL"
     });
 
-    if (AUTO_STAGE_IDS.includes(nextStage)) {
-      await autoAdvanceStage(applicantId, nextStage, "AUTO_AFTER_MANUAL_APPROVAL");
-    }
-
     const finalApplicant = await docRef.get();
     const finalStage = finalApplicant.exists ? finalApplicant.data().stage : nextStage;
 
@@ -1015,18 +1008,28 @@ exports.uploadDocument = async (req, res) => {
 
     const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
 
-    // 🔥 SAVE AS NEW VERSION
-    await db
+    const docRef = db
       .collection("applicants")
       .doc(id)
       .collection("documents")
-      .doc(documentType)
+      .doc(documentType);
+
+    // ✅ ENSURE parent doc exists
+    await docRef.set({
+      documentType,
+      updatedAt: new Date()
+    }, { merge: true });
+
+    // ✅ ADD VERSION
+    await docRef
       .collection("versions")
       .add({
         fileUrl,
         status: "PENDING",
         rejectedReason: "",
-        uploadedAt: new Date()
+        uploadedAt: new Date(),
+        uploadedBy: req.user.uid,
+        uploadedByRole: req.user.role
       });
 
     res.json({ message: "Uploaded successfully" });
@@ -1061,6 +1064,7 @@ exports.getDocuments = async (req, res) => {
         id: v.id,
         ...v.data()
       }));
+
     }
 
     res.json(result);
@@ -1112,9 +1116,14 @@ exports.deferDocument = async (req, res) => {
       .doc(id)
       .collection("documents")
       .doc(docType)
-      .set({
+      .collection("versions")
+      .add({
         status: "DEFERRED",
-        deferredAt: new Date()
+        fileUrl: "",
+        rejectedReason: "",
+        uploadedAt: new Date(),
+        uploadedBy: req.user.uid,
+        uploadedByRole: req.user.role
       });
 
     res.json({ message: "Document deferred" });
@@ -1847,6 +1856,288 @@ exports.getInterviewTicket = async (req, res) => {
   }
 };
 
+// ===============================
+// UPLOAD INTERVIEW BIOMETRIC SLIP
+// ===============================
+exports.uploadInterviewBiometric = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+
+    // 🔒 Only Agency
+    if (req.user.role !== "AGENCY") {
+      return res.status(403).json({
+        message: "Only Agency can upload interview biometric slip"
+      });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({
+        message: "File required"
+      });
+    }
+
+    const bucket = admin.storage().bucket();
+
+    const fileName = `interview-biometric/${applicantId}_${Date.now()}`;
+
+    const fileUpload = bucket.file(fileName);
+
+    await fileUpload.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype }
+    });
+
+    await fileUpload.makePublic();
+
+    const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    // Save document
+    await docRef.set({
+      interviewBiometric: {
+        fileUrl,
+        uploadedBy: req.user.uid,
+        uploadedByRole: req.user.role,
+        uploadedAt: new Date()
+      }
+    }, { merge: true });
+
+    // 🔥 AUTO MOVE TO STAGE 9
+    await docRef.update({
+      stage: 9,
+      stageUpdatedAt: new Date()
+    });
+
+    res.json({
+      message: "Interview biometric uploaded & stage completed"
+    });
+
+  } catch (err) {
+    console.error("Upload Interview Biometric Error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+// ===============================
+// GET INTERVIEW BIOMETRIC SLIP
+// ===============================
+exports.getInterviewBiometric = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data();
+
+    res.json(data.interviewBiometric || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// ADD VISA COLLECTION
+// ===============================
+exports.addVisaCollection = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { date, time } = req.body;
+
+    if (!["EMPLOYER", "SUPER_USER"].includes(req.user.role)) {
+      return res.status(403).json({
+        message: "Only Employer or Super User can add"
+      });
+    }
+
+    if (!date || !time) {
+      return res.status(400).json({
+        message: "Date & Time required"
+      });
+    }
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    const status = req.user.role === "SUPER_USER" ? "APPROVED" : "PENDING";
+
+    await docRef.set({
+      visaCollection: {
+        date,
+        time,
+        status,
+        createdBy: req.user.uid,
+        createdByRole: req.user.role,
+        createdAt: new Date(),
+        approvedBy: status === "APPROVED" ? req.user.uid : null,
+        approvedAt: status === "APPROVED" ? new Date() : null
+      }
+    }, { merge: true });
+
+    // 🔥 If Super User → auto move stage
+    if (status === "APPROVED") {
+      await docRef.update({
+        stage: 10,
+        stageUpdatedAt: new Date()
+      });
+    }
+
+    res.json({ message: "Visa collection saved" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// APPROVE VISA COLLECTION
+// ===============================
+exports.approveVisaCollection = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+
+    if (req.user.role !== "SUPER_USER") {
+      return res.status(403).json({
+        message: "Only Super User can approve"
+      });
+    }
+
+    const docRef = db.collection("applicants").doc(applicantId);
+
+    await docRef.update({
+      "visaCollection.status": "APPROVED",
+      "visaCollection.approvedBy": req.user.uid,
+      "visaCollection.approvedAt": new Date(),
+      stage: 10,
+      stageUpdatedAt: new Date()
+    });
+
+    res.json({ message: "Visa collection approved" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET VISA COLLECTION
+// ===============================
+exports.getVisaCollection = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data()?.visaCollection;
+
+    if (!data) return res.json(null);
+
+    // 🔒 Visibility rule
+    if (
+      data.status !== "APPROVED" &&
+      !["SUPER_USER", "EMPLOYER"].includes(req.user.role)
+    ) {
+      return res.json(null);
+    }
+
+    res.json(data);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// ADD VISA TRAVEL DETAILS
+// ===============================
+exports.addVisaTravel = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+    const { date, time, ticketNumber } = req.body;
+
+    // 🔒 Only Agency
+    if (req.user.role !== "AGENCY") {
+      return res.status(403).json({
+        message: "Only Agency can add travel details"
+      });
+    }
+
+    if (!date || !time) {
+      return res.status(400).json({
+        message: "Date & Time required"
+      });
+    }
+
+    let fileUrl = "";
+
+    if (req.file) {
+      const bucket = admin.storage().bucket();
+
+      const fileName = `visa-travel/${applicantId}_${Date.now()}`;
+
+      const fileUpload = bucket.file(fileName);
+
+      await fileUpload.save(req.file.buffer, {
+        metadata: { contentType: req.file.mimetype }
+      });
+
+      await fileUpload.makePublic();
+
+      fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    }
+
+    await db
+      .collection("applicants")
+      .doc(applicantId)
+      .set({
+        visaTravel: {
+          date,
+          time,
+          ticketNumber: ticketNumber || "",
+          fileUrl,
+          uploadedBy: req.user.uid,
+          uploadedByRole: req.user.role,
+          createdAt: new Date()
+        }
+      }, { merge: true });
+
+    res.json({ message: "Visa travel details saved" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// GET VISA TRAVEL DETAILS
+// ===============================
+exports.getVisaTravel = async (req, res) => {
+  try {
+
+    const doc = await db
+      .collection("applicants")
+      .doc(req.params.id)
+      .get();
+
+    const data = doc.data()?.visaTravel;
+
+    res.json(data || null);
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+
+
 // ✅ EXPORTS (THIS IS CRITICAL)
 module.exports = {
   createApplicant,
@@ -1881,5 +2172,12 @@ module.exports = {
   approveEmbassyInterview: exports.approveEmbassyInterview,
   getEmbassyInterview: exports.getEmbassyInterview,
   addInterviewTicket: exports.addInterviewTicket,
-  getInterviewTicket: exports.getInterviewTicket
+  getInterviewTicket: exports.getInterviewTicket,
+  uploadInterviewBiometric: exports.uploadInterviewBiometric,
+  getInterviewBiometric: exports.getInterviewBiometric,
+  addVisaCollection: exports.addVisaCollection,
+  approveVisaCollection: exports.approveVisaCollection,
+  getVisaCollection: exports.getVisaCollection,
+  addVisaTravel: exports.addVisaTravel,
+  getVisaTravel: exports.getVisaTravel
 };

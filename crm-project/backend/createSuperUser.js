@@ -9,7 +9,6 @@ async function makeSuperUser() {
     role: "SUPER_USER"
   });
 
-  console.log("SUPER_USER role assigned successfully");
   process.exit();
 }
 

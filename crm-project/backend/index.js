@@ -39,7 +39,6 @@ app.get("/", (req, res) => {
   res.send("CRM Backend is running");
 });
 
-console.log("verifyToken is:", verifyToken);
 // Super User only route (TEST)
 app.get("/api/super-user-only", verifyToken, (req, res) => {
   if (req.user.role !== "SUPER_USER") {

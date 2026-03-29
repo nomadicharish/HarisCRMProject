@@ -181,4 +181,55 @@ router.get(
   applicantController.getInterviewTicket
 );
 
+// Upload Interview Biometric
+router.post(
+  "/:id/interview-biometric",
+  verifyToken,
+  upload.single("file"),
+  applicantController.uploadInterviewBiometric
+);
+
+// Get Interview Biometric
+router.get(
+  "/:id/interview-biometric",
+  verifyToken,
+  applicantController.getInterviewBiometric
+);
+
+// Add Visa Collection
+router.post(
+  "/:id/visa-collection",
+  verifyToken,
+  applicantController.addVisaCollection
+);
+
+// Approve Visa Collection
+router.patch(
+  "/:id/visa-collection/approve",
+  verifyToken,
+  applicantController.approveVisaCollection
+);
+
+// Get Visa Collection
+router.get(
+  "/:id/visa-collection",
+  verifyToken,
+  applicantController.getVisaCollection
+);
+
+// Add Visa Travel Details
+router.post(
+  "/:id/visa-travel",
+  verifyToken,
+  upload.single("file"),
+  applicantController.addVisaTravel
+);
+
+// Get Visa Travel Details
+router.get(
+  "/:id/visa-travel",
+  verifyToken,
+  applicantController.getVisaTravel
+);
+
 module.exports = router;
