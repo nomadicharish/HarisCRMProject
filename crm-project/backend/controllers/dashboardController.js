@@ -43,28 +43,50 @@ exports.getDashboard = async (req, res) => {
         let ongoing = 0;
 
         const stageCounts = {};
+        let pendingDocs = 0;
+        let pendingApproval = 0;
+
+        let totalCollected = 0;
+        let totalPending = 0;
 
         snapshot.forEach(doc => {
             const data = doc.data();
-
+            const totalPayment = data.totalPayment || 0;
             total++;
+            if (data.stage === 2) pendingDocs++;
+            if ([4,5,7,9].includes(data.stage)) pendingApproval++;
 
             const stage = data.stage || 1;
-
             stageCounts[stage] = (stageCounts[stage] || 0) + 1;
+
+            const payments = data.payments || [];
+
+            let paid = 0;
+
+            payments.forEach(p => {
+            paid += p.amount || 0;
+            });
+
+            totalCollected += paid;
+            totalPending += (totalPayment - paid);
 
             if (stage >= 12) completed++;
             else ongoing++;
         });
 
-        console.log("ROLE:", role);
-        console.log("USER:", req.user);
-
         res.json({
             totalApplicants: total,
             completed,
             ongoing,
-            stageCounts
+            stageCounts,
+            alerts: {
+                pendingDocs,
+                pendingApproval: pendingApproval // or just pendingApproval
+                },
+            payments: {
+                totalCollected,
+                totalPending
+                }
         });
 
     } catch (err) {

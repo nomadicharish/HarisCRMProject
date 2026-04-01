@@ -56,6 +56,62 @@ function Dashboard() {
       }
     };
 
+    const filterBar = {
+      display: "flex",
+      gap: "10px",
+      marginBottom: "20px",
+      background: "#fff",
+      padding: "15px",
+      borderRadius: "10px",
+      boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
+    };
+
+    const cardContainer = {
+      display: "flex",
+      gap: "20px"
+    };
+
+    const card = {
+      flex: 1,
+      background: "#fff",
+      padding: "20px",
+      borderRadius: "12px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+    };
+
+    const pipelineContainer = {
+      display: "grid",
+      gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
+      gap: "15px",
+      marginTop: "15px"
+    };
+
+    const pipelineCard = {
+      background: "#fff",
+      padding: "15px",
+      borderRadius: "10px",
+      textAlign: "center",
+      boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
+    };
+
+    const alertCard = {
+      flex: 1,
+      background: "#fff",
+      padding: "20px",
+      borderRadius: "12px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+      borderLeft: "5px solid red"
+    };
+
+    const paymentCard = {
+      flex: 1,
+      background: "#fff",
+      padding: "20px",
+      borderRadius: "12px",
+      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+      borderLeft: "5px solid green"
+    };
+
 
      useEffect(() => {
       loadUser();
@@ -69,92 +125,127 @@ function Dashboard() {
   if (!data) return <p>Loading...</p>;
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Dashboard</h2>
+    <div style={{ padding: "20px", background: "#f5f7fb", minHeight: "100vh" }}>
+      
+      <h2 style={{ marginBottom: "20px" }}>Dashboard</h2>
 
-      <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
-        <div style={{ marginBottom: "20px" }}>
+      {/* 🔍 FILTER BAR */}
+      <div style={filterBar}>
 
-          {/* COMPANY */}
+        <select
+          value={filters.companyId}
+          onChange={(e) =>
+            setFilters({ ...filters, companyId: e.target.value })
+          }
+        >
+          <option value="">All Companies</option>
+          {companies.map(c => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+
+        {user && user.role === "SUPER_USER" && (
           <select
-            value={filters.companyId}
+            value={filters.agencyId}
             onChange={(e) =>
-              setFilters({ ...filters, companyId: e.target.value })
+              setFilters({ ...filters, agencyId: e.target.value })
             }
           >
-            <option value="">All Companies</option>
-            {companies.map(c => (
-              <option key={c.id} value={c.id}>{c.name}</option>
+            <option value="">All Agencies</option>
+            {agencies.map(a => (
+              <option key={a.id} value={a.id}>{a.name}</option>
             ))}
           </select>
+        )}
 
-          {/* AGENCY */}
-          {user && user.role === "SUPER_USER" && (
-            <select
-              value={filters.agencyId}
-              onChange={(e) =>
-                setFilters({ ...filters, agencyId: e.target.value })
-              }
-            >
-              <option value="">All Agencies</option>
-              {agencies.map(a => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          )}
+        <input
+          type="date"
+          value={filters.fromDate}
+          onChange={(e) =>
+            setFilters({ ...filters, fromDate: e.target.value })
+          }
+        />
 
-          {/* DATE FROM */}
-          <input
-            type="date"
-            value={filters.fromDate}
-            onChange={(e) =>
-              setFilters({ ...filters, fromDate: e.target.value })
-            }
-          />
+        <input
+          type="date"
+          value={filters.toDate}
+          onChange={(e) =>
+            setFilters({ ...filters, toDate: e.target.value })
+          }
+        />
 
-          {/* DATE TO */}
-          <input
-            type="date"
-            value={filters.toDate}
-            onChange={(e) =>
-              setFilters({ ...filters, toDate: e.target.value })
-            }
-          />
+        <button onClick={loadDashboard}>Apply</button>
+      </div>
 
-          {/* APPLY */}
-          <button onClick={loadDashboard}>
-            Apply Filters
-          </button>
+      {/* 📊 KPI CARDS */}
+      <div style={cardContainer}>
 
+        <div style={{ ...card, borderLeft: "5px solid #4CAF50" }}>
+          <p>Total Applicants</p>
+          <h2>{data.totalApplicants}</h2>
         </div>
 
-
-        <div style={card}>
-          <h3>Total Applicants</h3>
-          <p>{data.totalApplicants}</p>
+        <div style={{ ...card, borderLeft: "5px solid #2196F3" }}>
+          <p>Ongoing</p>
+          <h2>{data.ongoing}</h2>
         </div>
 
-        <div style={card}>
-          <h3>Ongoing</h3>
-          <p>{data.ongoing}</p>
-        </div>
-
-        <div style={card}>
-          <h3>Completed</h3>
-          <p>{data.completed}</p>
+        <div style={{ ...card, borderLeft: "5px solid #FF9800" }}>
+          <p>Completed</p>
+          <h2>{data.completed}</h2>
         </div>
 
       </div>
 
-      <h3 style={{ marginTop: "30px" }}>Stage Breakdown</h3>
+      {/* 🚀 STAGE PIPELINE */}
+      <div style={{ marginTop: "30px" }}>
+        <h3>Pipeline Status</h3>
 
-      <ul>
-        {Object.entries(data.stageCounts).map(([stage, count]) => (
-          <li key={stage}>
-            Stage {stage}: {count}
-          </li>
-        ))}
-      </ul>
+        <div style={pipelineContainer}>
+          {Array.from({ length: 11 }, (_, i) => i + 1).map(stage => (
+            <div key={stage} style={pipelineCard}>
+              <p>Stage {stage}</p>
+              <h3>{data.stageCounts[stage] || 0}</h3>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: "30px" }}>
+        <h3>Alerts</h3>
+
+        <div style={{ display: "flex", gap: "20px" }}>
+
+          <div style={alertCard}>
+            <p>📄 Pending Documents</p>
+            <h2>{data.alerts?.pendingDocs || 0}</h2>
+          </div>
+
+          <div style={alertCard}>
+            <p>⏳ Pending Approvals</p>
+            <h2>{data.alerts?.pendingApproval || 0}</h2>
+          </div>
+
+        </div>
+      </div>
+
+      <div style={{ marginTop: "30px" }}>
+        <h3>Payments</h3>
+
+        <div style={{ display: "flex", gap: "20px" }}>
+
+          <div style={paymentCard}>
+            <p>💰 Collected</p>
+            <h2>{data.payments?.totalCollected || 0}</h2>
+          </div>
+
+          <div style={paymentCard}>
+            <p>🧾 Pending</p>
+            <h2>{data.payments?.totalPending || 0}</h2>
+          </div>
+
+        </div>
+      </div>
 
     </div>
   );
