@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import ApplicantTable from "../components/ApplicantTable";
 import { getApplicants } from "../services/applicantService";
 import { useNavigate } from "react-router-dom";
+import CreateApplicants from "./CreateApplicants";
 
 function Applicants() {
+  const [showModal, setShowModal] = useState(false);
   const [applicants, setApplicants] = useState([]);
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
@@ -52,7 +54,7 @@ function Applicants() {
         />
 
         <button
-            onClick={() => navigate("/create-applicant")}
+            onClick={() => setShowModal(true)}
             style={{
                 background: "#4CAF50",
                 color: "white",
@@ -63,6 +65,10 @@ function Applicants() {
             >
         + Add Job Seeker
         </button>
+
+        {showModal && (
+          <CreateApplicants onClose={() => setShowModal(false)} />
+        )}
       </div>
 
       {/* Applicant Table */}

@@ -6,11 +6,16 @@
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
   background-color: #242424;
+  
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+input:focus { 
+  outline: none;
 }
 
 a {
@@ -52,6 +57,26 @@ button:hover {
 button:focus,
 button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
+}
+
+.react-datepicker {
+  border-radius: 12px !important;
+  border: 1px solid #eee !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+}
+
+.react-datepicker__header {
+  background-color: #2f80ed !important;
+  color: white;
+  border-bottom: none !important;
+}
+
+.react-datepicker__day--selected {
+  background-color: #2f80ed !important;
+}
+
+.react-datepicker__day:hover {
+  background-color: #e6f0ff !important;
 }
 
 @media (prefers-color-scheme: light) {

@@ -72,6 +72,37 @@ function ApplicantProfile() {
     loadDocuments();
   }, []);
 
+
+  const leftCard = {
+    width: "300px",
+    background: "#fff",
+    padding: "20px",
+    borderRadius: "12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+  };
+
+  const rightCard = {
+    flex: 1,
+    background: "#fff",
+    padding: "20px",
+    borderRadius: "12px",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
+  };
+
+  const pipelineRow = {
+    padding: "10px",
+    marginBottom: "10px",
+    borderRadius: "8px"
+  };
+
+  const amountBox = {
+    marginTop: "15px",
+    padding: "10px",
+    background: "#f0f4ff",
+    borderRadius: "8px",
+    fontWeight: "bold"
+  };
+
   if (loading) {
     return <div style={{ padding: "40px" }}>Loading...</div>;
   }
@@ -194,42 +225,51 @@ function ApplicantProfile() {
       }
     };
 
+    const STAGES = [
+      { id: 1, name: "Candidate account creation" },
+      { id: 2, name: "Upload documents" },
+      { id: 3, name: "Dispatch documents" },
+      { id: 4, name: "Contract" },
+      { id: 5, name: "Embassy appointment" },
+      { id: 6, name: "Biometric" },
+      { id: 7, name: "Interview" },
+      { id: 8, name: "Visa collection" },
+      { id: 9, name: "Travel" },
+      { id: 10, name: "Residence permit" },
+      { id: 11, name: "Completed" }
+    ];
+
   return (
     <div className="page-container">
       <div className="page-content">
         <h2>Applicant Profile</h2>
 
-        <div className="card">
-          <h3>Candidate Details</h3>
-          <p>
-            <b>Name:</b> {firstName} {lastName}
-          </p>
-          <p>
-            <b>Phone:</b> {phone}
-          </p>
-          <p>
-            <b>Address:</b> {address}
-          </p>
-          <p>
-            <b>Company:</b> {applicant.companyName || "-"}
-          </p>
-          <p>
-            <b>Agency:</b> {applicant.agencyName || "-"}
-          </p>
-        </div>
+       <div style={{ display: "flex", gap: "20px" }}>
 
-        <div className="card">
-          <h3>Pipeline Progress</h3>
-          <PipelineTracker currentStage={applicant.stage || 1} />
-          {user?.role === "SUPER_USER" && (
-            <button
-              className="submit-btn"
-              disabled={!canApproveStage}
-              onClick={approveStage}
-            >
-              Approve & Move to Next Stage
-            </button>
-          )}
+          {/* LEFT CARD */}
+          <div style={leftCard}>
+            <h3>{applicant.fullName}</h3>
+            <p>Age {applicant.age}</p>
+            <p>{applicant.phone}</p>
+
+            <p><b>Employer:</b> {applicant.companyName}</p>
+
+            <div style={amountBox}>
+              Pending: ₹ {applicant.pendingAmount}
+            </div>
+          </div>
+
+          {/* RIGHT PIPELINE */}
+          <div style={rightCard}>
+            <h3>Complete Pipeline</h3>
+
+            {STAGES.map(stage => (
+              <div key={stage.id} style={pipelineRow}>
+                {stage.name}
+              </div>
+            ))}
+          </div>
+
         </div>
 
         <div className="card">

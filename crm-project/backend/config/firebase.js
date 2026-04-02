@@ -11,4 +11,7 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
+// Enable ignoring undefined properties to prevent Firestore validation errors
+db.settings({ ignoreUndefinedProperties: true });
+
 module.exports = { admin, db };
