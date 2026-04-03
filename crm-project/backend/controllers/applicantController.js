@@ -490,8 +490,16 @@ const getApplicants = async (req, res) => {
       snap.docs.map(async (d) => {
         const data = d.data();
 
-        const firstName = data?.personalDetails?.firstName || "";
-        const lastName = data?.personalDetails?.lastName || "";
+        const firstName =
+          data?.personalDetails?.firstName ||
+          data?.firstName ||
+          (data?.fullName ? data?.fullName.split(" ")[0] : "") ||
+          "";
+        const lastName =
+          data?.personalDetails?.lastName ||
+          data?.lastName ||
+          (data?.fullName ? data?.fullName.split(" ").slice(1).join(" ") : "") ||
+          "";
 
         let applicantPaid = 0;
         const paymentsSnap = await db
@@ -506,7 +514,8 @@ const getApplicants = async (req, res) => {
           if (Number.isFinite(amount)) applicantPaid += amount;
         });
 
-        const total = Number(data?.totalApplicantPayment) || 0;
+        const total =
+          Number(data?.totalApplicantPayment || data?.totalPayment) || 0;
 
         return {
           id: d.id,
@@ -2273,6 +2282,32 @@ exports.completeApplicant = async (req, res) => {
   }
 };
 
+// ===============================
+// UPDATE APPLICANT (GENERIC)
+// ===============================
+exports.updateApplicant = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Only Super User
+    if (req.user.role !== "SUPER_USER") {
+      return res.status(403).json({
+        message: "Only Super User can update applicant"
+      });
+    }
+
+    await db.collection("applicants").doc(id).update({
+      ...req.body,
+      updatedAt: new Date()
+    });
+
+    res.json({ message: "Applicant updated successfully" });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 
 // ✅ EXPORTS (THIS IS CRITICAL)
 module.exports = {
@@ -2318,5 +2353,6 @@ module.exports = {
   getVisaTravel: exports.getVisaTravel,
   uploadResidencePermit: exports.uploadResidencePermit,
   getResidencePermit: exports.getResidencePermit,
-  completeApplicant: exports.completeApplicant
+  completeApplicant: exports.completeApplicant,
+  updateApplicant: exports.updateApplicant
 };

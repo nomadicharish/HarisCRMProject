@@ -3,15 +3,19 @@ import ApplicantTable from "../components/ApplicantTable";
 import { getApplicants } from "../services/applicantService";
 import { useNavigate } from "react-router-dom";
 import CreateApplicants from "./CreateApplicants";
+import API from "../services/api";
 
 function Applicants() {
   const [showModal, setShowModal] = useState(false);
   const [applicants, setApplicants] = useState([]);
   const [search, setSearch] = useState("");
   const navigate = useNavigate();
+  const [editingApplicant, setEditingApplicant] = useState(null);
+  const [user, setUser] = useState(null);
 
   useEffect(() => {
     loadApplicants();
+    loadUser();
   }, []);
 
   const loadApplicants = async () => {
@@ -23,11 +27,25 @@ function Applicants() {
     }
   };
 
+  const loadUser = async () => {
+    try {
+      const res = await API.get("/auth/me");
+      setUser(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const filteredApplicants = applicants.filter((a) =>
     `${a.firstName} ${a.lastName}`
       .toLowerCase()
       .includes(search.toLowerCase())
   );
+
+  const handleEdit = (applicant) => {
+    setEditingApplicant(applicant);
+    setShowModal(true);
+  };
 
   return (
     <div style={{ padding: "30px" }}>
@@ -67,15 +85,22 @@ function Applicants() {
         </button>
 
         {showModal && (
-          <CreateApplicants
-            onClose={() => setShowModal(false)}
-            onApplicantCreated={loadApplicants}
-          />
-        )}
+            <CreateApplicants
+              onClose={() => {
+                setShowModal(false);
+                setEditingApplicant(null);
+              }}
+              editData={editingApplicant}
+            />
+          )}
       </div>
 
       {/* Applicant Table */}
-      <ApplicantTable applicants={filteredApplicants} />
+      <ApplicantTable 
+        applicants={filteredApplicants} 
+        user={user}
+        onEdit={handleEdit}
+      />
     </div>
   );
 }

@@ -254,4 +254,7 @@ router.patch(
   applicantController.completeApplicant
 );
 
+// Update Applicant Details
+router.patch("/:id", verifyToken, applicantController.updateApplicant);
+
 module.exports = router;

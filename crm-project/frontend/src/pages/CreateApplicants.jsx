@@ -22,7 +22,9 @@ const handleBlur = (e, hasError) => {
     : `1px solid ${THEME.border}`;
 };
 
-function CreateApplicants({ onClose, onApplicantCreated }) {
+function CreateApplicants({ onClose, editData }) {
+
+  console.log("EDIT DATA:", editData);
 
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -111,6 +113,59 @@ const validateStep2 = () => {
       }, []); 
 
 
+      useEffect(() => {
+        if (editData) {
+          console.log("Prefilling form...");
+
+          const nameParts =
+            editData.fullName?.trim()?.split(" ") ||
+            `${editData.firstName || ""} ${editData.lastName || ""}`
+              .trim()
+              .split(" ");
+
+          const parsedDob =
+            editData.dob || editData.personalDetails?.dob
+              ? new Date(editData.dob || editData.personalDetails?.dob)
+              : null;
+
+          const resolvedCountryId = editData.countryId || "";
+          const resolvedCompanyId = editData.companyId || "";
+
+          setForm({
+            firstName: nameParts[0] || "",
+            lastName: nameParts.slice(1).join(" ") || "",
+            dob: parsedDob || "",
+            age: parsedDob ? calculateAge(parsedDob) : editData.age || "",
+            address:
+              editData.address || editData.personalDetails?.address || "",
+            phone:
+              editData.phone || editData.personalDetails?.phone || "",
+            maritalStatus:
+              editData.maritalStatus || editData.personalDetails?.maritalStatus || "",
+            countryId: resolvedCountryId,
+            companyId: resolvedCompanyId,
+            agencyId: editData.agencyId || "",
+            totalAmount:
+              editData.totalAmount || editData.totalPayment || editData.totalApplicantPayment || "",
+            paidAmount:
+              editData.paidAmount || editData.payment?.paid || ""
+          });
+
+          setDob(parsedDob);
+          setStep(1);
+
+          if (resolvedCountryId) {
+            const filtered = companies.filter((c) => c.countryId === resolvedCountryId);
+            setFilteredCompanies(filtered);
+          }
+        } else {
+          resetForm();
+          setDob(null);
+          setStep(1);
+        }
+      }, [editData, companies]);
+
+
   const [step, setStep] = useState(1);
 
   const [form, setForm] = useState({
@@ -157,73 +212,92 @@ const validateStep2 = () => {
 };
 
 const handleSubmit = async () => {
-  if (!validateStep2()) {
-    toast.error("Please fill all required fields");
-    return;
-  }
+        if (!validateStep2()) {
+          toast.error("Please fill all required fields");
+          return;
+        }
 
-  const toastId = toast.loading("Creating applicant...");
+        // 🔥 Dynamic loading message
+        const toastId = toast.loading(
+          editData ? "Updating applicant..." : "Creating applicant..."
+        );
 
-  try {
-    setLoading(true);
+        try {
+          setLoading(true);
 
-    await API.post("/applicants/create", {
-      firstName: form.firstName,
-      lastName: form.lastName,
-      dob: form.dob,
-      phone: form.phone,
-      maritalStatus: form.maritalStatus,
-      countryId: form.countryId,
-      companyId: form.companyId,
-      agencyId:
-        user?.role === "SUPER_USER"
-          ? form.agencyId
-          : user?.agencyId,
-      totalApplicantPayment: form.totalAmount,
-      amountPaid: form.paidAmount,
-      currency: "EUR"
-    });
+          const payload = {
+            firstName: form.firstName,
+            lastName: form.lastName,
+            personalDetails: {
+              firstName: form.firstName,
+              lastName: form.lastName,
+              dob: form.dob,
+              phone: form.phone,
+              maritalStatus: form.maritalStatus,
+              address: form.address
+            },
+            companyId: form.companyId,
+            countryId: form.countryId,
+            agencyId:
+              user?.role === "SUPER_USER"
+                ? form.agencyId
+                : user?.agencyId,
+            totalApplicantPayment: form.totalAmount,
+            amountPaid: form.paidAmount ? Number(form.paidAmount) : 0,
+            paidAmount: form.paidAmount ? Number(form.paidAmount) : 0
+          };
 
-    // ✅ SUCCESS TOAST
-    toast.update(toastId, {
-      render: "Applicant created successfully",
-      type: "success",
-      isLoading: false,
-      autoClose: 2000
-    });
+          if (editData) {
+            // 🔥 UPDATE API
+            await API.patch(`/applicants/${editData.id}`, payload);
+          } else {
+            // 🔥 CREATE API
+            await API.post("/applicants/create", payload);
+          }
 
-    // ✅ RESET FORM
-    resetForm();
+          // ✅ SUCCESS TOAST
+          toast.update(toastId, {
+            render: editData
+              ? "Applicant updated successfully"
+              : "Applicant created successfully",
+            type: "success",
+            isLoading: false,
+            autoClose: 2000
+          });
 
-    // ✅ LOAD APPLICANTS IMMEDIATELY
-    if (typeof onApplicantCreated === "function") {
-      await onApplicantCreated();
-    }
+          // ✅ RESET FORM (ONLY FOR CREATE)
+          if (!editData) {
+            resetForm();
+          }
 
-    // ✅ CLOSE MODAL
-    if (typeof onClose === "function") {
-      onClose();
-    }
+          // ✅ CLOSE MODAL
+          if (typeof onClose === "function") {
+            onClose();
+          }
 
-    // ✅ NAVIGATE AFTER SMALL DELAY
-    setTimeout(() => {
-      navigate("/applicants");
-    }, 1500);
+          // ✅ REDIRECT
+          setTimeout(() => {
+            navigate("/applicants");
+          }, 1200);
 
-  } catch (err) {
-    console.error(err);
+        } catch (err) {
+          console.error(err);
 
-    toast.update(toastId, {
-      render: err?.response?.data?.message || "Failed to create applicant",
-      type: "error",
-      isLoading: false,
-      autoClose: 3000
-    });
+          toast.update(toastId, {
+            render:
+              err?.response?.data?.message ||
+              (editData
+                ? "Failed to update applicant"
+                : "Failed to create applicant"),
+            type: "error",
+            isLoading: false,
+            autoClose: 3000
+          });
 
-  } finally {
-    setLoading(false);
-  }
-};
+        } finally {
+          setLoading(false);
+        }
+      };
 
 const calculateAge = (date) => {
   const today = new Date();
@@ -450,6 +524,7 @@ const agencyOptions = agencies.map(a => ({
                         ? `1px solid ${THEME.error}`
                         : input.border
                     }}
+                    value={form.address || ""}
                     onFocus={handleFocus}
                     onBlur={(e) => handleBlur(e, errors.address)}
                     onChange={(e) => handleChange("address", e.target.value)}
@@ -471,6 +546,7 @@ const agencyOptions = agencies.map(a => ({
                         ? `1px solid ${THEME.error}`
                         : input.border
                     }}
+                    value={form.phone || ""}
                     onFocus={handleFocus}
                     onBlur={(e) => handleBlur(e, errors.phone)}
                     onChange={(e) => handleChange("phone", e.target.value)}
@@ -491,6 +567,7 @@ const agencyOptions = agencies.map(a => ({
                         ? `1px solid ${THEME.error}`
                         : input.border
                     }}
+                    value={form.maritalStatus || ""}
                     onFocus={handleFocus}
                     onBlur={(e) => handleBlur(e, errors.maritalStatus)}
                     onChange={(e) => handleChange("maritalStatus", e.target.value)}
@@ -606,6 +683,7 @@ const agencyOptions = agencies.map(a => ({
                       ? `1px solid ${THEME.error}`
                       : input.border
                   }}
+                  value={form.totalAmount || ""}
                   onFocus={handleFocus}
                   placeholder="Total Amount"
                   onBlur={(e) => handleBlur(e, errors.totalAmount)}
@@ -624,6 +702,7 @@ const agencyOptions = agencies.map(a => ({
                       ? `1px solid ${THEME.error}`
                       : input.border
                   }}
+                  value={form.paidAmount || ""}
                   onFocus={handleFocus}
                   placeholder="Initial Paid Amount"
                   onBlur={(e) => handleBlur(e, errors.paidAmount)}
@@ -646,11 +725,15 @@ const agencyOptions = agencies.map(a => ({
                   cursor: loading ? "not-allowed" : "pointer"
                 }}
                 disabled={loading}
-                 onClick={() => {
-                    handleSubmit();
-                  }}
+                onClick={handleSubmit}
               >
-                {loading ? "Creating..." : "Create Profile"}
+                {loading
+                  ? editData
+                    ? "Updating..."
+                    : "Creating..."
+                  : editData
+                  ? "Update Profile"
+                  : "Create Profile"}
               </button>
             </div>
           </>

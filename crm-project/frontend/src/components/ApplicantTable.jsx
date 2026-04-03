@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 
-function ApplicantTable({ applicants = [] }) {
+function ApplicantTable({ applicants = [], user, onEdit }) {
 
 const navigate = useNavigate();
 
@@ -15,6 +15,7 @@ const navigate = useNavigate();
           <th>Company</th>
           <th>Employer POC</th>
           <th>Payment Status</th>
+          <th>Edit</th>
         </tr>
       </thead>
 
@@ -53,6 +54,18 @@ const navigate = useNavigate();
               ) : (
                 <span style={{ color: "green" }}>Completed</span>
               )}
+            </td>
+            <td>
+              {user?.role === "SUPER_USER" && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent row click
+                      onEdit(applicant);
+                    }}
+                  >
+                    Edit
+                  </button>
+                )}
             </td>
           </tr>
         ))}
