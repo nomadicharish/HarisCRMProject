@@ -4,6 +4,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { toast } from "react-toastify";
+import { useNavigate } from "react-router-dom";
 
 const THEME = {
   primary: "#2f80ed",
@@ -21,7 +22,7 @@ const handleBlur = (e, hasError) => {
     : `1px solid ${THEME.border}`;
 };
 
-function CreateApplicants({ onClose }) {
+function CreateApplicants({ onClose, onApplicantCreated }) {
 
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -35,7 +36,7 @@ function CreateApplicants({ onClose }) {
   const newErrors = {};
 
   if (!form.firstName) newErrors.firstName = "First name is required";
-  if (!form.Surname) newErrors.Surname = "Surname is required";
+  if (!form.lastName) newErrors.lastName = "Surname is required";
   if (!form.dob) newErrors.dob = "Date of birth is required";
   if (!form.age) newErrors.age = "Age is required";
   if (!form.address) newErrors.address = "Address is required";
@@ -127,6 +128,27 @@ const validateStep2 = () => {
     paidAmount: ""
   });
 
+  const navigate = useNavigate();
+
+  const resetForm = () => {
+    setForm({
+      firstName: "",
+      lastName: "",
+      dob: "",
+      age: "",
+      address: "",
+      phone: "",
+      maritalStatus: "",
+      companyId: "",
+      countryId: "",
+      agencyId: "",
+      totalAmount: "",
+      paidAmount: ""
+    });
+
+    setErrors({});
+  };
+
   const handleChange = (key, value) => {
   setForm((prev) => ({
     ...prev,
@@ -134,13 +156,9 @@ const validateStep2 = () => {
   }));
 };
 
- const handleSubmit = async () => {
-   console.log("Submit clicked");
-  const isValid = validateStep2();
-  console.log("Validation result:", isValid);
-
-  if (!isValid) {
-    console.log("Validation failed");
+const handleSubmit = async () => {
+  if (!validateStep2()) {
+    toast.error("Please fill all required fields");
     return;
   }
 
@@ -150,36 +168,53 @@ const validateStep2 = () => {
     setLoading(true);
 
     await API.post("/applicants/create", {
-      fullName: form.firstName + " " + form.lastName,
-      personalDetails: {
-        dob: form.dob,
-        phone: form.phone,
-        maritalStatus: form.maritalStatus
-      },
-      companyId: form.companyId,
+      firstName: form.firstName,
+      lastName: form.lastName,
+      dob: form.dob,
+      phone: form.phone,
+      maritalStatus: form.maritalStatus,
       countryId: form.countryId,
+      companyId: form.companyId,
       agencyId:
         user?.role === "SUPER_USER"
           ? form.agencyId
           : user?.agencyId,
-      totalPayment: form.totalAmount,
-      initialPayment: form.paidAmount
+      totalApplicantPayment: form.totalAmount,
+      amountPaid: form.paidAmount,
+      currency: "EUR"
     });
 
-    // 🔥 UPDATE TO SUCCESS
+    // ✅ SUCCESS TOAST
     toast.update(toastId, {
       render: "Applicant created successfully",
       type: "success",
       isLoading: false,
-      autoClose: 3000
+      autoClose: 2000
     });
+
+    // ✅ RESET FORM
+    resetForm();
+
+    // ✅ LOAD APPLICANTS IMMEDIATELY
+    if (typeof onApplicantCreated === "function") {
+      await onApplicantCreated();
+    }
+
+    // ✅ CLOSE MODAL
+    if (typeof onClose === "function") {
+      onClose();
+    }
+
+    // ✅ NAVIGATE AFTER SMALL DELAY
+    setTimeout(() => {
+      navigate("/applicants");
+    }, 1500);
 
   } catch (err) {
     console.error(err);
 
-    // 🔥 UPDATE TO ERROR
     toast.update(toastId, {
-      render: "Failed to create applicant",
+      render: err?.response?.data?.message || "Failed to create applicant",
       type: "error",
       isLoading: false,
       autoClose: 3000
@@ -322,6 +357,7 @@ const agencyOptions = agencies.map(a => ({
                         ? `1px solid ${THEME.error}`
                         : input.border
                     }}
+                    value={form.firstName || ""}
                     onFocus={handleFocus}
                     onBlur={(e) => handleBlur(e, errors.firstName)}
                     onChange={(e) => handleChange("firstName", e.target.value)}
@@ -338,18 +374,19 @@ const agencyOptions = agencies.map(a => ({
                 <input
                     style={{
                       ...input,
-                      border: errors.Surname
+                      border: errors.lastName
                         ? `1px solid ${THEME.error}`
                         : input.border
                     }}
                     onFocus={handleFocus}
-                    onBlur={(e) => handleBlur(e, errors.Surname)}
-                    onChange={(e) => handleChange("Surname", e.target.value)}
+                    onBlur={(e) => handleBlur(e, errors.lastName)}
+                    onChange={(e) => handleChange("lastName", e.target.value)}
                     placeholder="Surname"
+                    value={form.lastName || ""}
                   />
 
-                {errors.Surname && (
-                  <div style={errorText}>{errors.Surname}</div>
+                {errors.lastName && (
+                  <div style={errorText}>{errors.lastName}</div>
                 )}
               </div>
 
@@ -610,7 +647,6 @@ const agencyOptions = agencies.map(a => ({
                 }}
                 disabled={loading}
                  onClick={() => {
-                    console.log("CLICK WORKING"); // 👈 ADD THIS
                     handleSubmit();
                   }}
               >

@@ -67,7 +67,10 @@ function Applicants() {
         </button>
 
         {showModal && (
-          <CreateApplicants onClose={() => setShowModal(false)} />
+          <CreateApplicants
+            onClose={() => setShowModal(false)}
+            onApplicantCreated={loadApplicants}
+          />
         )}
       </div>
 
