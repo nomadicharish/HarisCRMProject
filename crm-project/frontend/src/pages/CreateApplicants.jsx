@@ -22,7 +22,7 @@ const handleBlur = (e, hasError) => {
     : `1px solid ${THEME.border}`;
 };
 
-function CreateApplicants({ onClose, editData }) {
+function CreateApplicants({ onClose, onSaved, editData }) {
 
   console.log("EDIT DATA:", editData);
 
@@ -125,7 +125,10 @@ const validateStep2 = () => {
 
           const parsedDob =
             editData.dob || editData.personalDetails?.dob
-              ? new Date(editData.dob || editData.personalDetails?.dob)
+              ? (() => {
+                  const raw = editData.dob || editData.personalDetails?.dob;
+                  return raw && raw.toDate ? raw.toDate() : new Date(raw);
+                })()
               : null;
 
           const resolvedCountryId = editData.countryId || "";
@@ -232,6 +235,7 @@ const handleSubmit = async () => {
               firstName: form.firstName,
               lastName: form.lastName,
               dob: form.dob,
+              age: form.age,
               phone: form.phone,
               maritalStatus: form.maritalStatus,
               address: form.address
@@ -275,10 +279,17 @@ const handleSubmit = async () => {
             onClose();
           }
 
-          // ✅ REDIRECT
-          setTimeout(() => {
-            navigate("/applicants");
-          }, 1200);
+          // ✅ REFRESH TABLE
+          if (typeof onSaved === "function") {
+            onSaved();
+          }
+
+          // ✅ REDIRECT fallback (if not in table context)
+          if (typeof onSaved !== "function") {
+            setTimeout(() => {
+              navigate("/applicants");
+            }, 1200);
+          }
 
         } catch (err) {
           console.error(err);
@@ -409,7 +420,7 @@ const agencyOptions = agencies.map(a => ({
 
         {/* HEADER */}
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-          <h3 style={{ margin: 0 }}>Add Applicant</h3>
+          <h3 style={{ margin: 0 }}>{editData ? "Edit Applicant" : "Add Applicant"}</h3>
 
           <button onClick={onClose} style={{ border: "none", background: "none", fontSize: "18px" }}>
             ✕

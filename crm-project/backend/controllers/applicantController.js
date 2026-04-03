@@ -24,10 +24,16 @@ const createApplicant = async (req, res) => {
     return res.status(400).json({ message: "Agency must be assigned" });
   }
   try {
+    const personalDetails = req.body.personalDetails || {};
+
     const {
-      firstName,
-      lastName,
-      dob,
+      firstName = personalDetails.firstName,
+      lastName = personalDetails.lastName,
+      dob = personalDetails.dob,
+      age = personalDetails.age,
+      address = personalDetails.address,
+      phone = personalDetails.phone,
+      maritalStatus = personalDetails.maritalStatus,
       countryId,
       companyId,
       totalAmount,
@@ -63,8 +69,15 @@ const createApplicant = async (req, res) => {
       personalDetails: {
         firstName,
         lastName,
-        dob
+        dob,
+        age,
+        address,
+        phone,
+        maritalStatus
       },
+      firstName,
+      lastName,
+      age,
       countryId,
       companyId,
       agencyId: assignedAgencyId,
@@ -486,7 +499,7 @@ const getApplicants = async (req, res) => {
       })
     );
 
-    const applicants = await Promise.all(
+    let applicants = await Promise.all(
       snap.docs.map(async (d) => {
         const data = d.data();
 
@@ -531,6 +544,12 @@ const getApplicants = async (req, res) => {
         };
       })
     );
+
+    applicants = applicants.sort((a, b) => {
+      const aDate = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
+      const bDate = b.createdAt && b.createdAt.toDate ? b.createdAt.toDate() : new Date(b.createdAt || 0);
+      return bDate - aDate;
+    });
 
     return res.json(applicants);
   } catch (error) {

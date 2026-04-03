@@ -21,7 +21,12 @@ function Applicants() {
   const loadApplicants = async () => {
     try {
       const data = await getApplicants();
-      setApplicants(data);
+      const sorted = [...data].sort((a, b) => {
+        const aCreated = a.createdAt ? new Date(a.createdAt) : new Date(0);
+        const bCreated = b.createdAt ? new Date(b.createdAt) : new Date(0);
+        return bCreated - aCreated;
+      });
+      setApplicants(sorted);
     } catch (err) {
       console.error(err);
     }
@@ -87,6 +92,11 @@ function Applicants() {
         {showModal && (
             <CreateApplicants
               onClose={() => {
+                setShowModal(false);
+                setEditingApplicant(null);
+              }}
+              onSaved={() => {
+                loadApplicants();
                 setShowModal(false);
                 setEditingApplicant(null);
               }}
