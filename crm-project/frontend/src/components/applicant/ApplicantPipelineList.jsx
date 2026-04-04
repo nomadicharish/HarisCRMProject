@@ -105,6 +105,7 @@ function ApplicantPipelineList({
   onEmbassyAppointmentAction,
   onBiometricSlipAction,
   onEmbassyInterviewAction,
+  onInterviewCompletionAction,
   onHeaderAction,
   headerActionLabel = "",
   canHeaderAction = true,
@@ -119,6 +120,9 @@ function ApplicantPipelineList({
   embassyAppointmentCompletedRowSubtitle = "",
   embassyAppointmentCompletedRowStatus = "",
   embassyInterviewRowTitle = "Initiate Embassy Interview",
+  embassyInterviewCompletedRowTitle = "Embassy Interview Completed",
+  embassyInterviewCompletedRowSubtitle = "",
+  embassyInterviewCompletedRowStatus = "",
   bannerText = "Complete the document uploading for admin to approve the candidate",
   documentRowStatus = ""
 }) {
@@ -159,6 +163,8 @@ function ApplicantPipelineList({
               ? contractRowStatus
               : item.id === 6 && embassyAppointmentCompletedRowStatus
               ? embassyAppointmentCompletedRowStatus
+              : item.id === 8 && embassyInterviewCompletedRowStatus
+              ? embassyInterviewCompletedRowStatus
               : status;
           const showRowButton =
             item.id === 2 &&
@@ -180,6 +186,8 @@ function ApplicantPipelineList({
               ? onBiometricSlipAction
               : item.id === 7
               ? onEmbassyInterviewAction
+              : item.id === 8
+              ? onInterviewCompletionAction
               : undefined;
           const canRowClick = typeof rowAction === "function";
           const resolvedSubtitle =
@@ -189,6 +197,8 @@ function ApplicantPipelineList({
               ? contractRowSubtitle
               : item.id === 6
               ? embassyAppointmentCompletedRowSubtitle
+              : item.id === 8
+              ? embassyInterviewCompletedRowSubtitle
               : "";
           const resolvedTitle =
             item.id === 3
@@ -201,6 +211,8 @@ function ApplicantPipelineList({
               ? embassyAppointmentCompletedRowTitle
               : item.id === 7
               ? embassyInterviewRowTitle
+              : item.id === 8
+              ? embassyInterviewCompletedRowTitle
               : item.title;
 
           return (

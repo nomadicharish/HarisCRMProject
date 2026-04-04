@@ -13,8 +13,7 @@ import ContractSection from "../components/ContractSection";
 import EmbassyAppointment from "../components/EmbassyAppointment";
 import BiometricSlipModal from "../components/BiometricSlipModal";
 import EmbassyInterviewModal from "../components/EmbassyInterviewModal";
-import InterviewTicket from "../components/InterviewTicket";
-import InterviewBiometric from "../components/InterviewBiometric";
+import InterviewBiometricModal from "../components/InterviewBiometricModal";
 import VisaCollection from "../components/VisaCollection";
 import VisaTravel from "../components/VisaTravel";
 import ResidencePermit from "../components/ResidencePermit";
@@ -56,11 +55,14 @@ function ApplicantProfile() {
   const [embassyAppointment, setEmbassyAppointment] = useState(null);
   const [biometricSlip, setBiometricSlip] = useState(null);
   const [embassyInterview, setEmbassyInterview] = useState(null);
+  const [interviewTicket, setInterviewTicket] = useState(null);
+  const [interviewBiometric, setInterviewBiometric] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [showEmbassyAppointmentModal, setShowEmbassyAppointmentModal] = useState(false);
   const [showBiometricSlipModal, setShowBiometricSlipModal] = useState(false);
   const [showEmbassyInterviewModal, setShowEmbassyInterviewModal] = useState(false);
+  const [showInterviewBiometricModal, setShowInterviewBiometricModal] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [editContext, setEditContext] = useState("default");
   const [resolvedAgencyName, setResolvedAgencyName] = useState("");
@@ -138,6 +140,26 @@ function ApplicantProfile() {
     }
   }, [id]);
 
+  const loadInterviewTicket = useCallback(async () => {
+    try {
+      const res = await API.get(`/applicants/${id}/interview-ticket`);
+      setInterviewTicket(res.data || null);
+    } catch (err) {
+      console.error(err);
+      setInterviewTicket(null);
+    }
+  }, [id]);
+
+  const loadInterviewBiometric = useCallback(async () => {
+    try {
+      const res = await API.get(`/applicants/${id}/interview-biometric`);
+      setInterviewBiometric(res.data || null);
+    } catch (err) {
+      console.error(err);
+      setInterviewBiometric(null);
+    }
+  }, [id]);
+
   useEffect(() => {
     loadApplicant();
     loadUser();
@@ -146,6 +168,8 @@ function ApplicantProfile() {
     loadEmbassyAppointment();
     loadBiometricSlip();
     loadEmbassyInterview();
+    loadInterviewTicket();
+    loadInterviewBiometric();
   }, [
     loadApplicant,
     loadUser,
@@ -153,7 +177,9 @@ function ApplicantProfile() {
     loadContract,
     loadEmbassyAppointment,
     loadBiometricSlip,
-    loadEmbassyInterview
+    loadEmbassyInterview,
+    loadInterviewTicket,
+    loadInterviewBiometric
   ]);
 
   useEffect(() => {
@@ -222,6 +248,10 @@ function ApplicantProfile() {
     setShowEmbassyInterviewModal(true);
   };
 
+  const openInterviewBiometricSection = () => {
+    setShowInterviewBiometricModal(true);
+  };
+
   const canEditApplicant = user?.role === "SUPER_USER";
   const applicantStage = Number(applicant?.stage || 1);
   const pipelineStep = Math.min(applicantStage, 11);
@@ -264,6 +294,11 @@ function ApplicantProfile() {
   const canAddBiometricSlip = applicantStage === 6 && user?.role === "AGENCY" && hasTravelDetails && !hasBiometricSlip;
   const canAddEmbassyInterview =
     applicantStage === 7 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+  const hasInterviewTicket = Boolean(interviewTicket?.date || interviewTicket?.time || interviewTicket?.fileUrl);
+  const hasInterviewBiometric = Boolean(interviewBiometric?.fileUrl || applicant?.interviewBiometric?.fileUrl);
+  const canAddInterviewTicket = applicantStage === 8 && user?.role === "AGENCY" && !hasInterviewTicket;
+  const canAddInterviewBiometric =
+    applicantStage === 8 && user?.role === "AGENCY" && hasInterviewTicket && !hasInterviewBiometric;
   const hasDocuments = Object.keys(documents || {}).length > 0;
   const shouldShowDocumentAction =
     !hasCompletedDocumentStage &&
@@ -287,6 +322,14 @@ function ApplicantProfile() {
     ? "Candidate pending for approval"
     : applicantStage === 1
     ? "Complete the candidate profile for approval"
+    : applicantStage === 9
+    ? "Pending visa collection"
+    : applicantStage === 8
+    ? hasInterviewBiometric
+      ? "Pending visa collection"
+      : hasInterviewTicket
+      ? "Pending Biometric slip"
+      : "Travel ticket upload pending"
     : applicantStage === 7
     ? "Embassy Interview pending"
     : applicantStage === 6
@@ -346,8 +389,23 @@ function ApplicantProfile() {
     applicantStage === 6 ? "warning" : "";
   const embassyInterviewRowTitle =
     applicantStage === 7 && !embassyInterview ? "Initiate Embassy Interview" : "Embassy Interview Initiated";
+  const embassyInterviewCompletedRowTitle =
+    applicantStage > 8 ? "Embassy Interview Completed" : "Complete Embassy Interview";
+  const embassyInterviewCompletedRowSubtitle =
+    applicantStage === 8
+      ? hasInterviewTicket
+        ? hasInterviewBiometric
+          ? ""
+          : "Pending Biometric slip"
+        : "Travel ticket upload pending"
+      : "";
+  const embassyInterviewCompletedRowStatus = applicantStage === 8 ? "warning" : "";
   const headerActionLabel = canIssueContract
     ? "Issue Contract"
+    : canAddInterviewBiometric
+    ? "Add Biometric Slip"
+    : canAddInterviewTicket
+    ? "Add Ticket"
     : canAddEmbassyInterview
     ? "Add Embassy Interview"
     : canAddBiometricSlip
@@ -406,6 +464,10 @@ function ApplicantProfile() {
               onHeaderAction={
                 canIssueContract
                   ? openContractSection
+                  : canAddInterviewBiometric
+                  ? openInterviewBiometricSection
+                  : canAddInterviewTicket
+                  ? openEmbassyInterviewSection
                   : canAddEmbassyInterview
                   ? openEmbassyInterviewSection
                   : canAddBiometricSlip
@@ -425,6 +487,10 @@ function ApplicantProfile() {
               headerActionLabel={headerActionLabel}
               canHeaderAction={
                 canIssueContract
+                  ? true
+                  : canAddInterviewBiometric
+                  ? true
+                  : canAddInterviewTicket
                   ? true
                   : canAddEmbassyInterview
                   ? true
@@ -450,6 +516,9 @@ function ApplicantProfile() {
               embassyAppointmentCompletedRowSubtitle={embassyAppointmentCompletedRowSubtitle}
               embassyAppointmentCompletedRowStatus={embassyAppointmentCompletedRowStatus}
               embassyInterviewRowTitle={embassyInterviewRowTitle}
+              embassyInterviewCompletedRowTitle={embassyInterviewCompletedRowTitle}
+              embassyInterviewCompletedRowSubtitle={embassyInterviewCompletedRowSubtitle}
+              embassyInterviewCompletedRowStatus={embassyInterviewCompletedRowStatus}
               bannerText={pipelineBannerText}
               documentRowStatus={documentRowStatus}
               onCandidateAccountCreation={() => openEditProfile("stage1")}
@@ -464,6 +533,13 @@ function ApplicantProfile() {
                   : undefined
               }
               onEmbassyInterviewAction={applicantStage >= 7 ? openEmbassyInterviewSection : undefined}
+              onInterviewCompletionAction={
+                applicantStage >= 8
+                  ? hasInterviewTicket
+                    ? openInterviewBiometricSection
+                    : openEmbassyInterviewSection
+                  : undefined
+              }
             />
 
             {showMore && <ApplicantDetailsView applicant={applicant} />}
@@ -474,10 +550,6 @@ function ApplicantProfile() {
                   !["SUPER_USER", "EMPLOYER"].includes(user?.role) && (
                     <DispatchSection applicantId={id} canEdit={false} compact={true} />
                   )}
-                {Number(applicant.stage) >= 8 && <InterviewTicket applicantId={id} user={user} />}
-                {Number(applicant.stage) >= 8 && (
-                  <InterviewBiometric applicantId={id} user={user} loadApplicant={loadApplicant} />
-                )}
                 {Number(applicant.stage) >= 9 && (
                   <VisaCollection applicantId={id} user={user} loadApplicant={loadApplicant} />
                 )}
@@ -554,10 +626,22 @@ function ApplicantProfile() {
         <EmbassyInterviewModal
           applicantId={id}
           user={user}
+          interviewBiometric={interviewBiometric || applicant?.interviewBiometric || null}
           open={showEmbassyInterviewModal}
           onClose={() => setShowEmbassyInterviewModal(false)}
           onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadEmbassyInterview()]);
+            await Promise.all([loadApplicant(), loadEmbassyInterview(), loadInterviewTicket(), loadInterviewBiometric()]);
+          }}
+        />
+
+        <InterviewBiometricModal
+          applicantId={id}
+          user={user}
+          fallbackInterviewBiometric={applicant?.interviewBiometric || null}
+          open={showInterviewBiometricModal}
+          onClose={() => setShowInterviewBiometricModal(false)}
+          onUpdated={async () => {
+            await Promise.all([loadApplicant(), loadInterviewBiometric()]);
           }}
         />
       </div>

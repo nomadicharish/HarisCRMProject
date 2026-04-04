@@ -2089,8 +2089,25 @@ exports.getEmbassyInterview = async (req, res) => {
       .get();
 
     const data = doc.data();
+    const interview = data.embassyInterview || null;
 
-    res.json(data.embassyInterview || null);
+    if (!interview) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    res.json({
+      ...interview,
+      createdAt: normalizeDate(interview.createdAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2119,6 +2136,21 @@ exports.addInterviewTicket = async (req, res) => {
       });
     }
 
+    const applicantRef = db.collection("applicants").doc(applicantId);
+    const applicantSnap = await applicantRef.get();
+
+    if (!applicantSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const currentStage = Number(applicantSnap.data()?.stage || 1);
+
+    if (currentStage < 8) {
+      return res.status(400).json({
+        message: "Cannot add interview ticket before interview completion stage"
+      });
+    }
+
     let fileUrl = "";
 
     // Optional file upload
@@ -2139,10 +2171,7 @@ exports.addInterviewTicket = async (req, res) => {
       fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
     }
 
-    await db
-      .collection("applicants")
-      .doc(applicantId)
-      .set({
+    await applicantRef.set({
         interviewTicket: {
           date,
           time,
@@ -2174,8 +2203,25 @@ exports.getInterviewTicket = async (req, res) => {
       .get();
 
     const data = doc.data();
+    const interviewTicket = data.interviewTicket || null;
 
-    res.json(data.interviewTicket || null);
+    if (!interviewTicket) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    res.json({
+      ...interviewTicket,
+      createdAt: normalizeDate(interviewTicket.createdAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2218,6 +2264,19 @@ exports.uploadInterviewBiometric = async (req, res) => {
     const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
 
     const docRef = db.collection("applicants").doc(applicantId);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const currentStage = Number(docSnap.data()?.stage || 1);
+
+    if (currentStage < 8) {
+      return res.status(400).json({
+        message: "Cannot add interview biometric before interview completion stage"
+      });
+    }
 
     // Save document
     await docRef.set({
@@ -2258,8 +2317,25 @@ exports.getInterviewBiometric = async (req, res) => {
       .get();
 
     const data = doc.data();
+    const interviewBiometric = data.interviewBiometric || null;
 
-    res.json(data.interviewBiometric || null);
+    if (!interviewBiometric) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    res.json({
+      ...interviewBiometric,
+      uploadedAt: normalizeDate(interviewBiometric.uploadedAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
