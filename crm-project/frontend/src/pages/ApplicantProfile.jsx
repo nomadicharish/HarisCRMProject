@@ -103,6 +103,213 @@ function ApplicantProfile() {
     fontWeight: "bold"
   };
 
+  const ProfileCard = () => (
+      <div style={{
+        width: "280px",
+        background: "#fff",
+        borderRadius: "12px",
+        padding: "20px",
+        boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
+      }}>
+        <h3 style={{ marginBottom: "10px" }}>{applicant.fullName}</h3>
+
+        <p style={{ color: "#666" }}>Age {applicant.age}</p>
+
+        <p style={{ marginTop: "10px" }}>
+          📞 {applicant.phone}
+        </p>
+
+        <div style={{ marginTop: "10px", color: "#666" }}>
+          <div><b>Address</b></div>
+          <div>{applicant.address}</div>
+        </div>
+
+        <div style={{ marginTop: "10px" }}>
+          <b>Employer</b>
+          <div>{applicant.companyName}</div>
+        </div>
+
+        <div style={{
+          marginTop: "15px",
+          background: "#eef3ff",
+          padding: "10px",
+          borderRadius: "8px",
+          fontWeight: "bold"
+        }}>
+          Pending Amount<br />
+          ₹ {applicant.pendingAmount}
+        </div>
+      </div>
+    );
+
+    const Pipeline = () => {
+
+        return (
+          <div style={{
+            flex: 1,
+            background: "#fff",
+            padding: "20px",
+            borderRadius: "12px",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
+          }}>
+
+            <h3>Complete pipeline</h3>
+
+            {/* PROGRESS HEADER */}
+            <div style={{
+              background: "#eef3ff",
+              padding: "12px",
+              borderRadius: "8px",
+              marginBottom: "20px"
+            }}>
+              <b>
+                {applicant.stage}/11 Complete the process
+              </b>
+            </div>
+
+            {STAGES.map(stage => {
+
+              const isActive = applicant.stage === stage.id;
+              const isCompleted = applicant.stage > stage.id;
+
+              return (
+                <div key={stage.id} style={{
+                  padding: "14px",
+                  borderRadius: "8px",
+                  marginBottom: "10px",
+                  background: isActive
+                    ? "#eef3ff"
+                    : isCompleted
+                      ? "#f6f6f6"
+                      : "#fff",
+                  border: isActive
+                    ? "1px solid #4f6ef7"
+                    : "1px solid #eee"
+                }}>
+
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+
+                    <div>
+                      <b>{stage.name}</b>
+
+                      {isCompleted && (
+                        <div style={{ color: "green", fontSize: "12px" }}>
+                          Completed
+                        </div>
+                      )}
+                    </div>
+
+                    {/* CTA BUTTONS */}
+                    {isActive && stage.id === 2 && (
+                      <button className="btn-primary">
+                        Upload Documents
+                      </button>
+                    )}
+
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+        );
+      };
+
+      const DocumentSection = () => {
+
+          return (
+            <div style={{
+              marginTop: "20px",
+              background: "#fff",
+              padding: "20px",
+              borderRadius: "12px",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.05)"
+            }}>
+
+              <h3>Upload relevant documents for admin approval</h3>
+
+              {/* STATUS BANNER */}
+              {allApproved && (
+                <div style={{
+                  background: "#e6f7ec",
+                  padding: "10px",
+                  borderRadius: "8px",
+                  marginBottom: "15px",
+                  color: "green"
+                }}>
+                  All documents uploaded. Ready for approval
+                </div>
+              )}
+
+              {/* DOCUMENT LIST */}
+              {DOCUMENTS.map(doc => {
+
+                const versions = documents[doc.key] || [];
+                const latest = versions[0];
+
+                return (
+                  <div key={doc.key} style={{
+                    padding: "12px",
+                    borderBottom: "1px solid #eee"
+                  }}>
+
+                    <div style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}>
+
+                      <div>
+                        {doc.label}
+
+                        {latest?.status === "APPROVED" && (
+                          <span style={{ color: "green", marginLeft: "10px" }}>
+                            ✔ Approved
+                          </span>
+                        )}
+
+                        {latest?.status === "REJECTED" && (
+                          <span style={{ color: "red", marginLeft: "10px" }}>
+                            ❌ Rejected
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+
+                        {latest?.fileUrl && (
+                          <a href={latest.fileUrl} target="_blank">
+                            View
+                          </a>
+                        )}
+
+                        {(!latest || latest.status === "REJECTED") && (
+                          <>
+                            <input
+                              type="file"
+                              onChange={(e) =>
+                                handleFileSelect(doc.key, e.target.files[0])
+                              }
+                            />
+
+                            <button onClick={() => uploadDoc(doc.key, selectedFiles[doc.key])}>
+                              Upload
+                            </button>
+                          </>
+                        )}
+
+                      </div>
+
+                    </div>
+
+                  </div>
+                );
+              })}
+
+            </div>
+          );
+        };
+
   if (loading) {
     return <div style={{ padding: "40px" }}>Loading...</div>;
   }
@@ -242,272 +449,25 @@ function ApplicantProfile() {
   return (
     <div className="page-container">
       <div className="page-content">
+
         <h2>Applicant Profile</h2>
 
-       <div style={{ display: "flex", gap: "20px" }}>
+        <div style={{ display: "flex", gap: "20px" }}>
 
-          {/* LEFT CARD */}
-          <div style={leftCard}>
-            <h3>{applicant.fullName}</h3>
-            <p>Age {applicant.age}</p>
-            <p>{applicant.phone}</p>
+          {/* LEFT */}
+          <ProfileCard />
 
-            <p><b>Employer:</b> {applicant.companyName}</p>
-
-            <div style={amountBox}>
-              Pending: ₹ {applicant.pendingAmount}
-            </div>
-          </div>
-
-          {/* RIGHT PIPELINE */}
-          <div style={rightCard}>
-            <h3>Complete Pipeline</h3>
-
-            {STAGES.map(stage => (
-              <div key={stage.id} style={pipelineRow}>
-                {stage.name}
-              </div>
-            ))}
-          </div>
+          {/* RIGHT */}
+          <Pipeline />
 
         </div>
 
-        <div className="card">
-          <h3>Documents</h3>
+        {/* DOCUMENT SECTION ONLY FOR STAGE 2 */}
+        {applicant.stage === 2 && <DocumentSection />}
 
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th>Document</th>
-                <th>Status</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-
-            <tbody>
-
-              {DOCUMENTS.map(doc => {
-
-                if (doc.key === "UNMARRIED_CERTIFICATE" && applicant.maritalStatus !== "Single") return null;
-                if (doc.key === "MARRIAGE_CERTIFICATE" && applicant.maritalStatus !== "Married") return null;
-
-                const versions = documents[doc.key] || [];
-                const selected = selectedFiles[doc.key];
-
-                // Latest version (important)
-                const latest = versions[0];
-
-                return (
-                  <React.Fragment key={doc.key}>
-
-                    {/* DOCUMENT HEADER ROW */}
-                    <tr style={{ background: "#f9f9f9" }}>
-                      <td>
-                        <b>{doc.label}</b> {doc.required && "*"}
-                      </td>
-
-                      <td>
-                        {!latest && "Not Uploaded"}
-
-                        {latest?.status === "PENDING" && "⏳ Pending"}
-                        {latest?.status === "APPROVED" && "✅ Approved"}
-                        {latest?.status === "REJECTED" && "❌ Rejected"}
-                        {latest?.status === "DEFERRED" && "⏸ Deferred"}
-                      </td>
-
-                      <td>
-
-                        {/* FILE SELECT */}
-                        {(!latest || latest.status === "REJECTED") && (
-                          <>
-                            <input
-                              type="file"
-                              onChange={(e) =>
-                                handleFileSelect(doc.key, e.target.files[0])
-                              }
-                            />
-
-                            {selected && (
-                              <button onClick={() => uploadDoc(doc.key, selected)}>
-                                Upload
-                              </button>
-                            )}
-                          </>
-                        )}
-
-                        {/* DEFER */}
-                        {!doc.required && !latest && (
-                          <button onClick={() => deferDoc(doc.key)}>
-                            Defer
-                          </button>
-                        )}
-
-                      </td>
-                    </tr>
-
-                    {/* VERSION ROWS */}
-                    {versions.map((v, index) => (
-                      <tr key={v.id} style={{ background: "#fff" }}>
-
-                        {/* VERSION LABEL */}
-                        <td style={{ paddingLeft: "30px" }}>
-                          Version {versions.length - index}
-                        </td>
-
-                        {/* STATUS */}
-                        <td>
-                          {v.status === "PENDING" && "⏳ Pending"}
-                          {v.status === "APPROVED" && "✅ Approved"}
-                          {v.status === "REJECTED" && "❌ Rejected"}
-                        </td>
-
-                        {/* ACTIONS */}
-                        <td>
-
-                          {/* VIEW */}
-                          <a href={v.fileUrl} target="_blank">
-                            View
-                          </a>
-
-                          {/* REJECTION REASON */}
-                          {v.status === "REJECTED" && (
-                            <div style={{ color: "red", fontSize: "12px" }}>
-                              Reason: {v.rejectedReason}
-                            </div>
-                          )}
-
-                          {/* APPROVE / REJECT */}
-                          {user?.role === "SUPER_USER" && v.status === "PENDING" && (
-                            <>
-                              <button onClick={() => approveDoc(doc.key, v.id)}>
-                                Approve
-                              </button>
-
-                              <button onClick={() => rejectDoc(doc.key, v.id)}>
-                                Reject
-                              </button>
-                            </>
-                          )}
-
-                        </td>
-
-                      </tr>
-                    ))}
-
-                  </React.Fragment>
-                );
-              })}
-
-            </tbody>
-          </table>
-        </div>
-
-        {applicant.stage >= 3 && (
-          <DispatchSection applicantId={id} />
-        )}
-
-        {applicant.stage >= 4 && (
-          <ContractSection applicantId={id} user={user} />
-        )}
-
-        {applicant.stage >= 5 && (
-            <EmbassyAppointment
-              applicantId={id}
-              user={user}
-              loadApplicant={loadApplicant}
-            />
-          )}
-
-        {applicant.stage >= 6 && (
-            <TravelSection applicantId={id} user={user} />
-        )}
-
-        {applicant.stage >= 6 && (
-          <BiometricSection
-            applicantId={id}
-            user={user}
-            loadApplicant={loadApplicant}
-          />
-        )}
-
-        {applicant.stage >= 7 && (
-          <EmbassyInterview
-            applicantId={id}
-            user={user}
-            loadApplicant={loadApplicant}
-          />
-        )}
-
-        {applicant.stage >= 8 && (
-          <InterviewTicket applicantId={id} user={user} />
-        )}
-
-        {applicant.stage >= 8 && (
-          <InterviewBiometric
-            applicantId={id}
-            user={user}
-            loadApplicant={loadApplicant}
-          />
-        )}
-
-        {applicant.stage >= 9 && (
-          <VisaCollection
-            applicantId={id}
-            user={user}
-            loadApplicant={loadApplicant}
-          />
-        )}
-
-        {applicant.stage >= 10 && (
-          <VisaTravel applicantId={id} user={user} />
-        )}
-
-        {applicant.stage >= 10 && (
-          <ResidencePermit
-            applicantId={id}
-            user={user}
-            loadApplicant={loadApplicant}
-          />
-        )}
-
-        {user?.role === "SUPER_USER" && applicant.stage == 11 && (
-          <button
-            style={{
-              marginTop: "20px",
-              background: "green",
-              color: "white",
-              padding: "10px 15px",
-              border: "none",
-              cursor: "pointer"
-            }}
-            onClick={completeProcess}
-          >
-            Mark as Completed
-          </button>
-        )}
-
-        {applicant.stage === 12 && (
-          <p style={{ color: "green", fontWeight: "bold" }}>
-            ✅ Candidate Arrived / Process Completed
-          </p>
-        )}
-
-
-        <div className="card">
-          <h3>Payment Summary</h3>
-          <p>
-            <b>Total:</b> {"\u20B9"} {total}
-          </p>
-          <p>
-            <b>Paid:</b> {"\u20B9"} {paid}
-          </p>
-          <p>
-            <b>Pending:</b> {"\u20B9"} {pending}
-          </p>
-        </div>
       </div>
     </div>
-  );
+      );
 }
 
 export default ApplicantProfile;
