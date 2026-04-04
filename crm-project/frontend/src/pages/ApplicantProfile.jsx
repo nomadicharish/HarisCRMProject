@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 import "../styles/forms.css";
 import "../styles/applicantProfile.css";
+import "../styles/applicantContract.css";
 import ApplicantFormModal from "../components/applicant-form/ApplicantFormModal";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import ApplicantDetailsView from "../components/applicant/ApplicantDetailsView";
@@ -52,7 +53,9 @@ function ApplicantProfile() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [documents, setDocuments] = useState({});
+  const [contract, setContract] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showContractModal, setShowContractModal] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [editContext, setEditContext] = useState("default");
   const [resolvedAgencyName, setResolvedAgencyName] = useState("");
@@ -90,11 +93,22 @@ function ApplicantProfile() {
     }
   }, [id]);
 
+  const loadContract = useCallback(async () => {
+    try {
+      const res = await API.get(`/applicants/${id}/contract`);
+      setContract(res.data || null);
+    } catch (err) {
+      console.error(err);
+      setContract(null);
+    }
+  }, [id]);
+
   useEffect(() => {
     loadApplicant();
     loadUser();
     loadDocuments();
-  }, [loadApplicant, loadUser, loadDocuments]);
+    loadContract();
+  }, [loadApplicant, loadUser, loadDocuments, loadContract]);
 
   useEffect(() => {
     const agencyId = applicant?.agencyId;
@@ -146,6 +160,10 @@ function ApplicantProfile() {
     setShowEditModal(true);
   };
 
+  const openContractSection = () => {
+    setShowContractModal(true);
+  };
+
   const canEditApplicant = user?.role === "SUPER_USER";
   const applicantStage = Number(applicant?.stage || 1);
   const pipelineStep = Math.min(applicantStage, 11);
@@ -172,6 +190,12 @@ function ApplicantProfile() {
     applicantStage === 1 && String(applicant?.approvalStatus || "").toLowerCase() === "pending";
   const docReviewState = getDocumentReviewState(documents, applicant);
   const hasCompletedDocumentStage = applicantStage >= 3 && docReviewState.approvedRequired;
+  const canAccessDispatch = applicantStage >= 3;
+  const canEditDispatch = user?.role === "AGENCY" && applicantStage >= 3 && applicantStage < 5;
+  const canShowDispatchHeaderButton = canEditDispatch || applicantStage === 4;
+  const canIssueContract = applicantStage === 4 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+  const isContractPendingApproval = applicantStage === 4 && contract?.status === "PENDING";
+  const isContractCompleted = applicantStage >= 5 && contract?.status === "APPROVED";
   const hasDocuments = Object.keys(documents || {}).length > 0;
   const shouldShowDocumentAction =
     !hasCompletedDocumentStage &&
@@ -195,6 +219,10 @@ function ApplicantProfile() {
     ? "Candidate pending for approval"
     : applicantStage === 1
     ? "Complete the candidate profile for approval"
+    : applicantStage >= 5
+    ? "Pending embassy appointment."
+    : applicantStage === 4
+    ? "Issue of the contract pending."
     : hasCompletedDocumentStage
     ? "Dispatch the document"
     : docReviewState.rejectedRequired
@@ -211,11 +239,35 @@ function ApplicantProfile() {
     : applicantStage === 2
     ? "active"
     : "";
-  const headerActionLabel =
-    applicantStage === 1 && canEditApplicant ? "Approve Profile" : documentsButtonLabel;
+  const dispatchRowTitle = applicantStage >= 4 ? "Document Dispatched" : "Dispatch Documents";
+  const contractRowTitle = isContractCompleted
+    ? "Contract Issued"
+    : isContractPendingApproval
+    ? "Contract pending super user approval"
+    : "Issue of the Contract";
+  const contractRowStatus = isContractCompleted
+    ? "completed"
+    : isContractPendingApproval
+    ? "warning"
+    : applicantStage === 4
+    ? "active"
+    : "";
+  const headerActionLabel = canIssueContract
+    ? "Issue Contract"
+    : canShowDispatchHeaderButton
+    ? canEditDispatch
+      ? "Dispatch Document"
+      : "Documents Dispatched"
+    : applicantStage === 1 && canEditApplicant
+    ? "Approve Profile"
+    : documentsButtonLabel;
 
   const handleShowDocuments = () => {
     navigate(`/applicants/${id}/documents`);
+  };
+
+  const handleShowDispatch = () => {
+    navigate(`/applicants/${id}/dispatch`);
   };
 
   const approveStage = async () => {
@@ -250,27 +302,46 @@ function ApplicantProfile() {
               onUploadDocuments={handleShowDocuments}
               canUploadDocuments={shouldShowDocumentAction}
               onHeaderAction={
-                applicantStage === 1 && canEditApplicant
+                canIssueContract
+                  ? openContractSection
+                  : canShowDispatchHeaderButton
+                  ? handleShowDispatch
+                  : applicantStage === 1 && canEditApplicant
                   ? () => openEditProfile("stage1")
                   : shouldShowDocumentAction
                   ? handleShowDocuments
                   : undefined
               }
               headerActionLabel={headerActionLabel}
-              canHeaderAction={applicantStage === 1 ? canEditApplicant : shouldShowDocumentAction}
+              canHeaderAction={
+                canIssueContract
+                  ? true
+                  : canShowDispatchHeaderButton
+                  ? true
+                  : applicantStage === 1
+                  ? canEditApplicant
+                  : shouldShowDocumentAction
+              }
               uploadButtonLabel={documentsButtonLabel}
               documentRowSubtitle={documentRowSubtitle}
+              dispatchRowTitle={dispatchRowTitle}
+              contractRowTitle={contractRowTitle}
+              contractRowStatus={contractRowStatus}
               bannerText={pipelineBannerText}
               documentRowStatus={documentRowStatus}
               onCandidateAccountCreation={() => openEditProfile("stage1")}
+              onDispatchDocuments={canAccessDispatch ? handleShowDispatch : undefined}
+              onContractAction={applicantStage >= 4 ? openContractSection : undefined}
             />
 
             {showMore && <ApplicantDetailsView applicant={applicant} />}
 
             {showMore && (
               <div className="moreSection">
-                {Number(applicant.stage) >= 3 && <DispatchSection applicantId={id} />}
-                {Number(applicant.stage) >= 4 && <ContractSection applicantId={id} user={user} />}
+                {Number(applicant.stage) >= 3 &&
+                  !["SUPER_USER", "EMPLOYER"].includes(user?.role) && (
+                    <DispatchSection applicantId={id} canEdit={false} compact={true} />
+                  )}
                 {Number(applicant.stage) >= 5 && (
                   <EmbassyAppointment applicantId={id} user={user} loadApplicant={loadApplicant} />
                 )}
@@ -325,6 +396,16 @@ function ApplicantProfile() {
             }
           />
         )}
+
+        <ContractSection
+          applicantId={id}
+          user={user}
+          open={showContractModal}
+          onClose={() => setShowContractModal(false)}
+          onUpdated={async () => {
+            await Promise.all([loadApplicant(), loadContract()]);
+          }}
+        />
       </div>
     </div>
   );

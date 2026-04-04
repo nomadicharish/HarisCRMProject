@@ -1,0 +1,85 @@
+.dispatchSection{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.dispatchTopBar{
+  border-radius:10px;
+  padding:14px 16px;
+  min-height:64px;
+  display:flex;
+  align-items:center;
+  background:linear-gradient(90deg, #485a99 0%, #44558f 100%);
+  color:#fff;
+  position:relative;
+}
+
+.dispatchTopBar::before{
+  content:"";
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  margin-right:10px;
+  background:rgba(255,255,255,0.18);
+  flex:0 0 auto;
+}
+
+.dispatchTopBarTitle{
+  font-size:14px;
+  font-weight:800;
+  line-height:1.3;
+}
+
+.dispatchCard{
+  margin-bottom:0;
+}
+
+.dispatchTitle{
+  margin:0 0 18px;
+  font-size:18px;
+  font-weight:800;
+  color:#101828;
+}
+
+.dispatchFormGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.dispatchFormActions{
+  display:flex;
+  align-items:flex-end;
+}
+
+.dispatchHistoryHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.dispatchHistoryTitle{
+  font-size:15px;
+  font-weight:800;
+  color:#111827;
+}
+
+.dispatchEmptyCell{
+  color:#667085;
+  font-weight:600;
+}
+
+.dispatchSectionCompact .dispatchTopBar{
+  display:none;
+}
+
+@media (max-width: 768px){
+  .dispatchHistoryHeader{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}

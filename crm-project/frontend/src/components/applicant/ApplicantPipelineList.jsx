@@ -100,11 +100,17 @@ function ApplicantPipelineList({
   onUploadDocuments,
   canUploadDocuments,
   onCandidateAccountCreation,
+  onDispatchDocuments,
+  onContractAction,
   onHeaderAction,
   headerActionLabel = "",
   canHeaderAction = true,
   uploadButtonLabel = "Upload Documents",
   documentRowSubtitle = "",
+  dispatchRowTitle = "Dispatch Documents",
+  contractRowTitle = "Issue of the Contract",
+  contractRowSubtitle = "",
+  contractRowStatus = "",
   bannerText = "Complete the document uploading for admin to approve the candidate",
   documentRowStatus = ""
 }) {
@@ -138,7 +144,12 @@ function ApplicantPipelineList({
         {PIPELINE_ITEMS.map((item) => {
           const status =
             item.id < currentStep ? "completed" : item.id === currentStep ? "active" : "locked";
-          const resolvedStatus = item.id === 2 && documentRowStatus ? documentRowStatus : status;
+          const resolvedStatus =
+            item.id === 2 && documentRowStatus
+              ? documentRowStatus
+              : item.id === 4 && contractRowStatus
+              ? contractRowStatus
+              : status;
           const showRowButton =
             item.id === 2 &&
             Number(currentStep) >= 2 &&
@@ -146,16 +157,26 @@ function ApplicantPipelineList({
             canUploadDocuments &&
             Boolean(uploadButtonLabel) &&
             typeof onUploadDocuments === "function";
-          const isCandidateRow = item.id === 1;
-          const canCandidateClick = typeof onCandidateAccountCreation === "function";
-          const resolvedSubtitle = item.id === 2 ? documentRowSubtitle : "";
+          const rowAction =
+            item.id === 1
+              ? onCandidateAccountCreation
+              : item.id === 3
+              ? onDispatchDocuments
+              : item.id === 4
+              ? onContractAction
+              : undefined;
+          const canRowClick = typeof rowAction === "function";
+          const resolvedSubtitle =
+            item.id === 2 ? documentRowSubtitle : item.id === 4 ? contractRowSubtitle : "";
+          const resolvedTitle =
+            item.id === 3 ? dispatchRowTitle : item.id === 4 ? contractRowTitle : item.title;
 
           return (
             <div key={item.key} className={`pipeRow pipeRow-${resolvedStatus}`}>
               <div className="pipeLeft">
                 <StatusIcon status={resolvedStatus} />
                 <div className="pipeText">
-                  <div className="pipeTitle">{item.title}</div>
+                  <div className="pipeTitle">{resolvedTitle}</div>
                   {resolvedSubtitle ? (
                     <div className={`pipeMeta pipeMeta-${resolvedStatus}`}>{resolvedSubtitle}</div>
                   ) : null}
@@ -168,12 +189,12 @@ function ApplicantPipelineList({
                     {uploadButtonLabel}
                   </button>
                 )}
-                {isCandidateRow && canCandidateClick ? (
+                {canRowClick ? (
                   <button
                     className="pipeChevronBtn"
                     type="button"
-                    onClick={onCandidateAccountCreation}
-                    aria-label="Edit candidate account creation"
+                    onClick={rowAction}
+                    aria-label={`Open ${item.title}`}
                   >
                     <IconChevron />
                   </button>
