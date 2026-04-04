@@ -1,0 +1,146 @@
+.contractModalOverlay{
+  position:fixed;
+  inset:0;
+  background:rgba(15,23,42,0.42);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  z-index:1300;
+}
+
+.contractModalCard{
+  width:100%;
+  max-width:620px;
+  background:#fff;
+  border-radius:16px;
+  box-shadow:0 20px 50px rgba(15,23,42,0.24);
+  padding:22px;
+  box-sizing:border-box;
+}
+
+.contractModalHeader{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.contractModalTitle{
+  margin:0;
+  font-size:20px;
+  font-weight:800;
+  color:#111827;
+}
+
+.contractCloseBtn{
+  border:none;
+  background:transparent;
+  cursor:pointer;
+  font-size:18px;
+  color:#475467;
+}
+
+.contractStatus{
+  display:inline-flex;
+  align-items:center;
+  margin-top:8px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+}
+
+.contractStatus-pending{
+  background:#fff7e8;
+  color:#b45309;
+}
+
+.contractStatus-approved{
+  background:#ecfdf5;
+  color:#15803d;
+}
+
+.contractInfoCard{
+  border:1px solid #e7ecf4;
+  border-radius:12px;
+  background:#f9fbff;
+  padding:16px;
+}
+
+.contractInfoRow{
+  display:flex;
+  justify-content:space-between;
+  gap:16px;
+  padding:8px 0;
+  font-size:14px;
+  color:#344054;
+}
+
+.contractInfoRow + .contractInfoRow{
+  border-top:1px solid #e7ecf4;
+}
+
+.contractUploadPanel{
+  margin-top:18px;
+  padding-top:18px;
+  border-top:1px solid #eef2f7;
+}
+
+.contractUploadLabel{
+  display:block;
+  margin-bottom:8px;
+  font-size:13px;
+  font-weight:700;
+  color:#344054;
+}
+
+.contractFileCard{
+  width:180px;
+  min-height:98px;
+  border:1px solid #d7deea;
+  border-radius:10px;
+  background:#f8fafc;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:12px;
+  cursor:pointer;
+  box-sizing:border-box;
+}
+
+.contractFileInput{
+  display:none;
+}
+
+.contractFileCardTitle{
+  font-size:12px;
+  font-weight:700;
+  color:#475467;
+  line-height:1.4;
+  word-break:break-word;
+}
+
+.contractSelectedFile{
+  margin-top:10px;
+  font-size:12px;
+  font-weight:600;
+  color:#475467;
+}
+
+.contractActionRow{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-top:16px;
+  flex-wrap:wrap;
+}
+
+@media (max-width: 768px){
+  .contractInfoRow,
+  .contractModalHeader{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+}

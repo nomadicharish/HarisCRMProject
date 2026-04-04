@@ -733,6 +733,15 @@ const approveAppointment = async (req, res) => {
 const MANUAL_STAGE_IDS = [1, 2, 4, 5, 7, 9, 11];
 const AUTO_STAGE_IDS = [3, 6, 8, 10];
 const MAX_STAGE = 11;
+const REQUIRED_STAGE_TWO_DOCUMENTS = [
+  "PASSPORT",
+  "PAN_CARD",
+  "EDUCATION_10TH",
+  "EDUCATION_12TH",
+  "PHOTO",
+  "BIRTH_CERTIFICATE",
+  "MEDICAL_CERTIFICATE"
+];
 
 const getAllowedRoleForStage = (stage) => {
   // Update as needed for additional workflow/authorization rules
@@ -751,6 +760,65 @@ const addStageLog = async ({ applicantId, fromStage, toStage, role, action }) =>
     role,
     action,
     timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+};
+
+const getRequiredDocumentTypes = (applicant) => {
+  const required = [...REQUIRED_STAGE_TWO_DOCUMENTS];
+  const maritalStatus =
+    applicant?.maritalStatus || applicant?.personalDetails?.maritalStatus || "";
+
+  if (maritalStatus === "Single") required.push("UNMARRIED_CERTIFICATE");
+  if (maritalStatus === "Married") required.push("MARRIAGE_CERTIFICATE");
+
+  return required;
+};
+
+const areLatestRequiredDocumentsApproved = async (applicantId, applicant) => {
+  const requiredDocs = getRequiredDocumentTypes(applicant);
+
+  for (const docType of requiredDocs) {
+    const latestSnap = await db
+      .collection("applicants")
+      .doc(applicantId)
+      .collection("documents")
+      .doc(docType)
+      .collection("versions")
+      .orderBy("uploadedAt", "desc")
+      .limit(1)
+      .get();
+
+    if (latestSnap.empty) return false;
+    if (latestSnap.docs[0].data()?.status !== "APPROVED") return false;
+  }
+
+  return true;
+};
+
+const syncApplicantDocumentStage = async (applicantId, applicant, actorId, actorRole = "SYSTEM") => {
+  if (!applicant) return;
+
+  const currentStage = Number(applicant.stage || 1);
+  if (currentStage < 2) return;
+  const allApproved = await areLatestRequiredDocumentsApproved(applicantId, applicant);
+
+  if (!allApproved || currentStage >= 3) {
+    return;
+  }
+
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  await applicantRef.update({
+    stage: 3,
+    stageUpdatedAt: new Date(),
+    lastActionBy: actorId || null
+  });
+
+  await addStageLog({
+    applicantId,
+    fromStage: currentStage,
+    toStage: 3,
+    role: actorRole,
+    action: "ALL_REQUIRED_DOCUMENTS_APPROVED"
   });
 };
 
@@ -853,23 +921,7 @@ const approveAndMoveStage = async (req, res) => {
         }
       }
 
-      let requiredDocs = [
-        "PASSPORT",
-        "PAN_CARD",
-        "EDUCATION_10TH",
-        "EDUCATION_12TH",
-        "PHOTO",
-        "BIRTH_CERTIFICATE",
-        "MEDICAL_CERTIFICATE"
-      ];
-
-      if (applicant.maritalStatus === "Single") {
-        requiredDocs.push("UNMARRIED_CERTIFICATE");
-      }
-
-      if (applicant.maritalStatus === "Married") {
-        requiredDocs.push("MARRIAGE_CERTIFICATE");
-      }
+      let requiredDocs = getRequiredDocumentTypes(applicant);
 
       for (let docType of requiredDocs) {
 
@@ -892,11 +944,19 @@ const approveAndMoveStage = async (req, res) => {
     // ================================
     const nextStage = currentStage + 1;
 
-    await docRef.update({
+    const updatePayload = {
       stage: nextStage,
       stageUpdatedAt: new Date(),
       lastActionBy: req.user.uid
-    });
+    };
+
+    if (currentStage === 1) {
+      updatePayload.approvalStatus = "approved";
+      updatePayload.approvedAt = new Date();
+      updatePayload.approvedBy = req.user.uid;
+    }
+
+    await docRef.update(updatePayload);
 
     await addStageLog({
       applicantId,
@@ -954,22 +1014,66 @@ const getApplicantById = async (req, res) => {
       companyName = companyDoc.exists ? companyDoc.data().name : "";
     }
 
+    await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
+
+    const refreshedApplicantSnap = await db.collection("applicants").doc(applicantId).get();
+    const applicantData = refreshedApplicantSnap.exists ? refreshedApplicantSnap.data() : applicant;
+
+    let countryName = "";
+    if (applicantData.countryId) {
+      const countryDoc = await db
+        .collection("countries")
+        .doc(applicantData.countryId)
+        .get();
+
+      countryName = countryDoc.exists ? countryDoc.data().name : "";
+    }
+
     // Fetch agency name
     let agencyName = "";
-    if (applicant.agencyId) {
+    if (applicantData.agencyId) {
       const agencyDoc = await db
         .collection("agencies")
-        .doc(applicant.agencyId)
+        .doc(applicantData.agencyId)
         .get();
 
       agencyName = agencyDoc.exists ? agencyDoc.data().name : "";
     }
 
+    const applicantPaymentsSnap = await db
+      .collection("applicants")
+      .doc(applicantId)
+      .collection("payments")
+      .where("type", "==", "APPLICANT")
+      .get();
+
+    let applicantPaid = 0;
+    applicantPaymentsSnap.forEach((paymentDoc) => {
+      const amount = Number(paymentDoc.data()?.amount);
+      if (Number.isFinite(amount)) applicantPaid += amount;
+    });
+
+    const storedPaidAmount = Number(applicantData.amountPaid ?? applicantData.paidAmount ?? 0) || 0;
+    applicantPaid = Math.max(applicantPaid, storedPaidAmount);
+
+    const totalApplicantPayment = Number(
+      applicantData.totalApplicantPayment ?? applicantData.totalAmount ?? applicantData.totalPayment ?? 0
+    ) || 0;
+
     res.json({
       id: doc.id,
-      ...applicant,
+      ...applicantData,
       companyName,
-      agencyName
+      agencyName,
+      countryName,
+      totalAmount: totalApplicantPayment,
+      amountPaid: applicantPaid,
+      paidAmount: applicantPaid,
+      payment: {
+        total: totalApplicantPayment,
+        paid: applicantPaid,
+        pending: Math.max(0, totalApplicantPayment - applicantPaid)
+      }
     });
 
   } catch (error) {
@@ -1189,6 +1293,12 @@ exports.approveDocument = async (req, res) => {
 	      reviewedBy: req.user.uid
       });
 
+    const applicantRef = db.collection("applicants").doc(id);
+    const applicantSnap = await applicantRef.get();
+    const applicant = applicantSnap.exists ? applicantSnap.data() : null;
+
+    await syncApplicantDocumentStage(id, applicant, req.user.uid, req.user.role);
+
     res.json({ message: "Document approved" });
 
   } catch (err) {
@@ -1204,10 +1314,34 @@ exports.addDispatch = async (req, res) => {
 
     const applicantId = req.params.id;
     const { note, trackingUrl, awbNumber } = req.body;
+    const userRole = req.user?.role || "";
+
+    if (userRole !== "AGENCY") {
+      return res.status(403).json({
+        message: "Only agency can add dispatch details"
+      });
+    }
 
     if (!note || !awbNumber) {
       return res.status(400).json({
         message: "Note and AWB Number are required"
+      });
+    }
+
+    const applicantRef = db.collection("applicants").doc(applicantId);
+    const applicantSnap = await applicantRef.get();
+
+    if (!applicantSnap.exists) {
+      return res.status(404).json({
+        message: "Applicant not found"
+      });
+    }
+
+    const applicantStage = Number(applicantSnap.data()?.stage || 1);
+
+    if (applicantStage < 3 || applicantStage >= 5) {
+      return res.status(400).json({
+        message: "Dispatch can only be added during dispatch or contract stage"
       });
     }
 
@@ -1220,14 +1354,11 @@ exports.addDispatch = async (req, res) => {
         trackingUrl: trackingUrl || "",
         awbNumber,
         createdBy: req.user.uid,
+        createdByRole: userRole,
         createdAt: new Date()
       });
 
     // Auto advance stage 3 -> 4
-    const applicantRef = db.collection("applicants").doc(applicantId);
-    const applicantSnap = await applicantRef.get();
-    const applicantStage = applicantSnap.data()?.stage || 1;
-
     if (applicantStage === 3) {
       await autoAdvanceStage(applicantId, 3, "AUTO_AFTER_DISPATCH");
     }
@@ -1294,12 +1425,10 @@ exports.uploadContract = async (req, res) => {
   try {
 
     const applicantId = req.params.id;
+    const isSuperUser = req.user.role === "SUPER_USER";
+    const isEmployer = req.user.role === "EMPLOYER";
 
-    // 🔒 Only SUPER_USER & EMPLOYER
-    if (
-      req.user.role !== "SUPER_USER" &&
-      req.user.role !== "EMPLOYER"
-    ) {
+    if (!isSuperUser && !isEmployer) {
       return res.status(403).json({
         message: "Only Super User or Employer can upload contract"
       });
@@ -1312,9 +1441,7 @@ exports.uploadContract = async (req, res) => {
     }
 
     const bucket = admin.storage().bucket();
-
     const fileName = `contracts/${applicantId}_${Date.now()}`;
-
     const fileUpload = bucket.file(fileName);
 
     await fileUpload.save(req.file.buffer, {
@@ -1324,28 +1451,31 @@ exports.uploadContract = async (req, res) => {
     await fileUpload.makePublic();
 
     const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-
-    // Save in Firestore
     const applicantRef = db.collection("applicants").doc(applicantId);
-    
+    const uploadedAt = new Date();
+    const contractStatus = isSuperUser ? "APPROVED" : "PENDING";
+
     await applicantRef.set({
       contract: {
         fileUrl,
+        status: contractStatus,
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role,
-        uploadedAt: new Date()
+        uploadedAt,
+        issuedAt: uploadedAt,
+        approvedBy: isSuperUser ? req.user.uid : null,
+        approvedAt: isSuperUser ? uploadedAt : null
       }
     }, { merge: true });
 
-    // 🔁 Auto advance stage 4 → 5 when super user uploads contract
-    if (req.user.role === "SUPER_USER") {
+    if (isSuperUser) {
       const applicantSnap = await applicantRef.get();
       const currentStage = applicantSnap.data()?.stage || 1;
 
       if (currentStage === 4) {
         await applicantRef.update({
           stage: 5,
-          stageUpdatedAt: new Date()
+          stageUpdatedAt: uploadedAt
         });
 
         await addStageLog({
@@ -1360,7 +1490,83 @@ exports.uploadContract = async (req, res) => {
 
     res.json({
       message: "Contract uploaded successfully",
-      fileUrl
+      fileUrl,
+      status: contractStatus
+    });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
+// ===============================
+// APPROVE CONTRACT
+// ===============================
+exports.approveContract = async (req, res) => {
+  try {
+
+    const applicantId = req.params.id;
+
+    if (req.user.role !== "SUPER_USER") {
+      return res.status(403).json({
+        message: "Only Super User can approve contract"
+      });
+    }
+
+    const applicantRef = db.collection("applicants").doc(applicantId);
+    const applicantSnap = await applicantRef.get();
+
+    if (!applicantSnap.exists) {
+      return res.status(404).json({
+        message: "Applicant not found"
+      });
+    }
+
+    const applicant = applicantSnap.data();
+    const contract = applicant?.contract;
+
+    if (!contract?.fileUrl) {
+      return res.status(400).json({
+        message: "No contract available to approve"
+      });
+    }
+
+    if (contract.status === "APPROVED") {
+      return res.json({
+        message: "Contract already approved"
+      });
+    }
+
+    const approvedAt = new Date();
+
+    await applicantRef.set({
+      contract: {
+        ...contract,
+        status: "APPROVED",
+        approvedBy: req.user.uid,
+        approvedAt
+      }
+    }, { merge: true });
+
+    const currentStage = Number(applicant.stage || 1);
+
+    if (currentStage === 4) {
+      await applicantRef.update({
+        stage: 5,
+        stageUpdatedAt: approvedAt
+      });
+
+      await addStageLog({
+        applicantId,
+        fromStage: 4,
+        toStage: 5,
+        role: "SUPER_USER",
+        action: "CONTRACT_APPROVED"
+      });
+    }
+
+    res.json({
+      message: "Contract approved successfully"
     });
 
   } catch (err) {
@@ -1380,8 +1586,41 @@ exports.getContract = async (req, res) => {
       .get();
 
     const data = doc.data();
+    const contract = data.contract || null;
 
-    res.json(data.contract || null);
+    if (!contract) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    let uploadedByName = "";
+    if (contract.uploadedBy) {
+      const uploadedByDoc = await db.collection("users").doc(contract.uploadedBy).get();
+      uploadedByName = uploadedByDoc.exists ? uploadedByDoc.data()?.name || "" : "";
+    }
+
+    let approvedByName = "";
+    if (contract.approvedBy) {
+      const approvedByDoc = await db.collection("users").doc(contract.approvedBy).get();
+      approvedByName = approvedByDoc.exists ? approvedByDoc.data()?.name || "" : "";
+    }
+
+    res.json({
+      ...contract,
+      uploadedByName,
+      approvedByName,
+      uploadedAt: normalizeDate(contract.uploadedAt),
+      issuedAt: normalizeDate(contract.issuedAt),
+      approvedAt: normalizeDate(contract.approvedAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1389,8 +1628,7 @@ exports.getContract = async (req, res) => {
 };
 
 // ===============================
-// ADD EMBASSY APPOINTMENT
-// ===============================
+// ADD EMBASSY APPOINTMENT// ===============================
 exports.addEmbassyAppointment = async (req, res) => {
   try {
 
@@ -2351,6 +2589,7 @@ module.exports = {
   addDispatch: exports.addDispatch,
   getDispatches: exports.getDispatches,
   uploadContract: exports.uploadContract,
+  approveContract: exports.approveContract,
   getContract: exports.getContract, 
   addEmbassyAppointment: exports.addEmbassyAppointment,
   getEmbassyAppointment: exports.getEmbassyAppointment,
@@ -2375,3 +2614,4 @@ module.exports = {
   completeApplicant: exports.completeApplicant,
   updateApplicant: exports.updateApplicant
 };
+

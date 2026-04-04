@@ -109,6 +109,13 @@ router.post(
   applicantController.uploadContract
 );
 
+// Approve Contract
+router.patch(
+  "/:id/contract/approve",
+  verifyToken,
+  applicantController.approveContract
+);
+
 // Get Contract
 router.post(
   "/:id/embassy-appointment",

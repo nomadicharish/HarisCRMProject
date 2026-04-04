@@ -4,6 +4,8 @@ import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Applicants from "./pages/Applicants";
 import ApplicantProfile from "./pages/ApplicantProfile";
+import ApplicantDocumentsWorkspace from "./pages/ApplicantDocumentsWorkspace";
+import ApplicantDispatchWorkspace from "./pages/ApplicantDispatchWorkspace";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -15,6 +17,8 @@ function App() {
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/applicants" element={<Applicants />} />
           <Route path="/applicants/:id" element={<ApplicantProfile />} />
+          <Route path="/applicants/:id/documents" element={<ApplicantDocumentsWorkspace />} />
+          <Route path="/applicants/:id/dispatch" element={<ApplicantDispatchWorkspace />} />
         </Routes>
 
       <ToastContainer
