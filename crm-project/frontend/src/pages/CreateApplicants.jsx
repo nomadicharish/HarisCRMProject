@@ -5,6 +5,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 const THEME = {
   primary: "#2f80ed",
@@ -34,6 +37,7 @@ function CreateApplicants({ onClose, onSaved, editData }) {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [dob, setDob] = useState(null);
+
   const validateStep1 = () => {
   const newErrors = {};
 
@@ -42,14 +46,39 @@ function CreateApplicants({ onClose, onSaved, editData }) {
   if (!form.dob) newErrors.dob = "Date of birth is required";
   if (!form.age) newErrors.age = "Age is required";
   if (!form.address) newErrors.address = "Address is required";
-  if (!form.phone) newErrors.phone = "Phone number is required";
   if (!form.maritalStatus) newErrors.maritalStatus = "Select marital status";
+  
+  const phoneError = validatePhone();
+  if (phoneError) {
+    newErrors.phone = phoneError;
+  }
 
-  setErrors(newErrors);
+  setErrors(newErrors); 
   return Object.keys(newErrors).length === 0;
 };
 
-const validateStep2 = () => {
+  const validatePhone = () => {
+      if (!form.phone) {
+        return "Phone number is required";
+      }
+
+      try {
+        const phoneNumber = parsePhoneNumberFromString(
+          "+" + form.phone // important
+        );
+
+        if (!phoneNumber || !phoneNumber.isValid()) {
+          return `Invalid phone number for  ${form.phoneCountry.toUpperCase()}`;
+        }
+
+        return null;
+
+      } catch (error) {
+        return "Invalid phone number";
+      }
+    };
+
+  const validateStep2 = () => {
   const newErrors = {};
 
   if (!form.countryId) newErrors.countryId = "Select country";
@@ -141,8 +170,9 @@ const validateStep2 = () => {
             age: parsedDob ? calculateAge(parsedDob) : editData.age || "",
             address:
               editData.address || editData.personalDetails?.address || "",
-            phone:
-              editData.phone || editData.personalDetails?.phone || "",
+            phone: 
+              editData.personalDetails?.phone || "",
+              phoneCountry: "in", // default fallback
             maritalStatus:
               editData.maritalStatus || editData.personalDetails?.maritalStatus || "",
             countryId: resolvedCountryId,
@@ -178,6 +208,7 @@ const validateStep2 = () => {
     age: "",
     address: "",
     phone: "",
+    phoneCountry: "in",
     maritalStatus: "",
     companyId: "",
     countryId: "",
@@ -550,19 +581,47 @@ const agencyOptions = agencies.map(a => ({
               <div>
                 <label style={label}>Phone</label>
 
-                <input
-                    style={{
-                      ...input,
-                      border: errors.phone
-                        ? `1px solid ${THEME.error}`
-                        : input.border
-                    }}
-                    value={form.phone || ""}
-                    onFocus={handleFocus}
-                    onBlur={(e) => handleBlur(e, errors.phone)}
-                    onChange={(e) => handleChange("phone", e.target.value)}
-                    placeholder="Phone Number"
-                  />
+                <PhoneInput
+                      country={form.phoneCountry || "in"}
+                      value={form.phone || ""}
+                      placeholder="Enter phone number"
+
+                      onChange={(phone, country) => {
+                        setForm(prev => ({
+                          ...prev,
+                          phone,
+                          phoneCountry: country.countryCode
+                        }));
+                      }}
+
+                      containerStyle={{
+                        width: "100%"
+                      }}
+
+                      inputStyle={{
+                        width: "100%",
+                        height: "45px",
+                        paddingLeft: "60px", // 🔥 KEY FIX (space for flag + code)
+                        borderRadius: "8px",
+                        border: errors.phone
+                          ? `1px solid ${THEME.error}`
+                          : input.border,
+                        fontSize: "14px"
+                      }}
+
+                      buttonStyle={{
+                        borderTopLeftRadius: "8px",
+                        borderBottomLeftRadius: "8px",
+                        borderRight: "1px solid #ddd",
+                        padding: "0 10px"
+                      }}
+
+                      dropdownStyle={{
+                        zIndex: 9999
+                      }}
+
+                      enableSearch={true} // 🔥 nice UX
+                    />
 
                 {errors.phone && (
                   <div style={errorText}>{errors.phone}</div>
