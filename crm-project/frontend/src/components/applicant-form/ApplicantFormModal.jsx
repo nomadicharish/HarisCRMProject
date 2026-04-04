@@ -25,7 +25,13 @@ const handleBlur = (e, hasError) => {
     : `1px solid ${THEME.border}`;
 };
 
-function ApplicantFormModal({ onClose, onSaved, editData }) {
+function ApplicantFormModal({
+  onClose,
+  onSaved,
+  editData,
+  onApproveStage,
+  autoApproveAfterSave = false
+}) {
 
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -98,7 +104,7 @@ function ApplicantFormModal({ onClose, onSaved, editData }) {
 
         return null;
 
-      } catch (error) {
+      } catch {
         return "Invalid phone number";
       }
     };
@@ -267,7 +273,12 @@ function ApplicantFormModal({ onClose, onSaved, editData }) {
             totalAmount:
               editData.totalAmount || editData.totalPayment || editData.totalApplicantPayment || "",
             paidAmount:
-              editData.paidAmount || editData.payment?.paid || ""
+              editData.paidAmount ||
+              editData.amountPaid ||
+              editData.payment?.paid ||
+              editData.payment?.paidAmount ||
+              editData.payment?.amountPaid ||
+              ""
           });
 
           setDob(parsedDob);
@@ -331,7 +342,7 @@ function ApplicantFormModal({ onClose, onSaved, editData }) {
   }));
 };
 
-const handleSubmit = async () => {
+ const handleSubmit = async () => {
         if (!validateStep2()) {
           toast.error("Please fill all required fields");
           return;
@@ -392,9 +403,25 @@ const handleSubmit = async () => {
           }
 
           // ✅ CLOSE MODAL
-          if (typeof onClose === "function") {
-            onClose();
+          const shouldAutoApprove =
+            autoApproveAfterSave && typeof onApproveStage === "function" && Boolean(editData);
+
+          if (shouldAutoApprove) {
+            try {
+              await onApproveStage();
+            } catch (approveError) {
+              console.error(approveError);
+              toast.update(toastId, {
+                render: "Profile updated, but stage approval failed",
+                type: "error",
+                isLoading: false,
+                autoClose: 3000
+              });
+              return;
+            }
           }
+
+          if (typeof onClose === "function") onClose();
 
           // ✅ REFRESH TABLE
           if (typeof onSaved === "function") {
@@ -483,7 +510,7 @@ const CustomDateInput = React.forwardRef(
 );
 
 const customSelectStyles = {
-  control: (base, state) => ({
+  control: (base) => ({
     ...base,
     padding: "2px",
     borderRadius: "10px",
@@ -749,6 +776,7 @@ const agencyOptions = agencies.map(a => ({
                 Next →
               </button>
             </div>
+
           </>
         )}
 
@@ -889,7 +917,9 @@ const agencyOptions = agencies.map(a => ({
                     ? "Updating..."
                     : "Creating..."
                   : editData
-                  ? "Update Profile"
+                  ? user?.role === "SUPER_USER" && autoApproveAfterSave
+                    ? "Approve Profile"
+                    : "Update Profile"
                   : "Create Profile"}
               </button>
             </div>
@@ -942,11 +972,6 @@ const input = {
   transition: "border 0.2s ease"
 };
 
-const inputDisabled = {
-  ...input,
-  background: "#f5f5f5",
-  cursor: "not-allowed"
-};
 
 const actions = {
   display: "flex",
@@ -980,12 +1005,6 @@ const btnSecondary = {
   color: "#333"
 };
 
-const title = {
-  fontSize: "18px",
-  fontWeight: "600",
-  marginBottom: "5px",
-  fontFamily: "Inter, sans-serif"
-};
 
 const stepText = {
   fontSize: "13px",

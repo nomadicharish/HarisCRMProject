@@ -74,7 +74,8 @@ function ApplicantPipelineList({
   currentStep = 1,
   totalSteps = 7,
   onUploadDocuments,
-  canUploadDocuments
+  canUploadDocuments,
+  onCandidateAccountCreation
 }) {
   return (
     <div className="pipelineCard">
@@ -108,6 +109,8 @@ function ApplicantPipelineList({
           const status =
             item.id < currentStep ? "completed" : item.id === currentStep ? "active" : "locked";
           const showRowButton = item.id === 2 && status !== "completed";
+          const isCandidateRow = item.id === 1;
+          const canCandidateClick = typeof onCandidateAccountCreation === "function";
 
           return (
             <div key={item.key} className={`pipeRow pipeRow-${status}`}>
@@ -124,9 +127,20 @@ function ApplicantPipelineList({
                     Upload Documents
                   </button>
                 )}
-                <span className="pipeChevron" aria-hidden="true">
-                  <IconChevron />
-                </span>
+                {isCandidateRow && canCandidateClick ? (
+                  <button
+                    className="pipeChevronBtn"
+                    type="button"
+                    onClick={onCandidateAccountCreation}
+                    aria-label="Edit candidate account creation"
+                  >
+                    <IconChevron />
+                  </button>
+                ) : (
+                  <span className="pipeChevron" aria-hidden="true">
+                    <IconChevron />
+                  </span>
+                )}
               </div>
             </div>
           );
@@ -137,4 +151,3 @@ function ApplicantPipelineList({
 }
 
 export default ApplicantPipelineList;
-

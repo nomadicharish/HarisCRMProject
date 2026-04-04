@@ -65,13 +65,12 @@ function Login() {
         }
       );
 
+      const sessionExpiresAt = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(response.data));
+      localStorage.setItem("session_expires_at", String(sessionExpiresAt));
 
       const userData = response.data;
-
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(userData));
 
       if (userData.forcePasswordReset) {
           window.location.href = "/change-password";

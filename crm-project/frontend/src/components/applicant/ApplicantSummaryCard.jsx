@@ -24,7 +24,15 @@ function formatCreatedAt(createdAt) {
   }
 }
 
-function ApplicantSummaryCard({ applicant, pendingAmount, onEdit, canEdit, onViewMore }) {
+function ApplicantSummaryCard({
+  applicant,
+  pendingAmount,
+  onEdit,
+  canEdit,
+  onViewMore,
+  agencyName: agencyNameOverride,
+  countryName: countryNameOverride
+}) {
   const fullName =
     applicant?.fullName ||
     [applicant?.firstName, applicant?.lastName].filter(Boolean).join(" ").trim() ||
@@ -36,12 +44,14 @@ function ApplicantSummaryCard({ applicant, pendingAmount, onEdit, canEdit, onVie
   const phone = applicant?.phone || applicant?.personalDetails?.phone || "";
   const address = applicant?.address || applicant?.personalDetails?.address || "-";
   const employer = applicant?.companyName || "-";
-  const employerPoc =
-    applicant?.employerPoc ||
-    applicant?.companyPoc ||
-    applicant?.companyPocName ||
-    applicant?.employerPOC ||
-    "-";
+  const country = countryNameOverride || applicant?.countryName || applicant?.country || "";
+  const employerDisplay = country ? `${employer}, ${country}` : employer;
+  const agency =
+    agencyNameOverride ||
+    applicant?.agencyName ||
+    applicant?.agency?.name ||
+    applicant?.agencyId ||
+    "";
 
   const phoneDigits = phone ? String(phone).replace(/[^\d]/g, "") : "";
   const waLink = phoneDigits ? `https://wa.me/${phoneDigits}` : null;
@@ -79,23 +89,27 @@ function ApplicantSummaryCard({ applicant, pendingAmount, onEdit, canEdit, onVie
 
       <div className="sideSection">
         <div className="sideLabel">Employer</div>
-        <div className="sideValue">{employer}</div>
+        <div className="sideValue">{employerDisplay}</div>
       </div>
 
-      <div className="sideSection">
-        <div className="sideLabel">Employer POC</div>
-        <div className="sideValue">{employerPoc}</div>
-      </div>
+      {canEdit && agency ? (
+        <div className="sideSection">
+          <div className="sideLabel">Agency</div>
+          <div className="sideValue">{agency}</div>
+        </div>
+      ) : null}
 
       <button className="viewMoreBtn" type="button" onClick={onViewMore}>
         View more <span aria-hidden="true">›</span>
       </button>
 
       <div className="pendingBox">
-        <div className="pendingLabel">Pending Amount</div>
-        <div className="pendingValue">INR {pendingAmount ?? 0}</div>
         <div className="pendingChevron" aria-hidden="true">
           ›
+        </div>
+        <div className="pendingText">
+          <div className="pendingLabel">Pending Amount</div>
+          <div className="pendingValue">INR {pendingAmount ?? 0}</div>
         </div>
       </div>
     </div>
@@ -103,4 +117,3 @@ function ApplicantSummaryCard({ applicant, pendingAmount, onEdit, canEdit, onVie
 }
 
 export default ApplicantSummaryCard;
-

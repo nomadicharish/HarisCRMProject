@@ -30,7 +30,10 @@ function ApplicantProfile() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDocuments, setShowDocuments] = useState(false);
   const [showMore, setShowMore] = useState(false);
+  const [editContext, setEditContext] = useState("default");
   const documentsRef = useRef(null);
+  const [resolvedAgencyName, setResolvedAgencyName] = useState("");
+  const [resolvedCountryName, setResolvedCountryName] = useState("");
 
   const handleFileSelect = useCallback((docType, file) => {
     setSelectedFiles((prev) => ({ ...prev, [docType]: file }));
@@ -73,6 +76,51 @@ function ApplicantProfile() {
     loadUser();
     loadDocuments();
   }, [loadApplicant, loadUser, loadDocuments]);
+
+  useEffect(() => {
+    const agencyId = applicant?.agencyId;
+    const alreadyHasName = Boolean(applicant?.agencyName || applicant?.agency?.name);
+    if (user?.role !== "SUPER_USER") return;
+    if (!agencyId || alreadyHasName) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get("/agencies");
+        const found = (res.data || []).find((a) => a.id === agencyId);
+        if (!cancelled) setResolvedAgencyName(found?.name || "");
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setResolvedAgencyName("");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applicant?.agencyId, applicant?.agencyName, applicant?.agency?.name, user?.role]);
+
+  useEffect(() => {
+    const countryId = applicant?.countryId;
+    const alreadyHasName = Boolean(applicant?.countryName || applicant?.country);
+    if (!countryId || alreadyHasName) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await API.get("/countries");
+        const found = (res.data || []).find((c) => c.id === countryId);
+        if (!cancelled) setResolvedCountryName(found?.name || "");
+      } catch (err) {
+        console.error(err);
+        if (!cancelled) setResolvedCountryName("");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applicant?.countryId, applicant?.countryName, applicant?.country]);
 
   const canEditApplicant = user?.role === "SUPER_USER";
   const pipelineStep = Math.min(Number(applicant?.stage || 1), 7);
@@ -140,6 +188,11 @@ function ApplicantProfile() {
     }, 50);
   };
 
+  const approveStage = async () => {
+    await API.patch(`/applicants/${id}/approve-stage`);
+    await loadApplicant();
+  };
+
   return (
     <div className="page-container">
       <div className="page-content">
@@ -151,8 +204,13 @@ function ApplicantProfile() {
               applicant={applicant}
               pendingAmount={pending}
               canEdit={canEditApplicant}
-              onEdit={() => setShowEditModal(true)}
+              onEdit={() => {
+                setEditContext("default");
+                setShowEditModal(true);
+              }}
               onViewMore={() => setShowMore((v) => !v)}
+              agencyName={resolvedAgencyName}
+              countryName={resolvedCountryName}
             />
           </aside>
 
@@ -162,6 +220,10 @@ function ApplicantProfile() {
               totalSteps={7}
               onUploadDocuments={handleShowDocuments}
               canUploadDocuments={true}
+              onCandidateAccountCreation={() => {
+                setEditContext("stage1");
+                setShowEditModal(true);
+              }}
             />
 
             {showMore && <ApplicantDetailsView applicant={applicant} />}
@@ -219,14 +281,25 @@ function ApplicantProfile() {
                 )}
               </div>
             )}
-          </main>wha
+          </main>
         </div>
 
         {showEditModal && (
           <ApplicantFormModal
             editData={applicant}
-            onClose={() => setShowEditModal(false)}
+            onClose={() => {
+              setShowEditModal(false);
+              setEditContext("default");
+            }}
             onSaved={() => loadApplicant()}
+            onApproveStage={
+              user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
+                ? approveStage
+                : undefined
+            }
+            autoApproveAfterSave={
+              user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
+            }
           />
         )}
       </div>
