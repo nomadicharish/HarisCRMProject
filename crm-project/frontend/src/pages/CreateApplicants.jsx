@@ -38,13 +38,40 @@ function CreateApplicants({ onClose, onSaved, editData }) {
   const [errors, setErrors] = useState({});
   const [dob, setDob] = useState(null);
 
+  const validateAge = () => {
+    if (!form.age) {
+      return "Age is required";
+    }
+
+    const age = Number(form.age);
+
+    if (isNaN(age)) {
+      return "Age must be a valid number";
+    }
+
+    if (age < 16) {
+      return "Age must be at least 16 years old";
+    }
+
+    if (age > 120) {
+      return "Please enter a valid age";
+    }
+
+    return null;
+  };
+
   const validateStep1 = () => {
   const newErrors = {};
 
   if (!form.firstName) newErrors.firstName = "First name is required";
   if (!form.lastName) newErrors.lastName = "Surname is required";
   if (!form.dob) newErrors.dob = "Date of birth is required";
-  if (!form.age) newErrors.age = "Age is required";
+  
+  const ageError = validateAge();
+  if (ageError) {
+    newErrors.age = ageError;
+  }
+
   if (!form.address) newErrors.address = "Address is required";
   if (!form.maritalStatus) newErrors.maritalStatus = "Select marital status";
   
@@ -78,6 +105,62 @@ function CreateApplicants({ onClose, onSaved, editData }) {
       }
     };
 
+  const validateTotalAmount = () => {
+    if (user?.role !== "SUPER_USER") {
+      return null;
+    }
+
+    if (!form.totalAmount) {
+      return "Total amount is required";
+    }
+
+    const totalAmount = Number(form.totalAmount);
+
+    if (isNaN(totalAmount)) {
+      return "Total amount must be a valid number";
+    }
+
+    if (totalAmount <= 0) {
+      return "Total amount must be greater than 0";
+    }
+
+    if (totalAmount > 999999) {
+      return "Total amount exceeds maximum limit";
+    }
+
+    return null;
+  };
+
+  const validatePaidAmount = () => {
+    if (!form.paidAmount) {
+      return "Initial paid amount is required";
+    }
+
+    const paidAmount = Number(form.paidAmount);
+
+    if (isNaN(paidAmount)) {
+      return "Paid amount must be a valid number";
+    }
+
+    if (paidAmount < 0) {
+      return "Paid amount cannot be negative";
+    }
+
+    if (paidAmount > 999999) {
+      return "Paid amount exceeds maximum limit";
+    }
+
+    // Validate paid amount against total amount if both exist
+    if (form.totalAmount) {
+      const totalAmount = Number(form.totalAmount);
+      if (!isNaN(totalAmount) && paidAmount > totalAmount) {
+        return "Paid amount cannot exceed total amount";
+      }
+    }
+
+    return null;
+  };
+
   const validateStep2 = () => {
   const newErrors = {};
 
@@ -86,10 +169,15 @@ function CreateApplicants({ onClose, onSaved, editData }) {
   if (user?.role === "SUPER_USER" && !form.agencyId)
     newErrors.agencyId = "Select agency";
 
-  if (user?.role === "SUPER_USER" && !form.agencyId)
-    newErrors.totalAmount = "Enter total amount";
+  const totalAmountError = validateTotalAmount();
+  if (totalAmountError) {
+    newErrors.totalAmount = totalAmountError;
+  }
 
-  if (!form.paidAmount) newErrors.paidAmount = "Enter paid amount";
+  const paidAmountError = validatePaidAmount();
+  if (paidAmountError) {
+    newErrors.paidAmount = paidAmountError;
+  }
 
   setErrors(newErrors);
   return Object.keys(newErrors).length === 0;
@@ -551,6 +639,7 @@ const agencyOptions = agencies.map(a => ({
                     placeholder="Age"
                     onBlur={(e) => handleBlur(e, errors.age)}
                     onChange={(e) => handleChange("age", e.target.value)}
+                    readOnly
                   />
                 {errors.age && (
                   <div style={errorText}>{errors.age}</div>
@@ -591,7 +680,7 @@ const agencyOptions = agencies.map(a => ({
                           ...prev,
                           phone,
                           phoneCountry: country.countryCode
-                        }));
+                        }))
                       }}
 
                       containerStyle={{
