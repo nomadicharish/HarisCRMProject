@@ -40,6 +40,19 @@ function formatTime(value) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+function formatDateTime(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
+}
+
 const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
   <div style={{ position: "relative", width: "100%" }}>
     <input
@@ -56,56 +69,52 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
   </div>
 ));
 
-CustomDateInput.displayName = "WorkflowDateInput";
+CustomDateInput.displayName = "EmbassyInterviewDateInput";
 
-function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, onUpdated }) {
-  const [appointment, setAppointment] = useState(null);
-  const [travelDetails, setTravelDetails] = useState(null);
+function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, onClose, onUpdated }) {
+  const [interview, setInterview] = useState(null);
+  const [interviewTicket, setInterviewTicket] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [savingAppointment, setSavingAppointment] = useState(false);
+  const [savingInterview, setSavingInterview] = useState(false);
   const [savingTicket, setSavingTicket] = useState(false);
-  const [appointmentDate, setAppointmentDate] = useState(null);
-  const [appointmentTime, setAppointmentTime] = useState("");
-  const [appointmentFile, setAppointmentFile] = useState(null);
+  const [interviewDate, setInterviewDate] = useState(null);
+  const [interviewTime, setInterviewTime] = useState("");
   const [travelDate, setTravelDate] = useState(null);
   const [travelTime, setTravelTime] = useState("");
   const [travelFile, setTravelFile] = useState(null);
 
-  const hasBiometricSlip = Boolean(biometricSlip?.fileUrl);
-  const canEditAppointment = (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && !hasBiometricSlip;
-  const canAddTicket = user?.role === "AGENCY" && appointment && !travelDetails && !hasBiometricSlip;
-  const isBusy = savingAppointment || savingTicket;
+  const hasInterviewBiometric = Boolean(interviewBiometric?.fileUrl);
+  const canEditInterview = (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && !hasInterviewBiometric;
+  const canApprove = user?.role === "SUPER_USER" && interview && !interview.approved && !hasInterviewBiometric;
+  const canAddTicket = user?.role === "AGENCY" && interview && !interviewTicket && !hasInterviewBiometric;
+  const isBusy = savingInterview || savingTicket;
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [appointmentRes, travelRes] = await Promise.all([
-        API.get(`/applicants/${applicantId}/embassy-appointment`),
-        API.get(`/applicants/${applicantId}/travel`)
+      const [interviewRes, ticketRes] = await Promise.all([
+        API.get(`/applicants/${applicantId}/interview`),
+        API.get(`/applicants/${applicantId}/interview-ticket`)
       ]);
 
-      const appointmentData = appointmentRes.data || null;
-      const travelData = travelRes.data || null;
-      const normalizedAppointmentTime =
-        appointmentData?.time ||
-        appointmentData?.appointmentTime ||
-        (appointmentData?.dateTime ? String(appointmentData.dateTime).split("T")[1]?.slice(0, 5) : "") ||
-        "";
+      const interviewData = interviewRes.data || null;
+      const ticketData = ticketRes.data || null;
+      const normalizedInterviewTime = interviewData?.dateTime
+        ? String(interviewData.dateTime).split("T")[1]?.slice(0, 5) || ""
+        : "";
 
-      setAppointment(appointmentData ? { ...appointmentData, time: normalizedAppointmentTime } : null);
-      setTravelDetails(travelData);
-      setAppointmentDate(
-        appointmentData?.date ? new Date(appointmentData.date) : appointmentData?.dateTime ? new Date(appointmentData.dateTime) : null
-      );
-      setAppointmentTime(normalizedAppointmentTime);
-      setTravelDate(travelData?.travelDate ? new Date(travelData.travelDate) : null);
-      setTravelTime(travelData?.time || "");
+      setInterview(interviewData);
+      setInterviewTicket(ticketData);
+      setInterviewDate(interviewData?.dateTime ? new Date(interviewData.dateTime) : null);
+      setInterviewTime(normalizedInterviewTime);
+      setTravelDate(ticketData?.date ? new Date(ticketData.date) : null);
+      setTravelTime(ticketData?.time || "");
     } catch (error) {
       console.error(error);
-      setAppointment(null);
-      setTravelDetails(null);
-      setAppointmentDate(null);
-      setAppointmentTime("");
+      setInterview(null);
+      setInterviewTicket(null);
+      setInterviewDate(null);
+      setInterviewTime("");
       setTravelDate(null);
       setTravelTime("");
     } finally {
@@ -116,51 +125,60 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
   useEffect(() => {
     if (open && applicantId) {
       loadData();
-      setAppointmentFile(null);
       setTravelFile(null);
     }
   }, [open, applicantId, loadData]);
 
   const title = useMemo(() => {
-    if (!appointment) return "Enter Embassy Appointment details";
-    if (!travelDetails && user?.role === "AGENCY" && !hasBiometricSlip) return "Ticket Upload";
-    return "Embassy Appointment Details";
-  }, [appointment, travelDetails, user?.role, hasBiometricSlip]);
+    if (!interview) return "Add Embassy Interview";
+    if (!interviewTicket && user?.role === "AGENCY" && !hasInterviewBiometric) return "Ticket Upload";
+    return "Embassy Interview Details";
+  }, [interview, interviewTicket, user?.role, hasInterviewBiometric]);
 
-  const handleSaveAppointment = async () => {
-    const formattedDate = formatDateForInput(appointmentDate);
-    const trimmedTime = typeof appointmentTime === "string" ? appointmentTime.trim() : "";
+  const handleSaveInterview = async () => {
+    const formattedDate = formatDateForInput(interviewDate);
+    const trimmedTime = typeof interviewTime === "string" ? interviewTime.trim() : "";
 
     if (!formattedDate || !trimmedTime) {
-      toast.error("Appointment date and time are required");
+      toast.error("Interview date and time are required");
       return;
     }
 
     try {
-      setSavingAppointment(true);
-      const formData = new FormData();
-      formData.append("date", formattedDate);
-      formData.append("time", trimmedTime);
-      formData.append("dateTime", `${formattedDate}T${trimmedTime}`);
-
-      if (appointmentFile) {
-        formData.append("file", appointmentFile);
-      }
-
-      await API.post(`/applicants/${applicantId}/embassy-appointment`, formData);
+      setSavingInterview(true);
+      await API.post(`/applicants/${applicantId}/interview`, {
+        dateTime: `${formattedDate}T${trimmedTime}`
+      });
 
       if (typeof onUpdated === "function") {
         await onUpdated();
       }
-
       if (typeof onClose === "function") {
         onClose();
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save appointment");
+      toast.error(error?.response?.data?.message || "Failed to save embassy interview");
     } finally {
-      setSavingAppointment(false);
+      setSavingInterview(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    try {
+      setSavingInterview(true);
+      await API.patch(`/applicants/${applicantId}/interview/approve`);
+      if (typeof onUpdated === "function") {
+        await onUpdated();
+      }
+      if (typeof onClose === "function") {
+        onClose();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to approve embassy interview");
+    } finally {
+      setSavingInterview(false);
     }
   };
 
@@ -176,26 +194,24 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
     try {
       setSavingTicket(true);
       const formData = new FormData();
-      formData.append("travelDate", formattedDate);
+      formData.append("date", formattedDate);
       formData.append("time", trimmedTime);
-      formData.append("ticketNumber", "");
 
       if (travelFile) {
         formData.append("file", travelFile);
       }
 
-      await API.post(`/applicants/${applicantId}/travel`, formData);
+      await API.post(`/applicants/${applicantId}/interview-ticket`, formData);
 
       if (typeof onUpdated === "function") {
         await onUpdated();
       }
-
       if (typeof onClose === "function") {
         onClose();
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save ticket details");
+      toast.error(error?.response?.data?.message || "Failed to save interview ticket");
     } finally {
       setSavingTicket(false);
     }
@@ -214,107 +230,104 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
         </div>
 
         {loading ? (
-          <div className="contractInfoRow">Loading embassy appointment details...</div>
+          <div className="contractInfoRow">Loading embassy interview details...</div>
         ) : (
           <>
-            {appointment ? (
+            {interview ? (
               <div className="contractInfoCard">
                 <div className="contractInfoRow">
-                  <span>Appointment Date</span>
-                  <span>{formatDate(appointment.dateTime || appointment.date)}</span>
+                  <span>Interview Date</span>
+                  <span>{formatDate(interview.dateTime)}</span>
                 </div>
                 <div className="contractInfoRow">
-                  <span>Appointment Time</span>
-                  <span>{formatTime(appointment.time)}</span>
+                  <span>Interview Time</span>
+                  <span>{formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}</span>
                 </div>
-                {appointment.fileUrl ? (
-                  <div className="contractInfoRow">
-                    <span>Appointment Document</span>
-                    <a href={appointment.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                      Open document
-                    </a>
-                  </div>
-                ) : null}
 
-                {travelDetails ? (
+                {interviewTicket ? (
                   <>
                     <div className="contractUploadLabel" style={{ marginTop: 18 }}>
                       Travel Details
                     </div>
                     <div className="contractInfoRow">
                       <span>Travel Date</span>
-                      <span>{formatDate(travelDetails.travelDate)}</span>
+                      <span>{formatDate(interviewTicket.date)}</span>
                     </div>
                     <div className="contractInfoRow">
                       <span>Travel Time</span>
-                      <span>{formatTime(travelDetails.time)}</span>
+                      <span>{formatTime(interviewTicket.time)}</span>
                     </div>
-                    {travelDetails.fileUrl ? (
+                    {interviewTicket.fileUrl ? (
                       <div className="contractInfoRow">
                         <span>Ticket</span>
-                        <a href={travelDetails.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
+                        <a href={interviewTicket.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
                           Open ticket
                         </a>
                       </div>
                     ) : null}
                   </>
                 ) : null}
+
+                {hasInterviewBiometric ? (
+                  <>
+                    <div className="contractUploadLabel" style={{ marginTop: 18 }}>
+                      Biometric Slip
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Biometric Slip</span>
+                      <a href={interviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
+                        View document
+                      </a>
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Uploaded On</span>
+                      <span>{formatDateTime(interviewBiometric.uploadedAt)}</span>
+                    </div>
+                  </>
+                ) : null}
               </div>
             ) : null}
 
-            {canEditAppointment ? (
+            {canEditInterview ? (
               <div className="contractUploadPanel">
                 <div className="contractFormGrid">
                   <div className="input-field">
-                    <label className="contractUploadLabel">Appointment Date</label>
+                    <label className="contractUploadLabel">Interview Date</label>
                     <DatePicker
-                      selected={appointmentDate}
-                      onChange={(date) => setAppointmentDate(date)}
+                      selected={interviewDate}
+                      onChange={(date) => setInterviewDate(date)}
                       minDate={getTomorrow()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
                       showYearDropdown
                       dropdownMode="select"
-                      customInput={<CustomDateInput placeholder="Select appointment date" />}
+                      customInput={<CustomDateInput placeholder="Select interview date" />}
                     />
                   </div>
 
                   <div className="input-field">
-                    <label className="contractUploadLabel" htmlFor="appointment-time">
-                      Appointment Time
+                    <label className="contractUploadLabel" htmlFor="embassy-interview-time">
+                      Interview Time
                     </label>
                     <input
-                      id="appointment-time"
+                      id="embassy-interview-time"
                       type="time"
-                      value={appointmentTime}
+                      value={interviewTime}
                       disabled={isBusy}
-                      onChange={(event) => setAppointmentTime(event.target.value)}
+                      onChange={(event) => setInterviewTime(event.target.value)}
                     />
                   </div>
                 </div>
 
-                <div className="contractUploadLabel">Appointment Document (Optional)</div>
-                <label className="contractFileCard" htmlFor="appointment-file">
-                  <input
-                    id="appointment-file"
-                    type="file"
-                    className="contractFileInput"
-                    disabled={isBusy}
-                    onChange={(event) => setAppointmentFile(event.target.files?.[0] || null)}
-                  />
-                  <span className="contractFileCardTitle">
-                    {appointmentFile
-                      ? appointmentFile.name
-                      : appointment?.fileUrl
-                      ? "Update appointment document"
-                      : "Upload appointment document"}
-                  </span>
-                </label>
-
                 <div className="contractActionRow">
-                  <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveAppointment}>
-                    {savingAppointment ? "Saving..." : appointment ? "Update Appointment" : "Save Appointment"}
+                  <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveInterview}>
+                    {savingInterview ? "Saving..." : interview ? "Update Interview" : "Save Interview"}
                   </button>
+                  {canApprove ? (
+                    <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApprove}>
+                      {savingInterview ? "Approving..." : "Approve Interview"}
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -339,11 +352,11 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                   </div>
 
                   <div className="input-field">
-                    <label className="contractUploadLabel" htmlFor="travel-time">
+                    <label className="contractUploadLabel" htmlFor="interview-travel-time">
                       Travel Time
                     </label>
                     <input
-                      id="travel-time"
+                      id="interview-travel-time"
                       type="time"
                       value={travelTime}
                       disabled={isBusy}
@@ -353,9 +366,9 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                 </div>
 
                 <div className="contractUploadLabel">Ticket (Optional)</div>
-                <label className="contractFileCard" htmlFor="travel-file">
+                <label className="contractFileCard" htmlFor="interview-travel-file">
                   <input
-                    id="travel-file"
+                    id="interview-travel-file"
                     type="file"
                     className="contractFileInput"
                     disabled={isBusy}
@@ -378,4 +391,4 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
   );
 }
 
-export default EmbassyAppointment;
+export default EmbassyInterviewModal;
