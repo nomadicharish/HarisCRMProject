@@ -1,12 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 import "../styles/forms.css";
 import "../styles/applicantProfile.css";
 import ApplicantFormModal from "../components/applicant-form/ApplicantFormModal";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import ApplicantDetailsView from "../components/applicant/ApplicantDetailsView";
-import ApplicantDocumentsTable from "../components/applicant/ApplicantDocumentsTable";
 import ApplicantPipelineList from "../components/applicant/ApplicantPipelineList";
 import DispatchSection from "../components/DispatchSection";
 import ContractSection from "../components/ContractSection";
@@ -19,25 +18,45 @@ import InterviewBiometric from "../components/InterviewBiometric";
 import VisaCollection from "../components/VisaCollection";
 import VisaTravel from "../components/VisaTravel";
 import ResidencePermit from "../components/ResidencePermit";
+import { getDocumentReviewState } from "../constants/applicantDocuments";
+
+function toNumber(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getApplicantTotalAmount(applicant) {
+  return toNumber(
+    applicant?.payment?.total ??
+      applicant?.paymentsSummary?.applicant?.total ??
+      applicant?.totalApplicantPayment ??
+      applicant?.totalAmount ??
+      applicant?.totalPayment
+  );
+}
+
+function getApplicantPaidAmount(applicant) {
+  return toNumber(
+    applicant?.payment?.paid ??
+      applicant?.paymentsSummary?.applicant?.paid ??
+      applicant?.paidAmount ??
+      applicant?.amountPaid ??
+      applicant?.initialPaidAmount
+  );
+}
 
 function ApplicantProfile() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [applicant, setApplicant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [documents, setDocuments] = useState({});
-  const [selectedFiles, setSelectedFiles] = useState({});
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showDocuments, setShowDocuments] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [editContext, setEditContext] = useState("default");
-  const documentsRef = useRef(null);
   const [resolvedAgencyName, setResolvedAgencyName] = useState("");
   const [resolvedCountryName, setResolvedCountryName] = useState("");
-
-  const handleFileSelect = useCallback((docType, file) => {
-    setSelectedFiles((prev) => ({ ...prev, [docType]: file }));
-  }, []);
 
   const loadApplicant = useCallback(async () => {
     try {
@@ -87,7 +106,7 @@ function ApplicantProfile() {
     (async () => {
       try {
         const res = await API.get("/agencies");
-        const found = (res.data || []).find((a) => a.id === agencyId);
+        const found = (res.data || []).find((agency) => agency.id === agencyId);
         if (!cancelled) setResolvedAgencyName(found?.name || "");
       } catch (err) {
         console.error(err);
@@ -109,7 +128,7 @@ function ApplicantProfile() {
     (async () => {
       try {
         const res = await API.get("/countries");
-        const found = (res.data || []).find((c) => c.id === countryId);
+        const found = (res.data || []).find((country) => country.id === countryId);
         if (!cancelled) setResolvedCountryName(found?.name || "");
       } catch (err) {
         console.error(err);
@@ -122,8 +141,14 @@ function ApplicantProfile() {
     };
   }, [applicant?.countryId, applicant?.countryName, applicant?.country]);
 
+  const openEditProfile = (context = "default") => {
+    setEditContext(context);
+    setShowEditModal(true);
+  };
+
   const canEditApplicant = user?.role === "SUPER_USER";
-  const pipelineStep = Math.min(Number(applicant?.stage || 1), 7);
+  const applicantStage = Number(applicant?.stage || 1);
+  const pipelineStep = Math.min(applicantStage, 11);
 
   const completeProcess = async () => {
     try {
@@ -136,56 +161,61 @@ function ApplicantProfile() {
     }
   };
 
-  const uploadDoc = async (docType, file) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("documentType", docType);
-
-      await API.post(`/applicants/${id}/upload-document`, formData);
-
-      setSelectedFiles((prev) => {
-        const updated = { ...prev };
-        delete updated[docType];
-        return updated;
-      });
-
-      await loadDocuments();
-    } catch (err) {
-      console.error(err);
-      alert("Upload failed");
-    }
-  };
-
-  const approveDoc = async (docType, versionId) => {
-    await API.patch(`/applicants/${id}/documents/${docType}/${versionId}/approve`);
-    await loadDocuments();
-    await loadApplicant();
-  };
-
-  const rejectDoc = async (docType, versionId) => {
-    const reason = prompt("Enter reason");
-    await API.patch(`/applicants/${id}/documents/${docType}/${versionId}/reject`, { reason });
-    await loadDocuments();
-  };
-
-  const deferDoc = async (docType) => {
-    await API.patch(`/applicants/${id}/documents/${docType}/defer`);
-    await loadDocuments();
-  };
-
   if (loading) return <div style={{ padding: "40px" }}>Loading...</div>;
   if (!applicant) return <div style={{ padding: "40px" }}>Applicant not found</div>;
 
-  const total = applicant.payment?.total ?? 0;
-  const paid = applicant.payment?.paid ?? 0;
-  const pending = applicant.payment?.pending ?? Math.max(0, total - paid);
+  const total = getApplicantTotalAmount(applicant);
+  const paid = getApplicantPaidAmount(applicant);
+  const pending = applicant?.payment?.pending ?? Math.max(0, total - paid);
+  const isTotalAmountMissing = total <= 0;
+  const isPendingSuperUserApproval =
+    applicantStage === 1 && String(applicant?.approvalStatus || "").toLowerCase() === "pending";
+  const docReviewState = getDocumentReviewState(documents, applicant);
+  const hasCompletedDocumentStage = applicantStage >= 3 && docReviewState.approvedRequired;
+  const hasDocuments = Object.keys(documents || {}).length > 0;
+  const shouldShowDocumentAction =
+    !hasCompletedDocumentStage &&
+    applicantStage >= 2 &&
+    (user?.role !== "SUPER_USER" || hasDocuments || docReviewState.uploadedRequired || docReviewState.pendingRequired);
+  const documentsButtonLabel = !shouldShowDocumentAction
+    ? ""
+    : user?.role === "SUPER_USER"
+    ? "Verify Documents"
+    : docReviewState.rejectedRequired
+    ? "Reupload Document"
+    : "Upload Documents";
+  const documentRowSubtitle = hasCompletedDocumentStage
+    ? "All required documents approved"
+    : docReviewState.rejectedRequired
+    ? "Admin rejected few documents"
+    : docReviewState.pendingRequired
+    ? "Document uploaded. Pending admin approval"
+    : "Upload relevant documents for admin approval";
+  const pipelineBannerText = isPendingSuperUserApproval
+    ? "Candidate pending for approval"
+    : applicantStage === 1
+    ? "Complete the candidate profile for approval"
+    : hasCompletedDocumentStage
+    ? "Dispatch the document"
+    : docReviewState.rejectedRequired
+    ? "Few issues found in the documents. Re-upload the rejected files for admin review."
+    : docReviewState.pendingRequired
+    ? "Documents are pending admin approval"
+    : "Complete the document uploading for admin to approve the candidate";
+  const documentRowStatus = hasCompletedDocumentStage
+    ? "completed"
+    : docReviewState.rejectedRequired
+    ? "danger"
+    : docReviewState.pendingRequired
+    ? "warning"
+    : applicantStage === 2
+    ? "active"
+    : "";
+  const headerActionLabel =
+    applicantStage === 1 && canEditApplicant ? "Approve Profile" : documentsButtonLabel;
 
   const handleShowDocuments = () => {
-    setShowDocuments(true);
-    setTimeout(() => {
-      documentsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }, 50);
+    navigate(`/applicants/${id}/documents`);
   };
 
   const approveStage = async () => {
@@ -203,12 +233,11 @@ function ApplicantProfile() {
             <ApplicantSummaryCard
               applicant={applicant}
               pendingAmount={pending}
+              pendingDisplayValue={isTotalAmountMissing ? "Enter Total Amount" : undefined}
               canEdit={canEditApplicant}
-              onEdit={() => {
-                setEditContext("default");
-                setShowEditModal(true);
-              }}
-              onViewMore={() => setShowMore((v) => !v)}
+              onEdit={() => openEditProfile("default")}
+              onViewMore={() => setShowMore((value) => !value)}
+              onPendingClick={isTotalAmountMissing && canEditApplicant ? () => openEditProfile("default") : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
             />
@@ -217,32 +246,26 @@ function ApplicantProfile() {
           <main className="applicantProfileMain">
             <ApplicantPipelineList
               currentStep={pipelineStep}
-              totalSteps={7}
+              totalSteps={11}
               onUploadDocuments={handleShowDocuments}
-              canUploadDocuments={true}
-              onCandidateAccountCreation={() => {
-                setEditContext("stage1");
-                setShowEditModal(true);
-              }}
+              canUploadDocuments={shouldShowDocumentAction}
+              onHeaderAction={
+                applicantStage === 1 && canEditApplicant
+                  ? () => openEditProfile("stage1")
+                  : shouldShowDocumentAction
+                  ? handleShowDocuments
+                  : undefined
+              }
+              headerActionLabel={headerActionLabel}
+              canHeaderAction={applicantStage === 1 ? canEditApplicant : shouldShowDocumentAction}
+              uploadButtonLabel={documentsButtonLabel}
+              documentRowSubtitle={documentRowSubtitle}
+              bannerText={pipelineBannerText}
+              documentRowStatus={documentRowStatus}
+              onCandidateAccountCreation={() => openEditProfile("stage1")}
             />
 
             {showMore && <ApplicantDetailsView applicant={applicant} />}
-
-            {showDocuments && (
-              <div ref={documentsRef}>
-                <ApplicantDocumentsTable
-                  applicant={applicant}
-                  documents={documents}
-                  selectedFiles={selectedFiles}
-                  onFileSelect={handleFileSelect}
-                  onUpload={uploadDoc}
-                  onDefer={deferDoc}
-                  onApprove={approveDoc}
-                  onReject={rejectDoc}
-                  canReview={user?.role === "SUPER_USER"}
-                />
-              </div>
-            )}
 
             {showMore && (
               <div className="moreSection">

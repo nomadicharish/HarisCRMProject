@@ -1,26 +1,8 @@
 import React from "react";
-
-const DOCUMENTS = [
-  { key: "PASSPORT", label: "Passport Copy", required: true },
-  { key: "PAN_CARD", label: "Pan Card Copy", required: true },
-  { key: "EDUCATION_10TH", label: "10th Certificate", required: true },
-  { key: "EDUCATION_12TH", label: "12th Certificate", required: true },
-  { key: "DEGREE", label: "Degree", required: false },
-  { key: "PHOTO", label: "Passport Photo", required: true },
-  { key: "WORK_MEASUREMENT", label: "Work Measurement", required: false },
-  { key: "IDP", label: "International Driving Permit", required: false },
-  { key: "UNMARRIED_CERTIFICATE", label: "Unmarried Certificate", required: false },
-  { key: "MARRIAGE_CERTIFICATE", label: "Marriage Certificate", required: false },
-  { key: "BIRTH_CERTIFICATE", label: "Birth Certificate", required: true },
-  { key: "MEDICAL_CERTIFICATE", label: "Medical Certificate", required: true }
-];
-
-function getLatestVersion(versions) {
-  if (!Array.isArray(versions) || versions.length === 0) return null;
-  return versions.reduce((latest, current) =>
-    new Date(current.uploadedAt) > new Date(latest.uploadedAt) ? current : latest
-  );
-}
+import {
+  getLatestVersion,
+  getVisibleApplicantDocuments
+} from "../../constants/applicantDocuments";
 
 function ApplicantDocumentsTable({
   applicant,
@@ -50,12 +32,7 @@ function ApplicantDocumentsTable({
           </thead>
 
           <tbody>
-            {DOCUMENTS.map((doc) => {
-              if (doc.key === "UNMARRIED_CERTIFICATE" && applicant?.maritalStatus !== "Single")
-                return null;
-              if (doc.key === "MARRIAGE_CERTIFICATE" && applicant?.maritalStatus !== "Married")
-                return null;
-
+            {getVisibleApplicantDocuments(applicant).map((doc) => {
               const versions = documents?.[doc.key] || [];
               const selected = selectedFiles?.[doc.key];
               const latest = getLatestVersion(versions);
@@ -162,4 +139,3 @@ function ApplicantDocumentsTable({
 }
 
 export default ApplicantDocumentsTable;
-

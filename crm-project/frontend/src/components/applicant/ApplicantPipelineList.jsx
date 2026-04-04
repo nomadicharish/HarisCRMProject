@@ -1,13 +1,17 @@
 import React from "react";
 
 const PIPELINE_ITEMS = [
-  { id: 1, key: "CREATED", title: "Candidate account creation" },
-  { id: 2, key: "DOCS", title: "Upload relevant documents for admin approval" },
-  { id: 3, key: "DISPATCH", title: "Dispatch the documents" },
-  { id: 4, key: "EMBASSY_TICKET", title: "Upload the embassy ticket" },
-  { id: 5, key: "BIOMETRIC_1", title: "Upload the biometric strip" },
-  { id: 6, key: "BIOMETRIC_2", title: "Upload the biometric strip" },
-  { id: 7, key: "BIOMETRIC_3", title: "Upload the biometric strip" }
+  { id: 1, key: "CREATED", title: "Candidate Created" },
+  { id: 2, key: "DOCS", title: "Upload Documents" },
+  { id: 3, key: "DISPATCH", title: "Dispatch Documents" },
+  { id: 4, key: "CONTRACT", title: "Issue of the Contract" },
+  { id: 5, key: "EMBASSY_APPOINTMENT_INITIATED", title: "Embassy Appointment Initiated" },
+  { id: 6, key: "EMBASSY_APPOINTMENT_COMPLETED", title: "Embassy Appointment Completed" },
+  { id: 7, key: "EMBASSY_INTERVIEW_INITIATED", title: "Embassy Interview Initiated" },
+  { id: 8, key: "EMBASSY_INTERVIEW_COMPLETED", title: "Embassy Interview Completed" },
+  { id: 9, key: "VISA_COLLECTION_INITIATED", title: "Visa Collection Initiated" },
+  { id: 10, key: "VISA_COLLECTION_COMPLETED", title: "Visa Collection Completed" },
+  { id: 11, key: "CANDIDATE_ARRIVED", title: "Candidate Arrived" }
 ];
 
 function IconCheck() {
@@ -51,6 +55,26 @@ function IconChevron() {
 }
 
 function StatusIcon({ status }) {
+  if (status === "warning") {
+    return (
+      <span className="pipeIcon pipeIconWarning" aria-hidden="true">
+        <svg width="10" height="10" viewBox="0 0 20 20" fill="none">
+          <path d="M10 5.5v4.75M10 13.75h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      </span>
+    );
+  }
+
+  if (status === "danger") {
+    return (
+      <span className="pipeIcon pipeIconDanger" aria-hidden="true">
+        <svg width="10" height="10" viewBox="0 0 20 20" fill="none">
+          <path d="M10 5.5v4.75M10 13.75h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      </span>
+    );
+  }
+
   if (status === "completed") {
     return (
       <span className="pipeIcon pipeIconCompleted" aria-hidden="true">
@@ -72,10 +96,17 @@ function StatusIcon({ status }) {
 
 function ApplicantPipelineList({
   currentStep = 1,
-  totalSteps = 7,
+  totalSteps = 11,
   onUploadDocuments,
   canUploadDocuments,
-  onCandidateAccountCreation
+  onCandidateAccountCreation,
+  onHeaderAction,
+  headerActionLabel = "",
+  canHeaderAction = true,
+  uploadButtonLabel = "Upload Documents",
+  documentRowSubtitle = "",
+  bannerText = "Complete the document uploading for admin to approve the candidate",
+  documentRowStatus = ""
 }) {
   return (
     <div className="pipelineCard">
@@ -84,47 +115,57 @@ function ApplicantPipelineList({
           <div className="pipelineStepPill">
             {Math.min(Number(currentStep) || 1, totalSteps)}/{totalSteps}
           </div>
-          <div className="pipelineBannerText">Complete the document uploading for admin to approve the candidate</div>
+          <div className="pipelineBannerText">{bannerText}</div>
         </div>
 
-        <button
-          className="btn bannerBtn"
-          type="button"
-          onClick={onUploadDocuments}
-          disabled={!canUploadDocuments}
-        >
-          Upload Documents
-        </button>
+        {headerActionLabel ? (
+          <button
+            className="btn bannerBtn"
+            type="button"
+            onClick={onHeaderAction}
+            disabled={!canHeaderAction}
+          >
+            {headerActionLabel}
+          </button>
+        ) : null}
       </div>
 
       <div className="pipelineHeaderRow">
         <h3 className="pipelineTitle">Complete pipeline</h3>
-        <button className="pipelineLink" type="button" onClick={onUploadDocuments}>
-          View all Documents
-        </button>
       </div>
 
       <div className="pipelineList">
         {PIPELINE_ITEMS.map((item) => {
           const status =
             item.id < currentStep ? "completed" : item.id === currentStep ? "active" : "locked";
-          const showRowButton = item.id === 2 && status !== "completed";
+          const resolvedStatus = item.id === 2 && documentRowStatus ? documentRowStatus : status;
+          const showRowButton =
+            item.id === 2 &&
+            Number(currentStep) >= 2 &&
+            resolvedStatus !== "completed" &&
+            canUploadDocuments &&
+            Boolean(uploadButtonLabel) &&
+            typeof onUploadDocuments === "function";
           const isCandidateRow = item.id === 1;
           const canCandidateClick = typeof onCandidateAccountCreation === "function";
+          const resolvedSubtitle = item.id === 2 ? documentRowSubtitle : "";
 
           return (
-            <div key={item.key} className={`pipeRow pipeRow-${status}`}>
+            <div key={item.key} className={`pipeRow pipeRow-${resolvedStatus}`}>
               <div className="pipeLeft">
-                <StatusIcon status={status} />
+                <StatusIcon status={resolvedStatus} />
                 <div className="pipeText">
                   <div className="pipeTitle">{item.title}</div>
+                  {resolvedSubtitle ? (
+                    <div className={`pipeMeta pipeMeta-${resolvedStatus}`}>{resolvedSubtitle}</div>
+                  ) : null}
                 </div>
               </div>
 
               <div className="pipeRight">
                 {showRowButton && (
                   <button className="btn btnPrimary btnSm" type="button" onClick={onUploadDocuments}>
-                    Upload Documents
+                    {uploadButtonLabel}
                   </button>
                 )}
                 {isCandidateRow && canCandidateClick ? (

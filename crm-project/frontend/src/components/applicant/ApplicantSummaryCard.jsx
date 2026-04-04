@@ -27,9 +27,11 @@ function formatCreatedAt(createdAt) {
 function ApplicantSummaryCard({
   applicant,
   pendingAmount,
+  pendingDisplayValue,
   onEdit,
   canEdit,
   onViewMore,
+  onPendingClick,
   agencyName: agencyNameOverride,
   countryName: countryNameOverride
 }) {
@@ -53,8 +55,7 @@ function ApplicantSummaryCard({
     applicant?.agencyId ||
     "";
 
-  const phoneDigits = phone ? String(phone).replace(/[^\d]/g, "") : "";
-  const waLink = phoneDigits ? `https://wa.me/${phoneDigits}` : null;
+  const PendingContainer = onPendingClick ? "button" : "div";
 
   return (
     <div className="applicantSideCard">
@@ -103,15 +104,18 @@ function ApplicantSummaryCard({
         View more <span aria-hidden="true">›</span>
       </button>
 
-      <div className="pendingBox">
+      <PendingContainer
+        className={`pendingBox ${onPendingClick ? "pendingBoxActionable" : ""}`}
+        {...(onPendingClick ? { type: "button", onClick: onPendingClick } : {})}
+      >
+        <div className="pendingText">
+          <div className="pendingLabel">Pending Amount</div>
+          <div className="pendingValue">{pendingDisplayValue || `INR ${pendingAmount ?? 0}`}</div>
+        </div>
         <div className="pendingChevron" aria-hidden="true">
           ›
         </div>
-        <div className="pendingText">
-          <div className="pendingLabel">Pending Amount</div>
-          <div className="pendingValue">INR {pendingAmount ?? 0}</div>
-        </div>
-      </div>
+      </PendingContainer>
     </div>
   );
 }

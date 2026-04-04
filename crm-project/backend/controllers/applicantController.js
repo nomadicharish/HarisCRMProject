@@ -733,6 +733,15 @@ const approveAppointment = async (req, res) => {
 const MANUAL_STAGE_IDS = [1, 2, 4, 5, 7, 9, 11];
 const AUTO_STAGE_IDS = [3, 6, 8, 10];
 const MAX_STAGE = 11;
+const REQUIRED_STAGE_TWO_DOCUMENTS = [
+  "PASSPORT",
+  "PAN_CARD",
+  "EDUCATION_10TH",
+  "EDUCATION_12TH",
+  "PHOTO",
+  "BIRTH_CERTIFICATE",
+  "MEDICAL_CERTIFICATE"
+];
 
 const getAllowedRoleForStage = (stage) => {
   // Update as needed for additional workflow/authorization rules
@@ -751,6 +760,65 @@ const addStageLog = async ({ applicantId, fromStage, toStage, role, action }) =>
     role,
     action,
     timestamp: admin.firestore.FieldValue.serverTimestamp()
+  });
+};
+
+const getRequiredDocumentTypes = (applicant) => {
+  const required = [...REQUIRED_STAGE_TWO_DOCUMENTS];
+  const maritalStatus =
+    applicant?.maritalStatus || applicant?.personalDetails?.maritalStatus || "";
+
+  if (maritalStatus === "Single") required.push("UNMARRIED_CERTIFICATE");
+  if (maritalStatus === "Married") required.push("MARRIAGE_CERTIFICATE");
+
+  return required;
+};
+
+const areLatestRequiredDocumentsApproved = async (applicantId, applicant) => {
+  const requiredDocs = getRequiredDocumentTypes(applicant);
+
+  for (const docType of requiredDocs) {
+    const latestSnap = await db
+      .collection("applicants")
+      .doc(applicantId)
+      .collection("documents")
+      .doc(docType)
+      .collection("versions")
+      .orderBy("uploadedAt", "desc")
+      .limit(1)
+      .get();
+
+    if (latestSnap.empty) return false;
+    if (latestSnap.docs[0].data()?.status !== "APPROVED") return false;
+  }
+
+  return true;
+};
+
+const syncApplicantDocumentStage = async (applicantId, applicant, actorId, actorRole = "SYSTEM") => {
+  if (!applicant) return;
+
+  const currentStage = Number(applicant.stage || 1);
+  if (currentStage < 2) return;
+  const allApproved = await areLatestRequiredDocumentsApproved(applicantId, applicant);
+
+  if (!allApproved || currentStage >= 3) {
+    return;
+  }
+
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  await applicantRef.update({
+    stage: 3,
+    stageUpdatedAt: new Date(),
+    lastActionBy: actorId || null
+  });
+
+  await addStageLog({
+    applicantId,
+    fromStage: currentStage,
+    toStage: 3,
+    role: actorRole,
+    action: "ALL_REQUIRED_DOCUMENTS_APPROVED"
   });
 };
 
@@ -853,23 +921,7 @@ const approveAndMoveStage = async (req, res) => {
         }
       }
 
-      let requiredDocs = [
-        "PASSPORT",
-        "PAN_CARD",
-        "EDUCATION_10TH",
-        "EDUCATION_12TH",
-        "PHOTO",
-        "BIRTH_CERTIFICATE",
-        "MEDICAL_CERTIFICATE"
-      ];
-
-      if (applicant.maritalStatus === "Single") {
-        requiredDocs.push("UNMARRIED_CERTIFICATE");
-      }
-
-      if (applicant.maritalStatus === "Married") {
-        requiredDocs.push("MARRIAGE_CERTIFICATE");
-      }
+      let requiredDocs = getRequiredDocumentTypes(applicant);
 
       for (let docType of requiredDocs) {
 
@@ -892,11 +944,19 @@ const approveAndMoveStage = async (req, res) => {
     // ================================
     const nextStage = currentStage + 1;
 
-    await docRef.update({
+    const updatePayload = {
       stage: nextStage,
       stageUpdatedAt: new Date(),
       lastActionBy: req.user.uid
-    });
+    };
+
+    if (currentStage === 1) {
+      updatePayload.approvalStatus = "approved";
+      updatePayload.approvedAt = new Date();
+      updatePayload.approvedBy = req.user.uid;
+    }
+
+    await docRef.update(updatePayload);
 
     await addStageLog({
       applicantId,
@@ -954,22 +1014,66 @@ const getApplicantById = async (req, res) => {
       companyName = companyDoc.exists ? companyDoc.data().name : "";
     }
 
+    await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
+
+    const refreshedApplicantSnap = await db.collection("applicants").doc(applicantId).get();
+    const applicantData = refreshedApplicantSnap.exists ? refreshedApplicantSnap.data() : applicant;
+
+    let countryName = "";
+    if (applicantData.countryId) {
+      const countryDoc = await db
+        .collection("countries")
+        .doc(applicantData.countryId)
+        .get();
+
+      countryName = countryDoc.exists ? countryDoc.data().name : "";
+    }
+
     // Fetch agency name
     let agencyName = "";
-    if (applicant.agencyId) {
+    if (applicantData.agencyId) {
       const agencyDoc = await db
         .collection("agencies")
-        .doc(applicant.agencyId)
+        .doc(applicantData.agencyId)
         .get();
 
       agencyName = agencyDoc.exists ? agencyDoc.data().name : "";
     }
 
+    const applicantPaymentsSnap = await db
+      .collection("applicants")
+      .doc(applicantId)
+      .collection("payments")
+      .where("type", "==", "APPLICANT")
+      .get();
+
+    let applicantPaid = 0;
+    applicantPaymentsSnap.forEach((paymentDoc) => {
+      const amount = Number(paymentDoc.data()?.amount);
+      if (Number.isFinite(amount)) applicantPaid += amount;
+    });
+
+    const storedPaidAmount = Number(applicantData.amountPaid ?? applicantData.paidAmount ?? 0) || 0;
+    applicantPaid = Math.max(applicantPaid, storedPaidAmount);
+
+    const totalApplicantPayment = Number(
+      applicantData.totalApplicantPayment ?? applicantData.totalAmount ?? applicantData.totalPayment ?? 0
+    ) || 0;
+
     res.json({
       id: doc.id,
-      ...applicant,
+      ...applicantData,
       companyName,
-      agencyName
+      agencyName,
+      countryName,
+      totalAmount: totalApplicantPayment,
+      amountPaid: applicantPaid,
+      paidAmount: applicantPaid,
+      payment: {
+        total: totalApplicantPayment,
+        paid: applicantPaid,
+        pending: Math.max(0, totalApplicantPayment - applicantPaid)
+      }
     });
 
   } catch (error) {
@@ -1188,6 +1292,12 @@ exports.approveDocument = async (req, res) => {
         reviewedAt: new Date(),
 	      reviewedBy: req.user.uid
       });
+
+    const applicantRef = db.collection("applicants").doc(id);
+    const applicantSnap = await applicantRef.get();
+    const applicant = applicantSnap.exists ? applicantSnap.data() : null;
+
+    await syncApplicantDocumentStage(id, applicant, req.user.uid, req.user.role);
 
     res.json({ message: "Document approved" });
 
