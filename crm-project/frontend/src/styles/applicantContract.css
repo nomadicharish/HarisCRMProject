@@ -19,26 +19,41 @@
   box-sizing:border-box;
 }
 
-.contractModalHeader{
+.workflowModalTopBar{
+  border-radius:10px;
+  padding:14px 16px;
+  min-height:64px;
   display:flex;
+  align-items:center;
   justify-content:space-between;
-  gap:16px;
+  background:linear-gradient(90deg, #485a99 0%, #44558f 100%);
+  color:#fff;
+  position:relative;
   margin-bottom:18px;
 }
 
-.contractModalTitle{
-  margin:0;
-  font-size:20px;
-  font-weight:800;
-  color:#111827;
+.workflowModalTopBar::before{
+  content:"";
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  margin-right:10px;
+  background:rgba(255,255,255,0.18);
+  flex:0 0 auto;
 }
 
-.contractCloseBtn{
+.workflowModalTopBarTitle{
+  font-size:16px;
+  font-weight:800;
+  line-height:1.3;
+}
+
+.workflowModalCloseBtn{
   border:none;
   background:transparent;
   cursor:pointer;
   font-size:18px;
-  color:#475467;
+  color:#fff;
 }
 
 .contractStatus{
@@ -85,6 +100,35 @@
   margin-top:18px;
   padding-top:18px;
   border-top:1px solid #eef2f7;
+}
+
+.contractFormGrid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  gap:16px;
+  margin-bottom:16px;
+}
+
+.workflowDateInput{
+  width:100%;
+  padding:12px;
+  padding-right:40px;
+  border-radius:10px;
+  border:1px solid #d0d5dd;
+  box-sizing:border-box;
+  font-size:14px;
+  cursor:pointer;
+  background:#fff;
+}
+
+.workflowDateIcon{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  pointer-events:none;
+  font-size:16px;
+  color:#667085;
 }
 
 .contractUploadLabel{
@@ -139,7 +183,7 @@
 
 @media (max-width: 768px){
   .contractInfoRow,
-  .contractModalHeader{
+  .workflowModalTopBar{
     flex-direction:column;
     align-items:flex-start;
   }

@@ -1,82 +1,379 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
+import { toast } from "react-toastify";
 import API from "../services/api";
+import "../styles/applicantContract.css";
 
-function EmbassyAppointment({ applicantId, user, loadApplicant }) {
+function formatDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+}
 
+function formatDateForInput(date) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getTomorrow() {
+  const tomorrow = new Date();
+  tomorrow.setHours(0, 0, 0, 0);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return tomorrow;
+}
+
+function formatTime(value) {
+  if (!value) return "-";
+  const [hours, minutes] = String(value).split(":");
+  if (!hours || !minutes) return value;
+  const date = new Date();
+  date.setHours(Number(hours), Number(minutes), 0, 0);
+  return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+
+const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <div style={{ position: "relative", width: "100%" }}>
+    <input
+      ref={ref}
+      value={value || ""}
+      onClick={onClick}
+      placeholder={placeholder}
+      readOnly
+      className="workflowDateInput"
+    />
+    <span className="workflowDateIcon" onClick={onClick}>
+      📅
+    </span>
+  </div>
+));
+
+CustomDateInput.displayName = "WorkflowDateInput";
+
+function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, onUpdated }) {
   const [appointment, setAppointment] = useState(null);
-  const [dateTime, setDateTime] = useState("");
-  const [file, setFile] = useState(null);
+  const [travelDetails, setTravelDetails] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [savingAppointment, setSavingAppointment] = useState(false);
+  const [savingTicket, setSavingTicket] = useState(false);
+  const [appointmentDate, setAppointmentDate] = useState(null);
+  const [appointmentTime, setAppointmentTime] = useState("");
+  const [appointmentFile, setAppointmentFile] = useState(null);
+  const [travelDate, setTravelDate] = useState(null);
+  const [travelTime, setTravelTime] = useState("");
+  const [travelFile, setTravelFile] = useState(null);
 
-  const loadData = async () => {
-    const res = await API.get(`/applicants/${applicantId}/embassy-appointment`);
-    setAppointment(res.data);
-  };
+  const hasBiometricSlip = Boolean(biometricSlip?.fileUrl);
+  const canEditAppointment = (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && !hasBiometricSlip;
+  const canAddTicket = user?.role === "AGENCY" && appointment && !travelDetails && !hasBiometricSlip;
+  const isBusy = savingAppointment || savingTicket;
+
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const [appointmentRes, travelRes] = await Promise.all([
+        API.get(`/applicants/${applicantId}/embassy-appointment`),
+        API.get(`/applicants/${applicantId}/travel`)
+      ]);
+
+      const appointmentData = appointmentRes.data || null;
+      const travelData = travelRes.data || null;
+      const normalizedAppointmentTime =
+        appointmentData?.time ||
+        appointmentData?.appointmentTime ||
+        (appointmentData?.dateTime ? String(appointmentData.dateTime).split("T")[1]?.slice(0, 5) : "") ||
+        "";
+
+      setAppointment(appointmentData ? { ...appointmentData, time: normalizedAppointmentTime } : null);
+      setTravelDetails(travelData);
+      setAppointmentDate(
+        appointmentData?.date ? new Date(appointmentData.date) : appointmentData?.dateTime ? new Date(appointmentData.dateTime) : null
+      );
+      setAppointmentTime(normalizedAppointmentTime);
+      setTravelDate(travelData?.travelDate ? new Date(travelData.travelDate) : null);
+      setTravelTime(travelData?.time || "");
+    } catch (error) {
+      console.error(error);
+      setAppointment(null);
+      setTravelDetails(null);
+      setAppointmentDate(null);
+      setAppointmentTime("");
+      setTravelDate(null);
+      setTravelTime("");
+    } finally {
+      setLoading(false);
+    }
+  }, [applicantId]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (open && applicantId) {
+      loadData();
+      setAppointmentFile(null);
+      setTravelFile(null);
+    }
+  }, [open, applicantId, loadData]);
 
-  const handleSubmit = async () => {
+  const title = useMemo(() => {
+    if (!appointment) return "Enter Embassy Appointment details";
+    if (!travelDetails && user?.role === "AGENCY" && !hasBiometricSlip) return "Ticket Upload";
+    return "Embassy Appointment Details";
+  }, [appointment, travelDetails, user?.role, hasBiometricSlip]);
 
-    const formData = new FormData();
-    formData.append("dateTime", dateTime);
+  const handleSaveAppointment = async () => {
+    const formattedDate = formatDateForInput(appointmentDate);
+    const trimmedTime = typeof appointmentTime === "string" ? appointmentTime.trim() : "";
 
-    if (file) {
-      formData.append("file", file);
+    if (!formattedDate || !trimmedTime) {
+      toast.error("Appointment date and time are required");
+      return;
     }
 
-    await API.post(`/applicants/${applicantId}/embassy-appointment`, formData);
+    try {
+      setSavingAppointment(true);
+      const formData = new FormData();
+      formData.append("date", formattedDate);
+      formData.append("time", trimmedTime);
+      formData.append("dateTime", `${formattedDate}T${trimmedTime}`);
 
-    setDateTime("");
-    setFile(null);
+      if (appointmentFile) {
+        formData.append("file", appointmentFile);
+      }
 
-    loadData();
-    loadApplicant(); // 🔥 refresh stage
+      await API.post(`/applicants/${applicantId}/embassy-appointment`, formData);
+
+      if (typeof onUpdated === "function") {
+        await onUpdated();
+      }
+
+      if (typeof onClose === "function") {
+        onClose();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to save appointment");
+    } finally {
+      setSavingAppointment(false);
+    }
   };
 
+  const handleSaveTicket = async () => {
+    const formattedDate = formatDateForInput(travelDate);
+    const trimmedTime = typeof travelTime === "string" ? travelTime.trim() : "";
+
+    if (!formattedDate || !trimmedTime) {
+      toast.error("Travel date and time are required");
+      return;
+    }
+
+    try {
+      setSavingTicket(true);
+      const formData = new FormData();
+      formData.append("travelDate", formattedDate);
+      formData.append("time", trimmedTime);
+      formData.append("ticketNumber", "");
+
+      if (travelFile) {
+        formData.append("file", travelFile);
+      }
+
+      await API.post(`/applicants/${applicantId}/travel`, formData);
+
+      if (typeof onUpdated === "function") {
+        await onUpdated();
+      }
+
+      if (typeof onClose === "function") {
+        onClose();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to save ticket details");
+    } finally {
+      setSavingTicket(false);
+    }
+  };
+
+  if (!open) return null;
+
   return (
-    <div className="card">
-
-      <h3>Embassy Appointment</h3>
-
-      {/* VIEW */}
-      {appointment && (
-        <div>
-          <p>
-            Date & Time:{" "}
-            {new Date(appointment.dateTime).toLocaleString()}
-          </p>
-
-          {appointment.fileUrl && (
-            <a href={appointment.fileUrl} target="_blank">
-              Download Document
-            </a>
-          )}
-        </div>
-      )}
-
-      {/* ADD (SUPER USER / EMPLOYER) */}
-      {(user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && (
-        <div>
-
-          <input
-            type="datetime-local"
-            value={dateTime}
-            onChange={(e) => setDateTime(e.target.value)}
-          />
-
-          <input
-            type="file"
-            onChange={(e) => setFile(e.target.files[0])}
-          />
-
-          <button onClick={handleSubmit}>
-            Save Appointment
+    <div className="contractModalOverlay">
+      <div className="contractModalCard">
+        <div className="workflowModalTopBar">
+          <div className="workflowModalTopBarTitle">{title}</div>
+          <button type="button" className="workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
+            ✕
           </button>
-
         </div>
-      )}
 
+        {loading ? (
+          <div className="contractInfoRow">Loading embassy appointment details...</div>
+        ) : (
+          <>
+            {appointment ? (
+              <div className="contractInfoCard">
+                <div className="contractInfoRow">
+                  <span>Appointment Date</span>
+                  <span>{formatDate(appointment.dateTime || appointment.date)}</span>
+                </div>
+                <div className="contractInfoRow">
+                  <span>Appointment Time</span>
+                  <span>{formatTime(appointment.time)}</span>
+                </div>
+                {appointment.fileUrl ? (
+                  <div className="contractInfoRow">
+                    <span>Appointment Document</span>
+                    <a href={appointment.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
+                      Open document
+                    </a>
+                  </div>
+                ) : null}
+
+                {travelDetails ? (
+                  <>
+                    <div className="contractUploadLabel" style={{ marginTop: 18 }}>
+                      Travel Details
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Travel Date</span>
+                      <span>{formatDate(travelDetails.travelDate)}</span>
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Travel Time</span>
+                      <span>{formatTime(travelDetails.time)}</span>
+                    </div>
+                    {travelDetails.fileUrl ? (
+                      <div className="contractInfoRow">
+                        <span>Ticket</span>
+                        <a href={travelDetails.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
+                          Open ticket
+                        </a>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+
+            {canEditAppointment ? (
+              <div className="contractUploadPanel">
+                <div className="contractFormGrid">
+                  <div className="input-field">
+                    <label className="contractUploadLabel">Appointment Date</label>
+                    <DatePicker
+                      selected={appointmentDate}
+                      onChange={(date) => setAppointmentDate(date)}
+                      minDate={getTomorrow()}
+                      dateFormat="dd/MM/yyyy"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                      customInput={<CustomDateInput placeholder="Select appointment date" />}
+                    />
+                  </div>
+
+                  <div className="input-field">
+                    <label className="contractUploadLabel" htmlFor="appointment-time">
+                      Appointment Time
+                    </label>
+                    <input
+                      id="appointment-time"
+                      type="time"
+                      value={appointmentTime}
+                      disabled={isBusy}
+                      onChange={(event) => setAppointmentTime(event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="contractUploadLabel">Appointment Document (Optional)</div>
+                <label className="contractFileCard" htmlFor="appointment-file">
+                  <input
+                    id="appointment-file"
+                    type="file"
+                    className="contractFileInput"
+                    disabled={isBusy}
+                    onChange={(event) => setAppointmentFile(event.target.files?.[0] || null)}
+                  />
+                  <span className="contractFileCardTitle">
+                    {appointmentFile
+                      ? appointmentFile.name
+                      : appointment?.fileUrl
+                      ? "Update appointment document"
+                      : "Upload appointment document"}
+                  </span>
+                </label>
+
+                <div className="contractActionRow">
+                  <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveAppointment}>
+                    {savingAppointment ? "Saving..." : appointment ? "Update Appointment" : "Save Appointment"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+
+            {canAddTicket ? (
+              <div className="contractUploadPanel">
+                <div className="contractUploadLabel">Travel Details</div>
+
+                <div className="contractFormGrid">
+                  <div className="input-field">
+                    <label className="contractUploadLabel">Travel Date</label>
+                    <DatePicker
+                      selected={travelDate}
+                      onChange={(date) => setTravelDate(date)}
+                      minDate={getTomorrow()}
+                      dateFormat="dd/MM/yyyy"
+                      showMonthDropdown
+                      showYearDropdown
+                      dropdownMode="select"
+                      customInput={<CustomDateInput placeholder="Select travel date" />}
+                    />
+                  </div>
+
+                  <div className="input-field">
+                    <label className="contractUploadLabel" htmlFor="travel-time">
+                      Travel Time
+                    </label>
+                    <input
+                      id="travel-time"
+                      type="time"
+                      value={travelTime}
+                      disabled={isBusy}
+                      onChange={(event) => setTravelTime(event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="contractUploadLabel">Ticket (Optional)</div>
+                <label className="contractFileCard" htmlFor="travel-file">
+                  <input
+                    id="travel-file"
+                    type="file"
+                    className="contractFileInput"
+                    disabled={isBusy}
+                    onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
+                  />
+                  <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
+                </label>
+
+                <div className="contractActionRow">
+                  <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveTicket}>
+                    {savingTicket ? "Saving..." : "Save Ticket Details"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
     </div>
   );
 }

@@ -97,17 +97,16 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
   return (
     <div className="contractModalOverlay">
       <div className="contractModalCard">
-        <div className="contractModalHeader">
+        <div className="workflowModalTopBar">
           <div>
-            <h3 className="contractModalTitle">{title}</h3>
+            <div className="workflowModalTopBarTitle">{title}</div>
             {contract?.status ? (
               <div className={`contractStatus contractStatus-${contract.status.toLowerCase()}`}>
                 {contract.status === "PENDING" ? "Pending super user approval" : "Contract issued"}
               </div>
             ) : null}
           </div>
-
-          <button type="button" className="contractCloseBtn" onClick={onClose}>
+          <button type="button" className="workflowModalCloseBtn" onClick={onClose}>
             ✕
           </button>
         </div>
@@ -132,12 +131,6 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
                   <span>Uploaded By</span>
                   <span>{contract.uploadedByName || contract.uploadedByRole || "-"}</span>
                 </div>
-                {contract?.approvedAt ? (
-                  <div className="contractInfoRow">
-                    <span>Approved By</span>
-                    <span>{contract.approvedByName || "-"}</span>
-                  </div>
-                ) : null}
               </div>
             ) : null}
 

@@ -7,7 +7,7 @@ const PIPELINE_ITEMS = [
   { id: 4, key: "CONTRACT", title: "Issue of the Contract" },
   { id: 5, key: "EMBASSY_APPOINTMENT_INITIATED", title: "Embassy Appointment Initiated" },
   { id: 6, key: "EMBASSY_APPOINTMENT_COMPLETED", title: "Embassy Appointment Completed" },
-  { id: 7, key: "EMBASSY_INTERVIEW_INITIATED", title: "Embassy Interview Initiated" },
+  { id: 7, key: "EMBASSY_INTERVIEW_INITIATED", title: "Initiate Embassy Interview" },
   { id: 8, key: "EMBASSY_INTERVIEW_COMPLETED", title: "Embassy Interview Completed" },
   { id: 9, key: "VISA_COLLECTION_INITIATED", title: "Visa Collection Initiated" },
   { id: 10, key: "VISA_COLLECTION_COMPLETED", title: "Visa Collection Completed" },
@@ -102,6 +102,9 @@ function ApplicantPipelineList({
   onCandidateAccountCreation,
   onDispatchDocuments,
   onContractAction,
+  onEmbassyAppointmentAction,
+  onBiometricSlipAction,
+  onEmbassyInterviewAction,
   onHeaderAction,
   headerActionLabel = "",
   canHeaderAction = true,
@@ -111,6 +114,11 @@ function ApplicantPipelineList({
   contractRowTitle = "Issue of the Contract",
   contractRowSubtitle = "",
   contractRowStatus = "",
+  embassyAppointmentRowTitle = "Embassy Appointment Initiated",
+  embassyAppointmentCompletedRowTitle = "Embassy Appointment Completed",
+  embassyAppointmentCompletedRowSubtitle = "",
+  embassyAppointmentCompletedRowStatus = "",
+  embassyInterviewRowTitle = "Initiate Embassy Interview",
   bannerText = "Complete the document uploading for admin to approve the candidate",
   documentRowStatus = ""
 }) {
@@ -149,6 +157,8 @@ function ApplicantPipelineList({
               ? documentRowStatus
               : item.id === 4 && contractRowStatus
               ? contractRowStatus
+              : item.id === 6 && embassyAppointmentCompletedRowStatus
+              ? embassyAppointmentCompletedRowStatus
               : status;
           const showRowButton =
             item.id === 2 &&
@@ -164,12 +174,34 @@ function ApplicantPipelineList({
               ? onDispatchDocuments
               : item.id === 4
               ? onContractAction
+              : item.id === 5
+              ? onEmbassyAppointmentAction
+              : item.id === 6
+              ? onBiometricSlipAction
+              : item.id === 7
+              ? onEmbassyInterviewAction
               : undefined;
           const canRowClick = typeof rowAction === "function";
           const resolvedSubtitle =
-            item.id === 2 ? documentRowSubtitle : item.id === 4 ? contractRowSubtitle : "";
+            item.id === 2
+              ? documentRowSubtitle
+              : item.id === 4
+              ? contractRowSubtitle
+              : item.id === 6
+              ? embassyAppointmentCompletedRowSubtitle
+              : "";
           const resolvedTitle =
-            item.id === 3 ? dispatchRowTitle : item.id === 4 ? contractRowTitle : item.title;
+            item.id === 3
+              ? dispatchRowTitle
+              : item.id === 4
+              ? contractRowTitle
+              : item.id === 5
+              ? embassyAppointmentRowTitle
+              : item.id === 6
+              ? embassyAppointmentCompletedRowTitle
+              : item.id === 7
+              ? embassyInterviewRowTitle
+              : item.title;
 
           return (
             <div key={item.key} className={`pipeRow pipeRow-${resolvedStatus}`}>

@@ -1633,9 +1633,8 @@ exports.addEmbassyAppointment = async (req, res) => {
   try {
 
     const applicantId = req.params.id;
-    const { dateTime } = req.body;
+    const { dateTime, date, time } = req.body;
 
-    // 🔒 Only SUPER_USER or EMPLOYER
     if (
       req.user.role !== "SUPER_USER" &&
       req.user.role !== "EMPLOYER"
@@ -1645,7 +1644,10 @@ exports.addEmbassyAppointment = async (req, res) => {
       });
     }
 
-    if (!dateTime) {
+    const resolvedDate = date || (dateTime ? String(dateTime).split("T")[0] : "");
+    const resolvedTime = time || (dateTime ? String(dateTime).split("T")[1]?.slice(0, 5) : "");
+
+    if (!resolvedDate || !resolvedTime) {
       return res.status(400).json({
         message: "Date & Time required"
       });
@@ -1653,13 +1655,10 @@ exports.addEmbassyAppointment = async (req, res) => {
 
     let fileUrl = "";
 
-    // Optional file upload
     if (req.file) {
 
       const bucket = admin.storage().bucket();
-
       const fileName = `appointments/${applicantId}_${Date.now()}`;
-
       const fileUpload = bucket.file(fileName);
 
       await fileUpload.save(req.file.buffer, {
@@ -1667,36 +1666,41 @@ exports.addEmbassyAppointment = async (req, res) => {
       });
 
       await fileUpload.makePublic();
-
       fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
     }
 
-    // Save appointment
-    await db
-      .collection("applicants")
-      .doc(applicantId)
-      .set({
-        embassyAppointment: {
-          dateTime,
-          fileUrl,
-          createdBy: req.user.uid,
-          createdByRole: req.user.role,
-          createdAt: new Date()
-        }
-      }, { merge: true });
+    const appointmentDateTime = `${resolvedDate}T${resolvedTime}`;
+    const createdAt = new Date();
+    const docRef = db.collection("applicants").doc(applicantId);
 
-    // 🔥 AUTO STAGE MOVE if SUPER USER
-    if (req.user.role === "SUPER_USER") {
+    await docRef.set({
+      embassyAppointment: {
+        date: resolvedDate,
+        time: resolvedTime,
+        dateTime: appointmentDateTime,
+        fileUrl,
+        createdBy: req.user.uid,
+        createdByRole: req.user.role,
+        createdAt
+      }
+    }, { merge: true });
 
-      const docRef = db.collection("applicants").doc(applicantId);
-      const doc = await docRef.get();
-      const applicant = doc.data();
+    const doc = await docRef.get();
+    const applicant = doc.data();
+    const currentStage = Number(applicant.stage || 1);
 
-      const currentStage = applicant.stage || 1;
-
+    if (currentStage === 5) {
       await docRef.update({
-        stage: currentStage + 1,
-        stageUpdatedAt: new Date()
+        stage: 6,
+        stageUpdatedAt: createdAt
+      });
+
+      await addStageLog({
+        applicantId,
+        fromStage: 5,
+        toStage: 6,
+        role: req.user.role,
+        action: "EMBASSY_APPOINTMENT_SAVED"
       });
     }
 
@@ -1721,8 +1725,32 @@ exports.getEmbassyAppointment = async (req, res) => {
       .get();
 
     const data = doc.data();
+    const appointment = data.embassyAppointment || null;
 
-    res.json(data.embassyAppointment || null);
+    if (!appointment) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    const normalizedTime =
+      appointment.time ||
+      appointment.appointmentTime ||
+      (appointment.dateTime ? String(appointment.dateTime).split("T")[1]?.slice(0, 5) : "") ||
+      "";
+
+    res.json({
+      ...appointment,
+      time: normalizedTime,
+      createdAt: normalizeDate(appointment.createdAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -1734,17 +1762,12 @@ exports.getEmbassyAppointment = async (req, res) => {
 // ===============================
 exports.addTravelDetails = async (req, res) => {
   try {
-
     const applicantId = req.params.id;
     const { travelDate, time, ticketNumber } = req.body;
 
-    // 🔒 Only AGENT or SUPER USER
-    if (
-      req.user.role !== "AGENCY" &&
-      req.user.role !== "SUPER_USER"
-    ) {
+    if (req.user.role !== "AGENCY") {
       return res.status(403).json({
-        message: "Only Agent or Super User can upload travel details"
+        message: "Only Agent can upload travel details"
       });
     }
 
@@ -1756,13 +1779,9 @@ exports.addTravelDetails = async (req, res) => {
 
     let fileUrl = "";
 
-    // Optional file upload
     if (req.file) {
-
       const bucket = admin.storage().bucket();
-
       const fileName = `travel/${applicantId}_${Date.now()}`;
-
       const fileUpload = bucket.file(fileName);
 
       await fileUpload.save(req.file.buffer, {
@@ -1770,11 +1789,9 @@ exports.addTravelDetails = async (req, res) => {
       });
 
       await fileUpload.makePublic();
-
       fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
     }
 
-    // Ensure travel details does not auto-advance applicant stage.
     const applicantRef = db.collection("applicants").doc(applicantId);
     const applicantSnap = await applicantRef.get();
 
@@ -1784,7 +1801,6 @@ exports.addTravelDetails = async (req, res) => {
 
     const currentStage = applicantSnap.data()?.stage || 1;
 
-    // Travel details are a stage 6+ activity. Do not allow you to set it from stage 5.
     if (currentStage < 6) {
       return res.status(400).json({
         message: "Cannot add travel details before stage 6. Complete current stage first."
@@ -1806,7 +1822,6 @@ exports.addTravelDetails = async (req, res) => {
     res.json({
       message: "Travel details saved"
     });
-
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -1817,16 +1832,31 @@ exports.addTravelDetails = async (req, res) => {
 // ===============================
 exports.getTravelDetails = async (req, res) => {
   try {
-
     const doc = await db
       .collection("applicants")
       .doc(req.params.id)
       .get();
 
     const data = doc.data();
+    const travelDetails = data.travelDetails || null;
 
-    res.json(data.travelDetails || null);
+    if (!travelDetails) {
+      return res.json(null);
+    }
 
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    res.json({
+      ...travelDetails,
+      createdAt: normalizeDate(travelDetails.createdAt)
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -1868,6 +1898,19 @@ exports.uploadBiometricSlip = async (req, res) => {
     const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
 
     const docRef = db.collection("applicants").doc(applicantId);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const currentStage = Number(docSnap.data()?.stage || 1);
+
+    if (currentStage < 6) {
+      return res.status(400).json({
+        message: "Cannot add biometric slip before ticket upload stage"
+      });
+    }
 
     // Save biometric slip
     await docRef.set({
@@ -1906,8 +1949,25 @@ exports.getBiometricSlip = async (req, res) => {
       .get();
 
     const data = doc.data();
+    const biometricSlip = data.biometricSlip || null;
 
-    res.json(data.biometricSlip || null);
+    if (!biometricSlip) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    res.json({
+      ...biometricSlip,
+      uploadedAt: normalizeDate(biometricSlip.uploadedAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2614,4 +2674,5 @@ module.exports = {
   completeApplicant: exports.completeApplicant,
   updateApplicant: exports.updateApplicant
 };
+
 
