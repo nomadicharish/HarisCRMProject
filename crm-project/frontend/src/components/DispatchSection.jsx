@@ -45,7 +45,8 @@ function DispatchSection({
   showTopBar = false,
   showTitle = true,
   compact = false,
-  onSaved
+  onSaved,
+  truncateTrackingUrl = false
 }) {
   const [dispatches, setDispatches] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -212,7 +213,9 @@ function DispatchSection({
                         <td>
                           {dispatch.trackingUrl ? (
                             <a className="linkBtn" href={dispatch.trackingUrl} target="_blank" rel="noreferrer">
-                              {dispatch.trackingUrl}
+                              <span className={truncateTrackingUrl ? "dispatchTrackingLink" : ""}>
+                                {dispatch.trackingUrl}
+                              </span>
                             </a>
                           ) : (
                             "-"

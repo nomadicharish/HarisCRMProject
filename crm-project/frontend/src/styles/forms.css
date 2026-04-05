@@ -42,15 +42,23 @@
 }
 
 .input-field input,
-.input-field select{
+.input-field select,
+.input-field textarea{
   padding:10px;
   border:1px solid #ddd;
   border-radius:6px;
 }
 
+.input-field input:focus,
+.input-field select:focus,
+.input-field textarea:focus{
+  border-color:#0052CC;
+  box-shadow:0 0 0 3px rgba(0, 82, 204, 0.12);
+}
+
 .submit-btn{
   margin-top:20px;
-  background:#2f6fed;
+  background:#0052CC;
   color:white;
   border:none;
   padding:12px 25px;
@@ -59,7 +67,7 @@
 }
 
 .submit-btn:hover{
-  background:#1f54c7;
+  background:#0041a3;
 }
 
 @media (max-width: 768px){

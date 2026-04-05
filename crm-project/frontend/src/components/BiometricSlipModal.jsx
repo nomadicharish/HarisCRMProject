@@ -37,6 +37,7 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
     [biometricSlip, fallbackBiometricSlip]
   );
   const canUpload = user?.role === "AGENCY" && !resolvedBiometricSlip?.fileUrl;
+  const title = resolvedBiometricSlip?.fileUrl ? "Biometric slip Details" : "Add Biometric slip";
 
   const loadBiometricSlip = useCallback(async () => {
     try {
@@ -90,7 +91,7 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
     <div className="contractModalOverlay">
       <div className="contractModalCard">
         <div className="workflowModalTopBar">
-          <div className="workflowModalTopBarTitle">Add Biometric slip</div>
+          <div className="workflowModalTopBarTitle">{title}</div>
           <button type="button" className="workflowModalCloseBtn" onClick={onClose} disabled={saving}>
             ✕
           </button>

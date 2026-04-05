@@ -2364,6 +2364,19 @@ exports.addVisaCollection = async (req, res) => {
     }
 
     const docRef = db.collection("applicants").doc(applicantId);
+    const docSnap = await docRef.get();
+
+    if (!docSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const currentStage = Number(docSnap.data()?.stage || 1);
+
+    if (currentStage < 9) {
+      return res.status(400).json({
+        message: "Cannot add visa collection before visa collection stage"
+      });
+    }
 
     const status = req.user.role === "SUPER_USER" ? "APPROVED" : "PENDING";
 
@@ -2441,6 +2454,15 @@ exports.getVisaCollection = async (req, res) => {
 
     if (!data) return res.json(null);
 
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
     // 🔒 Visibility rule
     if (
       data.status !== "APPROVED" &&
@@ -2449,7 +2471,11 @@ exports.getVisaCollection = async (req, res) => {
       return res.json(null);
     }
 
-    res.json(data);
+    res.json({
+      ...data,
+      createdAt: normalizeDate(data.createdAt),
+      approvedAt: normalizeDate(data.approvedAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2478,6 +2504,21 @@ exports.addVisaTravel = async (req, res) => {
       });
     }
 
+    const applicantRef = db.collection("applicants").doc(applicantId);
+    const applicantSnap = await applicantRef.get();
+
+    if (!applicantSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const currentStage = Number(applicantSnap.data()?.stage || 1);
+
+    if (currentStage < 10) {
+      return res.status(400).json({
+        message: "Cannot add visa travel before visa collection completion stage"
+      });
+    }
+
     let fileUrl = "";
 
     if (req.file) {
@@ -2496,10 +2537,7 @@ exports.addVisaTravel = async (req, res) => {
       fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
     }
 
-    await db
-      .collection("applicants")
-      .doc(applicantId)
-      .set({
+    await applicantRef.set({
         visaTravel: {
           date,
           time,
@@ -2531,7 +2569,23 @@ exports.getVisaTravel = async (req, res) => {
 
     const data = doc.data()?.visaTravel;
 
-    res.json(data || null);
+    if (!data) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    res.json({
+      ...data,
+      createdAt: normalizeDate(data.createdAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -2549,6 +2603,10 @@ exports.uploadResidencePermit = async (req, res) => {
 
     if (req.user.role !== "AGENCY") {
       return res.status(403).json({ message: "Only Agency allowed" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ message: "File required" });
     }
 
     const bucket = admin.storage().bucket();
@@ -2569,7 +2627,24 @@ exports.uploadResidencePermit = async (req, res) => {
 
     // ✅ GET EXISTING
     const doc = await docRef.get();
-    const existing = doc.data()?.residencePermit || {};
+    if (!doc.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+    const applicantData = doc.data() || {};
+    const currentStage = Number(applicantData.stage || 1);
+
+    if (currentStage < 10) {
+      return res.status(400).json({
+        message: "Cannot upload residence permit before visa collection completion stage"
+      });
+    }
+
+    if (!applicantData.visaTravel?.date || !applicantData.visaTravel?.time) {
+      return res.status(400).json({
+        message: "Upload visa travel details before residence permit"
+      });
+    }
+    const existing = applicantData.residencePermit || {};
 
     // ✅ MERGE PROPERLY
     const updatedPermit = {
@@ -2615,7 +2690,25 @@ exports.getResidencePermit = async (req, res) => {
       .doc(req.params.id)
       .get();
 
-    res.json(doc.data()?.residencePermit || null);
+    const residencePermit = doc.data()?.residencePermit || null;
+
+    if (!residencePermit) {
+      return res.json(null);
+    }
+
+    const normalizeDate = (value) => {
+      if (!value) return null;
+      if (typeof value.toMillis === "function") return value.toMillis();
+      if (value instanceof Date) return value.getTime();
+      if (typeof value === "number") return value;
+      if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+      return null;
+    };
+
+    res.json({
+      ...residencePermit,
+      uploadedAt: normalizeDate(residencePermit.uploadedAt)
+    });
 
   } catch (err) {
     res.status(500).json({ message: err.message });

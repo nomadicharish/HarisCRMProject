@@ -62,7 +62,7 @@ function getTopBarState({
   if (Number(currentStage) >= 3 && approvedRequired) {
     return {
       tone: "successSoft",
-      title: "Dispatch the document",
+      title: "All required documents approved",
       actionLabel: ""
     };
   }
@@ -255,6 +255,16 @@ function ApplicantDocumentsWorkspace() {
     setExpandedKeys((prev) => ({ ...prev, [docKey]: !prev[docKey] }));
   };
 
+  const ChevronIcon = ({ expanded }) => (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      {expanded ? (
+        <path d="m5 12.5 5-5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      )}
+    </svg>
+  );
+
   const handleSendForApproval = async () => {
     const uploads = Object.entries(selectedFiles);
     if (uploads.length === 0) {
@@ -339,7 +349,9 @@ function ApplicantDocumentsWorkspace() {
 
         <div className="docsHeaderRow">
           <div>
-            <h2 className="docsTitle">Upload relevant documents for admin approval</h2>
+            {!reviewState.approvedRequired ? (
+              <h2 className="docsTitle">Upload relevant documents for admin approval</h2>
+            ) : null}
           </div>
 
         </div>
@@ -373,13 +385,18 @@ function ApplicantDocumentsWorkspace() {
                 <button type="button" className="docsAccordionHead" onClick={() => toggleExpanded(doc.key)}>
                   <span className="docsAccordionTitle">
                     {doc.label}
-                    {doc.required ? <span className="docsRequiredTag">Required</span> : null}
+                    {doc.required ? <span className="docsRequiredTag">*</span> : null}
                   </span>
-                  <span className={`docsAccordionStatus ${statusTone}`}>
-                    {isApproved ? <StatusIcon tone="success" /> : null}
-                    {isPending ? <StatusIcon tone="warning" /> : null}
-                    {isRejected ? <StatusIcon tone="danger" /> : null}
-                    {statusLabel}
+                  <span className="docsAccordionRight">
+                    <span className={`docsAccordionStatus ${statusTone}`}>
+                      {isApproved ? <StatusIcon tone="success" /> : null}
+                      {isPending ? <StatusIcon tone="warning" /> : null}
+                      {isRejected ? <StatusIcon tone="danger" /> : null}
+                      {statusLabel}
+                    </span>
+                    <span className="docsAccordionChevron">
+                      <ChevronIcon expanded={expanded} />
+                    </span>
                   </span>
                 </button>
 

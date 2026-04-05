@@ -32,16 +32,6 @@
   margin-bottom:18px;
 }
 
-.workflowModalTopBar::before{
-  content:"";
-  width:28px;
-  height:28px;
-  border-radius:999px;
-  margin-right:10px;
-  background:rgba(255,255,255,0.18);
-  flex:0 0 auto;
-}
-
 .workflowModalTopBarTitle{
   font-size:16px;
   font-weight:800;
@@ -111,14 +101,26 @@
 
 .workflowDateInput{
   width:100%;
-  padding:12px;
+  min-height:46px;
+  padding:12px 14px;
   padding-right:40px;
-  border-radius:10px;
+  border-radius:12px;
   border:1px solid #d0d5dd;
   box-sizing:border-box;
   font-size:14px;
   cursor:pointer;
+  background:#f8fbff;
+  transition:border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.workflowDateInput:hover{
+  border-color:#9db8eb;
+}
+
+.workflowDateInput:focus{
   background:#fff;
+  border-color:#0052cc;
+  box-shadow:0 0 0 3px rgba(0, 82, 204, 0.12);
 }
 
 .workflowDateIcon{
@@ -137,6 +139,32 @@
   font-size:13px;
   font-weight:700;
   color:#344054;
+}
+
+.contractFormGrid input,
+.contractFormGrid select,
+.contractModalCard input[type="time"]{
+  min-height:46px;
+  padding:12px 14px;
+  border:1px solid #d0d5dd;
+  border-radius:12px;
+  background:#f8fbff;
+  color:#111827;
+  transition:border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.contractFormGrid input:hover,
+.contractFormGrid select:hover,
+.contractModalCard input[type="time"]:hover{
+  border-color:#9db8eb;
+}
+
+.contractFormGrid input:focus,
+.contractFormGrid select:focus,
+.contractModalCard input[type="time"]:focus{
+  background:#fff;
+  border-color:#0052cc;
+  box-shadow:0 0 0 3px rgba(0, 82, 204, 0.12);
 }
 
 .contractFileCard{

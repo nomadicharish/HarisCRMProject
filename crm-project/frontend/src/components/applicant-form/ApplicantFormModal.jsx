@@ -10,7 +10,7 @@ import "react-phone-input-2/lib/style.css";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 const THEME = {
-  primary: "#2f80ed",
+  primary: "#0052CC",
   border: "#ddd",
   error: "red"
 };
@@ -807,7 +807,7 @@ const actionsRight = {
 };
 
 const btnPrimary = {
-  background: "#2f80ed",
+  background: "#0052CC",
   color: "#fff",
   border: "none",
   padding: "10px 18px",

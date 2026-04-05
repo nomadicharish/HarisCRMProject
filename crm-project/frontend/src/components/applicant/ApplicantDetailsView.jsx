@@ -9,13 +9,41 @@ function Field({ label, value }) {
   );
 }
 
-function ApplicantDetailsView({ applicant }) {
+function toDisplayValue(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+    if (typeof value === "string" && value.trim() === "") continue;
+    return value;
+  }
+
+  return "-";
+}
+
+function ApplicantDetailsView({ applicant, showPaymentDetails = true }) {
   const pd = applicant?.personalDetails || {};
 
   const fullName =
     applicant?.fullName ||
     [applicant?.firstName, applicant?.lastName].filter(Boolean).join(" ").trim() ||
     "-";
+
+  const totalAmount = toDisplayValue(
+    applicant?.payment?.total,
+    applicant?.paymentsSummary?.applicant?.total,
+    applicant?.totalApplicantPayment,
+    applicant?.totalAmount,
+    applicant?.totalPayment
+  );
+
+  const paidAmount = toDisplayValue(
+    applicant?.payment?.paid,
+    applicant?.paymentsSummary?.applicant?.paid,
+    applicant?.paidAmount,
+    applicant?.amountPaid,
+    applicant?.initialPaidAmount,
+    applicant?.payment?.paidAmount,
+    applicant?.payment?.amountPaid
+  );
 
   return (
     <div className="card">
@@ -32,10 +60,11 @@ function ApplicantDetailsView({ applicant }) {
         <Field label="Address" value={pd.address ?? applicant?.address} />
         <Field label="Country" value={applicant?.countryName} />
         <Field label="Employer" value={applicant?.companyName} />
+        {showPaymentDetails ? <Field label="Total Amount" value={totalAmount} /> : null}
+        {showPaymentDetails ? <Field label="Initial Paid Amount" value={paidAmount} /> : null}
       </div>
     </div>
   );
 }
 
 export default ApplicantDetailsView;
-

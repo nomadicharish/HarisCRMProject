@@ -6,17 +6,16 @@ import "../styles/applicantProfile.css";
 import "../styles/applicantContract.css";
 import ApplicantFormModal from "../components/applicant-form/ApplicantFormModal";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
-import ApplicantDetailsView from "../components/applicant/ApplicantDetailsView";
 import ApplicantPipelineList from "../components/applicant/ApplicantPipelineList";
-import DispatchSection from "../components/DispatchSection";
 import ContractSection from "../components/ContractSection";
 import EmbassyAppointment from "../components/EmbassyAppointment";
 import BiometricSlipModal from "../components/BiometricSlipModal";
 import EmbassyInterviewModal from "../components/EmbassyInterviewModal";
 import InterviewBiometricModal from "../components/InterviewBiometricModal";
-import VisaCollection from "../components/VisaCollection";
-import VisaTravel from "../components/VisaTravel";
-import ResidencePermit from "../components/ResidencePermit";
+import VisaCollectionModal from "../components/VisaCollectionModal";
+import ResidencePermitModal from "../components/ResidencePermitModal";
+import ApplicantDetailsModal from "../components/ApplicantDetailsModal";
+import DispatchHistoryModal from "../components/DispatchHistoryModal";
 import { getDocumentReviewState } from "../constants/applicantDocuments";
 
 function toNumber(value) {
@@ -44,6 +43,22 @@ function getApplicantPaidAmount(applicant) {
   );
 }
 
+function formatCompletedStageDate(value) {
+  if (!value) return "";
+  const date =
+    typeof value?.toDate === "function"
+      ? value.toDate()
+      : typeof value === "object" && value._seconds
+      ? new Date(value._seconds * 1000)
+      : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const day = String(date.getDate()).padStart(2, "0");
+  const month = date.toLocaleString(undefined, { month: "short" });
+  const year = String(date.getFullYear()).slice(-2);
+  return `${day}-${month}-${year}`;
+}
+
 function ApplicantProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -57,16 +72,23 @@ function ApplicantProfile() {
   const [embassyInterview, setEmbassyInterview] = useState(null);
   const [interviewTicket, setInterviewTicket] = useState(null);
   const [interviewBiometric, setInterviewBiometric] = useState(null);
+  const [visaCollection, setVisaCollection] = useState(null);
+  const [visaTravel, setVisaTravel] = useState(null);
+  const [residencePermit, setResidencePermit] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
   const [showEmbassyAppointmentModal, setShowEmbassyAppointmentModal] = useState(false);
   const [showBiometricSlipModal, setShowBiometricSlipModal] = useState(false);
   const [showEmbassyInterviewModal, setShowEmbassyInterviewModal] = useState(false);
   const [showInterviewBiometricModal, setShowInterviewBiometricModal] = useState(false);
-  const [showMore, setShowMore] = useState(false);
+  const [showVisaCollectionModal, setShowVisaCollectionModal] = useState(false);
+  const [showResidencePermitModal, setShowResidencePermitModal] = useState(false);
   const [editContext, setEditContext] = useState("default");
   const [resolvedAgencyName, setResolvedAgencyName] = useState("");
   const [resolvedCountryName, setResolvedCountryName] = useState("");
+  const [showCompleteProcessModal, setShowCompleteProcessModal] = useState(false);
+  const [showApplicantDetailsModal, setShowApplicantDetailsModal] = useState(false);
+  const [showDispatchHistoryModal, setShowDispatchHistoryModal] = useState(false);
 
   const loadApplicant = useCallback(async () => {
     try {
@@ -160,6 +182,36 @@ function ApplicantProfile() {
     }
   }, [id]);
 
+  const loadVisaCollection = useCallback(async () => {
+    try {
+      const res = await API.get(`/applicants/${id}/visa-collection`);
+      setVisaCollection(res.data || null);
+    } catch (err) {
+      console.error(err);
+      setVisaCollection(null);
+    }
+  }, [id]);
+
+  const loadVisaTravel = useCallback(async () => {
+    try {
+      const res = await API.get(`/applicants/${id}/visa-travel`);
+      setVisaTravel(res.data || null);
+    } catch (err) {
+      console.error(err);
+      setVisaTravel(null);
+    }
+  }, [id]);
+
+  const loadResidencePermit = useCallback(async () => {
+    try {
+      const res = await API.get(`/applicants/${id}/residence-permit`);
+      setResidencePermit(res.data || null);
+    } catch (err) {
+      console.error(err);
+      setResidencePermit(null);
+    }
+  }, [id]);
+
   useEffect(() => {
     loadApplicant();
     loadUser();
@@ -170,6 +222,9 @@ function ApplicantProfile() {
     loadEmbassyInterview();
     loadInterviewTicket();
     loadInterviewBiometric();
+    loadVisaCollection();
+    loadVisaTravel();
+    loadResidencePermit();
   }, [
     loadApplicant,
     loadUser,
@@ -179,7 +234,10 @@ function ApplicantProfile() {
     loadBiometricSlip,
     loadEmbassyInterview,
     loadInterviewTicket,
-    loadInterviewBiometric
+    loadInterviewBiometric,
+    loadVisaCollection,
+    loadVisaTravel,
+    loadResidencePermit
   ]);
 
   useEffect(() => {
@@ -252,15 +310,28 @@ function ApplicantProfile() {
     setShowInterviewBiometricModal(true);
   };
 
-  const canEditApplicant = user?.role === "SUPER_USER";
-  const applicantStage = Number(applicant?.stage || 1);
-  const pipelineStep = Math.min(applicantStage, 11);
+  const openVisaCollectionSection = () => {
+    setShowVisaCollectionModal(true);
+  };
 
-  const completeProcess = async () => {
+  const openResidencePermitSection = () => {
+    setShowResidencePermitModal(true);
+  };
+
+  const applicantStage = Number(applicant?.stage || 1);
+  const isProfileApproved =
+    String(applicant?.approvalStatus || "").toLowerCase() === "approved" || applicantStage >= 2;
+  const canApproveProfile = user?.role === "SUPER_USER" && applicantStage === 1;
+  const canEditApplicant = user?.role === "SUPER_USER" && isProfileApproved;
+  const isEmployer = user?.role === "EMPLOYER";
+  const candidateArrivalCompletedDate = formatCompletedStageDate(applicant?.completedAt);
+
+  const confirmCompleteProcess = async () => {
     try {
       await API.patch(`/applicants/${id}/complete`);
-      alert("Process Completed ✅");
-      loadApplicant();
+      alert("Process completed successfully");
+      await loadApplicant();
+      setShowCompleteProcessModal(false);
     } catch (err) {
       console.error(err);
       alert("Error completing process");
@@ -299,6 +370,14 @@ function ApplicantProfile() {
   const canAddInterviewTicket = applicantStage === 8 && user?.role === "AGENCY" && !hasInterviewTicket;
   const canAddInterviewBiometric =
     applicantStage === 8 && user?.role === "AGENCY" && hasInterviewTicket && !hasInterviewBiometric;
+  const hasVisaTravel = Boolean(visaTravel?.date || visaTravel?.time || visaTravel?.fileUrl);
+  const hasResidencePermit = Boolean(
+    (residencePermit?.frontUrl || applicant?.residencePermit?.frontUrl) &&
+      (residencePermit?.backUrl || applicant?.residencePermit?.backUrl)
+  );
+  const canAddVisaCollection = applicantStage === 9 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+  const canAddVisaTravel = applicantStage === 10 && user?.role === "AGENCY" && !hasVisaTravel;
+  const canAddResidencePermit = applicantStage === 10 && user?.role === "AGENCY" && hasVisaTravel && !hasResidencePermit;
   const hasDocuments = Object.keys(documents || {}).length > 0;
   const shouldShowDocumentAction =
     !hasCompletedDocumentStage &&
@@ -312,7 +391,7 @@ function ApplicantProfile() {
     ? "Reupload Document"
     : "Upload Documents";
   const documentRowSubtitle = hasCompletedDocumentStage
-    ? "All required documents approved"
+    ? ""
     : docReviewState.rejectedRequired
     ? "Admin rejected few documents"
     : docReviewState.pendingRequired
@@ -322,8 +401,16 @@ function ApplicantProfile() {
     ? "Candidate pending for approval"
     : applicantStage === 1
     ? "Complete the candidate profile for approval"
+    : applicantStage >= 12
+    ? "Candidate Arrived and Process Completed"
+    : applicantStage === 11
+    ? "Candidate arrival pending"
+    : applicantStage === 10
+    ? hasVisaTravel
+      ? "Pending Residence Permit"
+      : "Travel ticket upload pending"
     : applicantStage === 9
-    ? "Pending visa collection"
+    ? "Visa collection Initiation pending"
     : applicantStage === 8
     ? hasInterviewBiometric
       ? "Pending visa collection"
@@ -400,8 +487,42 @@ function ApplicantProfile() {
         : "Travel ticket upload pending"
       : "";
   const embassyInterviewCompletedRowStatus = applicantStage === 8 ? "warning" : "";
+  const visaCollectionRowTitle =
+    applicantStage > 9 ? "Visa Collection Initiated" : "Initiate Visa Collection";
+  const visaCollectionRowStatus =
+    applicantStage === 9 && visaCollection?.status === "PENDING"
+      ? "warning"
+      : applicantStage === 9
+      ? "active"
+      : "";
+  const visaCollectionCompletedRowTitle =
+    applicantStage > 10 ? "Visa Collection Completed" : "Complete Visa Collection";
+  const visaCollectionCompletedRowSubtitle =
+    applicantStage === 10
+      ? hasVisaTravel
+        ? hasResidencePermit
+          ? ""
+          : "Pending Residence Permit"
+        : "Travel ticket upload pending"
+      : "";
+  const visaCollectionCompletedRowStatus = applicantStage === 10 ? "warning" : "";
+  const candidateArrivalRowTitle =
+    applicantStage >= 12
+      ? `Candidate Arrived and Process Completed${
+          candidateArrivalCompletedDate ? ` on ${candidateArrivalCompletedDate}` : ""
+        }`
+      : "Arrival of Candidate";
+  const candidateArrivalRowSubtitle = applicantStage === 11 ? "Candidate arrival pending" : "";
   const headerActionLabel = canIssueContract
     ? "Issue Contract"
+    : applicantStage === 11 && user?.role === "SUPER_USER"
+    ? "Candidate Arrived"
+    : canAddResidencePermit
+    ? "Add Residence Permit"
+    : canAddVisaTravel
+    ? "Add Ticket"
+    : canAddVisaCollection
+    ? "Add visa collection Details"
     : canAddInterviewBiometric
     ? "Add Biometric Slip"
     : canAddInterviewTicket
@@ -418,7 +539,9 @@ function ApplicantProfile() {
     ? canEditDispatch
       ? "Dispatch Document"
       : "Documents Dispatched"
-    : applicantStage === 1 && canEditApplicant
+    : applicantStage >= 12
+    ? ""
+    : applicantStage === 1 && canApproveProfile
     ? "Approve Profile"
     : documentsButtonLabel;
 
@@ -430,10 +553,63 @@ function ApplicantProfile() {
     navigate(`/applicants/${id}/dispatch`);
   };
 
+  const handleShowProfileDetails = () => {
+    setShowApplicantDetailsModal(true);
+  };
+
+  const handleShowDispatchDetails = () => {
+    setShowDispatchHistoryModal(true);
+  };
+
   const approveStage = async () => {
     await API.patch(`/applicants/${id}/approve-stage`);
     await loadApplicant();
   };
+
+  const headerActionHandler = canIssueContract
+    ? openContractSection
+    : applicantStage === 11 && user?.role === "SUPER_USER"
+    ? () => setShowCompleteProcessModal(true)
+    : canAddResidencePermit
+    ? openResidencePermitSection
+    : canAddVisaTravel
+    ? openVisaCollectionSection
+    : canAddVisaCollection
+    ? openVisaCollectionSection
+    : canAddInterviewBiometric
+    ? openInterviewBiometricSection
+    : canAddInterviewTicket
+    ? openEmbassyInterviewSection
+    : canAddEmbassyInterview
+    ? openEmbassyInterviewSection
+    : canAddBiometricSlip
+    ? openBiometricSlipSection
+    : canAddTicket
+    ? openEmbassyAppointmentSection
+    : canInitiateEmbassyAppointment
+    ? openEmbassyAppointmentSection
+    : canShowDispatchHeaderButton
+    ? handleShowDispatch
+    : applicantStage === 1 && canApproveProfile
+    ? () => openEditProfile("stage1")
+    : shouldShowDocumentAction
+    ? handleShowDocuments
+    : undefined;
+
+  const canHeaderAction =
+    canIssueContract ||
+    (applicantStage === 11 && user?.role === "SUPER_USER") ||
+    canAddResidencePermit ||
+    canAddVisaTravel ||
+    canAddVisaCollection ||
+    canAddInterviewBiometric ||
+    canAddInterviewTicket ||
+    canAddEmbassyInterview ||
+    canAddBiometricSlip ||
+    canAddTicket ||
+    canInitiateEmbassyAppointment ||
+    canShowDispatchHeaderButton ||
+    (applicantStage === 1 ? canApproveProfile : shouldShowDocumentAction);
 
   return (
     <div className="page-container">
@@ -446,67 +622,26 @@ function ApplicantProfile() {
               applicant={applicant}
               pendingAmount={pending}
               pendingDisplayValue={isTotalAmountMissing ? "Enter Total Amount" : undefined}
-              canEdit={canEditApplicant}
+              canEdit={false}
               onEdit={() => openEditProfile("default")}
-              onViewMore={() => setShowMore((value) => !value)}
               onPendingClick={isTotalAmountMissing && canEditApplicant ? () => openEditProfile("default") : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
+              showAgency={user?.role === "SUPER_USER"}
+              showPendingAmount={!isEmployer}
             />
           </aside>
 
           <main className="applicantProfileMain">
             <ApplicantPipelineList
-              currentStep={pipelineStep}
+              currentStep={applicantStage}
               totalSteps={11}
               onUploadDocuments={handleShowDocuments}
-              canUploadDocuments={shouldShowDocumentAction}
-              onHeaderAction={
-                canIssueContract
-                  ? openContractSection
-                  : canAddInterviewBiometric
-                  ? openInterviewBiometricSection
-                  : canAddInterviewTicket
-                  ? openEmbassyInterviewSection
-                  : canAddEmbassyInterview
-                  ? openEmbassyInterviewSection
-                  : canAddBiometricSlip
-                  ? openBiometricSlipSection
-                  : canAddTicket
-                  ? openEmbassyAppointmentSection
-                  : canInitiateEmbassyAppointment
-                  ? openEmbassyAppointmentSection
-                  : canShowDispatchHeaderButton
-                  ? handleShowDispatch
-                  : applicantStage === 1 && canEditApplicant
-                  ? () => openEditProfile("stage1")
-                  : shouldShowDocumentAction
-                  ? handleShowDocuments
-                  : undefined
-              }
+              onHeaderAction={headerActionHandler}
               headerActionLabel={headerActionLabel}
-              canHeaderAction={
-                canIssueContract
-                  ? true
-                  : canAddInterviewBiometric
-                  ? true
-                  : canAddInterviewTicket
-                  ? true
-                  : canAddEmbassyInterview
-                  ? true
-                  : canAddBiometricSlip
-                  ? true
-                  : canAddTicket
-                  ? true
-                  : canInitiateEmbassyAppointment
-                  ? true
-                  : canShowDispatchHeaderButton
-                  ? true
-                  : applicantStage === 1
-                  ? canEditApplicant
-                  : shouldShowDocumentAction
-              }
-              uploadButtonLabel={documentsButtonLabel}
+              canHeaderAction={canHeaderAction}
+              activeStepActionLabel={headerActionLabel}
+              canActiveStepAction={canHeaderAction}
               documentRowSubtitle={documentRowSubtitle}
               dispatchRowTitle={dispatchRowTitle}
               contractRowTitle={contractRowTitle}
@@ -519,10 +654,21 @@ function ApplicantProfile() {
               embassyInterviewCompletedRowTitle={embassyInterviewCompletedRowTitle}
               embassyInterviewCompletedRowSubtitle={embassyInterviewCompletedRowSubtitle}
               embassyInterviewCompletedRowStatus={embassyInterviewCompletedRowStatus}
+              visaCollectionRowTitle={visaCollectionRowTitle}
+              visaCollectionRowStatus={visaCollectionRowStatus}
+              visaCollectionCompletedRowTitle={visaCollectionCompletedRowTitle}
+              visaCollectionCompletedRowSubtitle={visaCollectionCompletedRowSubtitle}
+              visaCollectionCompletedRowStatus={visaCollectionCompletedRowStatus}
+              candidateArrivalRowTitle={candidateArrivalRowTitle}
+              candidateArrivalRowSubtitle={candidateArrivalRowSubtitle}
               bannerText={pipelineBannerText}
               documentRowStatus={documentRowStatus}
-              onCandidateAccountCreation={() => openEditProfile("stage1")}
-              onDispatchDocuments={canAccessDispatch ? handleShowDispatch : undefined}
+              onCandidateAccountCreation={
+                applicantStage === 1 && canApproveProfile ? () => openEditProfile("stage1") : handleShowProfileDetails
+              }
+              onDispatchDocuments={
+                applicantStage >= 4 ? handleShowDispatchDetails : canAccessDispatch ? handleShowDispatch : undefined
+              }
               onContractAction={applicantStage >= 4 ? openContractSection : undefined}
               onEmbassyAppointmentAction={applicantStage >= 5 ? openEmbassyAppointmentSection : undefined}
               onBiometricSlipAction={
@@ -540,35 +686,18 @@ function ApplicantProfile() {
                     : openEmbassyInterviewSection
                   : undefined
               }
+              onVisaCollectionAction={applicantStage >= 9 ? openVisaCollectionSection : undefined}
+              onVisaCompletionAction={
+                applicantStage >= 10
+                  ? hasVisaTravel
+                    ? openResidencePermitSection
+                    : openVisaCollectionSection
+                  : undefined
+              }
+              onCandidateArrivalAction={undefined}
             />
 
-            {showMore && <ApplicantDetailsView applicant={applicant} />}
-
-            {showMore && (
-              <div className="moreSection">
-                {Number(applicant.stage) >= 3 &&
-                  !["SUPER_USER", "EMPLOYER"].includes(user?.role) && (
-                    <DispatchSection applicantId={id} canEdit={false} compact={true} />
-                  )}
-                {Number(applicant.stage) >= 9 && (
-                  <VisaCollection applicantId={id} user={user} loadApplicant={loadApplicant} />
-                )}
-                {Number(applicant.stage) >= 10 && <VisaTravel applicantId={id} user={user} />}
-                {Number(applicant.stage) >= 10 && (
-                  <ResidencePermit applicantId={id} user={user} loadApplicant={loadApplicant} />
-                )}
-
-                {user?.role === "SUPER_USER" && Number(applicant.stage) === 11 && (
-                  <button className="btn btnSuccess" type="button" onClick={completeProcess}>
-                    Mark as Completed
-                  </button>
-                )}
-
-                {Number(applicant.stage) === 12 && (
-                  <p className="successText">✅ Candidate Arrived / Process Completed</p>
-                )}
-              </div>
-            )}
+            {Number(applicant.stage) === 12 ? <p className="successText">{candidateArrivalRowTitle}</p> : null}
           </main>
         </div>
 
@@ -644,6 +773,79 @@ function ApplicantProfile() {
             await Promise.all([loadApplicant(), loadInterviewBiometric()]);
           }}
         />
+
+        <VisaCollectionModal
+          applicantId={id}
+          user={user}
+          residencePermit={residencePermit || applicant?.residencePermit || null}
+          open={showVisaCollectionModal}
+          onClose={() => setShowVisaCollectionModal(false)}
+          onUpdated={async () => {
+            await Promise.all([loadApplicant(), loadVisaCollection(), loadVisaTravel(), loadResidencePermit()]);
+          }}
+        />
+
+        <ResidencePermitModal
+          applicantId={id}
+          user={user}
+          fallbackResidencePermit={applicant?.residencePermit || null}
+          open={showResidencePermitModal}
+          onClose={() => setShowResidencePermitModal(false)}
+          onUpdated={async () => {
+            await Promise.all([loadApplicant(), loadResidencePermit()]);
+          }}
+        />
+
+        <ApplicantDetailsModal
+          applicant={applicant}
+          open={showApplicantDetailsModal}
+          onClose={() => setShowApplicantDetailsModal(false)}
+          showPaymentDetails={!isEmployer}
+          agencyName={user?.role === "SUPER_USER" ? resolvedAgencyName : ""}
+          countryName={resolvedCountryName}
+        />
+
+        <DispatchHistoryModal
+          applicantId={id}
+          open={showDispatchHistoryModal}
+          onClose={() => setShowDispatchHistoryModal(false)}
+        />
+
+        {showCompleteProcessModal ? (
+          <div className="contractModalOverlay">
+            <div className="contractModalCard">
+              <div className="workflowModalTopBar">
+                <div className="workflowModalTopBarTitle">Candidate Arrived</div>
+                <button
+                  type="button"
+                  className="workflowModalCloseBtn"
+                  onClick={() => setShowCompleteProcessModal(false)}
+                >
+                  x
+                </button>
+              </div>
+
+              <div className="contractInfoCard">
+                <div className="contractInfoRow">
+                  <span>Do you want to complete the process</span>
+                </div>
+              </div>
+
+              <div className="contractActionRow">
+                <button
+                  type="button"
+                  className="btn btnSecondary"
+                  onClick={() => setShowCompleteProcessModal(false)}
+                >
+                  No
+                </button>
+                <button type="button" className="btn btnSuccess" onClick={confirmCompleteProcess}>
+                  Yes
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );
