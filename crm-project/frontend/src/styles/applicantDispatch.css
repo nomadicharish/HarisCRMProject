@@ -15,16 +15,6 @@
   position:relative;
 }
 
-.dispatchTopBar::before{
-  content:"";
-  width:28px;
-  height:28px;
-  border-radius:999px;
-  margin-right:10px;
-  background:rgba(255,255,255,0.18);
-  flex:0 0 auto;
-}
-
 .dispatchTopBarTitle{
   font-size:14px;
   font-weight:800;
@@ -71,6 +61,15 @@
 .dispatchEmptyCell{
   color:#667085;
   font-weight:600;
+}
+
+.dispatchTrackingLink{
+  display:inline-block;
+  max-width:260px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  vertical-align:bottom;
 }
 
 .dispatchSectionCompact .dispatchTopBar{

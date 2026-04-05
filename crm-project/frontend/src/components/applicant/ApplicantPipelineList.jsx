@@ -49,7 +49,7 @@ function IconLock() {
 function IconChevron() {
   return (
     <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path d="m7.5 15 5-5-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="m7.5 15 5-5-5-5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
   );
 }
@@ -98,7 +98,6 @@ function ApplicantPipelineList({
   currentStep = 1,
   totalSteps = 11,
   onUploadDocuments,
-  canUploadDocuments,
   onCandidateAccountCreation,
   onDispatchDocuments,
   onContractAction,
@@ -106,10 +105,14 @@ function ApplicantPipelineList({
   onBiometricSlipAction,
   onEmbassyInterviewAction,
   onInterviewCompletionAction,
+  onVisaCollectionAction,
+  onVisaCompletionAction,
+  onCandidateArrivalAction,
   onHeaderAction,
   headerActionLabel = "",
   canHeaderAction = true,
-  uploadButtonLabel = "Upload Documents",
+  activeStepActionLabel = "",
+  canActiveStepAction = true,
   documentRowSubtitle = "",
   dispatchRowTitle = "Dispatch Documents",
   contractRowTitle = "Issue of the Contract",
@@ -123,6 +126,13 @@ function ApplicantPipelineList({
   embassyInterviewCompletedRowTitle = "Embassy Interview Completed",
   embassyInterviewCompletedRowSubtitle = "",
   embassyInterviewCompletedRowStatus = "",
+  visaCollectionRowTitle = "Initiate Visa Collection",
+  visaCollectionRowStatus = "",
+  visaCollectionCompletedRowTitle = "Visa Collection Completed",
+  visaCollectionCompletedRowSubtitle = "",
+  visaCollectionCompletedRowStatus = "",
+  candidateArrivalRowTitle = "Arrival of Candidate",
+  candidateArrivalRowSubtitle = "",
   bannerText = "Complete the document uploading for admin to approve the candidate",
   documentRowStatus = ""
 }) {
@@ -137,12 +147,7 @@ function ApplicantPipelineList({
         </div>
 
         {headerActionLabel ? (
-          <button
-            className="btn bannerBtn"
-            type="button"
-            onClick={onHeaderAction}
-            disabled={!canHeaderAction}
-          >
+          <button className="btn bannerBtn" type="button" onClick={onHeaderAction} disabled={!canHeaderAction}>
             {headerActionLabel}
           </button>
         ) : null}
@@ -165,17 +170,16 @@ function ApplicantPipelineList({
               ? embassyAppointmentCompletedRowStatus
               : item.id === 8 && embassyInterviewCompletedRowStatus
               ? embassyInterviewCompletedRowStatus
+              : item.id === 9 && visaCollectionRowStatus
+              ? visaCollectionRowStatus
+              : item.id === 10 && visaCollectionCompletedRowStatus
+              ? visaCollectionCompletedRowStatus
               : status;
-          const showRowButton =
-            item.id === 2 &&
-            Number(currentStep) >= 2 &&
-            resolvedStatus !== "completed" &&
-            canUploadDocuments &&
-            Boolean(uploadButtonLabel) &&
-            typeof onUploadDocuments === "function";
           const rowAction =
             item.id === 1
               ? onCandidateAccountCreation
+              : item.id === 2
+              ? onUploadDocuments
               : item.id === 3
               ? onDispatchDocuments
               : item.id === 4
@@ -188,8 +192,16 @@ function ApplicantPipelineList({
               ? onEmbassyInterviewAction
               : item.id === 8
               ? onInterviewCompletionAction
+              : item.id === 9
+              ? onVisaCollectionAction
+              : item.id === 10
+              ? onVisaCompletionAction
+              : item.id === 11
+              ? onCandidateArrivalAction
               : undefined;
           const canRowClick = typeof rowAction === "function";
+          const isCompletedRow = resolvedStatus === "completed";
+          const isActiveRow = item.id === Number(currentStep);
           const resolvedSubtitle =
             item.id === 2
               ? documentRowSubtitle
@@ -199,6 +211,10 @@ function ApplicantPipelineList({
               ? embassyAppointmentCompletedRowSubtitle
               : item.id === 8
               ? embassyInterviewCompletedRowSubtitle
+              : item.id === 10
+              ? visaCollectionCompletedRowSubtitle
+              : item.id === 11
+              ? candidateArrivalRowSubtitle
               : "";
           const resolvedTitle =
             item.id === 3
@@ -213,7 +229,19 @@ function ApplicantPipelineList({
               ? embassyInterviewRowTitle
               : item.id === 8
               ? embassyInterviewCompletedRowTitle
+              : item.id === 9
+              ? visaCollectionRowTitle
+              : item.id === 10
+              ? visaCollectionCompletedRowTitle
+              : item.id === 11
+              ? candidateArrivalRowTitle
               : item.title;
+          const showActiveButton =
+            isActiveRow &&
+            activeStepActionLabel &&
+            typeof onHeaderAction === "function" &&
+            Boolean(canActiveStepAction);
+          const showCompletedArrow = isCompletedRow && canRowClick;
 
           return (
             <div key={item.key} className={`pipeRow pipeRow-${resolvedStatus}`}>
@@ -228,25 +256,22 @@ function ApplicantPipelineList({
               </div>
 
               <div className="pipeRight">
-                {showRowButton && (
-                  <button className="btn btnPrimary btnSm" type="button" onClick={onUploadDocuments}>
-                    {uploadButtonLabel}
+                {showActiveButton ? (
+                  <button className="btn bannerBtn btnSm pipeStageActionBtn" type="button" onClick={onHeaderAction}>
+                    {activeStepActionLabel}
                   </button>
-                )}
-                {canRowClick ? (
+                ) : null}
+
+                {showCompletedArrow ? (
                   <button
                     className="pipeChevronBtn"
                     type="button"
                     onClick={rowAction}
-                    aria-label={`Open ${item.title}`}
+                    aria-label={`Open ${resolvedTitle}`}
                   >
                     <IconChevron />
                   </button>
-                ) : (
-                  <span className="pipeChevron" aria-hidden="true">
-                    <IconChevron />
-                  </span>
-                )}
+                ) : null}
               </div>
             </div>
           );

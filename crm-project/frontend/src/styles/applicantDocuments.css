@@ -35,41 +35,13 @@
 }
 
 .docsTopBar-successSoft {
-  background: #eefaf1;
-  border-color: #d7efde;
-  color: #173a22;
+  background: linear-gradient(90deg, #485a99 0%, #44558f 100%);
+  color: #fff;
 }
 
 .docsTopBar-neutral {
-  background: #f6f8fc;
-  border-color: #e8edf5;
-  color: #1f2937;
-}
-
-.docsTopBar::before {
-  content: "";
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
-  flex: 0 0 auto;
-  margin-right: 10px;
-  opacity: 0.95;
-}
-
-.docsTopBar-primary::before {
-  background: rgba(255, 255, 255, 0.18);
-}
-
-.docsTopBar-danger::before {
-  background: #fecaca;
-}
-
-.docsTopBar-successSoft::before {
-  background: #ccead2;
-}
-
-.docsTopBar-neutral::before {
-  background: #d7deea;
+  background: linear-gradient(90deg, #485a99 0%, #44558f 100%);
+  color: #fff;
 }
 
 .docsTopBarTitle {
@@ -80,9 +52,10 @@
 }
 
 .docsTopBarButton {
-  background: #fff;
-  color: #1d4ed8;
+  background: #0052cc;
+  color: #fff;
   min-width: 132px;
+  border: 1px solid #0052cc;
 }
 
 .docsHeaderRow {
@@ -175,6 +148,13 @@
   flex-wrap: wrap;
 }
 
+.docsAccordionRight{
+  display:inline-flex;
+  align-items:center;
+  gap:12px;
+  flex:0 0 auto;
+}
+
 .docsAccordionStatus {
   font-size: 12px;
   font-weight: 600;
@@ -199,6 +179,13 @@
 
 .docsAccordionStatus.is-pending {
   color: #c2410c;
+}
+
+.docsAccordionChevron{
+  color:#475467;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
 }
 
 .docsAccordionBody {
@@ -310,14 +297,10 @@
 .docsRequiredTag {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
-  border-radius: 999px;
-  background: #fff8e8;
-  color: #b45309;
-  font-size: 10px;
+  color: #dc2626;
+  font-size: 16px;
   font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
+  line-height: 1;
 }
 
 .docsInlineIcon {

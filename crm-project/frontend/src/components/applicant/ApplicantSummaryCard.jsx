@@ -30,10 +30,11 @@ function ApplicantSummaryCard({
   pendingDisplayValue,
   onEdit,
   canEdit,
-  onViewMore,
   onPendingClick,
   agencyName: agencyNameOverride,
-  countryName: countryNameOverride
+  countryName: countryNameOverride,
+  showAgency = false,
+  showPendingAmount = true
 }) {
   const fullName =
     applicant?.fullName ||
@@ -71,7 +72,7 @@ function ApplicantSummaryCard({
 
         {canEdit ? (
           <button className="iconBtn" type="button" onClick={onEdit} aria-label="Edit applicant">
-            ✎
+            Edit
           </button>
         ) : null}
       </div>
@@ -93,29 +94,27 @@ function ApplicantSummaryCard({
         <div className="sideValue">{employerDisplay}</div>
       </div>
 
-      {canEdit && agency ? (
+      {showAgency && agency ? (
         <div className="sideSection">
           <div className="sideLabel">Agency</div>
           <div className="sideValue">{agency}</div>
         </div>
       ) : null}
 
-      <button className="viewMoreBtn" type="button" onClick={onViewMore}>
-        View more <span aria-hidden="true">›</span>
-      </button>
-
-      <PendingContainer
-        className={`pendingBox ${onPendingClick ? "pendingBoxActionable" : ""}`}
-        {...(onPendingClick ? { type: "button", onClick: onPendingClick } : {})}
-      >
-        <div className="pendingText">
-          <div className="pendingLabel">Pending Amount</div>
-          <div className="pendingValue">{pendingDisplayValue || `INR ${pendingAmount ?? 0}`}</div>
-        </div>
-        <div className="pendingChevron" aria-hidden="true">
-          ›
-        </div>
-      </PendingContainer>
+      {showPendingAmount ? (
+        <PendingContainer
+          className={`pendingBox ${onPendingClick ? "pendingBoxActionable" : ""}`}
+          {...(onPendingClick ? { type: "button", onClick: onPendingClick } : {})}
+        >
+          <div className="pendingText">
+            <div className="pendingLabel">Pending Amount</div>
+            <div className="pendingValue">{pendingDisplayValue || `INR ${pendingAmount ?? 0}`}</div>
+          </div>
+          <div className="pendingChevron" aria-hidden="true">
+            &gt;
+          </div>
+        </PendingContainer>
+      ) : null}
     </div>
   );
 }

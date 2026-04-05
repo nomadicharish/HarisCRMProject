@@ -1,12 +1,7 @@
 :root {
-  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   line-height: 1.5;
   font-weight: 400;
-
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
-  
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
@@ -14,30 +9,39 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
-input:focus { 
-  outline: none;
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+html,
+body,
+#root {
+  min-height: 100%;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
   min-width: 320px;
-  min-height: 100vh;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: #1f2937;
+  background: #f7f8fb;
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: #0052cc !important;
+  box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.12);
 }
 
 button {
@@ -47,47 +51,90 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
 }
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+
+a {
+  font-weight: 500;
+  color: #0052cc;
+  text-decoration: inherit;
 }
 
 .react-datepicker {
-  border-radius: 12px !important;
-  border: 1px solid #eee !important;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  border-radius: 16px !important;
+  border: 1px solid #d9e2f2 !important;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.14) !important;
+  overflow: hidden;
+  font-family: "Inter", system-ui, sans-serif !important;
 }
 
 .react-datepicker__header {
-  background-color: #2f80ed !important;
-  color: white;
+  background: linear-gradient(90deg, #0052cc 0%, #0041a3 100%) !important;
+  color: #fff !important;
   border-bottom: none !important;
+  padding-top: 14px !important;
+}
+
+.react-datepicker__current-month,
+.react-datepicker-time__header,
+.react-datepicker-year-header {
+  color: #fff !important;
+  font-weight: 700 !important;
+}
+
+.react-datepicker__month-dropdown-container,
+.react-datepicker__year-dropdown-container {
+  margin: 0 6px !important;
+}
+
+.react-datepicker__month-select,
+.react-datepicker__year-select {
+  min-height: 40px !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  background: rgba(255, 255, 255, 0.14) !important;
+  color: #fff !important;
+  font-family: "Inter", system-ui, sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+.react-datepicker__month-select option,
+.react-datepicker__year-select option {
+  color: #111827 !important;
+}
+
+.react-datepicker__day-name {
+  color: rgba(255, 255, 255, 0.82) !important;
+  font-weight: 600 !important;
+}
+
+.react-datepicker__day,
+.react-datepicker__time-name {
+  border-radius: 10px !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .react-datepicker__day--selected {
-  background-color: #2f80ed !important;
+  background-color: #0052cc !important;
+  color: #fff !important;
 }
 
 .react-datepicker__day:hover {
-  background-color: #e6f0ff !important;
+  background-color: #e7f0ff !important;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+.react-datepicker__day--keyboard-selected {
+  background-color: rgba(0, 82, 204, 0.14) !important;
+  color: #0052cc !important;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: #fff !important;
+}
+
+.react-datepicker__triangle {
+  display: none !important;
 }
