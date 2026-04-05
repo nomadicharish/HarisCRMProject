@@ -1,6 +1,6 @@
 import axios from "axios";
 import { auth } from "../firebase";
-import { signOut } from "firebase/auth";
+import { clearSession } from "../utils/auth";
 
 const API = axios.create({
   baseURL: "http://localhost:3000/api",
@@ -10,17 +10,7 @@ const API = axios.create({
 API.interceptors.request.use(async (config) => {
   const sessionExpiresAt = Number(localStorage.getItem("session_expires_at") || 0);
   if (sessionExpiresAt && Date.now() > sessionExpiresAt) {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("session_expires_at");
-    try {
-      await signOut(auth);
-    } catch {
-      // ignore
-    }
-    if (typeof window !== "undefined") {
-      window.location.href = "/";
-    }
+    await clearSession({ redirectTo: "/login" });
     return config;
   }
 
@@ -31,5 +21,16 @@ API.interceptors.request.use(async (config) => {
   if (token && localStorage.getItem("token") !== token) localStorage.setItem("token", token);
   return config;
 });
+
+API.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error?.response?.status === 401) {
+      await clearSession({ redirectTo: "/login" });
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default API;

@@ -9,18 +9,29 @@ const verifyToken = async (req, res, next) => {
     }
 
     const token = authHeader.split(" ")[1];
-    const decoded = await admin.auth().verifyIdToken(token);
+    const decoded = await admin.auth().verifyIdToken(token, true);
 
     const userDoc = await db.collection("users").doc(decoded.uid).get();
     const userProfile = userDoc.exists ? userDoc.data() : null;
+    const authUser = await admin.auth().getUser(decoded.uid);
+
+    if (!userProfile?.active || authUser.disabled) {
+      return res.status(401).json({ message: "User account is inactive" });
+    }
 
     const role = decoded.role || userProfile?.role;
+
+    if (!role) {
+      return res.status(401).json({ message: "User role not found" });
+    }
 
     req.user = {
       uid: decoded.uid,
       role,
       agencyId: userProfile?.agencyId || null,
-      employerId: userProfile?.employerId || null
+      employerId: userProfile?.employerId || null,
+      forcePasswordReset: Boolean(userProfile?.forcePasswordReset),
+      active: Boolean(userProfile?.active)
     };
 
     next();

@@ -1,23 +1,21 @@
-import { useEffect } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
+import { getDashboardPathByRole, getStoredToken, getStoredUser, isSessionExpired } from "../utils/auth";
 
-function ProtectedRoute({ children }) {
-  const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user"));
-  const sessionExpiresAt = Number(localStorage.getItem("session_expires_at") || 0);
+function ProtectedRoute({ children, allowedRoles = null, allowForcePasswordReset = false }) {
+  const location = useLocation();
+  const token = getStoredToken();
+  const user = getStoredUser();
 
-  useEffect(() => {
-    if (!sessionExpiresAt) return;
-    if (Date.now() <= sessionExpiresAt) return;
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("session_expires_at");
-    if (typeof window !== "undefined") window.location.href = "/";
-  }, [sessionExpiresAt]);
+  if (!token || !user || isSessionExpired()) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
 
-  // If no login data → redirect to login
-  if (!token || !user) {
-    return <Navigate to="/" />;
+  if (user.forcePasswordReset && !allowForcePasswordReset) {
+    return <Navigate to="/change-password" replace />;
+  }
+
+  if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+    return <Navigate to={getDashboardPathByRole(user.role)} replace />;
   }
 
   return children;

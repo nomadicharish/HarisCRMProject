@@ -186,7 +186,7 @@
 
 .sideLabel{
   font-size:14px;
-  color:#000000;
+  color:#FFFFFF;
   opacity:1;
   font-weight:600;
 }
@@ -463,17 +463,17 @@
 
 .pipeStageActionBtn{
   white-space:nowrap;
-  background:#FFFFFF;
-  color:#000000;
-  border:1px solid #FFFFFF;
+  background:#0052CC;
+  color:#FFFFFF;
+  border:1px solid #0052CC;
   padding:8px 12px;
   font-weight:500;
   font-size:14px;
 }
 
 .pipeStageActionBtn:hover{
-  background:#f8fafc;
-  color:#000000;
+  background:#0041A3;
+  color:#FFFFFF;
 }
 
 .pipeIcon{

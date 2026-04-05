@@ -1,5 +1,62 @@
 const { admin, db } = require("../config/firebase");
 
+const DEFAULT_EUR_TO_INR_RATE = 90;
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === "") return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function normalizeDate(value) {
+  if (!value) return null;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value;
+  if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+function roundCurrency(value) {
+  return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
+}
+
+function normalizePaymentMode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+
+  if (normalized === "check" || normalized === "cheque") return "Check";
+  if (normalized === "bank transfer") return "Bank Transfer";
+  if (normalized === "upi") return "UPI";
+  if (normalized === "cash") return "Cash";
+
+  return "";
+}
+
+async function getTodayEurToInrRate() {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+
+    const response = await fetch("https://api.frankfurter.app/latest?from=EUR&to=INR", {
+      signal: controller.signal
+    });
+
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      throw new Error(`Exchange rate request failed with status ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rate = toNumber(data?.rates?.INR);
+    return rate > 0 ? rate : DEFAULT_EUR_TO_INR_RATE;
+  } catch (error) {
+    console.error("Exchange rate fetch error:", error?.message || error);
+    return DEFAULT_EUR_TO_INR_RATE;
+  }
+}
+
 // ===============================
 // CREATE APPLICANT
 // ===============================
@@ -322,16 +379,24 @@ const deferDocument = async (req, res) => {
 // ===============================
 const addPayment = async (req, res) => {
   try {
-
-   
     const { applicantId } = req.params;
-    const { type, amount, currency, note } = req.body;
+    const { type, amount, currency, note, paidDate, paymentMode } = req.body;
 
     const userId = req.user?.uid || "testUser123";
     const userRole = req.user?.role || "SUPER_USER";
 
     if (!["APPLICANT", "EMPLOYER"].includes(type)) {
       return res.status(400).json({ message: "Invalid payment type" });
+    }
+
+    const normalizedAmount = roundCurrency(amount);
+    if (normalizedAmount <= 0) {
+      return res.status(400).json({ message: "Paid amount must be greater than 0" });
+    }
+
+    const normalizedPaymentMode = normalizePaymentMode(paymentMode);
+    if (!normalizedPaymentMode) {
+      return res.status(400).json({ message: "Invalid payment mode" });
     }
 
     // Role rules
@@ -358,14 +423,20 @@ const addPayment = async (req, res) => {
         }
       }
 
+    const parsedPaidDate = paidDate ? new Date(paidDate) : new Date();
+    if (Number.isNaN(parsedPaidDate.getTime())) {
+      return res.status(400).json({ message: "Invalid paid date" });
+    }
+
     const payment = {
       type,
-      amount,
-      currency,
+      amount: normalizedAmount,
+      currency: type === "APPLICANT" ? "INR" : currency || "INR",
+      paymentMode: normalizedPaymentMode,
       note: note || "",
       paidBy: userRole,
       paidTo: type === "APPLICANT" ? "SUPER_USER" : "EMPLOYER",
-      paidDate: admin.firestore.FieldValue.serverTimestamp(),
+      paidDate: parsedPaidDate,
       createdBy: userId,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     };
@@ -405,24 +476,83 @@ const getPaymentSummary = async (req, res) => {
 
     let applicantPaid = 0;
     let employerPaid = 0;
+    const history = [];
 
-    paymentsSnap.forEach(doc => {
-      const p = doc.data();
-      if (p.type === "APPLICANT") applicantPaid += p.amount;
-      if (p.type === "EMPLOYER") employerPaid += p.amount;
+    paymentsSnap.forEach((doc) => {
+      const p = doc.data() || {};
+      const normalizedAmount = roundCurrency(p.amount);
+      const normalizedPaymentMode = normalizePaymentMode(p.paymentMode);
+
+      if (p.type === "APPLICANT") applicantPaid += normalizedAmount;
+      if (p.type === "EMPLOYER") employerPaid += normalizedAmount;
+
+      history.push({
+        id: doc.id,
+        ...p,
+        amount: normalizedAmount,
+        paymentMode: normalizedPaymentMode || p.paymentMode || "",
+        paidDate: normalizeDate(p.paidDate || p.createdAt),
+        createdAt: normalizeDate(p.createdAt)
+      });
     });
+
+    const storedPaidAmount = roundCurrency(applicant.amountPaid ?? applicant.paidAmount ?? 0);
+    if (storedPaidAmount > applicantPaid) {
+      const legacyBalance = roundCurrency(storedPaidAmount - applicantPaid);
+
+      if (legacyBalance > 0) {
+        history.push({
+          id: "legacy-initial-payment",
+          type: "APPLICANT",
+          amount: legacyBalance,
+          currency: "INR",
+          paymentMode: "",
+          note: history.some((payment) => payment.type === "APPLICANT")
+            ? "Mapped from applicant profile"
+            : "Initial payment",
+          paidBy: applicant.createdBy || "",
+          paidTo: "SUPER_USER",
+          paidDate: normalizeDate(applicant.createdAt || applicant.updatedAt || new Date()),
+          createdAt: normalizeDate(applicant.createdAt || applicant.updatedAt || new Date()),
+          isLegacyMapped: true
+        });
+
+        applicantPaid = roundCurrency(applicantPaid + legacyBalance);
+      }
+    }
+
+    history.sort((a, b) => (b.paidDate || 0) - (a.paidDate || 0));
+
+    const eurToInrRate = await getTodayEurToInrRate();
+    const applicantTotalEur = roundCurrency(
+      applicant.totalApplicantPayment ?? applicant.totalAmount ?? applicant.totalPayment ?? 0
+    );
+    const applicantTotalInr = roundCurrency(applicantTotalEur * eurToInrRate);
+    const applicantPendingInr = Math.max(0, roundCurrency(applicantTotalInr - applicantPaid));
+    const applicantInstallments = history.filter((payment) => payment.type === "APPLICANT");
 
     return res.json({
       applicant: {
-        total: applicant.totalApplicantPayment || 0,
-        paid: applicantPaid,
-        pending: (applicant.totalApplicantPayment || 0) - applicantPaid
+        total: applicantTotalEur,
+        totalEur: applicantTotalEur,
+        totalInr: applicantTotalInr,
+        paid: roundCurrency(applicantPaid),
+        paidInr: roundCurrency(applicantPaid),
+        pending: applicantPendingInr,
+        pendingInr: applicantPendingInr,
+        exchangeRate: roundCurrency(eurToInrRate),
+        currency: "INR",
+        sourceCurrency: "EUR",
+        installmentCount: applicantInstallments.length,
+        remainingInstallments: Math.max(0, 4 - applicantInstallments.length),
+        history: applicantInstallments
       },
       employer: {
-        total: applicant.totalEmployerPayment || 0,
-        paid: employerPaid,
-        pending: (applicant.totalEmployerPayment || 0) - employerPaid
-      }
+        total: roundCurrency(applicant.totalEmployerPayment || 0),
+        paid: roundCurrency(employerPaid),
+        pending: Math.max(0, roundCurrency((applicant.totalEmployerPayment || 0) - employerPaid))
+      },
+      history
     });
 
   } catch (error) {

@@ -1,67 +1,110 @@
-import { useState } from "react";
-import axios from "axios";
+import { useEffect, useState } from "react";
+import API from "../services/api";
+import "../styles/auth.css";
+import { clearSession, getStoredToken, getStoredUser, validatePassword } from "../utils/auth";
 
 function ChangePassword() {
   const [newPassword, setNewPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleChangePassword = async (e) => {
-    e.preventDefault();
+  useEffect(() => {
+    const token = getStoredToken();
+    const user = getStoredUser();
+    if (!token || !user) {
+      clearSession({ redirectTo: "/login" });
+    }
+  }, []);
 
-    const token = localStorage.getItem("token");
+  const handleChangePassword = async (event) => {
+    event.preventDefault();
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      setError(passwordError);
+      setSuccessMessage("");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setError("Confirm password must match the new password");
+      setSuccessMessage("");
+      return;
+    }
+
+    setError("");
+    setSuccessMessage("");
+    setLoading(true);
 
     try {
-      await axios.post(
-        "http://localhost:3000/api/auth/change-password",
-        { newPassword },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-
-      setMessage("Password updated successfully!");
-      localStorage.removeItem("user");
-      localStorage.removeItem("token");
-      window.location.href = "/";
+      await API.post("/auth/change-password", { newPassword });
+      setSuccessMessage("Password updated successfully. Please log in again.");
+      setTimeout(() => {
+        clearSession({ redirectTo: "/login" });
+      }, 1200);
     } catch (error) {
-      const errorMessage =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.message ||
-        "Error updating password";
-
-      console.error("Change password failed:", {
-        message: errorMessage,
-        status: error?.response?.status,
-        data: error?.response?.data,
-        fullError: error
-      });
-
-      setMessage(errorMessage);
+      setError(error?.response?.data?.message || "Error updating password");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: "400px", margin: "100px auto" }}>
-      <h2>Change Password</h2>
+    <div className="authPage">
+      <div className="authCard">
+        <div className="authTopBar">
+          <h1 className="authTitle">Change Password</h1>
+          <p className="authSubtitle">Update your password to continue using the application</p>
+        </div>
 
-      <form onSubmit={handleChangePassword}>
-        <input
-          type="password"
-          placeholder="New Password"
-          value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
-          required
-        />
+        <div className="authBody">
+          <form className="authForm" onSubmit={handleChangePassword}>
+            <div className="authHint">
+              Password must be at least 8 characters and include uppercase, lowercase, number, and special character.
+            </div>
 
-        <button type="submit" style={{ marginTop: "10px" }}>
-          Update Password
-        </button>
-      </form>
+            <div className="authField">
+              <label className="authLabel" htmlFor="new-password">
+                New Password
+              </label>
+              <input
+                id="new-password"
+                className="authInput"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
 
-      {message && <p>{message}</p>}
+            <div className="authField">
+              <label className="authLabel" htmlFor="confirm-password">
+                Confirm Password
+              </label>
+              <input
+                id="confirm-password"
+                className="authInput"
+                type="password"
+                autoComplete="new-password"
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                placeholder="Confirm new password"
+              />
+            </div>
+
+            {error ? <div className="authError">{error}</div> : null}
+            {successMessage ? <div className="authSuccess">{successMessage}</div> : null}
+
+            <div className="authActions">
+              <button type="submit" className="authPrimaryBtn" disabled={loading}>
+                {loading ? "Updating..." : "Update Password"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   );
 }

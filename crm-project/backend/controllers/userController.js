@@ -1,5 +1,18 @@
 const { admin, db } = require("../config/firebase");
 
+function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
+}
+
+function isStrongPassword(password) {
+  if (typeof password !== "string" || password.length < 8) return false;
+  if (!/[A-Z]/.test(password)) return false;
+  if (!/[a-z]/.test(password)) return false;
+  if (!/[0-9]/.test(password)) return false;
+  if (!/[^A-Za-z0-9]/.test(password)) return false;
+  return true;
+}
+
 const createUser = async (req, res) => {
   try {
     const { email, name, role, agencyId, employerId } = req.body;
@@ -14,8 +27,20 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid role" });
     }
 
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ message: "Name is required" });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ message: "Valid email is required" });
+    }
+
     // Default password
     const defaultPassword = "ChangeMe@123";
+
+    if (!isStrongPassword(defaultPassword)) {
+      return res.status(500).json({ message: "Default password policy is invalid" });
+    }
 
     // Create Firebase Auth user
     const userRecord = await admin.auth().createUser({
