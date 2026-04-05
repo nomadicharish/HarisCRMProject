@@ -33,6 +33,24 @@ function normalizePaymentMode(value) {
   return "";
 }
 
+function getApplicantStageLabel(stage, approvalStatus) {
+  const normalizedStage = Number(stage || 1);
+
+  if (approvalStatus !== "approved") return "Applicant Details Approval";
+  if (normalizedStage <= 1) return "Candidate Created";
+  if (normalizedStage === 2) return "Upload Documents";
+  if (normalizedStage === 3) return "Dispatch Documents";
+  if (normalizedStage === 4) return "Issue of the Contract";
+  if (normalizedStage === 5) return "Embassy Appointment Initiated";
+  if (normalizedStage === 6) return "Embassy Appointment Completed";
+  if (normalizedStage === 7) return "Initiate Embassy Interview";
+  if (normalizedStage === 8) return "Embassy Interview Completed";
+  if (normalizedStage === 9) return "Visa Collection Initiated";
+  if (normalizedStage === 10) return "Visa Collection Completed";
+  if (normalizedStage === 11) return "Arrival of Candidate";
+  return "Candidate Arrived and Process Completed";
+}
+
 async function getTodayEurToInrRate() {
   try {
     const controller = new AbortController();
@@ -614,20 +632,42 @@ const getApplicants = async (req, res) => {
     }
 
     const companyIds = new Set();
+    const countryIds = new Set();
+    const agencyIds = new Set();
     snap.docs.forEach((d) => {
       const data = d.data();
       if (data?.companyId) companyIds.add(data.companyId);
+      if (data?.countryId) countryIds.add(data.countryId);
+      if (data?.agencyId) agencyIds.add(data.agencyId);
     });
 
     const companyIdToName = {};
+    const countryIdToName = {};
+    const agencyIdToName = {};
     await Promise.all(
-      Array.from(companyIds).map(async (companyId) => {
-        const companyDoc = await db.collection("companies").doc(companyId).get();
-        companyIdToName[companyId] = companyDoc.exists
-          ? companyDoc.data()?.name || ""
-          : "";
-      })
+      [
+        ...Array.from(companyIds).map(async (companyId) => {
+          const companyDoc = await db.collection("companies").doc(companyId).get();
+          companyIdToName[companyId] = companyDoc.exists
+            ? companyDoc.data()?.name || ""
+            : "";
+        }),
+        ...Array.from(countryIds).map(async (countryId) => {
+          const countryDoc = await db.collection("countries").doc(countryId).get();
+          countryIdToName[countryId] = countryDoc.exists
+            ? countryDoc.data()?.name || ""
+            : "";
+        }),
+        ...Array.from(agencyIds).map(async (agencyIdValue) => {
+          const agencyDoc = await db.collection("agencies").doc(agencyIdValue).get();
+          agencyIdToName[agencyIdValue] = agencyDoc.exists
+            ? agencyDoc.data()?.name || ""
+            : "";
+        })
+      ]
     );
+
+    const eurToInrRate = await getTodayEurToInrRate();
 
     let applicants = await Promise.all(
       snap.docs.map(async (d) => {
@@ -657,8 +697,63 @@ const getApplicants = async (req, res) => {
           if (Number.isFinite(amount)) applicantPaid += amount;
         });
 
-        const total =
-          Number(data?.totalApplicantPayment || data?.totalPayment) || 0;
+        const storedPaidAmount = toNumber(data?.amountPaid ?? data?.paidAmount);
+        applicantPaid = roundCurrency(Math.max(applicantPaid, storedPaidAmount));
+
+        const totalEur = roundCurrency(
+          data?.totalApplicantPayment ?? data?.totalAmount ?? data?.totalPayment
+        );
+        const totalInr = roundCurrency(totalEur * eurToInrRate);
+        const pendingInr = Math.max(0, roundCurrency(totalInr - applicantPaid));
+
+        const latestDocumentVersions = await Promise.all(
+          (await db.collection("applicants").doc(d.id).collection("documents").get()).docs.map(async (docSnap) => {
+            const versionSnap = await docSnap.ref
+              .collection("versions")
+              .orderBy("uploadedAt", "desc")
+              .limit(1)
+              .get();
+
+            return versionSnap.empty ? null : versionSnap.docs[0].data();
+          })
+        );
+
+        const hasPendingDocumentApproval = latestDocumentVersions.some(
+          (version) => version?.status === "PENDING"
+        );
+        const hasRejectedDocument = latestDocumentVersions.some(
+          (version) => version?.status === "REJECTED"
+        );
+
+        const appointmentsSnap = await db
+          .collection("applicants")
+          .doc(d.id)
+          .collection("appointments")
+          .get();
+
+        const hasPendingAppointmentApproval = appointmentsSnap.docs.some(
+          (docSnap) => docSnap.data()?.approved === false
+        );
+        const hasPendingPipelineApproval =
+          data?.approvalStatus !== "approved" ||
+          data?.contract?.status === "PENDING" ||
+          data?.visaCollection?.status === "PENDING" ||
+          hasPendingAppointmentApproval;
+
+        const attentionRequired =
+          userRole === "SUPER_USER"
+            ? hasPendingDocumentApproval || hasPendingPipelineApproval
+            : userRole === "AGENCY"
+            ? hasRejectedDocument
+            : false;
+
+        const stageLabel = getApplicantStageLabel(data?.stage, data?.approvalStatus);
+        const workflowStatus =
+          Number(data?.stage || 1) >= 12
+            ? "completed"
+            : attentionRequired
+            ? "attention_required"
+            : "in_progress";
 
         return {
           id: d.id,
@@ -666,10 +761,20 @@ const getApplicants = async (req, res) => {
           firstName,
           lastName,
           companyName: data?.companyId ? companyIdToName[data.companyId] : "",
+          countryName: data?.countryId ? countryIdToName[data.countryId] : "",
+          agencyName: data?.agencyId ? agencyIdToName[data.agencyId] : "",
+          attentionRequired,
+          workflowStatus,
+          stageLabel,
+          exchangeRate: eurToInrRate,
           payment: {
-            total,
+            total: totalEur,
+            totalEur,
+            totalInr,
             paid: applicantPaid,
-            pending: total - applicantPaid
+            paidInr: applicantPaid,
+            pending: pendingInr,
+            pendingInr
           }
         };
       })

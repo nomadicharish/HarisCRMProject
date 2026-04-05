@@ -48,18 +48,11 @@ export async function clearSession({ redirectTo = "/login" } = {}) {
 }
 
 export function getDashboardPathByRole(role) {
-  switch (role) {
-    case "SUPER_USER":
-      return "/admin-dashboard";
-    case "AGENCY":
-      return "/agency-dashboard";
-    case "EMPLOYER":
-      return "/employer-dashboard";
-    case "ACCOUNTANT":
-      return "/accounts-dashboard";
-    default:
-      return "/login";
+  if (role === "SUPER_USER" || role === "AGENCY" || role === "EMPLOYER" || role === "ACCOUNTANT") {
+    return "/dashboard";
   }
+
+  return "/login";
 }
 
 export function validatePassword(password) {

@@ -2,19 +2,14 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ProtectedRoute from "./components/ProtectedRoute";
-import RoleDashboardRedirect from "./components/RoleDashboardRedirect";
-import AccountsDashboard from "./pages/AccountsDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import AgencyDashboard from "./pages/AgencyDashboard";
 import ApplicantDispatchWorkspace from "./pages/ApplicantDispatchWorkspace";
 import ApplicantDocumentsWorkspace from "./pages/ApplicantDocumentsWorkspace";
 import ApplicantProfile from "./pages/ApplicantProfile";
 import ApplicantPayments from "./pages/ApplicantPayments";
-import Applicants from "./pages/Applicants";
+import ApplicantsDashboard from "./pages/ApplicantsDashboard";
 import ChangePassword from "./pages/ChangePassword";
 import CreateApplicant from "./pages/CreateApplicant";
 import Dashboard from "./pages/Dashboard";
-import EmployerDashboard from "./pages/EmployerDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import Login from "./pages/Login";
 
@@ -38,7 +33,7 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <RoleDashboardRedirect />
+              <ApplicantsDashboard />
             </ProtectedRoute>
           }
         />
@@ -47,7 +42,7 @@ function App() {
           path="/admin-dashboard"
           element={
             <ProtectedRoute allowedRoles={["SUPER_USER"]}>
-              <AdminDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -55,7 +50,7 @@ function App() {
           path="/agency-dashboard"
           element={
             <ProtectedRoute allowedRoles={["AGENCY"]}>
-              <AgencyDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -63,7 +58,7 @@ function App() {
           path="/employer-dashboard"
           element={
             <ProtectedRoute allowedRoles={["EMPLOYER"]}>
-              <EmployerDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -71,7 +66,7 @@ function App() {
           path="/accounts-dashboard"
           element={
             <ProtectedRoute allowedRoles={["ACCOUNTANT"]}>
-              <AccountsDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -89,7 +84,7 @@ function App() {
           path="/applicants"
           element={
             <ProtectedRoute>
-              <Applicants />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
