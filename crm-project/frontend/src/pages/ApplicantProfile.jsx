@@ -66,6 +66,7 @@ function ApplicantProfile() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [documents, setDocuments] = useState({});
+  const [paymentSummary, setPaymentSummary] = useState(null);
   const [contract, setContract] = useState(null);
   const [embassyAppointment, setEmbassyAppointment] = useState(null);
   const [biometricSlip, setBiometricSlip] = useState(null);
@@ -119,6 +120,16 @@ function ApplicantProfile() {
     } catch (err) {
       console.error(err);
       setDocuments({});
+    }
+  }, [id]);
+
+  const loadPaymentSummary = useCallback(async () => {
+    try {
+      const res = await API.get(`/applicants/${id}/payments/summary`);
+      setPaymentSummary(res.data || null);
+    } catch (err) {
+      console.error(err);
+      setPaymentSummary(null);
     }
   }, [id]);
 
@@ -216,6 +227,7 @@ function ApplicantProfile() {
     loadApplicant();
     loadUser();
     loadDocuments();
+    loadPaymentSummary();
     loadContract();
     loadEmbassyAppointment();
     loadBiometricSlip();
@@ -229,6 +241,7 @@ function ApplicantProfile() {
     loadApplicant,
     loadUser,
     loadDocuments,
+    loadPaymentSummary,
     loadContract,
     loadEmbassyAppointment,
     loadBiometricSlip,
@@ -343,7 +356,12 @@ function ApplicantProfile() {
 
   const total = getApplicantTotalAmount(applicant);
   const paid = getApplicantPaidAmount(applicant);
-  const pending = applicant?.payment?.pending ?? Math.max(0, total - paid);
+  const pending =
+    paymentSummary?.applicant?.pendingInr ?? paymentSummary?.applicant?.pending ?? applicant?.payment?.pending ?? Math.max(0, total - paid);
+  const formattedPendingAmount = `INR ${Number(pending || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })}`;
   const isTotalAmountMissing = total <= 0;
   const isPendingSuperUserApproval =
     applicantStage === 1 && String(applicant?.approvalStatus || "").toLowerCase() === "pending";
@@ -621,10 +639,10 @@ function ApplicantProfile() {
             <ApplicantSummaryCard
               applicant={applicant}
               pendingAmount={pending}
-              pendingDisplayValue={isTotalAmountMissing ? "Enter Total Amount" : undefined}
+              pendingDisplayValue={isTotalAmountMissing ? "Enter Total Amount" : formattedPendingAmount}
               canEdit={false}
               onEdit={() => openEditProfile("default")}
-              onPendingClick={isTotalAmountMissing && canEditApplicant ? () => openEditProfile("default") : undefined}
+              onPendingClick={!isEmployer ? () => navigate(`/applicants/${id}/payments`) : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
               showAgency={user?.role === "SUPER_USER"}

@@ -6,6 +6,7 @@ const cors = require("cors");
 
 // 🔹 Initialize Express FIRST
 const app = express();
+app.disable("x-powered-by");
 
 // Middleware to read JSON body
 app.use(cors());
@@ -28,6 +29,34 @@ app.use("/api/applicants", applicantRoutes);
 const { verifyToken } = require("./middleware/authMiddleware");
 
 const { admin, db } = require("./config/firebase");
+
+function validatePassword(password) {
+  if (typeof password !== "string" || password.trim().length === 0) {
+    return "Password is required";
+  }
+
+  if (password.length < 8) {
+    return "Password must be at least 8 characters";
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return "Password must include at least one uppercase letter";
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return "Password must include at least one lowercase letter";
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return "Password must include at least one number";
+  }
+
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    return "Password must include at least one special character";
+  }
+
+  return "";
+}
 
 
 // ===============================
@@ -73,10 +102,13 @@ app.get("/api/auth/me", verifyToken, async (req, res) => {
 
     return res.json({
       uid: req.user.uid,
+      name: userData.name || "",
       email: userData.email,
       role: userData.role,
       forcePasswordReset: userData.forcePasswordReset,
-      active: userData.active
+      active: userData.active,
+      agencyId: userData.agencyId || null,
+      employerId: userData.employerId || null
     });
   } catch (error) {
     return res.status(500).json({ message: "Internal Server Error" });
@@ -186,17 +218,17 @@ app.post("/api/add-employer", verifyToken, async (req, res) => {
 app.post("/api/auth/change-password", verifyToken, async (req, res) => {
   try {
     const { newPassword } = req.body;
-
-    if (!newPassword || newPassword.length < 8) {
-      return res.status(400).json({
-        message: "Password must be at least 8 characters"
-      });
+    const passwordError = validatePassword(newPassword);
+    if (passwordError) {
+      return res.status(400).json({ message: passwordError });
     }
 
     // Update Firebase password
     await admin.auth().updateUser(req.user.uid, {
       password: newPassword
     });
+
+    await admin.auth().revokeRefreshTokens(req.user.uid);
 
     // Remove force reset flag
     await db.collection("users").doc(req.user.uid).update({
