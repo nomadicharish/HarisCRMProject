@@ -36,7 +36,7 @@ function normalizePaymentMode(value) {
 function getApplicantStageLabel(stage, approvalStatus) {
   const normalizedStage = Number(stage || 1);
 
-  if (approvalStatus !== "approved") return "Applicant Details Approval";
+  if (normalizedStage === 1 && approvalStatus !== "approved") return "Candidate pending for approval";
   if (normalizedStage <= 1) return "Candidate Created";
   if (normalizedStage === 2) return "Upload Documents";
   if (normalizedStage === 3) return "Dispatch Documents";
@@ -49,6 +49,51 @@ function getApplicantStageLabel(stage, approvalStatus) {
   if (normalizedStage === 10) return "Visa Collection Completed";
   if (normalizedStage === 11) return "Arrival of Candidate";
   return "Candidate Arrived and Process Completed";
+}
+
+function getApplicantBannerStatusText(applicant, context = {}) {
+  const applicantStage = Number(applicant?.stage || 1);
+  const approvalStatus = String(applicant?.approvalStatus || "").toLowerCase();
+  const {
+    hasCompletedDocumentStage = false,
+    pendingRequired = false,
+    rejectedRequired = false,
+    uploadedRequired = false,
+    hasDocuments = false,
+    hasTravelDetails = false,
+    hasBiometricSlip = false,
+    hasInterviewTicket = false,
+    hasInterviewBiometric = false,
+    hasVisaTravel = false,
+    hasResidencePermit = false
+  } = context;
+
+  const isPendingSuperUserApproval = applicantStage === 1 && approvalStatus === "pending";
+
+  if (isPendingSuperUserApproval) return "Candidate pending for approval";
+  if (applicantStage === 1) return "Complete the candidate profile for approval";
+  if (applicantStage >= 12) return "Candidate Arrived and Process Completed";
+  if (applicantStage === 11) return "Candidate arrival pending";
+  if (applicantStage === 10) return hasVisaTravel ? "Pending Residence Permit" : "Travel ticket upload pending";
+  if (applicantStage === 9) return "Visa collection Initiation pending";
+  if (applicantStage === 8) {
+    if (hasInterviewBiometric) return "Pending visa collection";
+    if (hasInterviewTicket) return "Pending Biometric slip";
+    return "Travel ticket upload pending";
+  }
+  if (applicantStage === 7) return "Embassy Interview pending";
+  if (applicantStage === 6) {
+    if (hasBiometricSlip) return "Embassy Interview pending";
+    if (hasTravelDetails) return "Pending Biometric slip";
+    return "Ticket upload pending";
+  }
+  if (applicantStage >= 5) return "Pending embassy appointment.";
+  if (applicantStage === 4) return "Issue of the contract pending.";
+  if (hasCompletedDocumentStage) return "Dispatch the document";
+  if (rejectedRequired) return "Few issues found in the documents. Re-upload the rejected files for admin review.";
+  if (pendingRequired) return "Documents are pending admin approval";
+  if (hasDocuments || uploadedRequired) return "Complete the document uploading for admin to approve the candidate";
+  return "Complete the document uploading for admin to approve the candidate";
 }
 
 async function getTodayEurToInrRate() {
@@ -169,46 +214,6 @@ const createApplicant = async (req, res) => {
     // Create applicant
     const docRef = await db.collection("applicants").add(applicant);
     const applicantId = docRef.id;
-
-    // 🔹 Copy document templates from company
-    const templatesSnap = await db
-      .collection("companies")
-      .doc(companyId)
-      .collection("documentTemplates")
-      .get();
-
-    const batch = db.batch();
-
-    templatesSnap.forEach((doc) => {
-      const template = doc.data();
-
-      const applicantDocRef = db
-        .collection("applicants")
-        .doc(applicantId)
-        .collection("documents")
-        .doc(template.docType);
-
-      batch.set(applicantDocRef, {
-        docType: template.docType,
-        label: template.label,
-        required: template.required,
-
-        uploaded: false,
-        fileUrl: null,
-
-        deferred: false,
-
-        uploadedBy: null,
-        uploadedAt: null,
-
-        seenBy: {
-          agency: [],
-          employer: []
-        }
-      });
-    });
-
-    await batch.commit();
 
     if (normalizedAmountPaid > 0) {
       const initialPayment = {
@@ -718,12 +723,21 @@ const getApplicants = async (req, res) => {
           })
         );
 
+        const approvedRequired = latestDocumentVersions.length > 0 &&
+          latestDocumentVersions.every((version) => version?.status === "APPROVED");
+        const rejectedRequired = latestDocumentVersions.some((version) => version?.status === "REJECTED");
+        const pendingRequired = latestDocumentVersions.some((version) => version?.status === "PENDING");
+        const uploadedRequired = latestDocumentVersions.length > 0 &&
+          latestDocumentVersions.every((version) =>
+            ["PENDING", "APPROVED", "REJECTED"].includes(version?.status)
+          );
         const hasPendingDocumentApproval = latestDocumentVersions.some(
           (version) => version?.status === "PENDING"
         );
         const hasRejectedDocument = latestDocumentVersions.some(
           (version) => version?.status === "REJECTED"
         );
+        const hasDocuments = latestDocumentVersions.some(Boolean);
 
         const appointmentsSnap = await db
           .collection("applicants")
@@ -747,7 +761,29 @@ const getApplicants = async (req, res) => {
             ? hasRejectedDocument
             : false;
 
+        const hasTravelDetails = Boolean(
+          data?.travelDetails?.travelDate || data?.travelDetails?.time || data?.travelDetails?.fileUrl
+        );
+        const hasBiometricSlip = Boolean(data?.biometricSlip?.fileUrl);
+        const hasInterviewTicket = Boolean(data?.interviewTicket?.date || data?.interviewTicket?.time || data?.interviewTicket?.fileUrl);
+        const hasInterviewBiometric = Boolean(data?.interviewBiometric?.fileUrl);
+        const hasVisaTravel = Boolean(data?.visaTravel?.date || data?.visaTravel?.time || data?.visaTravel?.fileUrl);
+        const hasResidencePermit = Boolean(data?.residencePermit?.frontFileUrl || data?.residencePermit?.backFileUrl || data?.residencePermit?.fileUrl);
+        const hasCompletedDocumentStage = Number(data?.stage || 1) >= 3 && approvedRequired;
         const stageLabel = getApplicantStageLabel(data?.stage, data?.approvalStatus);
+        const statusText = getApplicantBannerStatusText(data, {
+          hasCompletedDocumentStage,
+          pendingRequired,
+          rejectedRequired,
+          uploadedRequired,
+          hasDocuments,
+          hasTravelDetails,
+          hasBiometricSlip,
+          hasInterviewTicket,
+          hasInterviewBiometric,
+          hasVisaTravel,
+          hasResidencePermit
+        });
         const workflowStatus =
           Number(data?.stage || 1) >= 12
             ? "completed"
@@ -766,6 +802,7 @@ const getApplicants = async (req, res) => {
           attentionRequired,
           workflowStatus,
           stageLabel,
+          statusText,
           exchangeRate: eurToInrRate,
           payment: {
             total: totalEur,
@@ -968,16 +1005,6 @@ const approveAppointment = async (req, res) => {
 const MANUAL_STAGE_IDS = [1, 2, 4, 5, 7, 9, 11];
 const AUTO_STAGE_IDS = [3, 6, 8, 10];
 const MAX_STAGE = 11;
-const REQUIRED_STAGE_TWO_DOCUMENTS = [
-  "PASSPORT",
-  "PAN_CARD",
-  "EDUCATION_10TH",
-  "EDUCATION_12TH",
-  "PHOTO",
-  "BIRTH_CERTIFICATE",
-  "MEDICAL_CERTIFICATE"
-];
-
 const getAllowedRoleForStage = (stage) => {
   // Update as needed for additional workflow/authorization rules
   if (stage >= 1 && stage <= 2) return "AGENCY";
@@ -998,19 +1025,47 @@ const addStageLog = async ({ applicantId, fromStage, toStage, role, action }) =>
   });
 };
 
-const getRequiredDocumentTypes = (applicant) => {
-  const required = [...REQUIRED_STAGE_TWO_DOCUMENTS];
-  const maritalStatus =
-    applicant?.maritalStatus || applicant?.personalDetails?.maritalStatus || "";
+const normalizeCompanyDocuments = (value) => {
+  if (!Array.isArray(value)) return [];
 
-  if (maritalStatus === "Single") required.push("UNMARRIED_CERTIFICATE");
-  if (maritalStatus === "Married") required.push("MARRIAGE_CERTIFICATE");
+  return value.reduce((documents, item, index) => {
+    if (!item || typeof item !== "object") return documents;
 
-  return required;
+    const name = String(item.name || item.label || "").trim();
+    const id = String(item.id || item.docType || `document_${index + 1}`).trim();
+
+    if (!name || !id) return documents;
+
+    documents.push({
+      id,
+      name,
+      required: Boolean(item.required),
+      templateFileName: String(item.templateFileName || "").trim(),
+      templateFileUrl: String(item.templateFileUrl || "").trim()
+    });
+
+    return documents;
+  }, []);
+};
+
+const getCompanyDocumentRequirements = async (companyId) => {
+  if (!companyId) return [];
+
+  const companyDoc = await db.collection("companies").doc(companyId).get();
+  if (!companyDoc.exists) return [];
+
+  return normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded);
+};
+
+const getRequiredDocumentTypes = async (applicant) => {
+  const documents = await getCompanyDocumentRequirements(applicant?.companyId);
+  return documents.filter((doc) => doc.required).map((doc) => doc.id);
 };
 
 const areLatestRequiredDocumentsApproved = async (applicantId, applicant) => {
-  const requiredDocs = getRequiredDocumentTypes(applicant);
+  const requiredDocs = await getRequiredDocumentTypes(applicant);
+
+  if (!requiredDocs.length) return true;
 
   for (const docType of requiredDocs) {
     const latestSnap = await db
@@ -1156,7 +1211,7 @@ const approveAndMoveStage = async (req, res) => {
         }
       }
 
-      let requiredDocs = getRequiredDocumentTypes(applicant);
+      let requiredDocs = await getRequiredDocumentTypes(applicant);
 
       for (let docType of requiredDocs) {
 
@@ -1240,6 +1295,7 @@ const getApplicantById = async (req, res) => {
 
     // Fetch company name
     let companyName = "";
+    let companyDocuments = [];
     if (applicant.companyId) {
       const companyDoc = await db
         .collection("companies")
@@ -1247,6 +1303,7 @@ const getApplicantById = async (req, res) => {
         .get();
 
       companyName = companyDoc.exists ? companyDoc.data().name : "";
+      companyDocuments = companyDoc.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
     }
 
     await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
@@ -1299,6 +1356,7 @@ const getApplicantById = async (req, res) => {
       id: doc.id,
       ...applicantData,
       companyName,
+      companyDocuments,
       agencyName,
       countryName,
       totalAmount: totalApplicantPayment,

@@ -8,10 +8,13 @@ import ApplicantProfile from "./pages/ApplicantProfile";
 import ApplicantPayments from "./pages/ApplicantPayments";
 import ApplicantsDashboard from "./pages/ApplicantsDashboard";
 import ChangePassword from "./pages/ChangePassword";
+import CompanyFormPage from "./pages/CompanyFormPage";
 import CreateApplicant from "./pages/CreateApplicant";
 import Dashboard from "./pages/Dashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import Login from "./pages/Login";
+import Settings from "./pages/Settings";
+import SettingsChangePassword from "./pages/SettingsChangePassword";
 
 function App() {
   return (
@@ -20,14 +23,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route
-          path="/change-password"
-          element={
-            <ProtectedRoute allowForcePasswordReset={true}>
-              <ChangePassword />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/change-password" element={<ChangePassword />} />
 
         <Route
           path="/dashboard"
@@ -97,6 +93,22 @@ function App() {
           }
         />
         <Route
+          path="/companies/new"
+          element={
+            <ProtectedRoute allowedRoles={["SUPER_USER"]}>
+              <CompanyFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/companies/:id/edit"
+          element={
+            <ProtectedRoute allowedRoles={["SUPER_USER"]}>
+              <CompanyFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/applicants/:id"
           element={
             <ProtectedRoute>
@@ -125,6 +137,22 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "ACCOUNTANT"]}>
               <ApplicantPayments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/change-password"
+          element={
+            <ProtectedRoute>
+              <SettingsChangePassword />
             </ProtectedRoute>
           }
         />

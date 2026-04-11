@@ -31,6 +31,15 @@ export function storeSession({ token, user }) {
   localStorage.setItem("session_expires_at", String(Date.now() + SESSION_DURATION_MS));
 }
 
+export function updateStoredUser(updates = {}) {
+  const currentUser = getStoredUser();
+  if (!currentUser) return null;
+
+  const nextUser = { ...currentUser, ...updates };
+  localStorage.setItem("user", JSON.stringify(nextUser));
+  return nextUser;
+}
+
 export async function clearSession({ redirectTo = "/login" } = {}) {
   localStorage.removeItem("token");
   localStorage.removeItem("user");

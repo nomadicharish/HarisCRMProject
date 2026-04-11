@@ -357,6 +357,10 @@ function ApplicantDocumentsWorkspace() {
         </div>
 
         <div className="docsAccordion">
+          {visibleDocs.length === 0 ? (
+            <div className="docsHint">No company documents are configured for this applicant.</div>
+          ) : null}
+
           {visibleDocs.map((doc) => {
             const versions = documents?.[doc.key] || [];
             const latest = getLatestVersion(versions);
@@ -404,6 +408,17 @@ function ApplicantDocumentsWorkspace() {
                   <div className="docsAccordionBody">
                     {!canReview ? (
                       <>
+                        {doc.templateFileUrl ? (
+                          <div className="docsReviewRow">
+                            <span className="docsHint">
+                              {doc.templateFileName || "Document to fill"}
+                            </span>
+                            <a className="linkBtn" href={doc.templateFileUrl} target="_blank" rel="noreferrer">
+                              Download
+                            </a>
+                          </div>
+                        ) : null}
+
                         {canAgentUpload ? (
                           <>
                             <div className="docsHint">Upload png, pdf or jpeg within 2MB</div>
