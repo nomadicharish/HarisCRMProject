@@ -3,7 +3,6 @@ import API from "../../services/api";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
-import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
@@ -11,7 +10,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 const THEME = {
   primary: "#0052CC",
-  border: "#ddd",
+  border: "#DFE1E6",
   error: "red"
 };
 
@@ -264,6 +263,19 @@ function ApplicantFormModal({
     setFilteredCompanies(filtered);
   };
 
+  const handleCompanyChange = (value) => {
+    const selectedCompany = companies.find((company) => company.id === value);
+
+    setForm((prev) => ({
+      ...prev,
+      companyId: value,
+      totalAmount:
+        user?.role === "SUPER_USER" && selectedCompany
+          ? selectedCompany.companyPaymentPerApplicant ?? ""
+          : prev.totalAmount
+    }));
+  };
+
   useEffect(() => {
     async function loadDropdowns() {
       try {
@@ -314,6 +326,13 @@ function ApplicantFormModal({
         : null;
     const resolvedCountryId = editData.countryId || "";
     const resolvedCompanyId = editData.companyId || "";
+    const selectedCompany = companies.find((company) => company.id === resolvedCompanyId);
+    const resolvedTotalAmount = getApplicantTotalAmount(editData);
+    const hasResolvedTotalAmount =
+      resolvedTotalAmount !== null &&
+      resolvedTotalAmount !== undefined &&
+      String(resolvedTotalAmount).trim() !== "" &&
+      Number(resolvedTotalAmount) > 0;
 
     setForm({
       firstName: nameParts[0] || "",
@@ -327,7 +346,12 @@ function ApplicantFormModal({
       countryId: resolvedCountryId,
       companyId: resolvedCompanyId,
       agencyId: editData.agencyId || "",
-      totalAmount: getApplicantTotalAmount(editData),
+      totalAmount:
+        hasResolvedTotalAmount
+          ? resolvedTotalAmount
+          : user?.role === "SUPER_USER"
+          ? selectedCompany?.companyPaymentPerApplicant ?? ""
+          : "",
       paidAmount: getApplicantPaidAmount(editData)
     });
 
@@ -338,15 +362,12 @@ function ApplicantFormModal({
       const filtered = companies.filter((company) => company.countryId === resolvedCountryId);
       setFilteredCompanies(filtered);
     }
-  }, [editData, companies]);
+  }, [editData, companies, user?.role]);
 
   const handleSubmit = async () => {
     if (!validateStep2()) {
-      toast.error("Please fill all required fields");
       return;
     }
-
-    const toastId = toast.loading(editData ? "Updating applicant..." : "Creating applicant...");
 
     try {
       setLoading(true);
@@ -367,6 +388,7 @@ function ApplicantFormModal({
         countryId: form.countryId,
         agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,
         totalApplicantPayment: form.totalAmount,
+        totalAmount: form.totalAmount ? Number(form.totalAmount) : 0,
         amountPaid: form.paidAmount ? Number(form.paidAmount) : 0,
         paidAmount: form.paidAmount ? Number(form.paidAmount) : 0
       };
@@ -376,13 +398,6 @@ function ApplicantFormModal({
       } else {
         await API.post("/applicants/create", payload);
       }
-
-      toast.update(toastId, {
-        render: editData ? "Applicant updated successfully" : "Applicant created successfully",
-        type: "success",
-        isLoading: false,
-        autoClose: 2000
-      });
 
       if (!editData) {
         resetForm();
@@ -396,12 +411,6 @@ function ApplicantFormModal({
           await onApproveStage();
         } catch (approveError) {
           console.error(approveError);
-          toast.update(toastId, {
-            render: "Profile updated, but stage approval failed",
-            type: "error",
-            isLoading: false,
-            autoClose: 3000
-          });
           return;
         }
       }
@@ -419,14 +428,6 @@ function ApplicantFormModal({
       }
     } catch (err) {
       console.error(err);
-      toast.update(toastId, {
-        render:
-          err?.response?.data?.message ||
-          (editData ? "Failed to update applicant" : "Failed to create applicant"),
-        type: "error",
-        isLoading: false,
-        autoClose: 3000
-      });
     } finally {
       setLoading(false);
     }
@@ -436,7 +437,7 @@ function ApplicantFormModal({
     control: (base) => ({
       ...base,
       padding: "2px",
-      borderRadius: "10px",
+      borderRadius: 0,
       border: `1px solid ${THEME.border}`,
       boxShadow: "none",
       minHeight: "44px",
@@ -450,7 +451,7 @@ function ApplicantFormModal({
     }),
     menu: (base) => ({
       ...base,
-      borderRadius: "10px",
+      borderRadius: 0,
       zIndex: 9999
     }),
     option: (base, state) => ({
@@ -581,6 +582,7 @@ function ApplicantFormModal({
                   country={form.phoneCountry || "in"}
                   value={form.phone || ""}
                   placeholder="Enter phone number"
+                  countryCodeEditable={false}
                   onChange={(phone, country) => {
                     setForm((prev) => ({
                       ...prev,
@@ -591,15 +593,15 @@ function ApplicantFormModal({
                   containerStyle={{ width: "100%" }}
                   inputStyle={{
                     width: "100%",
-                    height: "45px",
+                    height: "38px",
                     paddingLeft: "60px",
-                    borderRadius: "8px",
+                    borderRadius: 0,
                     border: errors.phone ? `1px solid ${THEME.error}` : input.border,
                     fontSize: "14px"
                   }}
                   buttonStyle={{
-                    borderTopLeftRadius: "8px",
-                    borderBottomLeftRadius: "8px",
+                    borderTopLeftRadius: 0,
+                    borderBottomLeftRadius: 0,
                     borderRight: "1px solid #ddd",
                     padding: "0 10px"
                   }}
@@ -665,7 +667,7 @@ function ApplicantFormModal({
                   placeholder={form.countryId ? "Search company..." : "Select country first"}
                   isDisabled={!form.countryId}
                   value={companyOptions.find((company) => company.value === form.companyId)}
-                  onChange={(selected) => handleChange("companyId", selected.value)}
+                  onChange={(selected) => handleCompanyChange(selected.value)}
                 />
                 {errors.companyId && <div style={errorText}>{errors.companyId}</div>}
               </div>
@@ -767,7 +769,7 @@ const overlay = {
 
 const modal = {
   background: "#fff",
-  borderRadius: "12px",
+  borderRadius: 0,
   width: "100%",
   maxWidth: "600px",
   maxHeight: "90vh",
@@ -784,9 +786,10 @@ const grid = {
 
 const input = {
   width: "100%",
-  padding: "12px",
-  borderRadius: "10px",
+  padding: "6px",
+  borderRadius: 0,
   border: `1px solid ${THEME.border}`,
+  background: "#FAFBFC",
   fontSize: "14px",
   boxSizing: "border-box",
   outline: "none",
@@ -810,8 +813,8 @@ const btnPrimary = {
   background: "#0052CC",
   color: "#fff",
   border: "none",
-  padding: "10px 18px",
-  borderRadius: "8px",
+  padding: "8px 12px",
+  borderRadius: 0,
   cursor: "pointer",
   fontWeight: "500"
 };
@@ -819,8 +822,8 @@ const btnPrimary = {
 const btnSecondary = {
   background: "transparent",
   border: "1px solid #ccc",
-  padding: "10px 18px",
-  borderRadius: "8px",
+  padding: "8px 12px",
+  borderRadius: 0,
   cursor: "pointer",
   color: "#333"
 };
@@ -836,7 +839,7 @@ const label = {
   fontSize: "13px",
   marginBottom: "5px",
   display: "block",
-  color: "#374151",
+  color: "#6B778C",
   fontWeight: "500"
 };
 

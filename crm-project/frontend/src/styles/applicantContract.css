@@ -13,7 +13,7 @@
   width:100%;
   max-width:620px;
   background:#fff;
-  border-radius:16px;
+  border-radius:0;
   box-shadow:0 20px 50px rgba(15,23,42,0.24);
   padding:22px;
   box-sizing:border-box;
@@ -94,17 +94,17 @@
 
 .contractFormGrid{
   display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:16px;
   margin-bottom:16px;
 }
 
 .workflowDateInput{
   width:100%;
-  min-height:46px;
-  padding:12px 14px;
+  min-height:36px;
+  padding:6px 12px;
   padding-right:40px;
-  border-radius:12px;
+  border-radius:0;
   border:1px solid #d0d5dd;
   box-sizing:border-box;
   font-size:14px;
@@ -137,20 +137,35 @@
   display:block;
   margin-bottom:8px;
   font-size:13px;
-  font-weight:700;
-  color:#344054;
+  font-weight:500;
+  color:#6B778C;
 }
 
 .contractFormGrid input,
 .contractFormGrid select,
 .contractModalCard input[type="time"]{
-  min-height:46px;
-  padding:12px 14px;
-  border:1px solid #d0d5dd;
-  border-radius:12px;
-  background:#f8fbff;
+  min-height:36px;
+  padding:6px 10px;
+  border:1px solid #DFE1E6;
+  border-radius:0;
+  background:#FAFBFC;
   color:#111827;
   transition:border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.contractFormGrid input::placeholder,
+.contractModalCard input::placeholder{
+  color:#7A869A;
+}
+
+.btn,
+.dashboardPrimaryBtn,
+.dashboardPaginationBtn,
+.authPrimaryBtn,
+.settingsPrimaryBtn{
+  font-size:14px;
+  font-weight:500;
+  font-family:Inter, sans-serif;
 }
 
 .contractFormGrid input:hover,
@@ -210,6 +225,10 @@
 }
 
 @media (max-width: 768px){
+  .contractFormGrid{
+    grid-template-columns:1fr;
+  }
+
   .contractInfoRow,
   .workflowModalTopBar{
     flex-direction:column;

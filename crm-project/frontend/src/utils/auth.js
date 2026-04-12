@@ -31,6 +31,15 @@ export function storeSession({ token, user }) {
   localStorage.setItem("session_expires_at", String(Date.now() + SESSION_DURATION_MS));
 }
 
+export function updateStoredUser(updates = {}) {
+  const currentUser = getStoredUser();
+  if (!currentUser) return null;
+
+  const nextUser = { ...currentUser, ...updates };
+  localStorage.setItem("user", JSON.stringify(nextUser));
+  return nextUser;
+}
+
 export async function clearSession({ redirectTo = "/login" } = {}) {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
@@ -48,18 +57,11 @@ export async function clearSession({ redirectTo = "/login" } = {}) {
 }
 
 export function getDashboardPathByRole(role) {
-  switch (role) {
-    case "SUPER_USER":
-      return "/admin-dashboard";
-    case "AGENCY":
-      return "/agency-dashboard";
-    case "EMPLOYER":
-      return "/employer-dashboard";
-    case "ACCOUNTANT":
-      return "/accounts-dashboard";
-    default:
-      return "/login";
+  if (role === "SUPER_USER" || role === "AGENCY" || role === "EMPLOYER" || role === "ACCOUNTANT") {
+    return "/dashboard";
   }
+
+  return "/login";
 }
 
 export function validatePassword(password) {

@@ -256,13 +256,14 @@ function ApplicantDocumentsWorkspace() {
   };
 
   const ChevronIcon = ({ expanded }) => (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      {expanded ? (
-        <path d="m5 12.5 5-5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      )}
-    </svg>
+    <img
+      src={expanded ? "/up.png" : "/down.png"}
+      alt=""
+      width="16"
+      height="16"
+      style={{ display: "block" }}
+      aria-hidden="true"
+    />
   );
 
   const handleSendForApproval = async () => {
@@ -357,6 +358,10 @@ function ApplicantDocumentsWorkspace() {
         </div>
 
         <div className="docsAccordion">
+          {visibleDocs.length === 0 ? (
+            <div className="docsHint">No company documents are configured for this applicant.</div>
+          ) : null}
+
           {visibleDocs.map((doc) => {
             const versions = documents?.[doc.key] || [];
             const latest = getLatestVersion(versions);
@@ -404,6 +409,17 @@ function ApplicantDocumentsWorkspace() {
                   <div className="docsAccordionBody">
                     {!canReview ? (
                       <>
+                        {doc.templateFileUrl ? (
+                          <div className="docsReviewRow">
+                            <span className="docsHint">
+                              {doc.templateFileName || "Document to fill"}
+                            </span>
+                            <a className="linkBtn" href={doc.templateFileUrl} target="_blank" rel="noreferrer">
+                              Download
+                            </a>
+                          </div>
+                        ) : null}
+
                         {canAgentUpload ? (
                           <>
                             <div className="docsHint">Upload png, pdf or jpeg within 2MB</div>

@@ -1,6 +1,32 @@
 const { admin, db } = require("../config/firebase");
+const { logger } = require("../lib/logger");
+const { AppError } = require("../lib/AppError");
 
 const DEFAULT_EUR_TO_INR_RATE = 90;
+
+function handleApplicantError(res, context, error) {
+  if (error instanceof AppError) {
+    return res.status(error.statusCode).json({ message: error.message });
+  }
+
+  logger.error(context, {
+    message: error?.message,
+    stack: error?.stack
+  });
+
+  return res.status(500).json({ message: "Internal Server Error" });
+}
+
+function getAuthenticatedUser(req) {
+  if (!req.user?.uid || !req.user?.role) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  return {
+    userId: req.user.uid,
+    userRole: req.user.role
+  };
+}
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") return 0;
@@ -22,6 +48,24 @@ function roundCurrency(value) {
   return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
 }
 
+async function resolveApplicantTotalEur(applicant = {}) {
+  const directTotal = roundCurrency(
+    applicant?.totalApplicantPayment ?? applicant?.totalAmount ?? applicant?.totalPayment ?? 0
+  );
+  if (directTotal > 0) return directTotal;
+
+  const companyId = applicant?.companyId;
+  if (!companyId) return 0;
+
+  try {
+    const companyDoc = await db.collection("companies").doc(companyId).get();
+    if (!companyDoc.exists) return 0;
+    return roundCurrency(companyDoc.data()?.companyPaymentPerApplicant ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
 function normalizePaymentMode(value) {
   const normalized = String(value || "").trim().toLowerCase();
 
@@ -31,6 +75,69 @@ function normalizePaymentMode(value) {
   if (normalized === "cash") return "Cash";
 
   return "";
+}
+
+function getApplicantStageLabel(stage, approvalStatus) {
+  const normalizedStage = Number(stage || 1);
+
+  if (normalizedStage === 1 && approvalStatus !== "approved") return "Candidate pending for approval";
+  if (normalizedStage <= 1) return "Candidate Created";
+  if (normalizedStage === 2) return "Upload Documents";
+  if (normalizedStage === 3) return "Dispatch Documents";
+  if (normalizedStage === 4) return "Issue of the Contract";
+  if (normalizedStage === 5) return "Embassy Appointment Initiated";
+  if (normalizedStage === 6) return "Embassy Appointment Completed";
+  if (normalizedStage === 7) return "Initiate Embassy Interview";
+  if (normalizedStage === 8) return "Embassy Interview Completed";
+  if (normalizedStage === 9) return "Visa Collection Initiated";
+  if (normalizedStage === 10) return "Visa Collection Completed";
+  if (normalizedStage === 11) return "Arrival of Candidate";
+  return "Candidate Arrived and Process Completed";
+}
+
+function getApplicantBannerStatusText(applicant, context = {}) {
+  const applicantStage = Number(applicant?.stage || 1);
+  const approvalStatus = String(applicant?.approvalStatus || "").toLowerCase();
+  const {
+    hasCompletedDocumentStage = false,
+    pendingRequired = false,
+    rejectedRequired = false,
+    uploadedRequired = false,
+    hasDocuments = false,
+    hasTravelDetails = false,
+    hasBiometricSlip = false,
+    hasInterviewTicket = false,
+    hasInterviewBiometric = false,
+    hasVisaTravel = false,
+    hasResidencePermit = false
+  } = context;
+
+  const isPendingSuperUserApproval = applicantStage === 1 && approvalStatus === "pending";
+
+  if (isPendingSuperUserApproval) return "Candidate pending for approval";
+  if (applicantStage === 1) return "Complete the candidate profile for approval";
+  if (applicantStage >= 12) return "Candidate Arrived and Process Completed";
+  if (applicantStage === 11) return "Candidate arrival pending";
+  if (applicantStage === 10) return hasVisaTravel ? "Pending Residence Permit" : "Travel ticket upload pending";
+  if (applicantStage === 9) return "Visa collection Initiation pending";
+  if (applicantStage === 8) {
+    if (hasInterviewBiometric) return "Pending visa collection";
+    if (hasInterviewTicket) return "Pending Biometric slip";
+    return "Travel ticket upload pending";
+  }
+  if (applicantStage === 7) return "Embassy Interview pending";
+  if (applicantStage === 6) {
+    if (hasBiometricSlip) return "Embassy Interview pending";
+    if (hasTravelDetails) return "Pending Biometric slip";
+    return "Ticket upload pending";
+  }
+  if (applicantStage >= 5) return "Pending embassy appointment.";
+  if (applicantStage === 4) return "Issue of the contract pending.";
+  if (hasCompletedDocumentStage) return "Dispatch the document";
+  if (rejectedRequired) return "Few issues found in the documents. Re-upload the rejected files for admin review.";
+  if (pendingRequired) return "Documents are pending admin approval";
+  if (hasDocuments || uploadedRequired) return "Complete the document uploading for admin to approve the candidate";
+  return "Complete the document uploading for admin to approve the candidate";
 }
 
 async function getTodayEurToInrRate() {
@@ -64,8 +171,7 @@ async function getTodayEurToInrRate() {
 
 
 const createApplicant = async (req, res) => {
-  const userRole = req.user?.role || "SUPER_USER";
-  const userId = req.user?.uid || "testUser123";
+  const { userRole, userId } = getAuthenticatedUser(req);
 
   let assignedAgencyId = null;
 
@@ -152,46 +258,6 @@ const createApplicant = async (req, res) => {
     const docRef = await db.collection("applicants").add(applicant);
     const applicantId = docRef.id;
 
-    // 🔹 Copy document templates from company
-    const templatesSnap = await db
-      .collection("companies")
-      .doc(companyId)
-      .collection("documentTemplates")
-      .get();
-
-    const batch = db.batch();
-
-    templatesSnap.forEach((doc) => {
-      const template = doc.data();
-
-      const applicantDocRef = db
-        .collection("applicants")
-        .doc(applicantId)
-        .collection("documents")
-        .doc(template.docType);
-
-      batch.set(applicantDocRef, {
-        docType: template.docType,
-        label: template.label,
-        required: template.required,
-
-        uploaded: false,
-        fileUrl: null,
-
-        deferred: false,
-
-        uploadedBy: null,
-        uploadedAt: null,
-
-        seenBy: {
-          agency: [],
-          employer: []
-        }
-      });
-    });
-
-    await batch.commit();
-
     if (normalizedAmountPaid > 0) {
       const initialPayment = {
         type: "APPLICANT",
@@ -219,7 +285,7 @@ const createApplicant = async (req, res) => {
 
   } catch (error) {
     console.error("Create Applicant Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -237,8 +303,7 @@ const uploadDocumentByType = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     // Firebase Storage
     const bucket = admin.storage().bucket();
@@ -286,7 +351,7 @@ const uploadDocumentByType = async (req, res) => {
 
   } catch (error) {
     console.error("Upload Document Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -298,8 +363,7 @@ const markDocumentSeen = async (req, res) => {
   try {
     const { applicantId, docType } = req.params;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "AGENCY"; // AGENCY or EMPLOYER
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     if (!["AGENCY", "EMPLOYER"].includes(userRole)) {
       return res.status(403).json({ message: "Invalid role" });
@@ -326,7 +390,7 @@ const markDocumentSeen = async (req, res) => {
 
   } catch (error) {
     console.error("Mark Seen Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -339,8 +403,7 @@ const deferDocument = async (req, res) => {
     const { applicantId, docType } = req.params;
     const { reason } = req.body;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "AGENCY";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     // Only Agency can defer
     if (userRole !== "AGENCY") {
@@ -369,7 +432,7 @@ const deferDocument = async (req, res) => {
 
   } catch (error) {
     console.error("Defer Document Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -382,8 +445,7 @@ const addPayment = async (req, res) => {
     const { applicantId } = req.params;
     const { type, amount, currency, note, paidDate, paymentMode } = req.body;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     if (!["APPLICANT", "EMPLOYER"].includes(type)) {
       return res.status(400).json({ message: "Invalid payment type" });
@@ -451,7 +513,7 @@ const addPayment = async (req, res) => {
 
   } catch (error) {
     console.error("Add Payment Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -524,9 +586,7 @@ const getPaymentSummary = async (req, res) => {
     history.sort((a, b) => (b.paidDate || 0) - (a.paidDate || 0));
 
     const eurToInrRate = await getTodayEurToInrRate();
-    const applicantTotalEur = roundCurrency(
-      applicant.totalApplicantPayment ?? applicant.totalAmount ?? applicant.totalPayment ?? 0
-    );
+    const applicantTotalEur = await resolveApplicantTotalEur(applicant);
     const applicantTotalInr = roundCurrency(applicantTotalEur * eurToInrRate);
     const applicantPendingInr = Math.max(0, roundCurrency(applicantTotalInr - applicantPaid));
     const applicantInstallments = history.filter((payment) => payment.type === "APPLICANT");
@@ -557,7 +617,7 @@ const getPaymentSummary = async (req, res) => {
 
   } catch (error) {
     console.error("Payment Summary Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -566,7 +626,7 @@ const getPaymentSummary = async (req, res) => {
 // ===============================
 const getApplicants = async (req, res) => {
   try {
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole } = getAuthenticatedUser(req);
     const userId = req.user?.uid || null;
     const agencyId = req.user?.agencyId || null;
 
@@ -614,20 +674,44 @@ const getApplicants = async (req, res) => {
     }
 
     const companyIds = new Set();
+    const countryIds = new Set();
+    const agencyIds = new Set();
     snap.docs.forEach((d) => {
       const data = d.data();
       if (data?.companyId) companyIds.add(data.companyId);
+      if (data?.countryId) countryIds.add(data.countryId);
+      if (data?.agencyId) agencyIds.add(data.agencyId);
     });
 
     const companyIdToName = {};
+    const companyIdToPayment = {};
+    const countryIdToName = {};
+    const agencyIdToName = {};
     await Promise.all(
-      Array.from(companyIds).map(async (companyId) => {
-        const companyDoc = await db.collection("companies").doc(companyId).get();
-        companyIdToName[companyId] = companyDoc.exists
-          ? companyDoc.data()?.name || ""
-          : "";
-      })
+      [
+        ...Array.from(companyIds).map(async (companyId) => {
+          const companyDoc = await db.collection("companies").doc(companyId).get();
+          companyIdToName[companyId] = companyDoc.exists ? companyDoc.data()?.name || "" : "";
+          companyIdToPayment[companyId] = companyDoc.exists
+            ? roundCurrency(companyDoc.data()?.companyPaymentPerApplicant ?? 0)
+            : 0;
+        }),
+        ...Array.from(countryIds).map(async (countryId) => {
+          const countryDoc = await db.collection("countries").doc(countryId).get();
+          countryIdToName[countryId] = countryDoc.exists
+            ? countryDoc.data()?.name || ""
+            : "";
+        }),
+        ...Array.from(agencyIds).map(async (agencyIdValue) => {
+          const agencyDoc = await db.collection("agencies").doc(agencyIdValue).get();
+          agencyIdToName[agencyIdValue] = agencyDoc.exists
+            ? agencyDoc.data()?.name || ""
+            : "";
+        })
+      ]
     );
+
+    const eurToInrRate = await getTodayEurToInrRate();
 
     let applicants = await Promise.all(
       snap.docs.map(async (d) => {
@@ -657,8 +741,98 @@ const getApplicants = async (req, res) => {
           if (Number.isFinite(amount)) applicantPaid += amount;
         });
 
-        const total =
-          Number(data?.totalApplicantPayment || data?.totalPayment) || 0;
+        const storedPaidAmount = toNumber(data?.amountPaid ?? data?.paidAmount);
+        applicantPaid = roundCurrency(Math.max(applicantPaid, storedPaidAmount));
+
+        const totalEur = roundCurrency(
+          data?.totalApplicantPayment ??
+            data?.totalAmount ??
+            data?.totalPayment ??
+            companyIdToPayment[data?.companyId] ??
+            0
+        );
+        const totalInr = roundCurrency(totalEur * eurToInrRate);
+        const pendingInr = Math.max(0, roundCurrency(totalInr - applicantPaid));
+
+        const latestDocumentVersions = await Promise.all(
+          (await db.collection("applicants").doc(d.id).collection("documents").get()).docs.map(async (docSnap) => {
+            const versionSnap = await docSnap.ref
+              .collection("versions")
+              .orderBy("uploadedAt", "desc")
+              .limit(1)
+              .get();
+
+            return versionSnap.empty ? null : versionSnap.docs[0].data();
+          })
+        );
+
+        const approvedRequired = latestDocumentVersions.length > 0 &&
+          latestDocumentVersions.every((version) => version?.status === "APPROVED");
+        const rejectedRequired = latestDocumentVersions.some((version) => version?.status === "REJECTED");
+        const pendingRequired = latestDocumentVersions.some((version) => version?.status === "PENDING");
+        const uploadedRequired = latestDocumentVersions.length > 0 &&
+          latestDocumentVersions.every((version) =>
+            ["PENDING", "APPROVED", "REJECTED"].includes(version?.status)
+          );
+        const hasPendingDocumentApproval = latestDocumentVersions.some(
+          (version) => version?.status === "PENDING"
+        );
+        const hasRejectedDocument = latestDocumentVersions.some(
+          (version) => version?.status === "REJECTED"
+        );
+        const hasDocuments = latestDocumentVersions.some(Boolean);
+
+        const appointmentsSnap = await db
+          .collection("applicants")
+          .doc(d.id)
+          .collection("appointments")
+          .get();
+
+        const hasPendingAppointmentApproval = appointmentsSnap.docs.some(
+          (docSnap) => docSnap.data()?.approved === false
+        );
+        const hasPendingPipelineApproval =
+          data?.approvalStatus !== "approved" ||
+          data?.contract?.status === "PENDING" ||
+          data?.visaCollection?.status === "PENDING" ||
+          hasPendingAppointmentApproval;
+
+        const attentionRequired =
+          userRole === "SUPER_USER"
+            ? hasPendingDocumentApproval || hasPendingPipelineApproval
+            : userRole === "AGENCY"
+            ? hasRejectedDocument
+            : false;
+
+        const hasTravelDetails = Boolean(
+          data?.travelDetails?.travelDate || data?.travelDetails?.time || data?.travelDetails?.fileUrl
+        );
+        const hasBiometricSlip = Boolean(data?.biometricSlip?.fileUrl);
+        const hasInterviewTicket = Boolean(data?.interviewTicket?.date || data?.interviewTicket?.time || data?.interviewTicket?.fileUrl);
+        const hasInterviewBiometric = Boolean(data?.interviewBiometric?.fileUrl);
+        const hasVisaTravel = Boolean(data?.visaTravel?.date || data?.visaTravel?.time || data?.visaTravel?.fileUrl);
+        const hasResidencePermit = Boolean(data?.residencePermit?.frontFileUrl || data?.residencePermit?.backFileUrl || data?.residencePermit?.fileUrl);
+        const hasCompletedDocumentStage = Number(data?.stage || 1) >= 3 && approvedRequired;
+        const stageLabel = getApplicantStageLabel(data?.stage, data?.approvalStatus);
+        const statusText = getApplicantBannerStatusText(data, {
+          hasCompletedDocumentStage,
+          pendingRequired,
+          rejectedRequired,
+          uploadedRequired,
+          hasDocuments,
+          hasTravelDetails,
+          hasBiometricSlip,
+          hasInterviewTicket,
+          hasInterviewBiometric,
+          hasVisaTravel,
+          hasResidencePermit
+        });
+        const workflowStatus =
+          Number(data?.stage || 1) >= 12
+            ? "completed"
+            : attentionRequired
+            ? "attention_required"
+            : "in_progress";
 
         return {
           id: d.id,
@@ -666,10 +840,21 @@ const getApplicants = async (req, res) => {
           firstName,
           lastName,
           companyName: data?.companyId ? companyIdToName[data.companyId] : "",
+          countryName: data?.countryId ? countryIdToName[data.countryId] : "",
+          agencyName: data?.agencyId ? agencyIdToName[data.agencyId] : "",
+          attentionRequired,
+          workflowStatus,
+          stageLabel,
+          statusText,
+          exchangeRate: eurToInrRate,
           payment: {
-            total,
+            total: totalEur,
+            totalEur,
+            totalInr,
             paid: applicantPaid,
-            pending: total - applicantPaid
+            paidInr: applicantPaid,
+            pending: pendingInr,
+            pendingInr
           }
         };
       })
@@ -684,7 +869,7 @@ const getApplicants = async (req, res) => {
     return res.json(applicants);
   } catch (error) {
     console.error("Get Applicants Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -695,7 +880,7 @@ const approveApplicant = async (req, res) => {
   try {
     const { applicantId } = req.params;
 
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole } = getAuthenticatedUser(req);
     const userId = req.user?.uid || "testSuperUser";
 
     if (userRole !== "SUPER_USER") {
@@ -725,7 +910,7 @@ const approveApplicant = async (req, res) => {
 
   } catch (error) {
     console.error("Approve Applicant Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -737,8 +922,7 @@ const addAppointment = async (req, res) => {
     const { applicantId, type } = req.params;
     const { date, time } = req.body;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "EMPLOYER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     const allowedTypes = ["EMBASSY_APPOINTMENT", "EMBASSY_INTERVIEW", "VISA_COLLECTION", "BIOMETRIC", "INTERVIEW"];
     if (!allowedTypes.includes(type)) {
@@ -781,7 +965,7 @@ const autoApprove = userRole === "SUPER_USER";
 
   } catch (error) {
     console.error("Add Appointment Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -793,8 +977,7 @@ const approveAppointment = async (req, res) => {
   try {
     const { applicantId, type } = req.params;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     if (userRole !== "SUPER_USER") {
       return res.status(403).json({ message: "Only Super User can approve" });
@@ -856,23 +1039,13 @@ const approveAppointment = async (req, res) => {
 
   } catch (error) {
     console.error("Approve Appointment Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
 const MANUAL_STAGE_IDS = [1, 2, 4, 5, 7, 9, 11];
 const AUTO_STAGE_IDS = [3, 6, 8, 10];
 const MAX_STAGE = 11;
-const REQUIRED_STAGE_TWO_DOCUMENTS = [
-  "PASSPORT",
-  "PAN_CARD",
-  "EDUCATION_10TH",
-  "EDUCATION_12TH",
-  "PHOTO",
-  "BIRTH_CERTIFICATE",
-  "MEDICAL_CERTIFICATE"
-];
-
 const getAllowedRoleForStage = (stage) => {
   // Update as needed for additional workflow/authorization rules
   if (stage >= 1 && stage <= 2) return "AGENCY";
@@ -893,19 +1066,47 @@ const addStageLog = async ({ applicantId, fromStage, toStage, role, action }) =>
   });
 };
 
-const getRequiredDocumentTypes = (applicant) => {
-  const required = [...REQUIRED_STAGE_TWO_DOCUMENTS];
-  const maritalStatus =
-    applicant?.maritalStatus || applicant?.personalDetails?.maritalStatus || "";
+const normalizeCompanyDocuments = (value) => {
+  if (!Array.isArray(value)) return [];
 
-  if (maritalStatus === "Single") required.push("UNMARRIED_CERTIFICATE");
-  if (maritalStatus === "Married") required.push("MARRIAGE_CERTIFICATE");
+  return value.reduce((documents, item, index) => {
+    if (!item || typeof item !== "object") return documents;
 
-  return required;
+    const name = String(item.name || item.label || "").trim();
+    const id = String(item.id || item.docType || `document_${index + 1}`).trim();
+
+    if (!name || !id) return documents;
+
+    documents.push({
+      id,
+      name,
+      required: Boolean(item.required),
+      templateFileName: String(item.templateFileName || "").trim(),
+      templateFileUrl: String(item.templateFileUrl || "").trim()
+    });
+
+    return documents;
+  }, []);
+};
+
+const getCompanyDocumentRequirements = async (companyId) => {
+  if (!companyId) return [];
+
+  const companyDoc = await db.collection("companies").doc(companyId).get();
+  if (!companyDoc.exists) return [];
+
+  return normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded);
+};
+
+const getRequiredDocumentTypes = async (applicant) => {
+  const documents = await getCompanyDocumentRequirements(applicant?.companyId);
+  return documents.filter((doc) => doc.required).map((doc) => doc.id);
 };
 
 const areLatestRequiredDocumentsApproved = async (applicantId, applicant) => {
-  const requiredDocs = getRequiredDocumentTypes(applicant);
+  const requiredDocs = await getRequiredDocumentTypes(applicant);
+
+  if (!requiredDocs.length) return true;
 
   for (const docType of requiredDocs) {
     const latestSnap = await db
@@ -1051,7 +1252,7 @@ const approveAndMoveStage = async (req, res) => {
         }
       }
 
-      let requiredDocs = getRequiredDocumentTypes(applicant);
+      let requiredDocs = await getRequiredDocumentTypes(applicant);
 
       for (let docType of requiredDocs) {
 
@@ -1109,9 +1310,7 @@ const approveAndMoveStage = async (req, res) => {
 
     console.error("Move Stage Error:", error);
 
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1135,6 +1334,7 @@ const getApplicantById = async (req, res) => {
 
     // Fetch company name
     let companyName = "";
+    let companyDocuments = [];
     if (applicant.companyId) {
       const companyDoc = await db
         .collection("companies")
@@ -1142,6 +1342,7 @@ const getApplicantById = async (req, res) => {
         .get();
 
       companyName = companyDoc.exists ? companyDoc.data().name : "";
+      companyDocuments = companyDoc.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
     }
 
     await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
@@ -1186,16 +1387,16 @@ const getApplicantById = async (req, res) => {
     const storedPaidAmount = Number(applicantData.amountPaid ?? applicantData.paidAmount ?? 0) || 0;
     applicantPaid = Math.max(applicantPaid, storedPaidAmount);
 
-    const totalApplicantPayment = Number(
-      applicantData.totalApplicantPayment ?? applicantData.totalAmount ?? applicantData.totalPayment ?? 0
-    ) || 0;
+    const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
 
     res.json({
       id: doc.id,
       ...applicantData,
       companyName,
+      companyDocuments,
       agencyName,
       countryName,
+      totalApplicantPayment,
       totalAmount: totalApplicantPayment,
       amountPaid: applicantPaid,
       paidAmount: applicantPaid,
@@ -1210,9 +1411,7 @@ const getApplicantById = async (req, res) => {
 
     console.error("Get Applicant Error:", error);
 
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
 
   }
 };
@@ -1240,9 +1439,7 @@ exports.getApplicants = async (req, res) => {
 
     console.error("Get Applicants Error:", error);
 
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
 
   }
 };
@@ -1297,7 +1494,7 @@ exports.uploadDocument = async (req, res) => {
     res.json({ message: "Uploaded successfully" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1332,7 +1529,7 @@ exports.getDocuments = async (req, res) => {
     res.json(result);
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1361,7 +1558,7 @@ exports.rejectDocument = async (req, res) => {
     res.json({ message: "Rejected" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1391,7 +1588,7 @@ exports.deferDocument = async (req, res) => {
     res.json({ message: "Document deferred" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1432,7 +1629,7 @@ exports.approveDocument = async (req, res) => {
     res.json({ message: "Document approved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1499,7 +1696,7 @@ exports.addDispatch = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };  
 
@@ -1544,7 +1741,7 @@ exports.getDispatches = async (req, res) => {
     res.json(dispatches);
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1625,7 +1822,7 @@ exports.uploadContract = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1700,7 +1897,7 @@ exports.approveContract = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1753,7 +1950,7 @@ exports.getContract = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1839,7 +2036,7 @@ exports.addEmbassyAppointment = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1883,7 +2080,7 @@ exports.getEmbassyAppointment = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1953,7 +2150,7 @@ exports.addTravelDetails = async (req, res) => {
       message: "Travel details saved"
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1988,7 +2185,7 @@ exports.getTravelDetails = async (req, res) => {
       createdAt: normalizeDate(travelDetails.createdAt)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2063,7 +2260,7 @@ exports.uploadBiometricSlip = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2100,7 +2297,7 @@ exports.getBiometricSlip = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2162,7 +2359,7 @@ exports.addEmbassyInterview = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2203,7 +2400,7 @@ exports.approveEmbassyInterview = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2240,7 +2437,7 @@ exports.getEmbassyInterview = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2317,7 +2514,7 @@ exports.addInterviewTicket = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2354,7 +2551,7 @@ exports.getInterviewTicket = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2430,7 +2627,7 @@ exports.uploadInterviewBiometric = async (req, res) => {
 
   } catch (err) {
     console.error("Upload Interview Biometric Error:", err);
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2468,7 +2665,7 @@ exports.getInterviewBiometric = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2534,7 +2731,7 @@ exports.addVisaCollection = async (req, res) => {
     res.json({ message: "Visa collection saved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2565,7 +2762,7 @@ exports.approveVisaCollection = async (req, res) => {
     res.json({ message: "Visa collection approved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2608,7 +2805,7 @@ exports.getVisaCollection = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2682,7 +2879,7 @@ exports.addVisaTravel = async (req, res) => {
     res.json({ message: "Visa travel details saved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2718,7 +2915,7 @@ exports.getVisaTravel = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2805,7 +3002,7 @@ exports.uploadResidencePermit = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2841,7 +3038,7 @@ exports.getResidencePermit = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2892,9 +3089,7 @@ exports.completeApplicant = async (req, res) => {
 
   } catch (err) {
     console.error("Complete Applicant Error:", err);
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2912,15 +3107,29 @@ exports.updateApplicant = async (req, res) => {
       });
     }
 
-    await db.collection("applicants").doc(id).update({
+    const applicantRef = db.collection("applicants").doc(id);
+    const applicantSnap = await applicantRef.get();
+    if (!applicantSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const incomingTotal = toNumber(req.body?.totalApplicantPayment ?? req.body?.totalAmount);
+    const resolvedTotal =
+      incomingTotal > 0
+        ? incomingTotal
+        : await resolveApplicantTotalEur({ ...applicantSnap.data(), ...req.body });
+
+    await applicantRef.update({
       ...req.body,
+      totalApplicantPayment: resolvedTotal,
+      totalAmount: resolvedTotal,
       updatedAt: new Date()
     });
 
     res.json({ message: "Applicant updated successfully" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2973,5 +3182,7 @@ module.exports = {
   completeApplicant: exports.completeApplicant,
   updateApplicant: exports.updateApplicant
 };
+
+
 
 

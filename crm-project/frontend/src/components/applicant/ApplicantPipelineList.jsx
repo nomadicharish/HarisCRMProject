@@ -15,35 +15,11 @@ const PIPELINE_ITEMS = [
 ];
 
 function IconCheck() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path
-        d="M16.667 5.833 8.333 14.167 3.333 9.167"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return <img src="/greentick.png" alt="" className="pipeIconImg" aria-hidden="true" />;
 }
 
 function IconLock() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <path
-        d="M6.667 9.167V6.667A3.333 3.333 0 0 1 10 3.333a3.333 3.333 0 0 1 3.333 3.334v2.5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-      <path
-        d="M5.833 9.167h8.334c.92 0 1.666.746 1.666 1.666v5c0 .92-.746 1.667-1.666 1.667H5.833c-.92 0-1.666-.747-1.666-1.667v-5c0-.92.746-1.666 1.666-1.666Z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-    </svg>
-  );
+  return <img src="/uil_lock.png" alt="" className="pipeIconImg" aria-hidden="true" />;
 }
 
 function IconChevron() {
@@ -84,7 +60,11 @@ function StatusIcon({ status }) {
   }
 
   if (status === "active") {
-    return <span className="pipeIcon pipeIconActive" aria-hidden="true" />;
+    return (
+      <span className="pipeIcon pipeIconActive" aria-hidden="true">
+        <img src="/mdi_tick-circle.png" alt="" className="pipeIconImg" />
+      </span>
+    );
   }
 
   return (
@@ -138,7 +118,8 @@ function ApplicantPipelineList({
 }) {
   return (
     <div className="pipelineCard">
-      <div className="pipelineBanner">
+      <div className="pipelineBannerCard">
+        <div className="pipelineBanner">
         <div className="pipelineBannerLeft">
           <div className="pipelineStepPill">
             {Math.min(Number(currentStep) || 1, totalSteps)}/{totalSteps}
@@ -151,12 +132,14 @@ function ApplicantPipelineList({
             {headerActionLabel}
           </button>
         ) : null}
+        </div>
       </div>
 
       <div className="pipelineHeaderRow">
         <h3 className="pipelineTitle">Complete pipeline</h3>
       </div>
 
+      <div className="pipelineListCard">
       <div className="pipelineList">
         {PIPELINE_ITEMS.map((item) => {
           const status =
@@ -276,6 +259,7 @@ function ApplicantPipelineList({
             </div>
           );
         })}
+      </div>
       </div>
     </div>
   );

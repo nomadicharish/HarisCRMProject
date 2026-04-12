@@ -81,7 +81,7 @@
 }
 
 .btnSm{
-  padding:8px 10px;
+  padding:8px 12px;
   border-radius:9px;
   font-weight:500;
 }
@@ -283,11 +283,19 @@
 }
 
 .pipelineCard{
+  background:transparent;
+  border:none;
+  border-radius:0;
+  overflow:visible;
+  box-shadow:none;
+}
+
+.pipelineBannerCard{
   background:#fff;
   border-radius:10px;
-  overflow:hidden;
   box-shadow:0 2px 10px rgba(16,24,40,0.06);
   border:1px solid #eef2f7;
+  overflow:hidden;
 }
 
 .pipelineBanner{
@@ -345,11 +353,12 @@
 }
 
 .pipelineHeaderRow{
-  padding:14px 14px 8px;
+  padding:14px 4px 8px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:12px;
+  background:transparent;
 }
 
 .pipelineTitle{
@@ -370,6 +379,14 @@
 
 .pipelineList{
   border-top:1px solid #eef2f7;
+}
+
+.pipelineListCard{
+  background:#fff;
+  border-radius:10px;
+  box-shadow:0 2px 10px rgba(16,24,40,0.06);
+  border:1px solid #eef2f7;
+  overflow:hidden;
 }
 
 .pipeRow{
@@ -395,6 +412,7 @@
 .pipeTitle{
   font-size:16px;
   font-weight:500;
+  font-family:Inter, sans-serif;
   color:#111827;
 }
 
@@ -477,18 +495,17 @@
 }
 
 .pipeIcon{
-  width:18px;
-  height:18px;
+  width:20px;
+  height:20px;
   display:flex;
   align-items:center;
   justify-content:center;
-  border-radius:50%;
   flex:0 0 auto;
 }
 
 .pipeIconCompleted{
-  background:#22c55e;
-  color:#fff;
+  background:transparent;
+  color:inherit;
 }
 
 .pipeIconWarning{
@@ -502,15 +519,19 @@
 }
 
 .pipeIconLocked{
-  color:#cbd5e1;
+  color:inherit;
 }
 
 .pipeIconActive{
-  width:18px;
-  height:18px;
-  border-radius:50%;
-  border:2px dashed #22c55e;
-  background:#fff;
+  width:20px;
+  height:20px;
+  background:transparent;
+}
+
+.pipeIconImg{
+  width:20px;
+  height:20px;
+  display:block;
 }
 
 .moreSection{

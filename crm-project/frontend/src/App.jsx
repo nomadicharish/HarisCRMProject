@@ -2,21 +2,19 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ProtectedRoute from "./components/ProtectedRoute";
-import RoleDashboardRedirect from "./components/RoleDashboardRedirect";
-import AccountsDashboard from "./pages/AccountsDashboard";
-import AdminDashboard from "./pages/AdminDashboard";
-import AgencyDashboard from "./pages/AgencyDashboard";
 import ApplicantDispatchWorkspace from "./pages/ApplicantDispatchWorkspace";
 import ApplicantDocumentsWorkspace from "./pages/ApplicantDocumentsWorkspace";
 import ApplicantProfile from "./pages/ApplicantProfile";
 import ApplicantPayments from "./pages/ApplicantPayments";
-import Applicants from "./pages/Applicants";
+import ApplicantsDashboard from "./pages/ApplicantsDashboard";
 import ChangePassword from "./pages/ChangePassword";
+import CompanyFormPage from "./pages/CompanyFormPage";
 import CreateApplicant from "./pages/CreateApplicant";
 import Dashboard from "./pages/Dashboard";
-import EmployerDashboard from "./pages/EmployerDashboard";
 import ForgotPassword from "./pages/ForgotPassword";
 import Login from "./pages/Login";
+import Settings from "./pages/Settings";
+import SettingsChangePassword from "./pages/SettingsChangePassword";
 
 function App() {
   return (
@@ -25,20 +23,13 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route
-          path="/change-password"
-          element={
-            <ProtectedRoute allowForcePasswordReset={true}>
-              <ChangePassword />
-            </ProtectedRoute>
-          }
-        />
+        <Route path="/change-password" element={<ChangePassword />} />
 
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <RoleDashboardRedirect />
+              <ApplicantsDashboard />
             </ProtectedRoute>
           }
         />
@@ -47,7 +38,7 @@ function App() {
           path="/admin-dashboard"
           element={
             <ProtectedRoute allowedRoles={["SUPER_USER"]}>
-              <AdminDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -55,7 +46,7 @@ function App() {
           path="/agency-dashboard"
           element={
             <ProtectedRoute allowedRoles={["AGENCY"]}>
-              <AgencyDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -63,7 +54,7 @@ function App() {
           path="/employer-dashboard"
           element={
             <ProtectedRoute allowedRoles={["EMPLOYER"]}>
-              <EmployerDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -71,7 +62,7 @@ function App() {
           path="/accounts-dashboard"
           element={
             <ProtectedRoute allowedRoles={["ACCOUNTANT"]}>
-              <AccountsDashboard />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -89,7 +80,7 @@ function App() {
           path="/applicants"
           element={
             <ProtectedRoute>
-              <Applicants />
+              <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
         />
@@ -98,6 +89,22 @@ function App() {
           element={
             <ProtectedRoute>
               <CreateApplicant />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/companies/new"
+          element={
+            <ProtectedRoute allowedRoles={["SUPER_USER"]}>
+              <CompanyFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/companies/:id/edit"
+          element={
+            <ProtectedRoute allowedRoles={["SUPER_USER"]}>
+              <CompanyFormPage />
             </ProtectedRoute>
           }
         />
@@ -130,6 +137,22 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "ACCOUNTANT"]}>
               <ApplicantPayments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/change-password"
+          element={
+            <ProtectedRoute>
+              <SettingsChangePassword />
             </ProtectedRoute>
           }
         />
