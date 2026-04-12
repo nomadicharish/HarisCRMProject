@@ -1,6 +1,32 @@
 const { admin, db } = require("../config/firebase");
+const { logger } = require("../lib/logger");
+const { AppError } = require("../lib/AppError");
 
 const DEFAULT_EUR_TO_INR_RATE = 90;
+
+function handleApplicantError(res, context, error) {
+  if (error instanceof AppError) {
+    return res.status(error.statusCode).json({ message: error.message });
+  }
+
+  logger.error(context, {
+    message: error?.message,
+    stack: error?.stack
+  });
+
+  return res.status(500).json({ message: "Internal Server Error" });
+}
+
+function getAuthenticatedUser(req) {
+  if (!req.user?.uid || !req.user?.role) {
+    throw new AppError("Unauthorized", 401);
+  }
+
+  return {
+    userId: req.user.uid,
+    userRole: req.user.role
+  };
+}
 
 function toNumber(value) {
   if (value === null || value === undefined || value === "") return 0;
@@ -127,8 +153,7 @@ async function getTodayEurToInrRate() {
 
 
 const createApplicant = async (req, res) => {
-  const userRole = req.user?.role || "SUPER_USER";
-  const userId = req.user?.uid || "testUser123";
+  const { userRole, userId } = getAuthenticatedUser(req);
 
   let assignedAgencyId = null;
 
@@ -242,7 +267,7 @@ const createApplicant = async (req, res) => {
 
   } catch (error) {
     console.error("Create Applicant Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -260,8 +285,7 @@ const uploadDocumentByType = async (req, res) => {
       return res.status(400).json({ message: "No file uploaded" });
     }
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     // Firebase Storage
     const bucket = admin.storage().bucket();
@@ -309,7 +333,7 @@ const uploadDocumentByType = async (req, res) => {
 
   } catch (error) {
     console.error("Upload Document Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -321,8 +345,7 @@ const markDocumentSeen = async (req, res) => {
   try {
     const { applicantId, docType } = req.params;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "AGENCY"; // AGENCY or EMPLOYER
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     if (!["AGENCY", "EMPLOYER"].includes(userRole)) {
       return res.status(403).json({ message: "Invalid role" });
@@ -349,7 +372,7 @@ const markDocumentSeen = async (req, res) => {
 
   } catch (error) {
     console.error("Mark Seen Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -362,8 +385,7 @@ const deferDocument = async (req, res) => {
     const { applicantId, docType } = req.params;
     const { reason } = req.body;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "AGENCY";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     // Only Agency can defer
     if (userRole !== "AGENCY") {
@@ -392,7 +414,7 @@ const deferDocument = async (req, res) => {
 
   } catch (error) {
     console.error("Defer Document Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -405,8 +427,7 @@ const addPayment = async (req, res) => {
     const { applicantId } = req.params;
     const { type, amount, currency, note, paidDate, paymentMode } = req.body;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     if (!["APPLICANT", "EMPLOYER"].includes(type)) {
       return res.status(400).json({ message: "Invalid payment type" });
@@ -474,7 +495,7 @@ const addPayment = async (req, res) => {
 
   } catch (error) {
     console.error("Add Payment Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -580,7 +601,7 @@ const getPaymentSummary = async (req, res) => {
 
   } catch (error) {
     console.error("Payment Summary Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -589,7 +610,7 @@ const getPaymentSummary = async (req, res) => {
 // ===============================
 const getApplicants = async (req, res) => {
   try {
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole } = getAuthenticatedUser(req);
     const userId = req.user?.uid || null;
     const agencyId = req.user?.agencyId || null;
 
@@ -826,7 +847,7 @@ const getApplicants = async (req, res) => {
     return res.json(applicants);
   } catch (error) {
     console.error("Get Applicants Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -837,7 +858,7 @@ const approveApplicant = async (req, res) => {
   try {
     const { applicantId } = req.params;
 
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole } = getAuthenticatedUser(req);
     const userId = req.user?.uid || "testSuperUser";
 
     if (userRole !== "SUPER_USER") {
@@ -867,7 +888,7 @@ const approveApplicant = async (req, res) => {
 
   } catch (error) {
     console.error("Approve Applicant Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -879,8 +900,7 @@ const addAppointment = async (req, res) => {
     const { applicantId, type } = req.params;
     const { date, time } = req.body;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "EMPLOYER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     const allowedTypes = ["EMBASSY_APPOINTMENT", "EMBASSY_INTERVIEW", "VISA_COLLECTION", "BIOMETRIC", "INTERVIEW"];
     if (!allowedTypes.includes(type)) {
@@ -923,7 +943,7 @@ const autoApprove = userRole === "SUPER_USER";
 
   } catch (error) {
     console.error("Add Appointment Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -935,8 +955,7 @@ const approveAppointment = async (req, res) => {
   try {
     const { applicantId, type } = req.params;
 
-    const userId = req.user?.uid || "testUser123";
-    const userRole = req.user?.role || "SUPER_USER";
+    const { userRole, userId } = getAuthenticatedUser(req);
 
     if (userRole !== "SUPER_USER") {
       return res.status(403).json({ message: "Only Super User can approve" });
@@ -998,7 +1017,7 @@ const approveAppointment = async (req, res) => {
 
   } catch (error) {
     console.error("Approve Appointment Error:", error);
-    return res.status(500).json({ message: "Internal Server Error" });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -1269,9 +1288,7 @@ const approveAndMoveStage = async (req, res) => {
 
     console.error("Move Stage Error:", error);
 
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1373,9 +1390,7 @@ const getApplicantById = async (req, res) => {
 
     console.error("Get Applicant Error:", error);
 
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
 
   }
 };
@@ -1403,9 +1418,7 @@ exports.getApplicants = async (req, res) => {
 
     console.error("Get Applicants Error:", error);
 
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
 
   }
 };
@@ -1460,7 +1473,7 @@ exports.uploadDocument = async (req, res) => {
     res.json({ message: "Uploaded successfully" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1495,7 +1508,7 @@ exports.getDocuments = async (req, res) => {
     res.json(result);
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1524,7 +1537,7 @@ exports.rejectDocument = async (req, res) => {
     res.json({ message: "Rejected" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1554,7 +1567,7 @@ exports.deferDocument = async (req, res) => {
     res.json({ message: "Document deferred" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1595,7 +1608,7 @@ exports.approveDocument = async (req, res) => {
     res.json({ message: "Document approved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1662,7 +1675,7 @@ exports.addDispatch = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };  
 
@@ -1707,7 +1720,7 @@ exports.getDispatches = async (req, res) => {
     res.json(dispatches);
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1788,7 +1801,7 @@ exports.uploadContract = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1863,7 +1876,7 @@ exports.approveContract = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -1916,7 +1929,7 @@ exports.getContract = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2002,7 +2015,7 @@ exports.addEmbassyAppointment = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2046,7 +2059,7 @@ exports.getEmbassyAppointment = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2116,7 +2129,7 @@ exports.addTravelDetails = async (req, res) => {
       message: "Travel details saved"
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2151,7 +2164,7 @@ exports.getTravelDetails = async (req, res) => {
       createdAt: normalizeDate(travelDetails.createdAt)
     });
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2226,7 +2239,7 @@ exports.uploadBiometricSlip = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2263,7 +2276,7 @@ exports.getBiometricSlip = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2325,7 +2338,7 @@ exports.addEmbassyInterview = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2366,7 +2379,7 @@ exports.approveEmbassyInterview = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2403,7 +2416,7 @@ exports.getEmbassyInterview = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2480,7 +2493,7 @@ exports.addInterviewTicket = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2517,7 +2530,7 @@ exports.getInterviewTicket = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2593,7 +2606,7 @@ exports.uploadInterviewBiometric = async (req, res) => {
 
   } catch (err) {
     console.error("Upload Interview Biometric Error:", err);
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2631,7 +2644,7 @@ exports.getInterviewBiometric = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2697,7 +2710,7 @@ exports.addVisaCollection = async (req, res) => {
     res.json({ message: "Visa collection saved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2728,7 +2741,7 @@ exports.approveVisaCollection = async (req, res) => {
     res.json({ message: "Visa collection approved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2771,7 +2784,7 @@ exports.getVisaCollection = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2845,7 +2858,7 @@ exports.addVisaTravel = async (req, res) => {
     res.json({ message: "Visa travel details saved" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2881,7 +2894,7 @@ exports.getVisaTravel = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -2968,7 +2981,7 @@ exports.uploadResidencePermit = async (req, res) => {
 
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -3004,7 +3017,7 @@ exports.getResidencePermit = async (req, res) => {
     });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -3055,9 +3068,7 @@ exports.completeApplicant = async (req, res) => {
 
   } catch (err) {
     console.error("Complete Applicant Error:", err);
-    res.status(500).json({
-      message: "Internal Server Error"
-    });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -3083,7 +3094,7 @@ exports.updateApplicant = async (req, res) => {
     res.json({ message: "Applicant updated successfully" });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    return handleApplicantError(res, "Applicant controller error", err);
   }
 };
 
@@ -3136,5 +3147,7 @@ module.exports = {
   completeApplicant: exports.completeApplicant,
   updateApplicant: exports.updateApplicant
 };
+
+
 
 
