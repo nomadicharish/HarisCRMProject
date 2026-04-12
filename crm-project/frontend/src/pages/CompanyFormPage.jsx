@@ -9,7 +9,7 @@ import "../styles/applicantsDashboard.css";
 
 const THEME = {
   primary: "#0052CC",
-  border: "#ddd",
+  border: "#DFE1E6",
   error: "red"
 };
 
@@ -50,6 +50,7 @@ const input = {
   minHeight: "36px",
   borderRadius: 0,
   border: `1px solid ${THEME.border}`,
+  background: "#FAFBFC",
   fontSize: "14px",
   boxSizing: "border-box",
   outline: "none",
@@ -60,7 +61,7 @@ const label = {
   fontSize: "13px",
   marginBottom: "5px",
   display: "block",
-  color: "#374151",
+  color: "#6B778C",
   fontWeight: "500"
 };
 

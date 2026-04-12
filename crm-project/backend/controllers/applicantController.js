@@ -48,6 +48,24 @@ function roundCurrency(value) {
   return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
 }
 
+async function resolveApplicantTotalEur(applicant = {}) {
+  const directTotal = roundCurrency(
+    applicant?.totalApplicantPayment ?? applicant?.totalAmount ?? applicant?.totalPayment ?? 0
+  );
+  if (directTotal > 0) return directTotal;
+
+  const companyId = applicant?.companyId;
+  if (!companyId) return 0;
+
+  try {
+    const companyDoc = await db.collection("companies").doc(companyId).get();
+    if (!companyDoc.exists) return 0;
+    return roundCurrency(companyDoc.data()?.companyPaymentPerApplicant ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
 function normalizePaymentMode(value) {
   const normalized = String(value || "").trim().toLowerCase();
 
@@ -568,9 +586,7 @@ const getPaymentSummary = async (req, res) => {
     history.sort((a, b) => (b.paidDate || 0) - (a.paidDate || 0));
 
     const eurToInrRate = await getTodayEurToInrRate();
-    const applicantTotalEur = roundCurrency(
-      applicant.totalApplicantPayment ?? applicant.totalAmount ?? applicant.totalPayment ?? 0
-    );
+    const applicantTotalEur = await resolveApplicantTotalEur(applicant);
     const applicantTotalInr = roundCurrency(applicantTotalEur * eurToInrRate);
     const applicantPendingInr = Math.max(0, roundCurrency(applicantTotalInr - applicantPaid));
     const applicantInstallments = history.filter((payment) => payment.type === "APPLICANT");
@@ -668,15 +684,17 @@ const getApplicants = async (req, res) => {
     });
 
     const companyIdToName = {};
+    const companyIdToPayment = {};
     const countryIdToName = {};
     const agencyIdToName = {};
     await Promise.all(
       [
         ...Array.from(companyIds).map(async (companyId) => {
           const companyDoc = await db.collection("companies").doc(companyId).get();
-          companyIdToName[companyId] = companyDoc.exists
-            ? companyDoc.data()?.name || ""
-            : "";
+          companyIdToName[companyId] = companyDoc.exists ? companyDoc.data()?.name || "" : "";
+          companyIdToPayment[companyId] = companyDoc.exists
+            ? roundCurrency(companyDoc.data()?.companyPaymentPerApplicant ?? 0)
+            : 0;
         }),
         ...Array.from(countryIds).map(async (countryId) => {
           const countryDoc = await db.collection("countries").doc(countryId).get();
@@ -727,7 +745,11 @@ const getApplicants = async (req, res) => {
         applicantPaid = roundCurrency(Math.max(applicantPaid, storedPaidAmount));
 
         const totalEur = roundCurrency(
-          data?.totalApplicantPayment ?? data?.totalAmount ?? data?.totalPayment
+          data?.totalApplicantPayment ??
+            data?.totalAmount ??
+            data?.totalPayment ??
+            companyIdToPayment[data?.companyId] ??
+            0
         );
         const totalInr = roundCurrency(totalEur * eurToInrRate);
         const pendingInr = Math.max(0, roundCurrency(totalInr - applicantPaid));
@@ -1365,9 +1387,7 @@ const getApplicantById = async (req, res) => {
     const storedPaidAmount = Number(applicantData.amountPaid ?? applicantData.paidAmount ?? 0) || 0;
     applicantPaid = Math.max(applicantPaid, storedPaidAmount);
 
-    const totalApplicantPayment = Number(
-      applicantData.totalApplicantPayment ?? applicantData.totalAmount ?? applicantData.totalPayment ?? 0
-    ) || 0;
+    const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
 
     res.json({
       id: doc.id,
@@ -1376,6 +1396,7 @@ const getApplicantById = async (req, res) => {
       companyDocuments,
       agencyName,
       countryName,
+      totalApplicantPayment,
       totalAmount: totalApplicantPayment,
       amountPaid: applicantPaid,
       paidAmount: applicantPaid,
@@ -3086,8 +3107,22 @@ exports.updateApplicant = async (req, res) => {
       });
     }
 
-    await db.collection("applicants").doc(id).update({
+    const applicantRef = db.collection("applicants").doc(id);
+    const applicantSnap = await applicantRef.get();
+    if (!applicantSnap.exists) {
+      return res.status(404).json({ message: "Applicant not found" });
+    }
+
+    const incomingTotal = toNumber(req.body?.totalApplicantPayment ?? req.body?.totalAmount);
+    const resolvedTotal =
+      incomingTotal > 0
+        ? incomingTotal
+        : await resolveApplicantTotalEur({ ...applicantSnap.data(), ...req.body });
+
+    await applicantRef.update({
       ...req.body,
+      totalApplicantPayment: resolvedTotal,
+      totalAmount: resolvedTotal,
       updatedAt: new Date()
     });
 

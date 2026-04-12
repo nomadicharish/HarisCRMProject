@@ -41,13 +41,18 @@ function ForgotPassword() {
 
       await API.post("/auth/check-email", { email: normalizedEmail });
       await sendPasswordResetEmail(auth, normalizedEmail, {
-        url: `${window.location.origin}/change-password`,
-        handleCodeInApp: true
+        url: `${window.location.origin}/change-password`
       });
 
       setSuccessMessage("Password reset link sent to your registered email.");
     } catch (err) {
-      setError(err?.response?.data?.message || "Unable to send password reset email");
+      const firebaseError =
+        err?.code === "auth/too-many-requests"
+          ? "Too many reset attempts. Please try again after some time."
+          : err?.code === "auth/invalid-continue-uri" || err?.code === "auth/unauthorized-continue-uri"
+          ? "Reset link configuration is invalid. Please contact admin."
+          : "";
+      setError(err?.response?.data?.message || firebaseError || "Unable to send password reset email");
     } finally {
       setLoading(false);
     }

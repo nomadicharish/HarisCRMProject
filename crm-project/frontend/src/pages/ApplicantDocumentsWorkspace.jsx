@@ -256,13 +256,14 @@ function ApplicantDocumentsWorkspace() {
   };
 
   const ChevronIcon = ({ expanded }) => (
-    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      {expanded ? (
-        <path d="m5 12.5 5-5 5 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      ) : (
-        <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      )}
-    </svg>
+    <img
+      src={expanded ? "/up.png" : "/down.png"}
+      alt=""
+      width="16"
+      height="16"
+      style={{ display: "block" }}
+      aria-hidden="true"
+    />
   );
 
   const handleSendForApproval = async () => {

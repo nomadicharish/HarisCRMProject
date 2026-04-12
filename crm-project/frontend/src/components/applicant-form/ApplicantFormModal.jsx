@@ -10,7 +10,7 @@ import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 const THEME = {
   primary: "#0052CC",
-  border: "#ddd",
+  border: "#DFE1E6",
   error: "red"
 };
 
@@ -326,6 +326,13 @@ function ApplicantFormModal({
         : null;
     const resolvedCountryId = editData.countryId || "";
     const resolvedCompanyId = editData.companyId || "";
+    const selectedCompany = companies.find((company) => company.id === resolvedCompanyId);
+    const resolvedTotalAmount = getApplicantTotalAmount(editData);
+    const hasResolvedTotalAmount =
+      resolvedTotalAmount !== null &&
+      resolvedTotalAmount !== undefined &&
+      String(resolvedTotalAmount).trim() !== "" &&
+      Number(resolvedTotalAmount) > 0;
 
     setForm({
       firstName: nameParts[0] || "",
@@ -339,7 +346,12 @@ function ApplicantFormModal({
       countryId: resolvedCountryId,
       companyId: resolvedCompanyId,
       agencyId: editData.agencyId || "",
-      totalAmount: getApplicantTotalAmount(editData),
+      totalAmount:
+        hasResolvedTotalAmount
+          ? resolvedTotalAmount
+          : user?.role === "SUPER_USER"
+          ? selectedCompany?.companyPaymentPerApplicant ?? ""
+          : "",
       paidAmount: getApplicantPaidAmount(editData)
     });
 
@@ -350,7 +362,7 @@ function ApplicantFormModal({
       const filtered = companies.filter((company) => company.countryId === resolvedCountryId);
       setFilteredCompanies(filtered);
     }
-  }, [editData, companies]);
+  }, [editData, companies, user?.role]);
 
   const handleSubmit = async () => {
     if (!validateStep2()) {
@@ -376,6 +388,7 @@ function ApplicantFormModal({
         countryId: form.countryId,
         agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,
         totalApplicantPayment: form.totalAmount,
+        totalAmount: form.totalAmount ? Number(form.totalAmount) : 0,
         amountPaid: form.paidAmount ? Number(form.paidAmount) : 0,
         paidAmount: form.paidAmount ? Number(form.paidAmount) : 0
       };
@@ -569,6 +582,7 @@ function ApplicantFormModal({
                   country={form.phoneCountry || "in"}
                   value={form.phone || ""}
                   placeholder="Enter phone number"
+                  countryCodeEditable={false}
                   onChange={(phone, country) => {
                     setForm((prev) => ({
                       ...prev,
@@ -775,6 +789,7 @@ const input = {
   padding: "6px",
   borderRadius: 0,
   border: `1px solid ${THEME.border}`,
+  background: "#FAFBFC",
   fontSize: "14px",
   boxSizing: "border-box",
   outline: "none",
@@ -824,7 +839,7 @@ const label = {
   fontSize: "13px",
   marginBottom: "5px",
   display: "block",
-  color: "#374151",
+  color: "#6B778C",
   fontWeight: "500"
 };
 

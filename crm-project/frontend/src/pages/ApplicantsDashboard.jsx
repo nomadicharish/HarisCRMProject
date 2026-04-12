@@ -8,6 +8,11 @@ import CreateApplicants from "./CreateApplicants";
 import "../styles/applicantsDashboard.css";
 import { clearSession } from "../utils/auth";
 
+const SEARCH_ICON_SRC = "/search.png";
+const HAND_ICON_SRC = "/hand.png";
+const DOWN_ICON_SRC = "/down.png";
+const RIGHT_ICON_SRC = "/right.png";
+
 const PAGE_SIZE = 25;
 const TAB_CONFIG = {
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
@@ -381,15 +386,23 @@ function ApplicantsDashboard() {
     return options;
   }, [applicants, isEmployer]);
 
-  const countryOptions = useMemo(
-    () =>
-      countries.map((country) => ({
+  const countryOptions = useMemo(() => {
+    const mappedCountryIds =
+      isAgency || isEmployer
+        ? new Set(visibleCompanies.map((company) => company.countryId).filter(Boolean))
+        : null;
+
+    return countries
+      .filter((country) => !mappedCountryIds || mappedCountryIds.has(country.id))
+      .map((country) => ({
         value: country.id,
         label: country.name,
-        count: applicants.filter((applicant) => applicant.countryId === country.id).length
-      })),
-    [applicants, countries]
-  );
+        count: mappedCountryIds
+          ? visibleCompanies.filter((company) => company.countryId === country.id).length
+          : applicants.filter((applicant) => applicant.countryId === country.id).length
+      }))
+      .filter((item) => item.count > 0 || !mappedCountryIds);
+  }, [applicants, countries, isAgency, isEmployer, visibleCompanies]);
 
   const companyCountryOptions = useMemo(
     () =>
@@ -589,7 +602,7 @@ function ApplicantsDashboard() {
     if (activeTab === "companies") return "Search by company name";
     if (activeTab === "employers") return "Search by employer name";
     if (activeTab === "agencies") return "Search by agency name";
-    return "Search by applicant name";
+    return "Search by name";
   }, [activeTab]);
 
   const currentActionLabel = TAB_CONFIG[activeTab].actionLabel;
@@ -655,24 +668,25 @@ function ApplicantsDashboard() {
           >
             <span className="dashboardUserAvatar">{userInitials}</span>
             <div className="dashboardUserName">{user?.name || "User"}</div>
-            <span className="dashboardUserChevron">⌄</span>
+            <img src={DOWN_ICON_SRC} alt="" className="dashboardInlineIcon dashboardUserChevronImg" />
           </button>
         </div>
       </div>
 
       <div className="dashboardContent">
         <aside className="dashboardSidebar">
-          <div className="dashboardSearchWrap">
-            <input
-              type="text"
-              className="dashboardSearchInput"
-              placeholder={searchPlaceholder}
-              value={searchText}
-              onChange={(event) => updateFilters({ q: event.target.value, page: 1 })}
-            />
-          </div>
-
           <div className="dashboardFilterCard">
+            <div className="dashboardSearchWrap">
+              <img src={SEARCH_ICON_SRC} alt="" className="dashboardSearchIcon" />
+              <input
+                type="text"
+                className="dashboardSearchInput"
+                placeholder={searchPlaceholder}
+                value={searchText}
+                onChange={(event) => updateFilters({ q: event.target.value, page: 1 })}
+              />
+            </div>
+
             <div className="dashboardFilterHeader">
               <span className="dashboardFilterHeading">Filter</span>
               <button type="button" className="dashboardResetBtn" onClick={resetFilters}>
@@ -842,6 +856,7 @@ function ApplicantsDashboard() {
                   <tr>
                     <th>Company Name</th>
                     <th>Country</th>
+                    {!isSuperUser ? <th>Applicants</th> : null}
                     {isSuperUser ? <th>Employer POC</th> : null}
                     {isSuperUser ? <th>Payment / Candidate</th> : null}
                     {isSuperUser ? <th>Applicants</th> : null}
@@ -850,7 +865,7 @@ function ApplicantsDashboard() {
                 <tbody>
                   {paginatedRows.length === 0 ? (
                     <tr>
-                      <td colSpan={isSuperUser ? 5 : 2} className="dashboardEmptyState">
+                      <td colSpan={isSuperUser ? 5 : 3} className="dashboardEmptyState">
                         No companies found for the selected filters.
                       </td>
                     </tr>
@@ -862,36 +877,36 @@ function ApplicantsDashboard() {
                         onClick={isSuperUser ? () => navigate(`/companies/${company.id}/edit`) : undefined}
                       >
                         <td>
-                          <div className="dashboardCompanyCell">
-                            {isSuperUser ? (
-                              <button
-                                type="button"
-                                className="dashboardInlineLinkBtn dashboardCompanyNameBtn"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  navigate(`/companies/${company.id}/edit`);
-                                }}
-                              >
-                                {company.name || "-"}
-                              </button>
-                            ) : (
-                              <span>{company.name || "-"}</span>
-                            )}
-                            {!isSuperUser ? (
-                              <button
-                                type="button"
-                                className="dashboardInlineLinkBtn"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleOpenApplicantsForCompany(company.id);
-                                }}
-                              >
-                                View Applicants &gt;
-                              </button>
-                            ) : null}
-                          </div>
+                          {isSuperUser ? (
+                            <button
+                              type="button"
+                              className="dashboardInlineLinkBtn dashboardCompanyNameBtn"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                navigate(`/companies/${company.id}/edit`);
+                              }}
+                            >
+                              {company.name || "-"}
+                            </button>
+                          ) : (
+                            <span>{company.name || "-"}</span>
+                          )}
                         </td>
                         <td>{company.countryName}</td>
+                        {!isSuperUser ? (
+                          <td>
+                            <button
+                              type="button"
+                              className="dashboardInlineLinkBtn dashboardViewApplicantsBtn"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                handleOpenApplicantsForCompany(company.id);
+                              }}
+                            >
+                              View Applicants <img src={RIGHT_ICON_SRC} alt="" className="dashboardInlineIcon" />
+                            </button>
+                          </td>
+                        ) : null}
                         {isSuperUser ? <td>{company.employerNames || "-"}</td> : null}
                         {isSuperUser ? <td>{formatEuroAmount(company.companyPaymentPerApplicant)}</td> : null}
                         {isSuperUser ? (
@@ -904,7 +919,7 @@ function ApplicantsDashboard() {
                               handleOpenApplicantsForCompany(company.id);
                             }}
                           >
-                            View Applicants &gt;
+                            View Applicants <img src={RIGHT_ICON_SRC} alt="" className="dashboardInlineIcon" />
                           </button>
                         </td>
                         ) : null}
@@ -1086,7 +1101,7 @@ function ApplicantsDashboard() {
               </div>
               <div className="dashboardProfilePanelAvatar">{userInitials}</div>
               <div className="dashboardProfilePanelGreeting">
-                Hey, <span className="dashboardProfilePanelName">{user?.name || "User"}</span> 👋
+                Hey, <span className="dashboardProfilePanelName">{user?.name || "User"}</span>{" "}<img src={HAND_ICON_SRC} alt="" className="dashboardInlineIcon dashboardHandIcon" />
               </div>
               <div className="dashboardProfilePanelActions">
                 <button
@@ -1116,3 +1131,4 @@ function ApplicantsDashboard() {
 }
 
 export default ApplicantsDashboard;
+

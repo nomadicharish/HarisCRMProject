@@ -23,8 +23,10 @@ function toNumber(value) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function getApplicantTotalAmount(applicant) {
+function getApplicantTotalAmount(applicant, paymentSummary = null) {
   return toNumber(
+    paymentSummary?.applicant?.totalEur ??
+      paymentSummary?.applicant?.total ??
     applicant?.payment?.total ??
       applicant?.paymentsSummary?.applicant?.total ??
       applicant?.totalApplicantPayment ??
@@ -354,7 +356,7 @@ function ApplicantProfile() {
   if (loading) return <div style={{ padding: "40px" }}>Loading...</div>;
   if (!applicant) return <div style={{ padding: "40px" }}>Applicant not found</div>;
 
-  const total = getApplicantTotalAmount(applicant);
+  const total = getApplicantTotalAmount(applicant, paymentSummary);
   const paid = getApplicantPaidAmount(applicant);
   const pending =
     paymentSummary?.applicant?.pendingInr ?? paymentSummary?.applicant?.pending ?? applicant?.payment?.pending ?? Math.max(0, total - paid);
@@ -409,6 +411,8 @@ function ApplicantProfile() {
     ? "Reupload Document"
     : "Upload Documents";
   const documentRowSubtitle = hasCompletedDocumentStage
+    ? ""
+    : applicantStage < 2
     ? ""
     : docReviewState.rejectedRequired
     ? "Admin rejected few documents"

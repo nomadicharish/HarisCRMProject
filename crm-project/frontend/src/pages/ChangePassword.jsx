@@ -150,7 +150,7 @@ function ChangePassword() {
         <div className="authTopBar">
           {isResetLinkFlow ? (
             <>
-              <h1 className="authTitle">Hey, <span className="authTitleStrong">welcome back</span> 👋</h1>
+              <h1 className="authTitle">Hey, <span className="authTitleStrong">welcome back</span> <img src="/hand.png" alt="" className="authInlineIcon" /></h1>
               <p className="authSubtitle">Create a new password for your registered email
                 {displayEmail ? <span className="authSubtitleStrong">{displayEmail}</span> : null}
               </p>
@@ -158,7 +158,7 @@ function ChangePassword() {
           ) : (
             <>
               <h1 className="authTitle">
-                Hey, <span className="authTitleStrong">{displayName || "User"}</span> 👋
+                Hey, <span className="authTitleStrong">{displayName || "User"}</span> <img src="/hand.png" alt="" className="authInlineIcon" />
               </h1>
               <p className="authSubtitle">
                 Create a password for your linked id
@@ -241,3 +241,4 @@ function ChangePassword() {
 }
 
 export default ChangePassword;
+

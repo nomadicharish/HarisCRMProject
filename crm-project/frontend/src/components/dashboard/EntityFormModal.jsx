@@ -3,6 +3,7 @@ import ConfirmActionModal from "../common/ConfirmActionModal";
 import Select from "react-select";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import "../../styles/forms.css";
 import "../../styles/applicantContract.css";
@@ -13,7 +14,7 @@ const createSelectStyles = (hasError = false) => ({
     minHeight: 36,
     borderRadius: 0,
     borderColor: hasError ? "#dc2626" : "#d0d5dd",
-    background: "#f8fbff",
+    background: "#FAFBFC",
     boxShadow: "none",
     "&:hover": {
       borderColor: hasError ? "#dc2626" : "#d0d5dd"
@@ -57,6 +58,11 @@ const createSelectStyles = (hasError = false) => ({
       color: "#1d4ed8"
     }
   })
+  ,
+  placeholder: (base) => ({
+    ...base,
+    color: "#7A869A"
+  })
 });
 
 const TYPE_CONFIG = {
@@ -95,6 +101,8 @@ const INITIAL_FORM = {
   companyPaymentPerApplicant: ""
 };
 
+const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
+
 function TrashIcon() {
   return (
     <svg className="dashboardCountryIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -130,6 +138,8 @@ function EntityFormModal({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(INITIAL_FORM);
+  const [contactCountry, setContactCountry] = useState("IN");
+  const [contactLocalNumber, setContactLocalNumber] = useState("");
 
   const countryOptions = useMemo(
     () => countries.map((country) => ({ value: country.id, label: country.name })),
@@ -172,8 +182,23 @@ function EntityFormModal({
       companyPaymentPerApplicant:
         editData.companyPaymentPerApplicant ?? editData.totalEmployerPayment ?? ""
     });
+    const rawNumber = String(editData.contactNumber || "");
+    const parsed = parsePhoneNumberFromString(rawNumber.startsWith("+") ? rawNumber : `+${rawNumber}`);
+    if (parsed) {
+      setContactCountry((parsed.country || "IN").toUpperCase());
+      setContactLocalNumber(parsed.nationalNumber || "");
+    } else {
+      setContactCountry("IN");
+      setContactLocalNumber(rawNumber.replace(/^\+?[\d]{1,4}/, ""));
+    }
     setErrors({});
   }, [editData]);
+
+  useEffect(() => {
+    if (editData) return;
+    setContactCountry("IN");
+    setContactLocalNumber("");
+  }, [editData, type]);
 
   if (!config) return null;
 
@@ -197,10 +222,7 @@ function EntityFormModal({
     if (!form.name.trim()) nextErrors.name = `${config.nameLabel} is required`;
     if (type === "company" && !form.countryId) nextErrors.countryId = "Country is required";
     if (type === "employer" && !form.countryId) nextErrors.countryId = "Country is required";
-    if (type === "agency" && !form.assignedCompanyIds.length) {
-      nextErrors.assignedCompanyIds = "Select at least one company";
-    }
-    if (type !== "company" && !form.contactNumber) nextErrors.contactNumber = "Contact number is required";
+    if (type !== "company" && !contactLocalNumber.trim()) nextErrors.contactNumber = "Contact number is required";
     if (type === "agency" && !form.address.trim()) nextErrors.address = "Address is required";
 
     if (type !== "company") {
@@ -235,7 +257,8 @@ function EntityFormModal({
         name: form.name.trim(),
         countryId: form.countryId || "",
         companyId: form.companyId || "",
-        contactNumber: form.contactNumber || "",
+        contactNumber:
+          type !== "company" ? `+${getCountryCallingCode(contactCountry)}${contactLocalNumber.trim()}` : "",
         address: form.address.trim(),
         email: String(form.email || "").trim(),
         employerIds: form.employerIds,
@@ -429,14 +452,34 @@ function EntityFormModal({
             {type !== "company" ? (
               <div className="input-field">
                 <label className="contractUploadLabel">Contact Number</label>
-                <PhoneInput
-                  country="in"
-                  value={form.contactNumber}
-                  onChange={(value) => updateField("contactNumber", value)}
-                  inputClass={`dashboardPhoneInput ${errors.contactNumber ? "dashboardPhoneInputError" : ""}`}
-                  buttonClass="dashboardPhoneButton"
-                  containerClass="dashboardPhoneWrap"
-                />
+                <div className="dashboardPhoneSplitWrap">
+                  <PhoneInput
+                    country={
+                      PHONE_COUNTRY_CODES.has(contactCountry)
+                        ? contactCountry.toLowerCase()
+                        : "in"
+                    }
+                    value={String(getCountryCallingCode(PHONE_COUNTRY_CODES.has(contactCountry) ? contactCountry : "IN"))}
+                    inputProps={{ readOnly: true }}
+                    countryCodeEditable={false}
+                    enableSearch
+                    disableSearchIcon
+                    onChange={(_, countryData) => {
+                      const nextCountry = String(countryData?.countryCode || "in").toUpperCase();
+                      setContactCountry(PHONE_COUNTRY_CODES.has(nextCountry) ? nextCountry : "IN");
+                    }}
+                    containerClass="dashboardPhoneCodeWrap"
+                    buttonClass="dashboardPhoneCodeButton"
+                    inputClass="dashboardPhoneCodeValue"
+                  />
+                  <input
+                    type="text"
+                    className={errors.contactNumber ? "dashboardFieldError" : ""}
+                    value={contactLocalNumber}
+                    onChange={(event) => setContactLocalNumber(event.target.value.replace(/[^\d]/g, ""))}
+                    placeholder="Enter contact number"
+                  />
+                </div>
                 {errors.contactNumber ? <div className="dashboardInlineError">{errors.contactNumber}</div> : null}
               </div>
             ) : null}

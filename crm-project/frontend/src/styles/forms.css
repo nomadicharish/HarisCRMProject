@@ -1,6 +1,6 @@
 .page-container{
   padding:clamp(16px, 3vw, 40px);
-  background:#f7f8fb;
+  background:#F3F5F9;
   min-height:100vh;
   display:flex;
   justify-content:center;
@@ -38,7 +38,7 @@
 .input-field label{
   font-size:13px;
   margin-bottom:6px;
-  color:#444;
+  color:#6B778C;
 }
 
 .input-field input,
@@ -46,8 +46,14 @@
 .input-field textarea{
   min-height:36px;
   padding:6px 10px;
-  border:1px solid #ddd;
+  border:1px solid #DFE1E6;
   border-radius:0;
+  background:#FAFBFC;
+}
+
+.input-field input::placeholder,
+.input-field textarea::placeholder{
+  color:#7A869A;
 }
 
 .input-field input:focus,
@@ -82,3 +88,4 @@
     gap:14px;
   }
 }
+

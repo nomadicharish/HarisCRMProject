@@ -117,7 +117,7 @@ function Login() {
 
       <div className="authCard authCardWide">
         <div className="authTopBar">
-          <h1 className="authTitle">Hey, <span className="authTitleStrong">welcome back</span> 👋</h1>
+          <h1 className="authTitle">Hey, <span className="authTitleStrong">welcome back</span> <img src="/hand.png" alt="" className="authInlineIcon" /></h1>
         </div>
 
         <div className="authBody">
@@ -185,3 +185,4 @@ function Login() {
 }
 
 export default Login;
+

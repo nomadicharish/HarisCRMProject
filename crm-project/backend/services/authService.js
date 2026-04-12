@@ -60,12 +60,25 @@ async function checkEmailExists(email) {
   let userData = snapshot.empty ? null : snapshot.docs[0].data();
 
   if (!userData) {
-    const legacySnapshot = await db.collection("users").select("email", "active").get();
-    const legacyMatch = legacySnapshot.docs.find(
-      (doc) => normalizeEmailValue(doc.data()?.email) === normalizedEmail
-    );
+    const legacySnapshot = await db.collection("users").select("email", "emailEncrypted", "active").get();
+    const legacyDocs = await Promise.all(
+      legacySnapshot.docs.map(async (doc) => {
+        const data = doc.data() || {};
+        let resolvedEmail = normalizeEmailValue(data.email || "");
 
-    userData = legacyMatch ? legacyMatch.data() : null;
+        if (!resolvedEmail && data.emailEncrypted) {
+          try {
+            resolvedEmail = normalizeEmailValue(await decryptText(data.emailEncrypted));
+          } catch {
+            resolvedEmail = "";
+          }
+        }
+
+        return { data, resolvedEmail };
+      })
+    );
+    const legacyMatch = legacyDocs.find((entry) => entry.resolvedEmail === normalizedEmail);
+    userData = legacyMatch ? legacyMatch.data : null;
   }
 
   if (!userData) {

@@ -90,7 +90,7 @@ function ApplicantSummaryCard({
       </div>
 
       <div className="sideSection">
-        <div className="sideLabel">Employer</div>
+        <div className="sideLabel">Company</div>
         <div className="sideValue">{employerDisplay}</div>
       </div>
 

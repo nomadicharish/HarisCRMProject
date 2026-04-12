@@ -137,8 +137,8 @@
   display:block;
   margin-bottom:8px;
   font-size:13px;
-  font-weight:700;
-  color:#344054;
+  font-weight:500;
+  color:#6B778C;
 }
 
 .contractFormGrid input,
@@ -146,11 +146,26 @@
 .contractModalCard input[type="time"]{
   min-height:36px;
   padding:6px 10px;
-  border:1px solid #d0d5dd;
+  border:1px solid #DFE1E6;
   border-radius:0;
-  background:#f8fbff;
+  background:#FAFBFC;
   color:#111827;
   transition:border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.contractFormGrid input::placeholder,
+.contractModalCard input::placeholder{
+  color:#7A869A;
+}
+
+.btn,
+.dashboardPrimaryBtn,
+.dashboardPaginationBtn,
+.authPrimaryBtn,
+.settingsPrimaryBtn{
+  font-size:14px;
+  font-weight:500;
+  font-family:Inter, sans-serif;
 }
 
 .contractFormGrid input:hover,
