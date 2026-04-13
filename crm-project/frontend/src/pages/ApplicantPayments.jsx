@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
+import "../styles/applicantsDashboard.css";
 
 function formatCurrency(value, withDecimals = false, currencySymbol = "\u20b9") {
   return `${currencySymbol}${Number(value || 0).toLocaleString("en-IN", {
@@ -101,7 +103,10 @@ function ApplicantPayments() {
     }
     return (paymentSummary?.history || []).filter((payment) => payment.type === "APPLICANT");
   }, [paymentSummary]);
-  const canAddPayment = ["SUPER_USER", "AGENCY"].includes(user?.role) && applicantPayment.remainingInstallments > 0;
+  const canAddPayment =
+    ["SUPER_USER", "AGENCY"].includes(user?.role) &&
+    applicantPayment.remainingInstallments > 0 &&
+    Number(applicantPayment.pendingInr || 0) > 0;
   const fullName =
     applicant?.fullName ||
     [applicant?.firstName, applicant?.lastName].filter(Boolean).join(" ").trim() ||
@@ -161,6 +166,7 @@ function ApplicantPayments() {
 
   return (
     <div className="page-container">
+      <DashboardTopbar user={user} />
       <div className="page-content paymentPage paymentLayout">
         <aside className="paymentSidebar">
           <div className="paymentProfileCard">
@@ -188,10 +194,6 @@ function ApplicantPayments() {
               <div className="paymentProfileValue">{employerLine || "-"}</div>
             </div>
 
-            <button type="button" className="paymentViewMore" onClick={() => navigate(`/applicants/${id}`)}>
-              View more &gt;
-            </button>
-
             <button type="button" className="paymentPendingCard" onClick={() => navigate(`/applicants/${id}/payments`)}>
               <div>
                 <div className="paymentPendingLabel">Pending Amount</div>
@@ -203,8 +205,6 @@ function ApplicantPayments() {
         </aside>
 
         <main className="paymentMain">
-          <div className="paymentBreadcrumb">Applicants / {fullName} / Payments</div>
-
           <div className="paymentInfoStrip">
             <div className="paymentInfoStripLeft">
               <div className="paymentInfoText">

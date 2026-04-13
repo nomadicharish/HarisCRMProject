@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 import { getStoredUser } from "../utils/auth";
 import "../styles/settings.css";
+import "../styles/applicantsDashboard.css";
 
 function BrandMark() {
   return (
@@ -46,11 +48,12 @@ function Settings() {
       try {
         const response = await API.get("/auth/settings");
         if (!active) return;
+        const userData = response.data || {};
         setForm({
-          name: response.data?.name || "",
-          email: response.data?.email || "",
-          contactNumber: response.data?.contactNumber || "",
-          passwordMasked: response.data?.passwordMasked || "********"
+          name: userData?.name || "",
+          email: userData?.email || "",
+          contactNumber: userData?.contactNumber || "",
+          passwordMasked: userData?.passwordMasked || "********"
         });
       } catch (loadError) {
         if (!active) return;
@@ -90,17 +93,7 @@ function Settings() {
 
   return (
     <div className="settingsPage">
-      <div className="settingsTopbar">
-        <div className="settingsBrand">
-          <BrandMark />
-          <span>Talent Acquisition</span>
-        </div>
-
-        <div className="settingsTopbarRight">
-          <span className="settingsAvatarSmall">{initials}</span>
-          <span>{form.name || storedUser?.name || "User"}</span>
-        </div>
-      </div>
+      <DashboardTopbar user={{ name: form.name || storedUser?.name || "User" }} />
 
       <div className="settingsShell">
         <div className="settingsShellHeader">

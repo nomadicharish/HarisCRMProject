@@ -325,7 +325,7 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                   </button>
                   {canApprove ? (
                     <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApprove}>
-                      {savingInterview ? "Approving..." : "Approve Interview"}
+                      {savingInterview ? "Approving..." : "Approve embassy interview"}
                     </button>
                   ) : null}
                 </div>

@@ -1,5 +1,6 @@
 .page-container{
   padding:clamp(16px, 3vw, 40px);
+  padding-top:calc(64px + clamp(16px, 3vw, 40px));
   background:#F3F5F9;
   min-height:100vh;
   display:flex;

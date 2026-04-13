@@ -33,10 +33,8 @@ function IconChevron() {
 function StatusIcon({ status }) {
   if (status === "warning") {
     return (
-      <span className="pipeIcon pipeIconWarning" aria-hidden="true">
-        <svg width="10" height="10" viewBox="0 0 20 20" fill="none">
-          <path d="M10 5.5v4.75M10 13.75h.01" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" />
-        </svg>
+      <span className="pipeIcon pipeIconActive" aria-hidden="true">
+        <img src="/mdi_tick-circle.png" alt="" className="pipeIconImg" />
       </span>
     );
   }
@@ -103,10 +101,12 @@ function ApplicantPipelineList({
   embassyAppointmentCompletedRowSubtitle = "",
   embassyAppointmentCompletedRowStatus = "",
   embassyInterviewRowTitle = "Initiate Embassy Interview",
+  embassyInterviewRowSubtitle = "",
   embassyInterviewCompletedRowTitle = "Embassy Interview Completed",
   embassyInterviewCompletedRowSubtitle = "",
   embassyInterviewCompletedRowStatus = "",
   visaCollectionRowTitle = "Initiate Visa Collection",
+  visaCollectionRowSubtitle = "",
   visaCollectionRowStatus = "",
   visaCollectionCompletedRowTitle = "Visa Collection Completed",
   visaCollectionCompletedRowSubtitle = "",
@@ -192,8 +192,12 @@ function ApplicantPipelineList({
               ? contractRowSubtitle
               : item.id === 6
               ? embassyAppointmentCompletedRowSubtitle
+              : item.id === 7
+              ? embassyInterviewRowSubtitle
               : item.id === 8
               ? embassyInterviewCompletedRowSubtitle
+              : item.id === 9
+              ? visaCollectionRowSubtitle
               : item.id === 10
               ? visaCollectionCompletedRowSubtitle
               : item.id === 11

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 import API from "../services/api";
 import "../styles/forms.css";
 import "../styles/applicantDocuments.css";
@@ -97,6 +98,7 @@ function CompanyFormPage() {
   const [employers, setEmployers] = useState([]);
   const [errors, setErrors] = useState({});
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [form, setForm] = useState({
     name: "",
     countryId: "",
@@ -119,6 +121,7 @@ function CompanyFormPage() {
 
         if (cancelled) return;
 
+        setCurrentUser(userRes.data || null);
         if (userRes.data?.role !== "SUPER_USER") {
           navigate("/dashboard", { replace: true });
           return;
@@ -385,6 +388,7 @@ function CompanyFormPage() {
 
   return (
     <div className="page-container">
+      <DashboardTopbar user={currentUser} />
       <div className="page-content" style={{ maxWidth: "980px" }}>
         <div className="card">
           <div style={{ marginBottom: "10px" }}>

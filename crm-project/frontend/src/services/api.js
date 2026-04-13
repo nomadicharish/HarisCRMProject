@@ -25,7 +25,14 @@ API.interceptors.request.use(async (config) => {
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
-    if (error?.response?.status === 401) {
+    const status = error?.response?.status;
+    const message = String(error?.response?.data?.message || "").toLowerCase();
+    if (
+      status === 401 ||
+      message.includes("invalid token") ||
+      message.includes("token verification failed") ||
+      message.includes("token expired")
+    ) {
       await clearSession({ redirectTo: "/login" });
     }
 

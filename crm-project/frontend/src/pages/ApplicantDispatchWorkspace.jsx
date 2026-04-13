@@ -2,8 +2,10 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 import DispatchSection from "../components/DispatchSection";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 import "../styles/forms.css";
 import "../styles/applicantProfile.css";
+import "../styles/applicantsDashboard.css";
 
 function ApplicantDispatchWorkspace() {
   const { id } = useParams();
@@ -52,11 +54,8 @@ function ApplicantDispatchWorkspace() {
 
   return (
     <div className="page-container">
+      <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
-        <div className="docsBreadcrumb">
-          Applicants / {applicant?.fullName || "Applicant"} / Dispatch documents
-        </div>
-
         <DispatchSection
           applicantId={id}
           canEdit={canEdit}

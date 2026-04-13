@@ -8,12 +8,16 @@ import {
   getVisibleApplicantDocuments,
   getLatestVersion
 } from "../constants/applicantDocuments";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 
 function StatusIcon({ tone = "success" }) {
+  if (tone === "danger") {
+    return <img src="/error.png" alt="" className="docsErrorIcon" aria-hidden="true" />;
+  }
+
   const styles = {
     success: { bg: "#22c55e", fg: "#fff", symbol: "check" },
     warning: { bg: "#f59e0b", fg: "#fff", symbol: "warn" },
-    danger: { bg: "#f97316", fg: "#fff", symbol: "warn" },
     neutral: { bg: "#cbd5e1", fg: "#fff", symbol: "dot" }
   };
 
@@ -110,7 +114,7 @@ function getTopBarState({
   if (canSendForApproval) {
     return {
       tone: "primary",
-      title: "All required documents are selected. Request the super admin for review & approval to go to next phase",
+      title: "All required documents are selected. Request the admin for review & approval to go to next phase",
       actionLabel: "Send for approval"
     };
   }
@@ -331,9 +335,8 @@ function ApplicantDocumentsWorkspace() {
 
   return (
     <div className="page-container">
+      <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
-        <div className="docsBreadcrumb">Applicants / {applicant.fullName || "Applicant"} / Upload your documents</div>
-
         <div className={`docsTopBar docsTopBar-${topBar.tone}`}>
           <div className="docsTopBarTitle">{topBar.title}</div>
           {!canReview && topBar.actionLabel ? (
@@ -348,14 +351,7 @@ function ApplicantDocumentsWorkspace() {
           ) : null}
         </div>
 
-        <div className="docsHeaderRow">
-          <div>
-            {!reviewState.approvedRequired ? (
-              <h2 className="docsTitle">Upload relevant documents for admin approval</h2>
-            ) : null}
-          </div>
-
-        </div>
+        <div className="docsSectionSpacer" />
 
         <div className="docsAccordion">
           {visibleDocs.length === 0 ? (
@@ -378,7 +374,7 @@ function ApplicantDocumentsWorkspace() {
                 ? "Approval pending"
                 : "Pending admin approval"
               : latest?.status === "REJECTED"
-              ? "Super admin rejected"
+              ? "Admin Rejected"
               : "To be uploaded";
             const statusTone = isRejected ? "is-danger" : isApproved ? "is-success" : isPending ? "is-warning" : "is-pending";
 
@@ -444,7 +440,7 @@ function ApplicantDocumentsWorkspace() {
 
                         {latest?.fileUrl && !isRejected ? (
                           <a className="linkBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
-                            View latest uploaded document
+                            View Document
                           </a>
                         ) : null}
 
@@ -457,7 +453,7 @@ function ApplicantDocumentsWorkspace() {
                         {latest?.fileUrl ? (
                           <div className="docsReviewRow">
                             <a className="linkBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
-                              View latest document
+                              View Document
                             </a>
 
                             {latest.status === "PENDING" ? (

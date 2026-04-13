@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import "../../styles/applicantsDashboard.css";
 
 const THEME = {
   primary: "#0052CC",
@@ -179,13 +180,6 @@ function ApplicantFormModal({
     if (Number.isNaN(paidAmount)) return "Paid amount must be a valid number";
     if (paidAmount < 0) return "Paid amount cannot be negative";
     if (paidAmount > 999999) return "Paid amount exceeds maximum limit";
-
-    if (form.totalAmount) {
-      const totalAmount = Number(form.totalAmount);
-      if (!Number.isNaN(totalAmount) && paidAmount > totalAmount) {
-        return "Paid amount cannot exceed total amount";
-      }
-    }
 
     return null;
   };
@@ -436,11 +430,11 @@ function ApplicantFormModal({
   const customSelectStyles = {
     control: (base) => ({
       ...base,
-      padding: "2px",
+      padding: "0",
       borderRadius: 0,
       border: `1px solid ${THEME.border}`,
       boxShadow: "none",
-      minHeight: "44px",
+      minHeight: "36px",
       "&:hover": {
         border: `1px solid ${THEME.primary}`
       }
@@ -458,7 +452,10 @@ function ApplicantFormModal({
       ...base,
       backgroundColor: state.isFocused ? "#f0f6ff" : "#fff",
       color: "#333",
-      cursor: "pointer"
+      cursor: "pointer",
+      minHeight: "36px",
+      display: "flex",
+      alignItems: "center"
     })
   };
 
@@ -578,36 +575,26 @@ function ApplicantFormModal({
 
               <div>
                 <label style={label}>Phone</label>
-                <PhoneInput
-                  country={form.phoneCountry || "in"}
-                  value={form.phone || ""}
-                  placeholder="Enter phone number"
-                  countryCodeEditable={false}
-                  onChange={(phone, country) => {
-                    setForm((prev) => ({
-                      ...prev,
-                      phone,
-                      phoneCountry: country.countryCode
-                    }));
-                  }}
-                  containerStyle={{ width: "100%" }}
-                  inputStyle={{
-                    width: "100%",
-                    height: "38px",
-                    paddingLeft: "60px",
-                    borderRadius: 0,
-                    border: errors.phone ? `1px solid ${THEME.error}` : input.border,
-                    fontSize: "14px"
-                  }}
-                  buttonStyle={{
-                    borderTopLeftRadius: 0,
-                    borderBottomLeftRadius: 0,
-                    borderRight: "1px solid #ddd",
-                    padding: "0 10px"
-                  }}
-                  dropdownStyle={{ zIndex: 9999 }}
-                  enableSearch
-                />
+                <div className="dashboardPhoneCodeWrap">
+                  <PhoneInput
+                    country={form.phoneCountry || "in"}
+                    value={form.phone || ""}
+                    placeholder="Enter phone number"
+                    countryCodeEditable={false}
+                    onChange={(phone, country) => {
+                      setForm((prev) => ({
+                        ...prev,
+                        phone,
+                        phoneCountry: country.countryCode
+                      }));
+                    }}
+                    containerStyle={{ width: "100%" }}
+                    inputClass={`dashboardPhoneCodeValue ${errors.phone ? "dashboardPhoneInputError" : ""}`}
+                    buttonClass="dashboardPhoneCodeButton"
+                    dropdownStyle={{ zIndex: 9999 }}
+                    enableSearch
+                  />
+                </div>
                 {errors.phone && <div style={errorText}>{errors.phone}</div>}
               </div>
 
@@ -816,16 +803,18 @@ const btnPrimary = {
   padding: "8px 12px",
   borderRadius: 0,
   cursor: "pointer",
-  fontWeight: "500"
+  fontWeight: "500",
+  fontSize: "14px"
 };
 
 const btnSecondary = {
   background: "transparent",
-  border: "1px solid #ccc",
+  border: "none",
   padding: "8px 12px",
   borderRadius: 0,
   cursor: "pointer",
-  color: "#333"
+  color: "#333",
+  fontSize: "14px"
 };
 
 const stepText = {
