@@ -16,6 +16,7 @@ import VisaCollectionModal from "../components/VisaCollectionModal";
 import ResidencePermitModal from "../components/ResidencePermitModal";
 import ApplicantDetailsModal from "../components/ApplicantDetailsModal";
 import DispatchHistoryModal from "../components/DispatchHistoryModal";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 import { getDocumentReviewState } from "../constants/applicantDocuments";
 
 function toNumber(value) {
@@ -434,11 +435,11 @@ function ApplicantProfile() {
     : applicantStage === 10
     ? hasVisaTravel
       ? "Pending Residence Permit upload"
-      : "Travel ticket upload pending"
+      : "Visa collection initiation pending."
     : applicantStage === 9
     ? hasPendingVisaCollectionApproval
       ? "Visa collection initiated. Admin approval pending."
-      : "Visa collection Initiated. Travel ticket upload pending."
+      : "Visa collection initiation pending."
     : applicantStage === 8
     ? hasInterviewBiometric
       ? "Pending visa collection"
@@ -447,7 +448,7 @@ function ApplicantProfile() {
       : "Travel ticket upload pending"
     : applicantStage === 7
     ? hasPendingEmbassyInterviewApproval
-      ? "Interview initiated and admin approval pending"
+      ? "Embassy Interview pending admin approval"
       : "Embassy Interview initiation pending"
     : applicantStage === 6
     ? hasBiometricSlip
@@ -508,7 +509,7 @@ function ApplicantProfile() {
     applicantStage === 7 && !embassyInterview ? "Initiate Embassy Interview" : "Embassy Interview Initiated";
   const embassyInterviewRowSubtitle =
     applicantStage === 7 && hasPendingEmbassyInterviewApproval
-      ? "Interview initiated and admin approval pending"
+      ? "Embassy Interview pending admin approval"
       : "";
   const embassyInterviewCompletedRowTitle =
     applicantStage > 8 ? "Embassy Interview Completed" : "Complete Embassy Interview";
@@ -572,7 +573,7 @@ function ApplicantProfile() {
     : canAddEmbassyInterview
     ? hasPendingEmbassyInterviewApproval && user?.role === "SUPER_USER"
       ? "Approve embassy interview"
-      : "Add Embassy Interview"
+      : "Update Embassy Interview"
     : canAddBiometricSlip
     ? "Add Biometric Slip"
     : canAddTicket
@@ -657,9 +658,8 @@ function ApplicantProfile() {
 
   return (
     <div className="page-container">
+      <DashboardTopbar user={user} />
       <div className="page-content">
-        <div className="breadcrumbRow">Applicants / {applicant?.fullName || "Applicant"}</div>
-
         <div className="applicantProfileLayout">
           <aside className="applicantProfileSidebar">
             <ApplicantSummaryCard

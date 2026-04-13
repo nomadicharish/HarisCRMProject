@@ -122,10 +122,10 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   if (applicantStage === 1) return "Complete the candidate profile for approval";
   if (applicantStage >= 12) return "Candidate Arrived and Process Completed";
   if (applicantStage === 11) return "Candidate arrival pending";
-  if (applicantStage === 10) return hasVisaTravel ? "Pending Residence Permit upload" : "Visa collection Initiated. Travel ticket upload pending.";
+  if (applicantStage === 10) return hasVisaTravel ? "Pending Residence Permit upload" : "Visa collection initiation pending.";
   if (applicantStage === 9) {
     if (hasPendingVisaCollectionApproval) return "Visa collection initiated. Admin approval pending.";
-    return "Visa collection Initiated. Travel ticket upload pending.";
+    return "Visa collection initiation pending.";
   }
   if (applicantStage === 8) {
     if (hasInterviewBiometric) return "Pending visa collection";
@@ -133,7 +133,7 @@ function getApplicantBannerStatusText(applicant, context = {}) {
     return "Embassy Interview Initiated. Travel ticket upload pending.";
   }
   if (applicantStage === 7) {
-    if (hasPendingEmbassyInterviewApproval) return "Interview initiated and admin approval pending";
+    if (hasPendingEmbassyInterviewApproval) return "Embassy Interview pending admin approval";
     return "Embassy Interview initiation pending";
   }
   if (applicantStage === 6) {
@@ -815,10 +815,12 @@ const getApplicants = async (req, res) => {
           data?.contract?.status === "PENDING" ||
           data?.visaCollection?.status === "PENDING" ||
           hasPendingAppointmentApproval;
+        const hasPendingEmbassyInterviewApproval =
+          String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING";
 
         const attentionRequired =
           userRole === "SUPER_USER"
-            ? hasPendingDocumentApproval || hasPendingPipelineApproval
+            ? hasPendingDocumentApproval || hasPendingPipelineApproval || hasPendingEmbassyInterviewApproval
             : userRole === "AGENCY"
             ? hasRejectedDocument
             : false;
@@ -829,8 +831,6 @@ const getApplicants = async (req, res) => {
         const hasEmbassyAppointment = Boolean(
           data?.embassyAppointment?.date || data?.embassyAppointment?.time || data?.embassyAppointment?.fileUrl
         );
-        const hasPendingEmbassyInterviewApproval =
-          String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING";
         const hasPendingVisaCollectionApproval =
           String(data?.visaCollection?.status || "").toUpperCase() === "PENDING";
         const hasBiometricSlip = Boolean(data?.biometricSlip?.fileUrl);

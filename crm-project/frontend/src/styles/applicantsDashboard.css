@@ -3,17 +3,24 @@
   background:#f4f7fb;
   color:#172b4d;
   font-family:Inter, sans-serif;
+  padding-top:64px;
 }
 
 .dashboardTopbar{
   height:64px;
   background:#ffffff;
   border-bottom:1px solid #e6ebf2;
-  padding:16px 24px 0px 24px;
+  padding:0 24px;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:20px;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  width:100%;
+  z-index:1200;
 }
 
 .dashboardBrand{
@@ -24,6 +31,13 @@
   font-weight:600;
   color:#253858;
   white-space:nowrap;
+}
+.dashboardBrandBtn{
+  border:none;
+  background:transparent;
+  padding:0;
+  cursor:pointer;
+  min-height:auto;
 }
 
 .dashboardBrandIcon{
@@ -46,6 +60,9 @@
   gap:24px;
   flex:1 1 auto;
   justify-content:center;
+}
+.dashboardTabsHidden{
+  visibility:hidden;
 }
 
 .dashboardTab{
@@ -183,7 +200,7 @@
 }
 
 .dashboardFilterCard{
-  background:linear-gradient(180deg, #3f537d 0%, #32486f 100%);
+  background:linear-gradient(180deg, #273E65 0%, #314E7F 100%);
   border-radius:0;
   padding: 24px;;
   color:#ffffff;

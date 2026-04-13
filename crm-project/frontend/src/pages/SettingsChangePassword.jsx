@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 import { auth } from "../firebase";
 import { getStoredUser, updateStoredUser, validatePassword } from "../utils/auth";
 import "../styles/settings.css";
+import "../styles/applicantsDashboard.css";
 
 function BrandMark() {
   return (
@@ -120,17 +122,7 @@ function SettingsChangePassword() {
 
   return (
     <div className="settingsPage">
-      <div className="settingsTopbar">
-        <div className="settingsBrand">
-          <BrandMark />
-          <span>Talent Acquisition</span>
-        </div>
-
-        <div className="settingsTopbarRight">
-          <span className="settingsAvatarSmall">{initials}</span>
-          <span>{storedUser?.name || "User"}</span>
-        </div>
-      </div>
+      <DashboardTopbar user={{ name: storedUser?.name || "User" }} />
 
       <div className="settingsShell">
         <div className="settingsShellHeader">
@@ -154,7 +146,6 @@ function SettingsChangePassword() {
           </aside>
 
           <section className="settingsContent">
-            <div className="settingsBreadcrumb">General / Update password</div>
             <h2 className="settingsSectionTitle">Update your password</h2>
 
             <form onSubmit={handleSubmit}>

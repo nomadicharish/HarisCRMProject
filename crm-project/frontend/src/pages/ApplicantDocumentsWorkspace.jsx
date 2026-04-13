@@ -8,6 +8,7 @@ import {
   getVisibleApplicantDocuments,
   getLatestVersion
 } from "../constants/applicantDocuments";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 
 function StatusIcon({ tone = "success" }) {
   if (tone === "danger") {
@@ -334,9 +335,8 @@ function ApplicantDocumentsWorkspace() {
 
   return (
     <div className="page-container">
+      <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
-        <div className="docsBreadcrumb">Applicants / {applicant.fullName || "Applicant"} / Upload your documents</div>
-
         <div className={`docsTopBar docsTopBar-${topBar.tone}`}>
           <div className="docsTopBarTitle">{topBar.title}</div>
           {!canReview && topBar.actionLabel ? (
@@ -351,14 +351,7 @@ function ApplicantDocumentsWorkspace() {
           ) : null}
         </div>
 
-        <div className="docsHeaderRow">
-          <div>
-            {!reviewState.approvedRequired ? (
-              <h2 className="docsTitle">Upload relevant documents for admin approval</h2>
-            ) : null}
-          </div>
-
-        </div>
+        <div className="docsSectionSpacer" />
 
         <div className="docsAccordion">
           {visibleDocs.length === 0 ? (

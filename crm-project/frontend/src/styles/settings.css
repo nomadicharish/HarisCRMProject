@@ -1,6 +1,7 @@
 .settingsPage{
   min-height:100vh;
   background:#f4f7fb;
+  padding-top:64px;
 }
 
 .settingsTopbar{

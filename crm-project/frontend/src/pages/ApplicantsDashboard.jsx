@@ -1,16 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import CountryManagerModal from "../components/dashboard/CountryManagerModal";
+import DashboardTopbar from "../components/common/DashboardTopbar";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import EntityFormModal from "../components/dashboard/EntityFormModal";
 import API from "../services/api";
 import CreateApplicants from "./CreateApplicants";
 import "../styles/applicantsDashboard.css";
-import { clearSession } from "../utils/auth";
 
 const SEARCH_ICON_SRC = "/search.png";
-const HAND_ICON_SRC = "/hand.png";
-const DOWN_ICON_SRC = "/down.png";
 const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
@@ -26,17 +24,6 @@ function formatPendingAmount(value) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0
   })}`;
-}
-
-function getInitials(name) {
-  const parts = String(name || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (!parts.length) return "U";
-  return parts.map((part) => part[0]).join("").toUpperCase();
 }
 
 function formatEuroAmount(value) {
@@ -117,7 +104,6 @@ function ApplicantsDashboard() {
   const [entityModalType, setEntityModalType] = useState("");
   const [entityEditData, setEntityEditData] = useState(null);
   const [showCountryManager, setShowCountryManager] = useState(false);
-  const [showProfilePanel, setShowProfilePanel] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
   const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : "applicants";
@@ -626,52 +612,19 @@ function ApplicantsDashboard() {
     );
   };
 
-  const userInitials = getInitials(user?.name || "User");
-
-  const handleLogout = async () => {
-    setShowProfilePanel(false);
-    await clearSession({ redirectTo: "/login" });
-  };
-
   if (loading) {
     return <div style={{ padding: "40px" }}>Loading...</div>;
   }
 
   return (
     <div className="dashboardPage">
-      <div className="dashboardTopbar">
-        <div className="dashboardBrand">
-          <span className="dashboardBrandIcon" aria-hidden="true">
-            TA
-          </span>
-          <span>Talent Acquisition</span>
-        </div>
-
-        <div className="dashboardTabs">
-          {visibleTabs.map((key) => (
-            <button
-              key={key}
-              type="button"
-              className={`dashboardTab ${activeTab === key ? "dashboardTabActive" : ""}`}
-              onClick={() => handleTabChange(key)}
-            >
-              {TAB_CONFIG[key].label}
-            </button>
-          ))}
-        </div>
-
-        <div className="dashboardTopbarRight">
-          <button
-            type="button"
-            className="dashboardUserMenuBtn"
-            onClick={() => setShowProfilePanel((value) => !value)}
-          >
-            <span className="dashboardUserAvatar">{userInitials}</span>
-            <div className="dashboardUserName">{user?.name || "User"}</div>
-            <img src={DOWN_ICON_SRC} alt="" className="dashboardInlineIcon dashboardUserChevronImg" />
-          </button>
-        </div>
-      </div>
+      <DashboardTopbar
+        user={user}
+        showTabs
+        tabs={visibleTabs.map((key) => ({ key, label: TAB_CONFIG[key].label }))}
+        activeTab={activeTab}
+        onTabChange={handleTabChange}
+      />
 
       <div className="dashboardContent">
         <aside className="dashboardSidebar">
@@ -1084,51 +1037,12 @@ function ApplicantsDashboard() {
           }}
         />
       ) : null}
-
-      {showProfilePanel ? (
-        <>
-          <div className="dashboardProfileBackdrop" onClick={() => setShowProfilePanel(false)} />
-          <div className="dashboardProfilePanel">
-            <div className="dashboardProfilePanelBody">
-              <div className="dashboardProfilePanelClose">
-                <button
-                  type="button"
-                  className="dashboardProfilePanelCloseBtn"
-                  onClick={() => setShowProfilePanel(false)}
-                >
-                  ×
-                </button>
-              </div>
-              <div className="dashboardProfilePanelAvatar">{userInitials}</div>
-              <div className="dashboardProfilePanelGreeting">
-                Hey, <span className="dashboardProfilePanelName">{user?.name || "User"}</span>{" "}<img src={HAND_ICON_SRC} alt="" className="dashboardInlineIcon dashboardHandIcon" />
-              </div>
-              <div className="dashboardProfilePanelActions">
-                <button
-                  type="button"
-                  className="dashboardPaginationBtn dashboardProfilePanelBtn"
-                  onClick={() => {
-                    setShowProfilePanel(false);
-                    navigate("/settings");
-                  }}
-                >
-                  Settings
-                </button>
-                <button
-                  type="button"
-                  className="dashboardProfilePanelSignout"
-                  onClick={handleLogout}
-                >
-                  Signout
-                </button>
-              </div>
-            </div>
-          </div>
-        </>
-      ) : null}
     </div>
   );
 }
 
 export default ApplicantsDashboard;
+
+
+
 
