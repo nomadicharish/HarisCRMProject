@@ -109,35 +109,54 @@ function getApplicantBannerStatusText(applicant, context = {}) {
     hasInterviewTicket = false,
     hasInterviewBiometric = false,
     hasVisaTravel = false,
-    hasResidencePermit = false
+    hasResidencePermit = false,
+    hasPendingEmbassyInterviewApproval = false,
+    hasPendingVisaCollectionApproval = false,
+    hasEmbassyAppointment = false
   } = context;
 
   const isPendingSuperUserApproval = applicantStage === 1 && approvalStatus === "pending";
 
   if (isPendingSuperUserApproval) return "Candidate pending for approval";
+  if (applicantStage === 1 && approvalStatus === "approved") return "Document upload pending";
   if (applicantStage === 1) return "Complete the candidate profile for approval";
   if (applicantStage >= 12) return "Candidate Arrived and Process Completed";
   if (applicantStage === 11) return "Candidate arrival pending";
-  if (applicantStage === 10) return hasVisaTravel ? "Pending Residence Permit" : "Travel ticket upload pending";
-  if (applicantStage === 9) return "Visa collection Initiation pending";
+  if (applicantStage === 10) return hasVisaTravel ? "Pending Residence Permit upload" : "Visa collection Initiated. Travel ticket upload pending.";
+  if (applicantStage === 9) {
+    if (hasPendingVisaCollectionApproval) return "Visa collection initiated. Admin approval pending.";
+    return "Visa collection Initiated. Travel ticket upload pending.";
+  }
   if (applicantStage === 8) {
     if (hasInterviewBiometric) return "Pending visa collection";
-    if (hasInterviewTicket) return "Pending Biometric slip";
-    return "Travel ticket upload pending";
+    if (hasInterviewTicket) return "Embassy Interview Initiated. Biometric slip upload pending.";
+    return "Embassy Interview Initiated. Travel ticket upload pending.";
   }
-  if (applicantStage === 7) return "Embassy Interview pending";
+  if (applicantStage === 7) {
+    if (hasPendingEmbassyInterviewApproval) return "Interview initiated and admin approval pending";
+    return "Embassy Interview initiation pending";
+  }
   if (applicantStage === 6) {
-    if (hasBiometricSlip) return "Embassy Interview pending";
-    if (hasTravelDetails) return "Pending Biometric slip";
-    return "Ticket upload pending";
+    if (hasBiometricSlip) return "Embassy Interview Initiation pending";
+    if (hasTravelDetails) return "Embassy Appointment Initiated. Biometric slip upload pending.";
+    return "Embassy Appointment Initiated. Travel ticket upload pending.";
   }
-  if (applicantStage >= 5) return "Pending embassy appointment.";
-  if (applicantStage === 4) return "Issue of the contract pending.";
-  if (hasCompletedDocumentStage) return "Dispatch the document";
-  if (rejectedRequired) return "Few issues found in the documents. Re-upload the rejected files for admin review.";
+  if (applicantStage >= 5) {
+    if (!hasEmbassyAppointment) return "Pending Embassy Appointment Initiation.";
+    return "Pending embassy appointment.";
+  }
+  if (applicantStage === 4) {
+    if (String(applicant?.contract?.status || "").toUpperCase() === "PENDING") {
+      return "Contract uploaded and pending approval.";
+    }
+    return "Issue of the contract pending.";
+  }
+  if (hasCompletedDocumentStage) return "Document dispatch pending";
+  if (rejectedRequired) return "Admin rejected few documents. Re-upload pending.";
   if (pendingRequired) return "Documents are pending admin approval";
-  if (hasDocuments || uploadedRequired) return "Complete the document uploading for admin to approve the candidate";
-  return "Complete the document uploading for admin to approve the candidate";
+  if (hasDocuments || uploadedRequired) return "Document upload pending";
+  if (applicantStage === 2) return "Document upload pending";
+  return "Document upload pending";
 }
 
 async function getTodayEurToInrRate() {
@@ -217,9 +236,9 @@ const createApplicant = async (req, res) => {
       ? toNumber(companySnap.data()?.companyPaymentPerApplicant)
       : 0;
 
-    const normalizedTotalApplicantPayment = toNumber(
-      totalApplicantPayment ?? totalAmount
-    );
+    const requestedTotal = toNumber(totalApplicantPayment ?? totalAmount);
+    const normalizedTotalApplicantPayment =
+      requestedTotal > 0 ? requestedTotal : companyPaymentPerApplicant;
     const normalizedTotalEmployerPayment = toNumber(
       totalEmployerPayment ?? companyPaymentPerApplicant
     );
@@ -744,13 +763,13 @@ const getApplicants = async (req, res) => {
         const storedPaidAmount = toNumber(data?.amountPaid ?? data?.paidAmount);
         applicantPaid = roundCurrency(Math.max(applicantPaid, storedPaidAmount));
 
-        const totalEur = roundCurrency(
-          data?.totalApplicantPayment ??
-            data?.totalAmount ??
-            data?.totalPayment ??
-            companyIdToPayment[data?.companyId] ??
-            0
+        const storedTotalEur = roundCurrency(
+          data?.totalApplicantPayment ?? data?.totalAmount ?? data?.totalPayment ?? 0
         );
+        const totalEur =
+          storedTotalEur > 0
+            ? storedTotalEur
+            : roundCurrency(companyIdToPayment[data?.companyId] ?? 0);
         const totalInr = roundCurrency(totalEur * eurToInrRate);
         const pendingInr = Math.max(0, roundCurrency(totalInr - applicantPaid));
 
@@ -807,6 +826,13 @@ const getApplicants = async (req, res) => {
         const hasTravelDetails = Boolean(
           data?.travelDetails?.travelDate || data?.travelDetails?.time || data?.travelDetails?.fileUrl
         );
+        const hasEmbassyAppointment = Boolean(
+          data?.embassyAppointment?.date || data?.embassyAppointment?.time || data?.embassyAppointment?.fileUrl
+        );
+        const hasPendingEmbassyInterviewApproval =
+          String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING";
+        const hasPendingVisaCollectionApproval =
+          String(data?.visaCollection?.status || "").toUpperCase() === "PENDING";
         const hasBiometricSlip = Boolean(data?.biometricSlip?.fileUrl);
         const hasInterviewTicket = Boolean(data?.interviewTicket?.date || data?.interviewTicket?.time || data?.interviewTicket?.fileUrl);
         const hasInterviewBiometric = Boolean(data?.interviewBiometric?.fileUrl);
@@ -825,7 +851,10 @@ const getApplicants = async (req, res) => {
           hasInterviewTicket,
           hasInterviewBiometric,
           hasVisaTravel,
-          hasResidencePermit
+          hasResidencePermit,
+          hasPendingEmbassyInterviewApproval,
+          hasPendingVisaCollectionApproval,
+          hasEmbassyAppointment
         });
         const workflowStatus =
           Number(data?.stage || 1) >= 12

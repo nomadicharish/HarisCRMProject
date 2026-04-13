@@ -10,10 +10,13 @@ import {
 } from "../constants/applicantDocuments";
 
 function StatusIcon({ tone = "success" }) {
+  if (tone === "danger") {
+    return <img src="/error.png" alt="" className="docsErrorIcon" aria-hidden="true" />;
+  }
+
   const styles = {
     success: { bg: "#22c55e", fg: "#fff", symbol: "check" },
     warning: { bg: "#f59e0b", fg: "#fff", symbol: "warn" },
-    danger: { bg: "#f97316", fg: "#fff", symbol: "warn" },
     neutral: { bg: "#cbd5e1", fg: "#fff", symbol: "dot" }
   };
 
@@ -110,7 +113,7 @@ function getTopBarState({
   if (canSendForApproval) {
     return {
       tone: "primary",
-      title: "All required documents are selected. Request the super admin for review & approval to go to next phase",
+      title: "All required documents are selected. Request the admin for review & approval to go to next phase",
       actionLabel: "Send for approval"
     };
   }
@@ -378,7 +381,7 @@ function ApplicantDocumentsWorkspace() {
                 ? "Approval pending"
                 : "Pending admin approval"
               : latest?.status === "REJECTED"
-              ? "Super admin rejected"
+              ? "Admin Rejected"
               : "To be uploaded";
             const statusTone = isRejected ? "is-danger" : isApproved ? "is-success" : isPending ? "is-warning" : "is-pending";
 
@@ -444,7 +447,7 @@ function ApplicantDocumentsWorkspace() {
 
                         {latest?.fileUrl && !isRejected ? (
                           <a className="linkBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
-                            View latest uploaded document
+                            View Document
                           </a>
                         ) : null}
 
@@ -457,7 +460,7 @@ function ApplicantDocumentsWorkspace() {
                         {latest?.fileUrl ? (
                           <div className="docsReviewRow">
                             <a className="linkBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
-                              View latest document
+                              View Document
                             </a>
 
                             {latest.status === "PENDING" ? (

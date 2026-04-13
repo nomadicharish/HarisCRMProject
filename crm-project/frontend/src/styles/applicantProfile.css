@@ -432,7 +432,7 @@
 }
 
 .pipeRow-warning .pipeTitle{
-  color:#92400e;
+  color:#000000;
 }
 
 .pipeRow-danger .pipeTitle{
@@ -461,7 +461,7 @@
 
 .pipeChevronBtn{
   border:none;
-  background:#fff;
+  background:transparent;
   color:#111827;
   display:flex;
   align-items:center;
@@ -469,13 +469,13 @@
   width:30px;
   height:30px;
   padding:0;
-  border-radius:999px;
+  border-radius:0;
   cursor:pointer;
-  box-shadow:inset 0 0 0 1px #d1d5db;
+  box-shadow:none;
 }
 
 .pipeChevronBtn:hover{
-  background:#f3f4f6;
+  background:transparent;
   color:#000;
 }
 

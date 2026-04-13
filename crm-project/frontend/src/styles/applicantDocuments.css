@@ -52,10 +52,10 @@
 }
 
 .docsTopBarButton {
-  background: #0052cc;
-  color: #fff;
+  background: #ffffff;
+  color: #344563;
   min-width: 132px;
-  border: 1px solid #0052cc;
+  border: 1px solid #ffffff;
 }
 
 .docsHeaderRow {
@@ -107,13 +107,13 @@
 .docsAccordion {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 0;
 }
 
 .docsAccordionItem {
   background: #fff;
-  border: 1px solid #e8edf5;
-  border-radius: 10px;
+  border: 1px solid #DFE1E6;
+  border-radius: 0px;
   overflow: hidden;
 }
 
@@ -170,7 +170,7 @@
 }
 
 .docsAccordionStatus.is-danger {
-  color: #d9480f;
+  color: #6B778C;
 }
 
 .docsAccordionStatus.is-warning {
@@ -310,6 +310,13 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
+}
+
+.docsErrorIcon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
   flex: 0 0 auto;
 }
 

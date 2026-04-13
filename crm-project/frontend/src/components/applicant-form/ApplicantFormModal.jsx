@@ -180,13 +180,6 @@ function ApplicantFormModal({
     if (paidAmount < 0) return "Paid amount cannot be negative";
     if (paidAmount > 999999) return "Paid amount exceeds maximum limit";
 
-    if (form.totalAmount) {
-      const totalAmount = Number(form.totalAmount);
-      if (!Number.isNaN(totalAmount) && paidAmount > totalAmount) {
-        return "Paid amount cannot exceed total amount";
-      }
-    }
-
     return null;
   };
 

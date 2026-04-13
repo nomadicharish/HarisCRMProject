@@ -47,8 +47,7 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
   }, [open, applicantId, loadContract]);
 
   const title = useMemo(() => {
-    if (canApprove) return "Contract pending super user approval";
-    if (contract?.status === "APPROVED") return "Contract issued";
+    if (canApprove || contract?.status === "APPROVED") return "Issued Contract";
     return "Issue of the Contract";
   }, [canApprove, contract?.status]);
 
@@ -100,11 +99,6 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
         <div className="workflowModalTopBar">
           <div>
             <div className="workflowModalTopBarTitle">{title}</div>
-            {contract?.status ? (
-              <div className={`contractStatus contractStatus-${contract.status.toLowerCase()}`}>
-                {contract.status === "PENDING" ? "Pending super user approval" : "Contract issued"}
-              </div>
-            ) : null}
           </div>
           <button type="button" className="workflowModalCloseBtn" onClick={onClose}>
             ✕

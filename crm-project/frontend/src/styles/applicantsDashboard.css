@@ -9,7 +9,7 @@
   height:64px;
   background:#ffffff;
   border-bottom:1px solid #e6ebf2;
-  padding:0px;
+  padding:16px 24px 0px 24px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -407,7 +407,7 @@
   align-items:center;
   padding:4px 8px;
   border-radius:0;
-  background:#e9f2ff;
+  background:#ffffff;
   color:#4c6fff;
   font-size:11px;
   font-weight:500;

@@ -88,16 +88,6 @@
   white-space:pre-line;
 }
 
-.paymentViewMore{
-  margin-top:16px;
-  border:none;
-  background:transparent;
-  color:#fff;
-  font-size:12px;
-  font-weight:500;
-  padding:0;
-}
-
 .paymentPendingCard{
   width:100%;
   margin-top:14px;

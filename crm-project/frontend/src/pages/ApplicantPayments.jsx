@@ -188,10 +188,6 @@ function ApplicantPayments() {
               <div className="paymentProfileValue">{employerLine || "-"}</div>
             </div>
 
-            <button type="button" className="paymentViewMore" onClick={() => navigate(`/applicants/${id}`)}>
-              View more &gt;
-            </button>
-
             <button type="button" className="paymentPendingCard" onClick={() => navigate(`/applicants/${id}/payments`)}>
               <div>
                 <div className="paymentPendingLabel">Pending Amount</div>

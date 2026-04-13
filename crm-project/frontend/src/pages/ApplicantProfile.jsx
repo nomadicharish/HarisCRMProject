@@ -385,6 +385,8 @@ function ApplicantProfile() {
   const canAddBiometricSlip = applicantStage === 6 && user?.role === "AGENCY" && hasTravelDetails && !hasBiometricSlip;
   const canAddEmbassyInterview =
     applicantStage === 7 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+  const hasPendingEmbassyInterviewApproval =
+    String(embassyInterview?.status || "").toUpperCase() === "PENDING";
   const hasInterviewTicket = Boolean(interviewTicket?.date || interviewTicket?.time || interviewTicket?.fileUrl);
   const hasInterviewBiometric = Boolean(interviewBiometric?.fileUrl || applicant?.interviewBiometric?.fileUrl);
   const canAddInterviewTicket = applicantStage === 8 && user?.role === "AGENCY" && !hasInterviewTicket;
@@ -396,6 +398,8 @@ function ApplicantProfile() {
       (residencePermit?.backUrl || applicant?.residencePermit?.backUrl)
   );
   const canAddVisaCollection = applicantStage === 9 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+  const hasPendingVisaCollectionApproval =
+    String(visaCollection?.status || "").toUpperCase() === "PENDING";
   const canAddVisaTravel = applicantStage === 10 && user?.role === "AGENCY" && !hasVisaTravel;
   const canAddResidencePermit = applicantStage === 10 && user?.role === "AGENCY" && hasVisaTravel && !hasResidencePermit;
   const hasDocuments = Object.keys(documents || {}).length > 0;
@@ -429,10 +433,12 @@ function ApplicantProfile() {
     ? "Candidate arrival pending"
     : applicantStage === 10
     ? hasVisaTravel
-      ? "Pending Residence Permit"
+      ? "Pending Residence Permit upload"
       : "Travel ticket upload pending"
     : applicantStage === 9
-    ? "Visa collection Initiation pending"
+    ? hasPendingVisaCollectionApproval
+      ? "Visa collection initiated. Admin approval pending."
+      : "Visa collection Initiated. Travel ticket upload pending."
     : applicantStage === 8
     ? hasInterviewBiometric
       ? "Pending visa collection"
@@ -440,10 +446,12 @@ function ApplicantProfile() {
       ? "Pending Biometric slip"
       : "Travel ticket upload pending"
     : applicantStage === 7
-    ? "Embassy Interview pending"
+    ? hasPendingEmbassyInterviewApproval
+      ? "Interview initiated and admin approval pending"
+      : "Embassy Interview initiation pending"
     : applicantStage === 6
     ? hasBiometricSlip
-      ? "Embassy Interview pending"
+      ? "Embassy Interview initiation pending"
       : hasTravelDetails
       ? "Pending Biometric slip"
       : "Ticket upload pending"
@@ -473,7 +481,7 @@ function ApplicantProfile() {
   const contractRowTitle = isContractCompleted
     ? "Contract Issued"
     : isContractPendingApproval
-    ? "Contract pending super user approval"
+    ? "Contract pending admin approval"
     : "Issue of the Contract";
   const contractRowStatus = isContractCompleted
     ? "completed"
@@ -498,6 +506,10 @@ function ApplicantProfile() {
     applicantStage === 6 ? "warning" : "";
   const embassyInterviewRowTitle =
     applicantStage === 7 && !embassyInterview ? "Initiate Embassy Interview" : "Embassy Interview Initiated";
+  const embassyInterviewRowSubtitle =
+    applicantStage === 7 && hasPendingEmbassyInterviewApproval
+      ? "Interview initiated and admin approval pending"
+      : "";
   const embassyInterviewCompletedRowTitle =
     applicantStage > 8 ? "Embassy Interview Completed" : "Complete Embassy Interview";
   const embassyInterviewCompletedRowSubtitle =
@@ -512,10 +524,14 @@ function ApplicantProfile() {
   const visaCollectionRowTitle =
     applicantStage > 9 ? "Visa Collection Initiated" : "Initiate Visa Collection";
   const visaCollectionRowStatus =
-    applicantStage === 9 && visaCollection?.status === "PENDING"
+    applicantStage === 9 && hasPendingVisaCollectionApproval
       ? "warning"
       : applicantStage === 9
       ? "active"
+      : "";
+  const visaCollectionRowSubtitle =
+    applicantStage === 9 && hasPendingVisaCollectionApproval
+      ? "Visa collection initiated. Admin approval pending."
       : "";
   const visaCollectionCompletedRowTitle =
     applicantStage > 10 ? "Visa Collection Completed" : "Complete Visa Collection";
@@ -524,7 +540,7 @@ function ApplicantProfile() {
       ? hasVisaTravel
         ? hasResidencePermit
           ? ""
-          : "Pending Residence Permit"
+          : "Pending Residence Permit upload"
         : "Travel ticket upload pending"
       : "";
   const visaCollectionCompletedRowStatus = applicantStage === 10 ? "warning" : "";
@@ -536,7 +552,9 @@ function ApplicantProfile() {
       : "Arrival of Candidate";
   const candidateArrivalRowSubtitle = applicantStage === 11 ? "Candidate arrival pending" : "";
   const headerActionLabel = canIssueContract
-    ? "Issue Contract"
+    ? isContractPendingApproval
+      ? "View Contract"
+      : "Issue Contract"
     : applicantStage === 11 && user?.role === "SUPER_USER"
     ? "Candidate Arrived"
     : canAddResidencePermit
@@ -544,13 +562,17 @@ function ApplicantProfile() {
     : canAddVisaTravel
     ? "Add Ticket"
     : canAddVisaCollection
-    ? "Add visa collection Details"
+    ? hasPendingVisaCollectionApproval && user?.role === "SUPER_USER"
+      ? "Approve Visa collection"
+      : "Add visa collection Details"
     : canAddInterviewBiometric
     ? "Add Biometric Slip"
     : canAddInterviewTicket
     ? "Add Ticket"
     : canAddEmbassyInterview
-    ? "Add Embassy Interview"
+    ? hasPendingEmbassyInterviewApproval && user?.role === "SUPER_USER"
+      ? "Approve embassy interview"
+      : "Add Embassy Interview"
     : canAddBiometricSlip
     ? "Add Biometric Slip"
     : canAddTicket
@@ -673,10 +695,12 @@ function ApplicantProfile() {
               embassyAppointmentCompletedRowSubtitle={embassyAppointmentCompletedRowSubtitle}
               embassyAppointmentCompletedRowStatus={embassyAppointmentCompletedRowStatus}
               embassyInterviewRowTitle={embassyInterviewRowTitle}
+              embassyInterviewRowSubtitle={embassyInterviewRowSubtitle}
               embassyInterviewCompletedRowTitle={embassyInterviewCompletedRowTitle}
               embassyInterviewCompletedRowSubtitle={embassyInterviewCompletedRowSubtitle}
               embassyInterviewCompletedRowStatus={embassyInterviewCompletedRowStatus}
               visaCollectionRowTitle={visaCollectionRowTitle}
+              visaCollectionRowSubtitle={visaCollectionRowSubtitle}
               visaCollectionRowStatus={visaCollectionRowStatus}
               visaCollectionCompletedRowTitle={visaCollectionCompletedRowTitle}
               visaCollectionCompletedRowSubtitle={visaCollectionCompletedRowSubtitle}
