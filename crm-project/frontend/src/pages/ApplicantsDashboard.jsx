@@ -65,6 +65,7 @@ function parseDate(value) {
 function ApplicantsDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   const [user, setUser] = useState(null);
   const [applicants, setApplicants] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -97,10 +98,10 @@ function ApplicantsDashboard() {
 
   const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : "applicants";
   const searchText = searchParams.get("q") || "";
-  const applicantTypes = getMultiParam(searchParams, "type");
-  const countryIds = getMultiParam(searchParams, "country");
-  const companyIds = getMultiParam(searchParams, "company");
-  const agencyIds = getMultiParam(searchParams, "agency");
+  const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParamsKey]);
+  const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParamsKey]);
+  const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParamsKey]);
+  const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParamsKey]);
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
 
   useEffect(() => {
@@ -127,6 +128,10 @@ function ApplicantsDashboard() {
 
       if (!Object.prototype.hasOwnProperty.call(updates, "page")) {
         next.delete("page");
+      }
+
+      if (next.toString() === searchParams.toString()) {
+        return;
       }
 
       setSearchParams(next, { replace: true });

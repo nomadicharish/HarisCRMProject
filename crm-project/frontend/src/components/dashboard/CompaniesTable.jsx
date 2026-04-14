@@ -1,4 +1,5 @@
 import React from "react";
+import VirtualizedRows from "./VirtualizedRows";
 
 function CompaniesTable({
   rows = [],
@@ -8,6 +9,85 @@ function CompaniesTable({
   onOpenCompanyEdit,
   onOpenApplicantsForCompany
 }) {
+  const gridTemplateColumns = isSuperUser ? "2fr 1.5fr 1.5fr 1.5fr 1.2fr" : "2fr 1.5fr 1.2fr";
+
+  if (rows.length > 40) {
+    return (
+      <div className="dashboardVirtualTable">
+        <div className="dashboardVirtualHeader" style={{ gridTemplateColumns }}>
+          <div>Company Name</div>
+          <div>Country</div>
+          {!isSuperUser ? <div>Applicants</div> : null}
+          {isSuperUser ? <div>Employer POC</div> : null}
+          {isSuperUser ? <div>Payment / Candidate</div> : null}
+          {isSuperUser ? <div>Applicants</div> : null}
+        </div>
+        <VirtualizedRows
+          items={rows}
+          rowHeight={58}
+          height={460}
+          renderItem={(company) => (
+            <div
+              className="dashboardVirtualRow"
+              style={{ gridTemplateColumns }}
+              onClick={isSuperUser ? () => onOpenCompanyEdit(company.id) : undefined}
+              role={isSuperUser ? "button" : undefined}
+              tabIndex={isSuperUser ? 0 : undefined}
+            >
+              <div>
+                {isSuperUser ? (
+                  <button
+                    type="button"
+                    className="dashboardInlineLinkBtn dashboardCompanyNameBtn"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenCompanyEdit(company.id);
+                    }}
+                  >
+                    {company.name || "-"}
+                  </button>
+                ) : (
+                  <span>{company.name || "-"}</span>
+                )}
+              </div>
+              <div>{company.countryName || "-"}</div>
+              {!isSuperUser ? (
+                <div>
+                  <button
+                    type="button"
+                    className="dashboardInlineLinkBtn dashboardViewApplicantsBtn"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenApplicantsForCompany(company.id);
+                    }}
+                  >
+                    View Applicants <img src={rightIconSrc} alt="" className="dashboardInlineIcon" />
+                  </button>
+                </div>
+              ) : null}
+              {isSuperUser ? <div>{company.employerNames || "-"}</div> : null}
+              {isSuperUser ? <div>{formatEuroAmount(company.companyPaymentPerApplicant)}</div> : null}
+              {isSuperUser ? (
+                <div>
+                  <button
+                    type="button"
+                    className="dashboardInlineLinkBtn"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onOpenApplicantsForCompany(company.id);
+                    }}
+                  >
+                    View Applicants <img src={rightIconSrc} alt="" className="dashboardInlineIcon" />
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
+        />
+      </div>
+    );
+  }
+
   return (
     <table className="dashboardTable">
       <thead>

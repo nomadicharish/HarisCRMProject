@@ -1,5 +1,6 @@
 import React from "react";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
+import VirtualizedRows from "./VirtualizedRows";
 
 function formatContactNumber(value) {
   const raw = String(value || "").trim();
@@ -15,6 +16,42 @@ function formatContactNumber(value) {
 }
 
 function EmployersTable({ rows = [], companyMap = {}, countryMap = {}, onOpenEmployer }) {
+  const gridTemplateColumns = "2fr 2fr 1.5fr 1.5fr 2fr";
+
+  if (rows.length > 40) {
+    return (
+      <div className="dashboardVirtualTable">
+        <div className="dashboardVirtualHeader" style={{ gridTemplateColumns }}>
+          <div>Employer Name</div>
+          <div>Company</div>
+          <div>Country</div>
+          <div>Contact Number</div>
+          <div>Email</div>
+        </div>
+        <VirtualizedRows
+          items={rows}
+          rowHeight={58}
+          height={460}
+          renderItem={(employer) => (
+            <div
+              className="dashboardVirtualRow"
+              style={{ gridTemplateColumns }}
+              onClick={() => onOpenEmployer(employer)}
+              role="button"
+              tabIndex={0}
+            >
+              <div>{employer.name || "-"}</div>
+              <div>{companyMap[employer.companyId]?.name || "-"}</div>
+              <div>{countryMap[employer.countryId] || "-"}</div>
+              <div>{formatContactNumber(employer.contactNumber)}</div>
+              <div>{employer.email || "-"}</div>
+            </div>
+          )}
+        />
+      </div>
+    );
+  }
+
   return (
     <table className="dashboardTable">
       <thead>
