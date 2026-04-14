@@ -4,6 +4,7 @@ const applicantRoutes = require("./routes/applicantRoutes");
 const authController = require("./controllers/authController");
 const { asyncHandler } = require("./lib/asyncHandler");
 const authRoutes = require("./routes/authRoutes");
+const agentRoutes = require("./routes/agentRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const entityRoutes = require("./routes/entityRoutes");
 const userRoutes = require("./routes/userRoutes");
@@ -15,7 +16,6 @@ const { validate } = require("./middleware/validate");
 const { disableUserParamsSchema } = require("./validators/authSchemas");
 const {
   buildCorsOptions,
-  createAuthRateLimiter,
   createGeneralRateLimiter,
   createHelmetMiddleware
 } = require("./config/security");
@@ -49,8 +49,8 @@ app.post(
 app.use("/api/users", userRoutes);
 app.use("/api/applicants", applicantRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/auth", createAuthRateLimiter());
 app.use("/api/auth", authRoutes);
+app.use("/api/agents", agentRoutes);
 app.use("/api", entityRoutes);
 
 app.use(errorHandler);

@@ -13,7 +13,9 @@ const {
   documentTemplateParamsSchema,
   employerPayloadSchema,
   idParamSchema,
-  listCompaniesQuerySchema
+  listAgenciesQuerySchema,
+  listCompaniesQuerySchema,
+  listEmployersQuerySchema
 } = require("../validators/entitySchemas");
 
 const router = express.Router();
@@ -39,11 +41,11 @@ router.post(
 router.post("/add-agency", verifyToken, allowRoles("SUPER_USER"), validate(agencyPayloadSchema), asyncHandler(entityController.addAgency));
 router.patch("/agencies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), validate(agencyPayloadSchema), asyncHandler(entityController.updateAgency));
 router.delete("/agencies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteAgency));
-router.get("/agencies", verifyToken, asyncHandler(entityController.listAgencies));
+router.get("/agencies", verifyToken, validate(listAgenciesQuerySchema, "query"), asyncHandler(entityController.listAgencies));
 
 router.post("/add-employer", verifyToken, allowRoles("SUPER_USER"), validate(employerPayloadSchema), asyncHandler(entityController.addEmployer));
 router.patch("/employers/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), validate(employerPayloadSchema), asyncHandler(entityController.updateEmployer));
 router.delete("/employers/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteEmployer));
-router.get("/employers", verifyToken, asyncHandler(entityController.listEmployers));
+router.get("/employers", verifyToken, validate(listEmployersQuerySchema, "query"), asyncHandler(entityController.listEmployers));
 
 module.exports = router;

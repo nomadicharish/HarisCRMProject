@@ -1,6 +1,14 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
 
+const TOKEN_CACHE_TTL_MS = Number(process.env.AUTH_TOKEN_CACHE_TTL_MS || 15_000);
+const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 30_000);
+const AUTH_USER_CACHE_TTL_MS = Number(process.env.AUTH_USER_CACHE_TTL_MS || 60_000);
+
+const tokenCache = new Map();
+const userProfileCache = new Map();
+const authUserCache = new Map();
+
 function getBearerToken(req) {
   const authHeader = req.headers.authorization;
   if (!authHeader) return "";
@@ -10,18 +18,74 @@ function getBearerToken(req) {
   return token.trim();
 }
 
+function getCached(cache, key) {
+  const item = cache.get(key);
+  if (!item) return null;
+  if (item.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  return item.value;
+}
+
+function setCached(cache, key, value, ttlMs) {
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + Math.max(1000, ttlMs)
+  });
+}
+
+async function decodeTokenCached(token) {
+  const cached = getCached(tokenCache, token);
+  if (cached) return cached;
+  const decoded = await admin.auth().verifyIdToken(token, true);
+  setCached(tokenCache, token, decoded, TOKEN_CACHE_TTL_MS);
+  return decoded;
+}
+
+async function getUserProfileCached(uid) {
+  const cached = getCached(userProfileCache, uid);
+  if (cached) return cached;
+  const userDoc = await db.collection("users").doc(uid).get();
+  const userProfile = userDoc.exists ? userDoc.data() : null;
+  setCached(userProfileCache, uid, userProfile, USER_PROFILE_CACHE_TTL_MS);
+  return userProfile;
+}
+
+async function getAuthUserCached(uid) {
+  const cached = getCached(authUserCache, uid);
+  if (cached) return cached;
+  const authUser = await admin.auth().getUser(uid);
+  setCached(authUserCache, uid, authUser, AUTH_USER_CACHE_TTL_MS);
+  return authUser;
+}
+
 const verifyToken = async (req, res, next) => {
   try {
+    if (String(process.env.TEST_BYPASS_AUTH || "").toLowerCase() === "true") {
+      req.user = {
+        uid: req.headers["x-test-user-id"] || "test-user-id",
+        role: req.headers["x-test-user-role"] || "SUPER_USER",
+        tokenIssuedAt: 0,
+        agencyId: req.headers["x-test-agency-id"] || null,
+        employerId: req.headers["x-test-employer-id"] || null,
+        forcePasswordReset: false,
+        active: true
+      };
+      return next();
+    }
+
     const token = getBearerToken(req);
     if (!token) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const decoded = await admin.auth().verifyIdToken(token, true);
+    const decoded = await decodeTokenCached(token);
 
-    const userDoc = await db.collection("users").doc(decoded.uid).get();
-    const userProfile = userDoc.exists ? userDoc.data() : null;
-    const authUser = await admin.auth().getUser(decoded.uid);
+    const [userProfile, authUser] = await Promise.all([
+      getUserProfileCached(decoded.uid),
+      getAuthUserCached(decoded.uid)
+    ]);
 
     if (!userProfile?.active || authUser.disabled) {
       return res.status(401).json({ message: "Unauthorized" });

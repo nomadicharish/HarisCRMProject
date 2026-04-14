@@ -269,12 +269,24 @@ function EntityFormModal({
 
       if (editData?.id) {
         await API.patch(`${config.updateEndpoint}/${editData.id}`, payload);
+        if (typeof onSaved === "function") {
+          await onSaved({
+            operation: "update",
+            type,
+            id: editData.id,
+            payload
+          });
+        }
       } else {
-        await API.post(config.createEndpoint, payload);
-      }
-
-      if (typeof onSaved === "function") {
-        await onSaved();
+        const response = await API.post(config.createEndpoint, payload);
+        if (typeof onSaved === "function") {
+          await onSaved({
+            operation: "create",
+            type,
+            id: response?.data?.id || "",
+            payload
+          });
+        }
       }
 
       if (typeof onClose === "function") onClose();
@@ -297,7 +309,11 @@ function EntityFormModal({
       await API.delete(`${config.updateEndpoint}/${editData.id}`);
 
       if (typeof onSaved === "function") {
-        await onSaved();
+        await onSaved({
+          operation: "delete",
+          type,
+          id: editData.id
+        });
       }
 
       if (typeof onClose === "function") onClose();

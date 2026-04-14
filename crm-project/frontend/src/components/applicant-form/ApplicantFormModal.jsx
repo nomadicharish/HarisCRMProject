@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../../services/api";
+import { getCached } from "../../services/cachedApi";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import Select from "react-select";
@@ -107,13 +108,14 @@ function ApplicantFormModal({
   onClose,
   onSaved,
   editData,
+  user: userProp = null,
   onApproveStage,
   autoApproveAfterSave = false
 }) {
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
   const [agencies, setAgencies] = useState([]);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(userProp);
   const [filteredCompanies, setFilteredCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -273,24 +275,29 @@ function ApplicantFormModal({
   useEffect(() => {
     async function loadDropdowns() {
       try {
-        const [companyRes, countryRes, agencyRes] = await Promise.all([
-          API.get("/companies"),
-          API.get("/countries"),
-          API.get("/agencies")
+        const [companiesData, countriesData, agenciesData] = await Promise.all([
+          getCached("/companies", { ttlMs: 60000 }),
+          getCached("/countries", { ttlMs: 120000 }),
+          getCached("/agencies", { ttlMs: 60000 })
         ]);
 
-        setCompanies(companyRes.data || []);
-        setCountries(countryRes.data || []);
-        setAgencies(agencyRes.data || []);
+        setCompanies(companiesData || []);
+        setCountries(countriesData || []);
+        setAgencies(agenciesData || []);
       } catch (err) {
         console.error(err);
       }
     }
 
     async function loadUser() {
+      if (userProp) {
+        setUser(userProp);
+        return;
+      }
+
       try {
-        const res = await API.get("/auth/me");
-        setUser(res.data);
+        const data = await getCached("/auth/me", { ttlMs: 120000 });
+        setUser(data);
       } catch (err) {
         console.error(err);
       }
@@ -298,7 +305,7 @@ function ApplicantFormModal({
 
     loadDropdowns();
     loadUser();
-  }, []);
+  }, [userProp]);
 
   useEffect(() => {
     if (!editData) {
@@ -389,11 +396,22 @@ function ApplicantFormModal({
 
       if (editData) {
         await API.patch(`/applicants/${editData.id}`, payload);
+        if (typeof onSaved === "function") {
+          await onSaved({
+            operation: "update",
+            id: editData.id,
+            payload
+          });
+        }
       } else {
-        await API.post("/applicants/create", payload);
-      }
-
-      if (!editData) {
+        const response = await API.post("/applicants/create", payload);
+        if (typeof onSaved === "function") {
+          await onSaved({
+            operation: "create",
+            id: response?.data?.applicantId || "",
+            payload
+          });
+        }
         resetForm();
       }
 
@@ -407,10 +425,6 @@ function ApplicantFormModal({
           console.error(approveError);
           return;
         }
-      }
-
-      if (typeof onSaved === "function") {
-        await onSaved();
       }
 
       if (typeof onClose === "function") onClose();

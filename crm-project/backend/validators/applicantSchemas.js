@@ -134,6 +134,24 @@ const dashboardQuerySchema = z.object({
   toDate: optionalTrimmedString.optional()
 });
 
+const applicantsListQuerySchema = z.object({
+  lite: z.preprocess(
+    (value) => String(value || "").toLowerCase() === "true",
+    z.boolean()
+  ).optional().default(false),
+  paginated: z.preprocess(
+    (value) => String(value || "").toLowerCase() === "true",
+    z.boolean()
+  ).optional().default(false),
+  page: z.coerce.number().int().min(1).optional().default(1),
+  limit: z.coerce.number().int().min(1).max(100).optional().default(25),
+  q: optionalTrimmedString.optional().default(""),
+  type: optionalTrimmedString.optional().default(""),
+  country: optionalTrimmedString.optional().default(""),
+  company: optionalTrimmedString.optional().default(""),
+  agency: optionalTrimmedString.optional().default("")
+});
+
 module.exports = {
   addPaymentSchema,
   applicantDocParamsSchema,
@@ -141,6 +159,7 @@ module.exports = {
   appointmentBodySchema,
   appointmentParamsSchema,
   createApplicantSchema,
+  applicantsListQuerySchema,
   dashboardQuerySchema,
   dateTimeBodySchema,
   deferDocumentSchema,

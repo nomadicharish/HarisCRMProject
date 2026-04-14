@@ -64,18 +64,24 @@ async function listCountries(req, res) {
 async function listCompanies(req, res) {
   const data = await entityService.listCompanies({
     user: req.user,
-    countryId: req.query.countryId || ""
+    query: req.query || {}
   });
   return res.json(data);
 }
 
 async function listAgencies(req, res) {
-  const data = await entityService.listAgencies(req.user.role);
+  const data = await entityService.listAgencies({
+    role: req.user.role,
+    query: req.query || {}
+  });
   return res.json(data);
 }
 
 async function listEmployers(req, res) {
-  const data = await entityService.listEmployers(req.user.role);
+  const data = await entityService.listEmployers({
+    role: req.user.role,
+    query: req.query || {}
+  });
   return res.json(data);
 }
 

@@ -6,6 +6,17 @@ const API = axios.create({
   baseURL: "http://localhost:3000/api",
 });
 
+function isAuthTokenError(error) {
+  const status = error?.response?.status;
+  const message = String(error?.response?.data?.message || "").toLowerCase();
+  return (
+    status === 401 ||
+    message.includes("invalid token") ||
+    message.includes("token verification failed") ||
+    message.includes("token expired")
+  );
+}
+
 // Attach Firebase token automatically
 API.interceptors.request.use(async (config) => {
   const sessionExpiresAt = Number(localStorage.getItem("session_expires_at") || 0);
@@ -15,7 +26,11 @@ API.interceptors.request.use(async (config) => {
   }
 
   const currentUser = auth.currentUser;
-  const token = currentUser ? await currentUser.getIdToken() : localStorage.getItem("token");
+  let token = currentUser ? await currentUser.getIdToken() : localStorage.getItem("token");
+
+  if (currentUser && !token) {
+    token = await currentUser.getIdToken(true);
+  }
 
   if (token) config.headers.Authorization = `Bearer ${token}`;
   if (token && localStorage.getItem("token") !== token) localStorage.setItem("token", token);
@@ -25,14 +40,24 @@ API.interceptors.request.use(async (config) => {
 API.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const status = error?.response?.status;
-    const message = String(error?.response?.data?.message || "").toLowerCase();
-    if (
-      status === 401 ||
-      message.includes("invalid token") ||
-      message.includes("token verification failed") ||
-      message.includes("token expired")
-    ) {
+    const originalRequest = error?.config;
+    if (isAuthTokenError(error) && originalRequest && !originalRequest._retry) {
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        try {
+          const freshToken = await currentUser.getIdToken(true);
+          localStorage.setItem("token", freshToken);
+          originalRequest._retry = true;
+          originalRequest.headers = originalRequest.headers || {};
+          originalRequest.headers.Authorization = `Bearer ${freshToken}`;
+          return API(originalRequest);
+        } catch {
+          // fall through to clear session
+        }
+      }
+    }
+
+    if (isAuthTokenError(error)) {
       await clearSession({ redirectTo: "/login" });
     }
 

@@ -1,24 +1,43 @@
+import { Suspense, lazy, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ProtectedRoute from "./components/ProtectedRoute";
-import ApplicantDispatchWorkspace from "./pages/ApplicantDispatchWorkspace";
-import ApplicantDocumentsWorkspace from "./pages/ApplicantDocumentsWorkspace";
-import ApplicantProfile from "./pages/ApplicantProfile";
-import ApplicantPayments from "./pages/ApplicantPayments";
-import ApplicantsDashboard from "./pages/ApplicantsDashboard";
-import ChangePassword from "./pages/ChangePassword";
-import CompanyFormPage from "./pages/CompanyFormPage";
-import CreateApplicant from "./pages/CreateApplicant";
-import Dashboard from "./pages/Dashboard";
-import ForgotPassword from "./pages/ForgotPassword";
-import Login from "./pages/Login";
-import Settings from "./pages/Settings";
-import SettingsChangePassword from "./pages/SettingsChangePassword";
+
+const ApplicantDispatchWorkspace = lazy(() => import("./pages/ApplicantDispatchWorkspace"));
+const ApplicantDocumentsWorkspace = lazy(() => import("./pages/ApplicantDocumentsWorkspace"));
+const ApplicantProfile = lazy(() => import("./pages/ApplicantProfile"));
+const ApplicantPayments = lazy(() => import("./pages/ApplicantPayments"));
+const ApplicantsDashboard = lazy(() => import("./pages/ApplicantsDashboard"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const CompanyFormPage = lazy(() => import("./pages/CompanyFormPage"));
+const CreateApplicant = lazy(() => import("./pages/CreateApplicant"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
+const Login = lazy(() => import("./pages/Login"));
+const Settings = lazy(() => import("./pages/Settings"));
+const SettingsChangePassword = lazy(() => import("./pages/SettingsChangePassword"));
 
 function App() {
+  useEffect(() => {
+    const preload = () => {
+      import("./pages/Login");
+      import("./pages/ApplicantsDashboard");
+      import("./pages/ApplicantProfile");
+    };
+
+    if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+      const id = window.requestIdleCallback(preload);
+      return () => window.cancelIdleCallback(id);
+    }
+
+    const timer = setTimeout(preload, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
     <>
+      <Suspense fallback={<div className="routeSkeleton">Loading content...</div>}>
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
@@ -157,6 +176,7 @@ function App() {
           }
         />
       </Routes>
+      </Suspense>
 
       <ToastContainer
         position="top-right"

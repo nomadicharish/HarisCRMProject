@@ -1,23 +1,25 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
+import { getCached, invalidateCache } from "../services/cachedApi";
 import "../styles/forms.css";
 import "../styles/applicantProfile.css";
 import "../styles/applicantContract.css";
-import ApplicantFormModal from "../components/applicant-form/ApplicantFormModal";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import ApplicantPipelineList from "../components/applicant/ApplicantPipelineList";
-import ContractSection from "../components/ContractSection";
-import EmbassyAppointment from "../components/EmbassyAppointment";
-import BiometricSlipModal from "../components/BiometricSlipModal";
-import EmbassyInterviewModal from "../components/EmbassyInterviewModal";
-import InterviewBiometricModal from "../components/InterviewBiometricModal";
-import VisaCollectionModal from "../components/VisaCollectionModal";
-import ResidencePermitModal from "../components/ResidencePermitModal";
-import ApplicantDetailsModal from "../components/ApplicantDetailsModal";
-import DispatchHistoryModal from "../components/DispatchHistoryModal";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { getDocumentReviewState } from "../constants/applicantDocuments";
+
+const ApplicantFormModal = lazy(() => import("../components/applicant-form/ApplicantFormModal"));
+const ContractSection = lazy(() => import("../components/ContractSection"));
+const EmbassyAppointment = lazy(() => import("../components/EmbassyAppointment"));
+const BiometricSlipModal = lazy(() => import("../components/BiometricSlipModal"));
+const EmbassyInterviewModal = lazy(() => import("../components/EmbassyInterviewModal"));
+const InterviewBiometricModal = lazy(() => import("../components/InterviewBiometricModal"));
+const VisaCollectionModal = lazy(() => import("../components/VisaCollectionModal"));
+const ResidencePermitModal = lazy(() => import("../components/ResidencePermitModal"));
+const ApplicantDetailsModal = lazy(() => import("../components/ApplicantDetailsModal"));
+const DispatchHistoryModal = lazy(() => import("../components/DispatchHistoryModal"));
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -93,11 +95,12 @@ function ApplicantProfile() {
   const [showCompleteProcessModal, setShowCompleteProcessModal] = useState(false);
   const [showApplicantDetailsModal, setShowApplicantDetailsModal] = useState(false);
   const [showDispatchHistoryModal, setShowDispatchHistoryModal] = useState(false);
+  const profileCacheTtlMs = 15000;
 
   const loadApplicant = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}`);
-      setApplicant(res.data);
+      const data = await getCached(`/applicants/${id}`, { ttlMs: 15000 });
+      setApplicant(data);
     } catch (err) {
       console.error(err);
       setApplicant(null);
@@ -108,8 +111,8 @@ function ApplicantProfile() {
 
   const loadUser = useCallback(async () => {
     try {
-      const res = await API.get("/auth/me");
-      setUser(res.data);
+      const data = await getCached("/auth/me", { ttlMs: 120000 });
+      setUser(data);
     } catch (err) {
       console.error(err);
       setUser(null);
@@ -118,143 +121,151 @@ function ApplicantProfile() {
 
   const loadDocuments = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/documents`);
-      setDocuments(res.data || {});
+      const data = await getCached(`/applicants/${id}/documents`, {
+        params: { latest: "true" },
+        ttlMs: profileCacheTtlMs
+      });
+      setDocuments(data || {});
     } catch (err) {
       console.error(err);
       setDocuments({});
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadPaymentSummary = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/payments/summary`);
-      setPaymentSummary(res.data || null);
+      const data = await getCached(`/applicants/${id}/payments/summary`, { ttlMs: profileCacheTtlMs });
+      setPaymentSummary(data || null);
     } catch (err) {
       console.error(err);
       setPaymentSummary(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadContract = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/contract`);
-      setContract(res.data || null);
+      const data = await getCached(`/applicants/${id}/contract`, { ttlMs: profileCacheTtlMs });
+      setContract(data || null);
     } catch (err) {
       console.error(err);
       setContract(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadEmbassyAppointment = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/embassy-appointment`);
-      setEmbassyAppointment(res.data || null);
+      const data = await getCached(`/applicants/${id}/embassy-appointment`, { ttlMs: profileCacheTtlMs });
+      setEmbassyAppointment(data || null);
     } catch (err) {
       console.error(err);
       setEmbassyAppointment(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadBiometricSlip = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/biometric`);
-      setBiometricSlip(res.data || null);
+      const data = await getCached(`/applicants/${id}/biometric`, { ttlMs: profileCacheTtlMs });
+      setBiometricSlip(data || null);
     } catch (err) {
       console.error(err);
       setBiometricSlip(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadEmbassyInterview = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/interview`);
-      setEmbassyInterview(res.data || null);
+      const data = await getCached(`/applicants/${id}/interview`, { ttlMs: profileCacheTtlMs });
+      setEmbassyInterview(data || null);
     } catch (err) {
       console.error(err);
       setEmbassyInterview(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadInterviewTicket = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/interview-ticket`);
-      setInterviewTicket(res.data || null);
+      const data = await getCached(`/applicants/${id}/interview-ticket`, { ttlMs: profileCacheTtlMs });
+      setInterviewTicket(data || null);
     } catch (err) {
       console.error(err);
       setInterviewTicket(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadInterviewBiometric = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/interview-biometric`);
-      setInterviewBiometric(res.data || null);
+      const data = await getCached(`/applicants/${id}/interview-biometric`, { ttlMs: profileCacheTtlMs });
+      setInterviewBiometric(data || null);
     } catch (err) {
       console.error(err);
       setInterviewBiometric(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadVisaCollection = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/visa-collection`);
-      setVisaCollection(res.data || null);
+      const data = await getCached(`/applicants/${id}/visa-collection`, { ttlMs: profileCacheTtlMs });
+      setVisaCollection(data || null);
     } catch (err) {
       console.error(err);
       setVisaCollection(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadVisaTravel = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/visa-travel`);
-      setVisaTravel(res.data || null);
+      const data = await getCached(`/applicants/${id}/visa-travel`, { ttlMs: profileCacheTtlMs });
+      setVisaTravel(data || null);
     } catch (err) {
       console.error(err);
       setVisaTravel(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
 
   const loadResidencePermit = useCallback(async () => {
     try {
-      const res = await API.get(`/applicants/${id}/residence-permit`);
-      setResidencePermit(res.data || null);
+      const data = await getCached(`/applicants/${id}/residence-permit`, { ttlMs: profileCacheTtlMs });
+      setResidencePermit(data || null);
     } catch (err) {
       console.error(err);
       setResidencePermit(null);
     }
-  }, [id]);
+  }, [id, profileCacheTtlMs]);
+
+  const loadProfileWorkflowData = useCallback(
+    async ({ force = false } = {}) => {
+      try {
+        if (!force) setLoading(true);
+        const data = await getCached(`/applicants/${id}/workflow-bundle`, {
+          ttlMs: profileCacheTtlMs,
+          force
+        });
+        setApplicant(data?.applicant || null);
+        setDocuments(data?.documents || {});
+        setPaymentSummary(data?.paymentSummary || null);
+        setContract(data?.contract || null);
+        setEmbassyAppointment(data?.embassyAppointment || null);
+        setBiometricSlip(data?.biometricSlip || null);
+        setEmbassyInterview(data?.embassyInterview || null);
+        setInterviewTicket(data?.interviewTicket || null);
+        setInterviewBiometric(data?.interviewBiometric || null);
+        setVisaCollection(data?.visaCollection || null);
+        setVisaTravel(data?.visaTravel || null);
+        setResidencePermit(data?.residencePermit || null);
+      } catch (err) {
+        console.error(err);
+        setApplicant(null);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [id, profileCacheTtlMs]
+  );
 
   useEffect(() => {
-    loadApplicant();
     loadUser();
-    loadDocuments();
-    loadPaymentSummary();
-    loadContract();
-    loadEmbassyAppointment();
-    loadBiometricSlip();
-    loadEmbassyInterview();
-    loadInterviewTicket();
-    loadInterviewBiometric();
-    loadVisaCollection();
-    loadVisaTravel();
-    loadResidencePermit();
-  }, [
-    loadApplicant,
-    loadUser,
-    loadDocuments,
-    loadPaymentSummary,
-    loadContract,
-    loadEmbassyAppointment,
-    loadBiometricSlip,
-    loadEmbassyInterview,
-    loadInterviewTicket,
-    loadInterviewBiometric,
-    loadVisaCollection,
-    loadVisaTravel,
-    loadResidencePermit
-  ]);
+    loadProfileWorkflowData();
+  }, [loadProfileWorkflowData, loadUser]);
 
   useEffect(() => {
     const agencyId = applicant?.agencyId;
@@ -265,8 +276,8 @@ function ApplicantProfile() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await API.get("/agencies");
-        const found = (res.data || []).find((agency) => agency.id === agencyId);
+        const agenciesData = await getCached("/agencies", { ttlMs: 60000 });
+        const found = (agenciesData || []).find((agency) => agency.id === agencyId);
         if (!cancelled) setResolvedAgencyName(found?.name || "");
       } catch (err) {
         console.error(err);
@@ -287,8 +298,8 @@ function ApplicantProfile() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await API.get("/countries");
-        const found = (res.data || []).find((country) => country.id === countryId);
+        const countriesData = await getCached("/countries", { ttlMs: 120000 });
+        const found = (countriesData || []).find((country) => country.id === countryId);
         if (!cancelled) setResolvedCountryName(found?.name || "");
       } catch (err) {
         console.error(err);
@@ -343,16 +354,43 @@ function ApplicantProfile() {
   const candidateArrivalCompletedDate = formatCompletedStageDate(applicant?.completedAt);
 
   const confirmCompleteProcess = async () => {
+    const previousApplicant = applicant;
+    const optimisticNow = Date.now();
+    setApplicant((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        stage: 12,
+        completedAt: optimisticNow
+      };
+    });
+
     try {
       await API.patch(`/applicants/${id}/complete`);
       alert("Process completed successfully");
-      await loadApplicant();
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache("/applicants");
+      invalidateCache(`/applicants/${id}/workflow-bundle`);
+      loadProfileWorkflowData({ force: true });
       setShowCompleteProcessModal(false);
     } catch (err) {
       console.error(err);
+      setApplicant(previousApplicant);
       alert("Error completing process");
     }
   };
+
+  const refreshWorkflowData = useCallback(() => {
+    invalidateCache(`/applicants/${id}`);
+    invalidateCache(`/applicants/${id}/documents`);
+    invalidateCache(`/applicants/${id}/workflow-bundle`);
+    invalidateCache("/applicants");
+
+    loadProfileWorkflowData({ force: true });
+  }, [
+    id,
+    loadProfileWorkflowData
+  ]);
 
   if (loading) return <div style={{ padding: "40px" }}>Loading...</div>;
   if (!applicant) return <div style={{ padding: "40px" }}>Applicant not found</div>;
@@ -607,8 +645,26 @@ function ApplicantProfile() {
   };
 
   const approveStage = async () => {
-    await API.patch(`/applicants/${id}/approve-stage`);
-    await loadApplicant();
+    const previousApplicant = applicant;
+    setApplicant((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        stage: Math.max(2, Number(prev.stage || 1)),
+        approvalStatus: "approved"
+      };
+    });
+
+    try {
+      await API.patch(`/applicants/${id}/approve-stage`);
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache(`/applicants/${id}/workflow-bundle`);
+      invalidateCache("/applicants");
+      loadProfileWorkflowData({ force: true });
+    } catch (error) {
+      console.error(error);
+      setApplicant(previousApplicant);
+    }
   };
 
   const headerActionHandler = canIssueContract
@@ -747,115 +803,120 @@ function ApplicantProfile() {
           </main>
         </div>
 
-        {showEditModal && (
-          <ApplicantFormModal
-            editData={applicant}
-            onClose={() => {
-              setShowEditModal(false);
-              setEditContext("default");
+        <Suspense fallback={null}>
+          {showEditModal && (
+            <ApplicantFormModal
+              editData={applicant}
+              onClose={() => {
+                setShowEditModal(false);
+                setEditContext("default");
+              }}
+              onSaved={() => {
+                invalidateCache(`/applicants/${id}/workflow-bundle`);
+                loadProfileWorkflowData({ force: true });
+              }}
+              onApproveStage={
+                user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
+                  ? approveStage
+                  : undefined
+              }
+              autoApproveAfterSave={
+                user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
+              }
+            />
+          )}
+
+          <ContractSection
+            applicantId={id}
+            user={user}
+            open={showContractModal}
+            onClose={() => setShowContractModal(false)}
+            onUpdated={() => {
+              refreshWorkflowData();
             }}
-            onSaved={() => loadApplicant()}
-            onApproveStage={
-              user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
-                ? approveStage
-                : undefined
-            }
-            autoApproveAfterSave={
-              user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
-            }
           />
-        )}
 
-        <ContractSection
-          applicantId={id}
-          user={user}
-          open={showContractModal}
-          onClose={() => setShowContractModal(false)}
-          onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadContract()]);
-          }}
-        />
+          <EmbassyAppointment
+            applicantId={id}
+            user={user}
+            biometricSlip={biometricSlip || applicant?.biometricSlip || null}
+            open={showEmbassyAppointmentModal}
+            onClose={() => setShowEmbassyAppointmentModal(false)}
+            onUpdated={() => {
+              refreshWorkflowData();
+            }}
+          />
 
-        <EmbassyAppointment
-          applicantId={id}
-          user={user}
-          biometricSlip={biometricSlip || applicant?.biometricSlip || null}
-          open={showEmbassyAppointmentModal}
-          onClose={() => setShowEmbassyAppointmentModal(false)}
-          onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadEmbassyAppointment(), loadBiometricSlip()]);
-          }}
-        />
+          <BiometricSlipModal
+            applicantId={id}
+            user={user}
+            fallbackBiometricSlip={applicant?.biometricSlip || null}
+            open={showBiometricSlipModal}
+            onClose={() => setShowBiometricSlipModal(false)}
+            onUpdated={() => {
+              refreshWorkflowData();
+            }}
+          />
 
-        <BiometricSlipModal
-          applicantId={id}
-          user={user}
-          fallbackBiometricSlip={applicant?.biometricSlip || null}
-          open={showBiometricSlipModal}
-          onClose={() => setShowBiometricSlipModal(false)}
-          onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadBiometricSlip()]);
-          }}
-        />
+          <EmbassyInterviewModal
+            applicantId={id}
+            user={user}
+            interviewBiometric={interviewBiometric || applicant?.interviewBiometric || null}
+            open={showEmbassyInterviewModal}
+            onClose={() => setShowEmbassyInterviewModal(false)}
+            onUpdated={() => {
+              refreshWorkflowData();
+            }}
+          />
 
-        <EmbassyInterviewModal
-          applicantId={id}
-          user={user}
-          interviewBiometric={interviewBiometric || applicant?.interviewBiometric || null}
-          open={showEmbassyInterviewModal}
-          onClose={() => setShowEmbassyInterviewModal(false)}
-          onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadEmbassyInterview(), loadInterviewTicket(), loadInterviewBiometric()]);
-          }}
-        />
+          <InterviewBiometricModal
+            applicantId={id}
+            user={user}
+            fallbackInterviewBiometric={applicant?.interviewBiometric || null}
+            open={showInterviewBiometricModal}
+            onClose={() => setShowInterviewBiometricModal(false)}
+            onUpdated={() => {
+              refreshWorkflowData();
+            }}
+          />
 
-        <InterviewBiometricModal
-          applicantId={id}
-          user={user}
-          fallbackInterviewBiometric={applicant?.interviewBiometric || null}
-          open={showInterviewBiometricModal}
-          onClose={() => setShowInterviewBiometricModal(false)}
-          onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadInterviewBiometric()]);
-          }}
-        />
+          <VisaCollectionModal
+            applicantId={id}
+            user={user}
+            residencePermit={residencePermit || applicant?.residencePermit || null}
+            open={showVisaCollectionModal}
+            onClose={() => setShowVisaCollectionModal(false)}
+            onUpdated={() => {
+              refreshWorkflowData();
+            }}
+          />
 
-        <VisaCollectionModal
-          applicantId={id}
-          user={user}
-          residencePermit={residencePermit || applicant?.residencePermit || null}
-          open={showVisaCollectionModal}
-          onClose={() => setShowVisaCollectionModal(false)}
-          onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadVisaCollection(), loadVisaTravel(), loadResidencePermit()]);
-          }}
-        />
+          <ResidencePermitModal
+            applicantId={id}
+            user={user}
+            fallbackResidencePermit={applicant?.residencePermit || null}
+            open={showResidencePermitModal}
+            onClose={() => setShowResidencePermitModal(false)}
+            onUpdated={() => {
+              refreshWorkflowData();
+            }}
+          />
 
-        <ResidencePermitModal
-          applicantId={id}
-          user={user}
-          fallbackResidencePermit={applicant?.residencePermit || null}
-          open={showResidencePermitModal}
-          onClose={() => setShowResidencePermitModal(false)}
-          onUpdated={async () => {
-            await Promise.all([loadApplicant(), loadResidencePermit()]);
-          }}
-        />
+          <ApplicantDetailsModal
+            applicant={applicant}
+            open={showApplicantDetailsModal}
+            onClose={() => setShowApplicantDetailsModal(false)}
+            showPaymentDetails={!isEmployer}
+            agencyName={user?.role === "SUPER_USER" ? resolvedAgencyName : ""}
+            countryName={resolvedCountryName}
+          />
 
-        <ApplicantDetailsModal
-          applicant={applicant}
-          open={showApplicantDetailsModal}
-          onClose={() => setShowApplicantDetailsModal(false)}
-          showPaymentDetails={!isEmployer}
-          agencyName={user?.role === "SUPER_USER" ? resolvedAgencyName : ""}
-          countryName={resolvedCountryName}
-        />
-
-        <DispatchHistoryModal
-          applicantId={id}
-          open={showDispatchHistoryModal}
-          onClose={() => setShowDispatchHistoryModal(false)}
-        />
+          <DispatchHistoryModal
+            applicantId={id}
+            open={showDispatchHistoryModal}
+            onClose={() => setShowDispatchHistoryModal(false)}
+          />
+        </Suspense>
 
         {showCompleteProcessModal ? (
           <div className="contractModalOverlay">

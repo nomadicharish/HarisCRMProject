@@ -10,6 +10,7 @@ const { verifyToken } = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 const {
   addPaymentSchema,
+  applicantsListQuerySchema,
   applicantDocParamsSchema,
   applicantIdParamsSchema,
   appointmentBodySchema,
@@ -86,10 +87,15 @@ router.patch(
 );
 
 // Get Applicants (List)
-router.get("/", asyncHandler(applicantController.getApplicants));
+router.get("/", validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
 
 // Get Applicant by ID
 router.get("/:id", validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantById));
+router.get(
+  "/:id/workflow-bundle",
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getApplicantWorkflowBundle)
+);
 
 // Upload Document
 router.post(
