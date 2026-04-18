@@ -158,3 +158,22 @@ a {
   display: none !important;
 }
 
+.routeSkeleton {
+  padding: 24px;
+  border-radius: 10px;
+  margin: 16px;
+  color: #5f6b7a;
+  background: linear-gradient(90deg, #f4f7fb 0%, #eef3f8 50%, #f4f7fb 100%);
+  background-size: 200% 100%;
+  animation: routePulse 1.2s ease-in-out infinite;
+}
+
+@keyframes routePulse {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+

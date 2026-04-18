@@ -57,29 +57,7 @@ async function checkEmailExists(email) {
     .limit(1)
     .get();
 
-  let userData = snapshot.empty ? null : snapshot.docs[0].data();
-
-  if (!userData) {
-    const legacySnapshot = await db.collection("users").select("email", "emailEncrypted", "active").get();
-    const legacyDocs = await Promise.all(
-      legacySnapshot.docs.map(async (doc) => {
-        const data = doc.data() || {};
-        let resolvedEmail = normalizeEmailValue(data.email || "");
-
-        if (!resolvedEmail && data.emailEncrypted) {
-          try {
-            resolvedEmail = normalizeEmailValue(await decryptText(data.emailEncrypted));
-          } catch {
-            resolvedEmail = "";
-          }
-        }
-
-        return { data, resolvedEmail };
-      })
-    );
-    const legacyMatch = legacyDocs.find((entry) => entry.resolvedEmail === normalizedEmail);
-    userData = legacyMatch ? legacyMatch.data : null;
-  }
+  const userData = snapshot.empty ? null : snapshot.docs[0].data();
 
   if (!userData) {
     throw new AppError("Email is not registered in the system", 404);

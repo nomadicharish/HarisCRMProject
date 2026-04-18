@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import { getCached, invalidateCache } from "../services/cachedApi";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
@@ -75,15 +76,29 @@ function ApplicantPayments() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [userRes, applicantRes, summaryRes] = await Promise.all([
-        API.get("/auth/me"),
-        API.get(`/applicants/${id}`),
-        API.get(`/applicants/${id}/payments/summary`)
+      const [userRes, applicantRes, summaryRes] = await Promise.allSettled([
+        getCached("/auth/me", { ttlMs: 120000 }),
+        getCached(`/applicants/${id}`, { ttlMs: 15000 }),
+        getCached(`/applicants/${id}/payments/summary`, { ttlMs: 10000 })
       ]);
 
-      setUser(userRes.data || null);
-      setApplicant(applicantRes.data || null);
-      setPaymentSummary(summaryRes.data || null);
+      if (userRes.status === "fulfilled") {
+        setUser(userRes.value || null);
+      } else if (userRes.reason?.response?.status === 429) {
+        console.warn("auth/me rate limited. Using last known user state.");
+      }
+
+      if (applicantRes.status === "fulfilled") {
+        setApplicant(applicantRes.value || null);
+      } else {
+        throw applicantRes.reason;
+      }
+
+      if (summaryRes.status === "fulfilled") {
+        setPaymentSummary(summaryRes.value || null);
+      } else {
+        throw summaryRes.reason;
+      }
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to load payment details");
@@ -133,6 +148,42 @@ function ApplicantPayments() {
       return;
     }
 
+    const previousSummary = paymentSummary;
+    const previousForm = form;
+    const optimisticDate = form.paidDate ? new Date(form.paidDate).getTime() : Date.now();
+    const optimisticEntry = {
+      id: `temp-${Date.now()}`,
+      type: "APPLICANT",
+      amount,
+      currency: "INR",
+      paidDate: optimisticDate,
+      paymentMode: form.paymentMode,
+      note: form.note
+    };
+
+    const nextPaidInr = Number(applicantPayment.paidInr || 0) + amount;
+    const nextPendingInr = Math.max(0, Number(applicantPayment.pendingInr || 0) - amount);
+    const nextInstallmentCount = Number(applicantPayment.installmentCount || 0) + 1;
+    const nextRemainingInstallments = Math.max(0, Number(applicantPayment.remainingInstallments || 0) - 1);
+
+    setPaymentSummary((prev) => {
+      if (!prev) return prev;
+      const prevHistory = Array.isArray(prev?.applicant?.history) ? prev.applicant.history : [];
+      return {
+        ...prev,
+        applicant: {
+          ...(prev.applicant || {}),
+          paidInr: nextPaidInr,
+          paid: nextPaidInr,
+          pendingInr: nextPendingInr,
+          pending: nextPendingInr,
+          installmentCount: nextInstallmentCount,
+          remainingInstallments: nextRemainingInstallments,
+          history: [optimisticEntry, ...prevHistory]
+        }
+      };
+    });
+
     try {
       setSaving(true);
       await API.post(`/applicants/${id}/payments`, {
@@ -145,15 +196,21 @@ function ApplicantPayments() {
       });
 
       setShowAddPaymentModal(false);
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache("/auth/me");
+      invalidateCache(`/applicants/${id}/payments/summary`);
+      invalidateCache("/applicants");
       setForm({
         amount: "",
         paidDate: new Date().toISOString().slice(0, 10),
         paymentMode: "Check",
         note: ""
       });
-      await loadData();
+      loadData();
     } catch (error) {
       console.error(error);
+      setPaymentSummary(previousSummary);
+      setForm(previousForm);
       toast.error(error?.response?.data?.message || "Failed to add payment");
     } finally {
       setSaving(false);

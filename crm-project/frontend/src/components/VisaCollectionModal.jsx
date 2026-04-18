@@ -273,7 +273,7 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
 
                 <div className="contractActionRow">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveCollection}>
-                    {savingCollection ? "Saving..." : visaCollection ? "Update Visa Collection" : "Save Visa Collection"}
+                    {savingCollection ? "Saving..." : visaCollection ? "Update Visa Collection" : "Add Visa Collection"}
                   </button>
                   {canApprove ? (
                     <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApprove}>

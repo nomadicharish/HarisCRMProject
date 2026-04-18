@@ -1,0 +1,177 @@
+openapi: 3.0.3
+info:
+  title: CRM Backend API
+  version: 1.0.0
+  description: Baseline OpenAPI contract for key CRM endpoints.
+servers:
+  - url: http://localhost:3000/api
+tags:
+  - name: Auth
+  - name: Applicants
+  - name: Entities
+  - name: Dashboard
+  - name: Agents
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        message:
+          type: string
+paths:
+  /auth/me:
+    get:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      summary: Get current authenticated user profile
+      responses:
+        "200":
+          description: User profile
+        "401":
+          description: Unauthorized
+  /auth/settings:
+    get:
+      tags: [Auth]
+      security: [{ bearerAuth: [] }]
+      summary: Get authenticated user settings
+      responses:
+        "200":
+          description: Settings payload
+        "401":
+          description: Unauthorized
+  /applicants:
+    get:
+      tags: [Applicants]
+      security: [{ bearerAuth: [] }]
+      summary: List applicants with optional pagination and filters
+      parameters:
+        - in: query
+          name: paginated
+          schema: { type: boolean }
+        - in: query
+          name: lite
+          schema: { type: boolean }
+        - in: query
+          name: page
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 100 }
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: type
+          schema: { type: string, description: "Comma-separated workflow types" }
+        - in: query
+          name: country
+          schema: { type: string, description: "Comma-separated country ids" }
+        - in: query
+          name: company
+          schema: { type: string, description: "Comma-separated company ids" }
+        - in: query
+          name: agency
+          schema: { type: string, description: "Comma-separated agency ids" }
+      responses:
+        "200":
+          description: Applicants array or paginated response
+        "401":
+          description: Unauthorized
+  /applicants/{id}:
+    get:
+      tags: [Applicants]
+      security: [{ bearerAuth: [] }]
+      summary: Get applicant by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Applicant details
+        "404":
+          description: Applicant not found
+  /applicants/{id}/workflow-bundle:
+    get:
+      tags: [Applicants]
+      security: [{ bearerAuth: [] }]
+      summary: Get applicant workflow aggregate
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Workflow bundle
+  /countries:
+    get:
+      tags: [Entities]
+      security: [{ bearerAuth: [] }]
+      summary: List countries
+      responses:
+        "200":
+          description: Country list
+  /companies:
+    get:
+      tags: [Entities]
+      security: [{ bearerAuth: [] }]
+      summary: List companies
+      responses:
+        "200":
+          description: Company list
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      security: [{ bearerAuth: [] }]
+      summary: Dashboard summary
+      responses:
+        "200":
+          description: Dashboard metrics
+  /agents/jobs:
+    post:
+      tags: [Agents]
+      security: [{ bearerAuth: [] }]
+      summary: Enqueue a future agent job
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                payload:
+                  type: object
+      responses:
+        "202":
+          description: Job accepted
+    get:
+      tags: [Agents]
+      security: [{ bearerAuth: [] }]
+      summary: List queued jobs
+      responses:
+        "200":
+          description: Job list
+  /agents/jobs/{jobId}:
+    get:
+      tags: [Agents]
+      security: [{ bearerAuth: [] }]
+      summary: Get queued job details
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Job details
+        "404":
+          description: Job not found

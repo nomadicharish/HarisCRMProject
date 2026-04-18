@@ -5,6 +5,7 @@ const { noStore } = require("../middleware/noStore");
 const allowRoles = require("../middleware/roleMiddleware");
 const { validate } = require("../middleware/validate");
 const authController = require("../controllers/authController");
+const { createAuthRateLimiter } = require("../config/security");
 const {
   changePasswordSchema,
   checkEmailSchema,
@@ -15,7 +16,7 @@ const {
 const router = express.Router();
 
 router.get("/me", noStore, verifyToken, asyncHandler(authController.getCurrentUser));
-router.post("/check-email", noStore, validate(checkEmailSchema), asyncHandler(authController.checkEmail));
+router.post("/check-email", noStore, createAuthRateLimiter(), validate(checkEmailSchema), asyncHandler(authController.checkEmail));
 router.post("/change-password", noStore, verifyToken, validate(changePasswordSchema), asyncHandler(authController.changePassword));
 router.get("/settings", noStore, verifyToken, asyncHandler(authController.getSettings));
 router.patch("/settings", noStore, verifyToken, validate(updateSettingsSchema), asyncHandler(authController.updateSettings));

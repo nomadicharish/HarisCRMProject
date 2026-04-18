@@ -1,17 +1,32 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import CountryManagerModal from "../components/dashboard/CountryManagerModal";
 import DashboardTopbar from "../components/common/DashboardTopbar";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import EntityFormModal from "../components/dashboard/EntityFormModal";
-import API from "../services/api";
+import ApplicantsTable from "../components/dashboard/ApplicantsTable";
+import CompaniesTable from "../components/dashboard/CompaniesTable";
+import EmployersTable from "../components/dashboard/EmployersTable";
+import AgenciesTable from "../components/dashboard/AgenciesTable";
+import DashboardFiltersSidebar from "../components/dashboard/DashboardFiltersSidebar";
+import DashboardResultsHeader from "../components/dashboard/DashboardResultsHeader";
+import { getCached, hasFreshCache, invalidateCache } from "../services/cachedApi";
 import CreateApplicants from "./CreateApplicants";
 import "../styles/applicantsDashboard.css";
 
-const SEARCH_ICON_SRC = "/search.png";
+const SEARCH_ICON_PNG = "/searchfilter.png";
+const SEARCH_ICON_WEBP = "/searchfilter.webp";
 const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
+const SEARCH_DEBOUNCE_MS = 300;
+const pendingNumberFormatter = new Intl.NumberFormat("en-IN", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0
+});
+const euroNumberFormatter = new Intl.NumberFormat("en-IN", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0
+});
 const TAB_CONFIG = {
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
   companies: { label: "Companies", actionLabel: "Add Company" },
@@ -20,15 +35,12 @@ const TAB_CONFIG = {
 };
 
 function formatPendingAmount(value) {
-  return `\u20b9${Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0
-  })}`;
+  return `\u20b9${pendingNumberFormatter.format(Number(value || 0))}`;
 }
 
 function formatEuroAmount(value) {
   const amount = Number(value || 0);
-  return amount > 0 ? `EUR ${amount.toLocaleString("en-IN")}` : "-";
+  return amount > 0 ? `EUR ${euroNumberFormatter.format(amount)}` : "-";
 }
 
 function normalizeText(value) {
@@ -50,69 +62,51 @@ function parseDate(value) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function FilterSection({ title, items, selectedValues, onToggle, visible = true }) {
-  if (!visible || !items.length) return null;
-
-  return (
-    <div className="dashboardFilterSection">
-      <div className="dashboardFilterTitle">{title}</div>
-
-      <div className="dashboardFilterList">
-        {items.map((item) => {
-          const checked = selectedValues.includes(item.value);
-          return (
-            <label key={item.value} className="dashboardFilterOption">
-              <input
-                type="checkbox"
-                checked={checked}
-                onChange={() => onToggle(item.value)}
-              />
-              <span className="dashboardFilterOptionLabel">{item.label}</span>
-              <span className="dashboardFilterCount">{item.count}</span>
-            </label>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function formatContactNumber(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "-";
-
-  try {
-    const phoneNumber = parsePhoneNumberFromString(raw.startsWith("+") ? raw : `+${raw}`);
-    if (!phoneNumber) return raw;
-    return `+${phoneNumber.countryCallingCode}-${phoneNumber.nationalNumber}`;
-  } catch {
-    return raw;
-  }
-}
-
 function ApplicantsDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const searchParamsKey = searchParams.toString();
   const [user, setUser] = useState(null);
   const [applicants, setApplicants] = useState([]);
   const [countries, setCountries] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [employers, setEmployers] = useState([]);
   const [agencies, setAgencies] = useState([]);
+  const [applicantsPagination, setApplicantsPagination] = useState({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    totalPages: 1
+  });
+  const [entityPagination, setEntityPagination] = useState({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    totalPages: 1
+  });
   const [loading, setLoading] = useState(true);
   const [showAddApplicant, setShowAddApplicant] = useState(false);
   const [entityModalType, setEntityModalType] = useState("");
   const [entityEditData, setEntityEditData] = useState(null);
   const [showCountryManager, setShowCountryManager] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const isSuperUser = user?.role === "SUPER_USER";
+  const isEmployer = user?.role === "EMPLOYER";
+  const isAgency = user?.role === "AGENCY";
 
   const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : "applicants";
   const searchText = searchParams.get("q") || "";
-  const applicantTypes = getMultiParam(searchParams, "type");
-  const countryIds = getMultiParam(searchParams, "country");
-  const companyIds = getMultiParam(searchParams, "company");
-  const agencyIds = getMultiParam(searchParams, "agency");
+  const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParamsKey]);
+  const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParamsKey]);
+  const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParamsKey]);
+  const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParamsKey]);
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
+
+  useEffect(() => {
+    setSearchInput(searchText);
+  }, [searchText]);
 
   const updateFilters = useCallback(
     (updates) => {
@@ -136,6 +130,10 @@ function ApplicantsDashboard() {
         next.delete("page");
       }
 
+      if (next.toString() === searchParams.toString()) {
+        return;
+      }
+
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams]
@@ -143,36 +141,152 @@ function ApplicantsDashboard() {
 
   const loadDashboardData = useCallback(async () => {
     try {
-      setLoading(true);
-      const [userRes, applicantsRes, countriesRes, companiesRes, employersRes, agenciesRes] = await Promise.all([
-        API.get("/auth/me"),
-        API.get("/applicants"),
-        API.get("/countries"),
-        API.get("/companies"),
-        API.get("/employers"),
-        API.get("/agencies")
+      const applicantsParams = {
+        lite: "true",
+        paginated: "true",
+        page: currentPage,
+        limit: PAGE_SIZE,
+        q: searchText || "",
+        type: applicantTypes.join(","),
+        country: countryIds.join(","),
+        company: companyIds.join(","),
+        agency: agencyIds.join(",")
+      };
+      const entityParams = {
+        paginated: "true",
+        page: currentPage,
+        limit: PAGE_SIZE,
+        q: searchText || "",
+        country: countryIds.join(","),
+        company: companyIds.join(","),
+        sortBy: "createdAt",
+        sortOrder: "desc"
+      };
+
+      const hasBootstrapCache =
+        hasFreshCache("/auth/me") &&
+        hasFreshCache("/countries") &&
+        hasFreshCache("/applicants", { params: applicantsParams });
+
+      setLoading(!hasBootstrapCache);
+      setIsRefreshing(hasBootstrapCache);
+
+      const [userData, countriesData, applicantsData] = await Promise.all([
+        getCached("/auth/me", { ttlMs: 120000 }),
+        getCached("/countries", { ttlMs: 120000 }),
+        getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
       ]);
 
-      setUser(userRes.data || null);
-      setApplicants(Array.isArray(applicantsRes.data) ? applicantsRes.data : []);
-      setCountries(Array.isArray(countriesRes.data) ? countriesRes.data : []);
-      setCompanies(Array.isArray(companiesRes.data) ? companiesRes.data : []);
-      setEmployers(Array.isArray(employersRes.data) ? employersRes.data : []);
-      setAgencies(Array.isArray(agenciesRes.data) ? agenciesRes.data : []);
+      setUser(userData || null);
+      setCountries(Array.isArray(countriesData) ? countriesData : []);
+      const normalizedApplicants = Array.isArray(applicantsData)
+        ? applicantsData
+        : Array.isArray(applicantsData?.items)
+          ? applicantsData.items
+          : [];
+      setApplicants(normalizedApplicants);
+      setApplicantsPagination({
+        page: Number(applicantsData?.pagination?.page || currentPage),
+        limit: Number(applicantsData?.pagination?.limit || PAGE_SIZE),
+        total: Number(applicantsData?.pagination?.total || normalizedApplicants.length),
+        totalPages: Number(applicantsData?.pagination?.totalPages || 1)
+      });
+
+      if (activeTab === "companies") {
+        const companiesData = await getCached("/companies", {
+          params: {
+            paginated: "true",
+            page: currentPage,
+            limit: PAGE_SIZE,
+            q: searchText || "",
+            countryId: countryIds[0] || "",
+            company: companyIds.join(","),
+            sortBy: "createdAt",
+            sortOrder: "desc"
+          },
+          ttlMs: 30000
+        });
+        const normalizedCompanies = Array.isArray(companiesData)
+          ? companiesData
+          : Array.isArray(companiesData?.items)
+            ? companiesData.items
+            : [];
+        setCompanies(normalizedCompanies);
+        setEntityPagination({
+          page: Number(companiesData?.pagination?.page || currentPage),
+          limit: Number(companiesData?.pagination?.limit || PAGE_SIZE),
+          total: Number(companiesData?.pagination?.total || normalizedCompanies.length),
+          totalPages: Number(companiesData?.pagination?.totalPages || 1)
+        });
+        const employersData = await getCached("/employers", { params: { paginated: "false" }, ttlMs: 60000 });
+        setEmployers(Array.isArray(employersData) ? employersData : []);
+      } else if (activeTab === "employers") {
+        const [companiesData, employersData] = await Promise.all([
+          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
+          getCached("/employers", { params: entityParams, ttlMs: 30000 })
+        ]);
+        setCompanies(Array.isArray(companiesData) ? companiesData : []);
+        const normalizedEmployers = Array.isArray(employersData)
+          ? employersData
+          : Array.isArray(employersData?.items)
+            ? employersData.items
+            : [];
+        setEmployers(normalizedEmployers);
+        setEntityPagination({
+          page: Number(employersData?.pagination?.page || currentPage),
+          limit: Number(employersData?.pagination?.limit || PAGE_SIZE),
+          total: Number(employersData?.pagination?.total || normalizedEmployers.length),
+          totalPages: Number(employersData?.pagination?.totalPages || 1)
+        });
+      } else if (activeTab === "agencies") {
+        const [companiesData, agenciesData] = await Promise.all([
+          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
+          getCached("/agencies", { params: entityParams, ttlMs: 30000 })
+        ]);
+        setCompanies(Array.isArray(companiesData) ? companiesData : []);
+        const normalizedAgencies = Array.isArray(agenciesData)
+          ? agenciesData
+          : Array.isArray(agenciesData?.items)
+            ? agenciesData.items
+            : [];
+        setAgencies(normalizedAgencies);
+        setEntityPagination({
+          page: Number(agenciesData?.pagination?.page || currentPage),
+          limit: Number(agenciesData?.pagination?.limit || PAGE_SIZE),
+          total: Number(agenciesData?.pagination?.total || normalizedAgencies.length),
+          totalPages: Number(agenciesData?.pagination?.totalPages || 1)
+        });
+      } else {
+        const [companiesData, agenciesData] = await Promise.all([
+          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
+          isSuperUser ? getCached("/agencies", { params: { paginated: "false" }, ttlMs: 30000 }) : Promise.resolve([])
+        ]);
+        setCompanies(Array.isArray(companiesData) ? companiesData : []);
+        setAgencies(Array.isArray(agenciesData) ? agenciesData : []);
+      }
+
+      setIsRefreshing(false);
     } catch (error) {
       console.error(error);
+      setIsRefreshing(false);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [
+    activeTab,
+    agencyIds,
+    applicantTypes,
+    companyIds,
+    countryIds,
+    currentPage,
+    isSuperUser,
+    searchText
+  ]);
 
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData, refreshKey]);
 
-  const isSuperUser = user?.role === "SUPER_USER";
-  const isEmployer = user?.role === "EMPLOYER";
-  const isAgency = user?.role === "AGENCY";
   const countryMap = useMemo(
     () => Object.fromEntries(countries.map((country) => [country.id, country.name])),
     [countries]
@@ -210,57 +324,10 @@ function ApplicantsDashboard() {
     [updateFilters]
   );
 
-  const filteredApplicants = useMemo(() => {
-    return applicants.filter((applicant) => {
-      const fullName =
-        applicant.fullName ||
-        [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim();
-
-      if (searchText && !normalizeText(fullName).includes(normalizeText(searchText))) {
-        return false;
-      }
-
-      if (applicantTypes.length) {
-        const matchesApplicantType = applicantTypes.some((type) => {
-          if (type === "attention_required") return Boolean(applicant.attentionRequired);
-          return applicant.workflowStatus === type;
-        });
-
-        if (!matchesApplicantType) {
-          return false;
-        }
-      }
-
-      if (countryIds.length && !countryIds.includes(applicant.countryId)) {
-        return false;
-      }
-
-      if (companyIds.length && !companyIds.includes(applicant.companyId)) {
-        return false;
-      }
-
-      if (agencyIds.length && !agencyIds.includes(applicant.agencyId)) {
-        return false;
-      }
-
-      return true;
-    });
-  }, [agencyIds, applicantTypes, applicants, companyIds, countryIds, searchText]);
+  const filteredApplicants = useMemo(() => applicants, [applicants]);
 
   const companyRows = useMemo(() => {
-    return companies
-      .filter((company) => {
-        if (searchText && !normalizeText(company.name).includes(normalizeText(searchText))) {
-          return false;
-        }
-
-        if (countryIds.length && !countryIds.includes(company.countryId)) {
-          return false;
-        }
-
-        return true;
-      })
-      .map((company) => ({
+    return companies.map((company) => ({
         ...company,
         countryName: countryMap[company.countryId] || "-",
         employerNames: (company.employerIds || [])
@@ -268,44 +335,13 @@ function ApplicantsDashboard() {
           .filter(Boolean)
           .join(", ")
       }));
-  }, [companies, countryIds, countryMap, employerMap, searchText]);
+  }, [companies, countryMap, employerMap]);
 
   const employerRows = useMemo(() => {
-    return employers.filter((employer) => {
-      const matchesSearch =
-        !searchText ||
-        [employer.name, employer.email, companyMap[employer.companyId]?.name]
-          .filter(Boolean)
-          .some((value) => normalizeText(value).includes(normalizeText(searchText)));
+    return employers;
+  }, [employers]);
 
-      if (!matchesSearch) return false;
-      if (countryIds.length && !countryIds.includes(employer.countryId)) return false;
-      if (companyIds.length && !companyIds.includes(employer.companyId)) return false;
-
-      return true;
-    });
-  }, [companyIds, companyMap, countryIds, employers, searchText]);
-
-  const agencyRows = useMemo(() => {
-    return agencies.filter((agency) => {
-      const agencyCompanyIds = (agency.assignedCompanyIds || []).filter(Boolean);
-      const agencyCountryIds = agencyCompanyIds
-        .map((companyId) => companyMap[companyId]?.countryId)
-        .filter(Boolean);
-
-      const matchesSearch =
-        !searchText ||
-        [agency.name, agency.email, ...agencyCompanyIds.map((companyId) => companyMap[companyId]?.name)]
-          .filter(Boolean)
-          .some((value) => normalizeText(value).includes(normalizeText(searchText)));
-
-      if (!matchesSearch) return false;
-      if (countryIds.length && !countryIds.some((countryId) => agencyCountryIds.includes(countryId))) return false;
-      if (companyIds.length && !companyIds.some((companyId) => agencyCompanyIds.includes(companyId))) return false;
-
-      return true;
-    });
-  }, [agencies, companyIds, companyMap, countryIds, searchText]);
+  const agencyRows = useMemo(() => agencies, [agencies]);
 
   const sortedApplicants = useMemo(() => {
     return [...filteredApplicants].sort((a, b) => parseDate(b.createdAt) - parseDate(a.createdAt));
@@ -331,8 +367,10 @@ function ApplicantsDashboard() {
     return sortedApplicants;
   }, [activeTab, sortedAgencyRows, sortedApplicants, sortedCompanyRows, sortedEmployerRows]);
 
-  const totalRows = currentRows.length;
-  const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+  const totalRows = activeTab === "applicants" ? applicantsPagination.total : entityPagination.total;
+  const totalPages = activeTab === "applicants"
+    ? Math.max(1, applicantsPagination.totalPages)
+    : Math.max(1, entityPagination.totalPages);
   const safePage = Math.min(currentPage, totalPages);
 
   useEffect(() => {
@@ -342,9 +380,8 @@ function ApplicantsDashboard() {
   }, [currentPage, safePage, updateFilters]);
 
   const paginatedRows = useMemo(() => {
-    const startIndex = (safePage - 1) * PAGE_SIZE;
-    return currentRows.slice(startIndex, startIndex + PAGE_SIZE);
-  }, [currentRows, safePage]);
+    return currentRows;
+  }, [activeTab, currentRows, safePage]);
 
   const applicantTypeOptions = useMemo(() => {
     const options = [
@@ -612,6 +649,114 @@ function ApplicantsDashboard() {
     );
   };
 
+  const applyOptimisticEntityChange = useCallback(
+    (change) => {
+      if (!change?.type || !change?.operation) return false;
+      const { type, operation, id, payload = {} } = change;
+
+      if (type === "company") {
+        if (operation === "delete") {
+          setCompanies((prev) => prev.filter((item) => item.id !== id));
+          return true;
+        }
+        if (operation === "update") {
+          setCompanies((prev) => prev.map((item) => (item.id === id ? { ...item, ...payload } : item)));
+          return true;
+        }
+        if (operation === "create" && id) {
+          setCompanies((prev) => [{ id, ...payload, createdAt: Date.now() }, ...prev]);
+          return true;
+        }
+      }
+
+      if (type === "employer") {
+        if (operation === "delete") {
+          setEmployers((prev) => prev.filter((item) => item.id !== id));
+          return true;
+        }
+        if (operation === "update") {
+          setEmployers((prev) => prev.map((item) => (item.id === id ? { ...item, ...payload } : item)));
+          return true;
+        }
+        if (operation === "create" && id) {
+          setEmployers((prev) => [{ id, ...payload, createdAt: Date.now() }, ...prev]);
+          return true;
+        }
+      }
+
+      if (type === "agency") {
+        if (operation === "delete") {
+          setAgencies((prev) => prev.filter((item) => item.id !== id));
+          return true;
+        }
+        if (operation === "update") {
+          setAgencies((prev) => prev.map((item) => (item.id === id ? { ...item, ...payload } : item)));
+          return true;
+        }
+        if (operation === "create" && id) {
+          setAgencies((prev) => [{ id, ...payload, createdAt: Date.now() }, ...prev]);
+          return true;
+        }
+      }
+
+      return false;
+    },
+    []
+  );
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchInput !== searchText) {
+        updateFilters({ q: searchInput, page: 1 });
+      }
+    }, SEARCH_DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [searchInput, searchText, updateFilters]);
+
+  const applyOptimisticApplicantChange = useCallback((change) => {
+    if (!change?.operation) return false;
+    const { operation, id, payload = {} } = change;
+
+    if (operation === "update" && id) {
+      setApplicants((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                ...payload,
+                fullName: [payload.firstName || item.firstName, payload.lastName || item.lastName]
+                  .filter(Boolean)
+                  .join(" ")
+                  .trim()
+              }
+            : item
+        )
+      );
+      return true;
+    }
+
+    if (operation === "create" && id) {
+      const createdApplicant = {
+        id,
+        ...payload,
+        firstName: payload.firstName || "",
+        lastName: payload.lastName || "",
+        fullName: [payload.firstName, payload.lastName].filter(Boolean).join(" ").trim(),
+        stage: 1,
+        approvalStatus: "pending",
+        workflowStatus: "in_progress",
+        statusText: "Candidate pending for approval",
+        createdAt: Date.now(),
+        payment: { pendingInr: Number(payload.amountPaid || 0) > 0 ? 0 : 1 }
+      };
+      setApplicants((prev) => [createdApplicant, ...prev]);
+      return true;
+    }
+
+    return false;
+  }, []);
+
   if (loading) {
     return <div style={{ padding: "40px" }}>Loading...</div>;
   }
@@ -627,349 +772,86 @@ function ApplicantsDashboard() {
       />
 
       <div className="dashboardContent">
-        <aside className="dashboardSidebar">
-          <div className="dashboardFilterCard">
-            <div className="dashboardSearchWrap">
-              <img src={SEARCH_ICON_SRC} alt="" className="dashboardSearchIcon" />
-              <input
-                type="text"
-                className="dashboardSearchInput"
-                placeholder={searchPlaceholder}
-                value={searchText}
-                onChange={(event) => updateFilters({ q: event.target.value, page: 1 })}
-              />
-            </div>
-
-            <div className="dashboardFilterHeader">
-              <span className="dashboardFilterHeading">Filter</span>
-              <button type="button" className="dashboardResetBtn" onClick={resetFilters}>
-                Reset
-              </button>
-            </div>
-
-            <FilterSection
-              title="Applicant Type"
-              items={applicantTypeOptions}
-              selectedValues={applicantTypes}
-              onToggle={(value) => toggleFilterValue("type", applicantTypes, value)}
-              visible={activeTab === "applicants"}
-            />
-
-            <FilterSection
-              title="Countries"
-              items={
-                activeTab === "companies"
-                  ? companyCountryOptions
-                  : activeTab === "employers"
-                    ? employerCountryOptions
-                    : activeTab === "agencies"
-                      ? agencyCountryOptions
-                      : countryOptions
-              }
-              selectedValues={countryIds}
-              onToggle={(value) => toggleFilterValue("country", countryIds, value)}
-            />
-
-            <FilterSection
-              title="Companies"
-              items={
-                activeTab === "employers"
-                  ? employerCompanyOptions
-                  : activeTab === "agencies"
-                    ? agencyCompanyOptions
-                    : companyOptions
-              }
-              selectedValues={companyIds}
-              onToggle={(value) => toggleFilterValue("company", companyIds, value)}
-              visible={activeTab !== "companies"}
-            />
-
-            <FilterSection
-              title="Agencies"
-              items={agencyOptions}
-              selectedValues={agencyIds}
-              onToggle={(value) => toggleFilterValue("agency", agencyIds, value)}
-              visible={activeTab === "applicants" && isSuperUser}
-            />
-          </div>
-        </aside>
+        <DashboardFiltersSidebar
+          searchIconWebp={SEARCH_ICON_WEBP}
+          searchIconPng={SEARCH_ICON_PNG}
+          searchPlaceholder={searchPlaceholder}
+          searchInput={searchInput}
+          onSearchInputChange={setSearchInput}
+          onResetFilters={resetFilters}
+          activeTab={activeTab}
+          applicantTypeOptions={applicantTypeOptions}
+          applicantTypes={applicantTypes}
+          countryIds={countryIds}
+          companyIds={companyIds}
+          agencyIds={agencyIds}
+          companyCountryOptions={companyCountryOptions}
+          employerCountryOptions={employerCountryOptions}
+          agencyCountryOptions={agencyCountryOptions}
+          countryOptions={countryOptions}
+          employerCompanyOptions={employerCompanyOptions}
+          agencyCompanyOptions={agencyCompanyOptions}
+          companyOptions={companyOptions}
+          agencyOptions={agencyOptions}
+          isSuperUser={isSuperUser}
+          onToggleFilterValue={toggleFilterValue}
+        />
 
         <main className="dashboardMain">
-          <div className="dashboardResultsHeader">
-            <div>
-              <div className="dashboardResultsCount">{headerText}</div>
-              {activeFilterChips.length ? (
-                <div className="dashboardChipRow">
-                  {activeFilterChips.map((chip) => (
-                    <button
-                      key={`${chip.key}-${chip.value}`}
-                      type="button"
-                      className="dashboardChip"
-                      onClick={() =>
-                        toggleFilterValue(
-                          chip.key,
-                          chip.key === "type"
-                            ? applicantTypes
-                            : chip.key === "country"
-                              ? countryIds
-                              : chip.key === "company"
-                                ? companyIds
-                                : agencyIds,
-                          chip.value
-                        )
-                      }
-                    >
-                      {chip.label} x
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            {showHeaderAction ? (
-              <div className="dashboardActionGroup">
-                {activeTab === "companies" && isSuperUser ? (
-                  <button
-                    type="button"
-                    className="dashboardPrimaryBtn"
-                    onClick={() => setShowCountryManager(true)}
-                  >
-                    Add/Update Country
-                  </button>
-                ) : null}
-
-                <button type="button" className="dashboardPrimaryBtn" onClick={openCurrentAction}>
-                  {currentActionLabel}
-                </button>
-              </div>
-            ) : null}
-          </div>
+          <DashboardResultsHeader
+            headerText={headerText}
+            isRefreshing={isRefreshing}
+            activeFilterChips={activeFilterChips}
+            applicantTypes={applicantTypes}
+            countryIds={countryIds}
+            companyIds={companyIds}
+            agencyIds={agencyIds}
+            onToggleFilterValue={toggleFilterValue}
+            showHeaderAction={showHeaderAction}
+            activeTab={activeTab}
+            isSuperUser={isSuperUser}
+            onShowCountryManager={() => setShowCountryManager(true)}
+            onOpenCurrentAction={openCurrentAction}
+            currentActionLabel={currentActionLabel}
+          />
 
           <div className="dashboardTableCard">
             {activeTab === "applicants" ? (
-              <table className="dashboardTable">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Status</th>
-                    <th>Company</th>
-                    {!isEmployer ? <th>Payment Status</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={isEmployer ? 3 : 4} className="dashboardEmptyState">
-                        No applicants found for the selected filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedRows.map((applicant) => {
-                      const fullName =
-                        applicant.fullName ||
-                        [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
-                        "Applicant";
-
-                      return (
-                        <tr
-                          key={applicant.id}
-                          className="dashboardTableRow"
-                          onClick={() => handleOpenApplicant(applicant.id)}
-                        >
-                          <td>
-                            <div className="dashboardNameCell">
-                              <span className="dashboardNameText">{fullName}</span>
-                              {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
-                            </div>
-                          </td>
-                          <td>
-                            <span className="dashboardStatusPill">
-                              {applicant.statusText || applicant.stageLabel || "Candidate Created"}
-                            </span>
-                          </td>
-                          <td>{applicant.companyName || "-"}</td>
-                          {!isEmployer ? (
-                            <td>
-                              {applicant.payment?.pendingInr > 0
-                                ? `Pending ${formatPendingAmount(applicant.payment.pendingInr)}`
-                                : "Completed"}
-                            </td>
-                          ) : null}
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+              <ApplicantsTable
+                rows={paginatedRows}
+                isEmployer={isEmployer}
+                onOpenApplicant={handleOpenApplicant}
+                formatPendingAmount={formatPendingAmount}
+              />
             ) : null}
 
             {activeTab === "companies" ? (
-              <table className="dashboardTable">
-                <thead>
-                  <tr>
-                    <th>Company Name</th>
-                    <th>Country</th>
-                    {!isSuperUser ? <th>Applicants</th> : null}
-                    {isSuperUser ? <th>Employer POC</th> : null}
-                    {isSuperUser ? <th>Payment / Candidate</th> : null}
-                    {isSuperUser ? <th>Applicants</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={isSuperUser ? 5 : 3} className="dashboardEmptyState">
-                        No companies found for the selected filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedRows.map((company) => (
-                      <tr
-                        key={company.id}
-                        className={isSuperUser ? "dashboardTableRow" : ""}
-                        onClick={isSuperUser ? () => navigate(`/companies/${company.id}/edit`) : undefined}
-                      >
-                        <td>
-                          {isSuperUser ? (
-                            <button
-                              type="button"
-                              className="dashboardInlineLinkBtn dashboardCompanyNameBtn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                navigate(`/companies/${company.id}/edit`);
-                              }}
-                            >
-                              {company.name || "-"}
-                            </button>
-                          ) : (
-                            <span>{company.name || "-"}</span>
-                          )}
-                        </td>
-                        <td>{company.countryName}</td>
-                        {!isSuperUser ? (
-                          <td>
-                            <button
-                              type="button"
-                              className="dashboardInlineLinkBtn dashboardViewApplicantsBtn"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                handleOpenApplicantsForCompany(company.id);
-                              }}
-                            >
-                              View Applicants <img src={RIGHT_ICON_SRC} alt="" className="dashboardInlineIcon" />
-                            </button>
-                          </td>
-                        ) : null}
-                        {isSuperUser ? <td>{company.employerNames || "-"}</td> : null}
-                        {isSuperUser ? <td>{formatEuroAmount(company.companyPaymentPerApplicant)}</td> : null}
-                        {isSuperUser ? (
-                        <td>
-                          <button
-                            type="button"
-                            className="dashboardInlineLinkBtn"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleOpenApplicantsForCompany(company.id);
-                            }}
-                          >
-                            View Applicants <img src={RIGHT_ICON_SRC} alt="" className="dashboardInlineIcon" />
-                          </button>
-                        </td>
-                        ) : null}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              <CompaniesTable
+                rows={paginatedRows}
+                isSuperUser={isSuperUser}
+                rightIconSrc={RIGHT_ICON_SRC}
+                formatEuroAmount={formatEuroAmount}
+                onOpenCompanyEdit={(id) => navigate(`/companies/${id}/edit`)}
+                onOpenApplicantsForCompany={handleOpenApplicantsForCompany}
+              />
             ) : null}
 
             {activeTab === "employers" ? (
-              <table className="dashboardTable">
-                <thead>
-                  <tr>
-                    <th>Employer Name</th>
-                    <th>Company</th>
-                    <th>Country</th>
-                    <th>Contact Number</th>
-                    <th>Email</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="dashboardEmptyState">
-                        No employers found for the selected filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedRows.map((employer) => (
-                      <tr
-                        key={employer.id}
-                        className="dashboardTableRow"
-                        onClick={() => handleOpenEntityModal("employer", employer)}
-                      >
-                        <td>{employer.name || "-"}</td>
-                        <td>{companyMap[employer.companyId]?.name || "-"}</td>
-                        <td>{countryMap[employer.countryId] || "-"}</td>
-                        <td>{formatContactNumber(employer.contactNumber)}</td>
-                        <td>{employer.email || "-"}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+              <EmployersTable
+                rows={paginatedRows}
+                companyMap={companyMap}
+                countryMap={countryMap}
+                onOpenEmployer={(employer) => handleOpenEntityModal("employer", employer)}
+              />
             ) : null}
 
             {activeTab === "agencies" ? (
-              <table className="dashboardTable">
-                <thead>
-                  <tr>
-                    <th>Agency Name</th>
-                    <th>Companies</th>
-                    <th>Country</th>
-                    <th>Contact Number</th>
-                    <th>Email</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedRows.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="dashboardEmptyState">
-                        No agencies found for the selected filters.
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedRows.map((agency) => {
-                      const assignedCompanyNames = (agency.assignedCompanyIds || [])
-                        .map((companyId) => companyMap[companyId]?.name)
-                        .filter(Boolean);
-                      const assignedCountryNames = Array.from(
-                        new Set(
-                          (agency.assignedCompanyIds || [])
-                            .map((companyId) => companyMap[companyId]?.countryId)
-                            .filter(Boolean)
-                            .map((countryId) => countryMap[countryId])
-                            .filter(Boolean)
-                        )
-                      );
-
-                      return (
-                        <tr
-                          key={agency.id}
-                          className="dashboardTableRow"
-                          onClick={() => handleOpenEntityModal("agency", agency)}
-                        >
-                          <td>{agency.name || "-"}</td>
-                          <td>{assignedCompanyNames.length ? assignedCompanyNames.join(", ") : "-"}</td>
-                          <td>{assignedCountryNames.length ? assignedCountryNames.join(", ") : "-"}</td>
-                          <td>{formatContactNumber(agency.contactNumber)}</td>
-                          <td>{agency.email || "-"}</td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+              <AgenciesTable
+                rows={paginatedRows}
+                companyMap={companyMap}
+                countryMap={countryMap}
+                onOpenAgency={(agency) => handleOpenEntityModal("agency", agency)}
+              />
             ) : null}
           </div>
 
@@ -1001,10 +883,15 @@ function ApplicantsDashboard() {
 
       {showAddApplicant ? (
         <CreateApplicants
+          user={user}
           onClose={() => setShowAddApplicant(false)}
-          onSaved={() => {
+          onSaved={(change) => {
             setShowAddApplicant(false);
-            setRefreshKey((value) => value + 1);
+            invalidateCache("/applicants");
+            const applied = applyOptimisticApplicantChange(change);
+            if (!applied) {
+              setRefreshKey((value) => value + 1);
+            }
           }}
         />
       ) : null}
@@ -1020,10 +907,16 @@ function ApplicantsDashboard() {
             setEntityModalType("");
             setEntityEditData(null);
           }}
-          onSaved={async () => {
+          onSaved={async (change) => {
             setEntityModalType("");
             setEntityEditData(null);
-            setRefreshKey((value) => value + 1);
+            invalidateCache("/companies");
+            invalidateCache("/employers");
+            invalidateCache("/agencies");
+            const applied = applyOptimisticEntityChange(change);
+            if (!applied) {
+              setRefreshKey((value) => value + 1);
+            }
           }}
         />
       ) : null}
@@ -1033,6 +926,7 @@ function ApplicantsDashboard() {
           countries={countries}
           onClose={() => setShowCountryManager(false)}
           onSaved={async () => {
+            invalidateCache("/countries");
             setRefreshKey((value) => value + 1);
           }}
         />

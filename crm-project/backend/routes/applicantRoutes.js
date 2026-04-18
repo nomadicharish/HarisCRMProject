@@ -1,15 +1,17 @@
 const express = require("express");
 const router = express.Router();
 
-const applicantController = require("../controllers/applicantController");
+const applicantController = require("../controllers/applicants");
 const { asyncHandler } = require("../lib/asyncHandler");
 const { noStore } = require("../middleware/noStore");
+const { readCache } = require("../middleware/cacheControl");
 const allowRoles = require("../middleware/roleMiddleware");
 const { validate } = require("../middleware/validate");
 const { verifyToken } = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
 const {
   addPaymentSchema,
+  applicantsListQuerySchema,
   applicantDocParamsSchema,
   applicantIdParamsSchema,
   appointmentBodySchema,
@@ -86,10 +88,16 @@ router.patch(
 );
 
 // Get Applicants (List)
-router.get("/", asyncHandler(applicantController.getApplicants));
+router.get("/", readCache(20), validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
 
 // Get Applicant by ID
-router.get("/:id", validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantById));
+router.get("/:id", readCache(20), validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantById));
+router.get(
+  "/:id/workflow-bundle",
+  readCache(15),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getApplicantWorkflowBundle)
+);
 
 // Upload Document
 router.post(
@@ -112,7 +120,7 @@ router.post(
 );
 
 // Get Documents for Applicant
-router.get("/:id/documents", validate(idParamsSchema, "params"), asyncHandler(applicantController.getDocuments));
+router.get("/:id/documents", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getDocuments));
 
 // Reject document (Super User)
 router.patch(
@@ -136,7 +144,7 @@ router.patch(
 router.post("/:id/dispatch", allowRoles("AGENCY"), validate(idParamsSchema, "params"), validate(dispatchBodySchema), asyncHandler(applicantController.addDispatch));
 
 // Get dispatches
-router.get("/:id/dispatch", validate(idParamsSchema, "params"), asyncHandler(applicantController.getDispatches));
+router.get("/:id/dispatch", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getDispatches));
 
 // Upload Contract
 router.post(
@@ -165,12 +173,13 @@ router.post(
 // Get Embassy Appointment
 router.get(
   "/:id/embassy-appointment",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getEmbassyAppointment)
 );
 
 // Get Contract
-router.get("/:id/contract", validate(idParamsSchema, "params"), asyncHandler(applicantController.getContract));
+router.get("/:id/contract", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getContract));
 
 // Add Travel Details
 router.post(
@@ -184,6 +193,7 @@ router.post(
 // Get Travel Details
 router.get(
   "/:id/travel",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getTravelDetails)
 );
@@ -199,6 +209,7 @@ router.post(
 // Get Biometric Slip
 router.get( 
   "/:id/biometric",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getBiometricSlip)
 );
@@ -207,7 +218,7 @@ router.get(
 router.post("/:id/interview", validate(idParamsSchema, "params"), validate(interviewBodySchema), asyncHandler(applicantController.addEmbassyInterview));
 
 // Get Embassy Interview
-router.get("/:id/interview", validate(idParamsSchema, "params"), asyncHandler(applicantController.getEmbassyInterview));
+router.get("/:id/interview", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getEmbassyInterview));
 
 // Approve Embassy Interview
 router.patch("/:id/interview/approve", validate(idParamsSchema, "params"), asyncHandler(applicantController.approveEmbassyInterview));
@@ -224,6 +235,7 @@ router.post(
 // Get Interview Ticket
 router.get(
   "/:id/interview-ticket",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getInterviewTicket)
 );
@@ -239,6 +251,7 @@ router.post(
 // Get Interview Biometric
 router.get(
   "/:id/interview-biometric",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getInterviewBiometric)
 );
@@ -261,6 +274,7 @@ router.patch(
 // Get Visa Collection
 router.get(
   "/:id/visa-collection",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getVisaCollection)
 );
@@ -277,6 +291,7 @@ router.post(
 // Get Visa Travel Details
 router.get(
   "/:id/visa-travel",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getVisaTravel)
 );
@@ -293,6 +308,7 @@ router.post(
 // Get Residence Permit
 router.get(
   "/:id/residence-permit",
+  readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getResidencePermit)
 );

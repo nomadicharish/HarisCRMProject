@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
+import { getCached } from "../services/cachedApi";
 
 function Dashboard() {
   const [data, setData] = useState(null);
@@ -35,11 +36,12 @@ function Dashboard() {
 
     const loadFilters = async () => {
       try {
-        const c = await API.get("/companies");
-        setCompanies(c.data);
-
-        const a = await API.get("/agencies");
-        setAgencies(a.data);
+        const [companiesData, agenciesData] = await Promise.all([
+          getCached("/companies", { ttlMs: 60000 }),
+          getCached("/agencies", { ttlMs: 60000 })
+        ]);
+        setCompanies(companiesData || []);
+        setAgencies(agenciesData || []);
       } catch (err) {
         console.error(err);
       }
@@ -49,8 +51,8 @@ function Dashboard() {
 
     const loadUser = async () => {
       try {
-        const res = await API.get("/auth/me");
-        setUser(res.data);
+        const userData = await getCached("/auth/me", { ttlMs: 120000 });
+        setUser(userData);
       } catch (err) {
         console.error("Failed to load user", err);
       }

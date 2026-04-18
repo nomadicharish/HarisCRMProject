@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import { getCached, invalidateCache } from "../services/cachedApi";
 import "../styles/applicantDocuments.css";
 import {
   getDocumentReviewState,
@@ -197,15 +198,15 @@ function ApplicantDocumentsWorkspace() {
     async function load() {
       try {
         const [userRes, applicantRes, docsRes] = await Promise.all([
-          API.get("/auth/me"),
-          API.get(`/applicants/${id}`),
-          API.get(`/applicants/${id}/documents`)
+          getCached("/auth/me", { ttlMs: 120000 }),
+          getCached(`/applicants/${id}`, { ttlMs: 15000 }),
+          getCached(`/applicants/${id}/documents`, { ttlMs: 10000 })
         ]);
 
         if (cancelled) return;
-        setUser(userRes.data);
-        setApplicant(applicantRes.data);
-        setDocuments(docsRes.data || {});
+        setUser(userRes || null);
+        setApplicant(applicantRes || null);
+        setDocuments(docsRes || {});
       } catch (error) {
         console.error(error);
       } finally {
@@ -279,12 +280,16 @@ function ApplicantDocumentsWorkspace() {
 
     try {
       setSaving(true);
-      for (const [docKey, file] of uploads) {
+      await Promise.all(uploads.map(async ([docKey, file]) => {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("documentType", docKey);
         await API.post(`/applicants/${id}/upload-document`, formData);
-      }
+      }));
+
+      invalidateCache(`/applicants/${id}/documents`);
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache("/applicants");
 
       navigate(`/applicants/${id}`);
     } catch (error) {
@@ -296,17 +301,31 @@ function ApplicantDocumentsWorkspace() {
   };
 
   const handleApprove = async (docKey, versionId) => {
+    const previousDocuments = documents;
+    setDocuments((prev) => {
+      const next = { ...prev };
+      const versions = Array.isArray(next[docKey]) ? [...next[docKey]] : [];
+      const idx = versions.findIndex((version) => version.id === versionId);
+      if (idx >= 0) {
+        versions[idx] = {
+          ...versions[idx],
+          status: "APPROVED",
+          rejectedReason: ""
+        };
+        next[docKey] = versions;
+      }
+      return next;
+    });
+
     try {
       setSaving(true);
       await API.patch(`/applicants/${id}/documents/${docKey}/${versionId}/approve`);
-      const [applicantRes, docsRes] = await Promise.all([
-        API.get(`/applicants/${id}`),
-        API.get(`/applicants/${id}/documents`)
-      ]);
-      setApplicant(applicantRes.data);
-      setDocuments(docsRes.data || {});
+      invalidateCache(`/applicants/${id}/documents`);
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache("/applicants");
     } catch (error) {
       console.error(error);
+      setDocuments(previousDocuments);
       toast.error(error?.response?.data?.message || "Approval failed");
     } finally {
       setSaving(false);
@@ -314,19 +333,33 @@ function ApplicantDocumentsWorkspace() {
   };
 
   const handleReject = async (comment) => {
+    const previousDocuments = documents;
+    const { docKey, versionId } = rejectState;
+    setDocuments((prev) => {
+      const next = { ...prev };
+      const versions = Array.isArray(next[docKey]) ? [...next[docKey]] : [];
+      const idx = versions.findIndex((version) => version.id === versionId);
+      if (idx >= 0) {
+        versions[idx] = {
+          ...versions[idx],
+          status: "REJECTED",
+          rejectedReason: comment
+        };
+        next[docKey] = versions;
+      }
+      return next;
+    });
+    setRejectState({ open: false, docKey: "", versionId: "" });
+
     try {
       setSaving(true);
-      const { docKey, versionId } = rejectState;
       await API.patch(`/applicants/${id}/documents/${docKey}/${versionId}/reject`, { reason: comment });
-      const [applicantRes, docsRes] = await Promise.all([
-        API.get(`/applicants/${id}`),
-        API.get(`/applicants/${id}/documents`)
-      ]);
-      setApplicant(applicantRes.data);
-      setDocuments(docsRes.data || {});
-      setRejectState({ open: false, docKey: "", versionId: "" });
+      invalidateCache(`/applicants/${id}/documents`);
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache("/applicants");
     } catch (error) {
       console.error(error);
+      setDocuments(previousDocuments);
       toast.error(error?.response?.data?.message || "Rejection failed");
     } finally {
       setSaving(false);
