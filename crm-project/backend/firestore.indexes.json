@@ -1,0 +1,54 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "applicants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "agencyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "applicants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "applicants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "agencyId", "order": "ASCENDING" },
+        { "fieldPath": "companyId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "applicants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stage", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "applicants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "stageStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "applicants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "approvalStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

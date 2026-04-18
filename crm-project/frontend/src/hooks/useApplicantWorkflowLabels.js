@@ -135,7 +135,7 @@ function useApplicantWorkflowLabels({
       : docReviewState.rejectedRequired
       ? "Few issues found in the documents. Re-upload the rejected files for admin review."
       : docReviewState.pendingRequired
-      ? "Documents are pending admin approval"
+      ? "Documents pending admin approval"
       : "Complete the document uploading for admin to approve the candidate";
     const documentRowStatus = hasCompletedDocumentStage
       ? "completed"

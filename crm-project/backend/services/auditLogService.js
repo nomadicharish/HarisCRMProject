@@ -1,5 +1,6 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
+const { getRequestContext } = require("../lib/requestContext");
 
 async function logAuditEvent({
   actorId = "",
@@ -8,8 +9,12 @@ async function logAuditEvent({
   entityType = "",
   entityId = "",
   status = "INFO",
+  source = "HUMAN",
+  correlationId = "",
+  idempotencyKey = "",
   metadata = {}
 } = {}) {
+  const requestContext = getRequestContext();
   const payload = {
     actorId: String(actorId || ""),
     actorRole: String(actorRole || ""),
@@ -17,6 +22,11 @@ async function logAuditEvent({
     entityType: String(entityType || ""),
     entityId: String(entityId || ""),
     status: String(status || "INFO"),
+    source: String(source || "HUMAN"),
+    correlationId: String(correlationId || requestContext?.correlationId || ""),
+    idempotencyKey: String(idempotencyKey || ""),
+    requestPath: String(requestContext?.requestPath || ""),
+    method: String(requestContext?.method || ""),
     metadata: metadata && typeof metadata === "object" ? metadata : {},
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   };

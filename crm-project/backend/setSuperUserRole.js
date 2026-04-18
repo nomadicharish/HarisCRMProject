@@ -1,4 +1,5 @@
 const { admin } = require("./config/firebase");
+const { logger } = require("./lib/logger");
 
 const SUPER_USER_UID = "FXLItDg2xzS4wtWs0zpXFywMqcx2";
 
@@ -10,7 +11,10 @@ const SUPER_USER_UID = "FXLItDg2xzS4wtWs0zpXFywMqcx2";
 
     process.exit();
   } catch (error) {
-    console.error("❌ Error setting role:", error);
+    logger.error("Error setting role", {
+      message: error?.message,
+      stack: error?.stack
+    });
     process.exit(1);
   }
 })();

@@ -4,6 +4,12 @@ const { logger } = require("../lib/logger");
 const TOKEN_CACHE_TTL_MS = Number(process.env.AUTH_TOKEN_CACHE_TTL_MS || 15_000);
 const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 30_000);
 const AUTH_USER_CACHE_TTL_MS = Number(process.env.AUTH_USER_CACHE_TTL_MS || 60_000);
+const AUTH_ADMIN_PATH_PREFIXES = String(
+  process.env.AUTH_ADMIN_PATH_PREFIXES || "/api/users/disable,/api/auth/disable-user"
+)
+  .split(",")
+  .map((item) => item.trim())
+  .filter(Boolean);
 
 const tokenCache = new Map();
 const userProfileCache = new Map();
@@ -60,6 +66,11 @@ async function getAuthUserCached(uid) {
   return authUser;
 }
 
+function shouldFetchAuthUser(req) {
+  const requestPath = String(req.originalUrl || req.path || "").split("?")[0];
+  return AUTH_ADMIN_PATH_PREFIXES.some((prefix) => requestPath.startsWith(prefix));
+}
+
 const verifyToken = async (req, res, next) => {
   try {
     if (String(process.env.TEST_BYPASS_AUTH || "").toLowerCase() === "true") {
@@ -82,13 +93,17 @@ const verifyToken = async (req, res, next) => {
 
     const decoded = await decodeTokenCached(token);
 
-    const [userProfile, authUser] = await Promise.all([
-      getUserProfileCached(decoded.uid),
-      getAuthUserCached(decoded.uid)
-    ]);
+    const userProfile = await getUserProfileCached(decoded.uid);
 
-    if (!userProfile?.active || authUser.disabled) {
+    if (!userProfile?.active) {
       return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    if (shouldFetchAuthUser(req)) {
+      const authUser = await getAuthUserCached(decoded.uid);
+      if (authUser?.disabled) {
+        return res.status(401).json({ message: "Unauthorized" });
+      }
     }
 
     const role = decoded.role || userProfile?.role;
@@ -103,6 +118,7 @@ const verifyToken = async (req, res, next) => {
       tokenIssuedAt: decoded.iat || 0,
       agencyId: userProfile?.agencyId || null,
       employerId: userProfile?.employerId || null,
+      agentScopes: Array.isArray(userProfile?.agentScopes) ? userProfile.agentScopes : [],
       forcePasswordReset: Boolean(userProfile?.forcePasswordReset),
       active: Boolean(userProfile?.active)
     };

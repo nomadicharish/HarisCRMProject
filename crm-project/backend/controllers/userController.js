@@ -1,4 +1,5 @@
 const { admin, db } = require("../config/firebase");
+const { logger } = require("../lib/logger");
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
@@ -72,7 +73,10 @@ const createUser = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Create User Error:", error);
+    logger.error("Create User Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return res.status(500).json({ message: error.message });
   }
 };

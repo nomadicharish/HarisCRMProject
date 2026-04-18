@@ -56,10 +56,11 @@ const listCompaniesQuerySchema = z.object({
   paginated: z.preprocess(
     (value) => String(value || "").toLowerCase() === "true",
     z.boolean()
-  ).optional().default(false),
+  ).optional().default(true),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   q: optionalTrimmedString.optional().default(""),
+  fields: optionalTrimmedString.optional().default(""),
   sortBy: z.enum(["name", "createdAt"]).optional().default("createdAt"),
   sortOrder: z.enum(["asc", "desc"]).optional().default("desc")
 });
@@ -68,10 +69,11 @@ const listEmployersQuerySchema = z.object({
   paginated: z.preprocess(
     (value) => String(value || "").toLowerCase() === "true",
     z.boolean()
-  ).optional().default(false),
+  ).optional().default(true),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   q: optionalTrimmedString.optional().default(""),
+  fields: optionalTrimmedString.optional().default(""),
   country: optionalTrimmedString.optional().default(""),
   company: optionalTrimmedString.optional().default(""),
   sortBy: z.enum(["name", "createdAt"]).optional().default("createdAt"),
@@ -82,10 +84,11 @@ const listAgenciesQuerySchema = z.object({
   paginated: z.preprocess(
     (value) => String(value || "").toLowerCase() === "true",
     z.boolean()
-  ).optional().default(false),
+  ).optional().default(true),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   q: optionalTrimmedString.optional().default(""),
+  fields: optionalTrimmedString.optional().default(""),
   country: optionalTrimmedString.optional().default(""),
   company: optionalTrimmedString.optional().default(""),
   sortBy: z.enum(["name", "createdAt"]).optional().default("createdAt"),

@@ -1,6 +1,7 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
 const { AppError } = require("../lib/AppError");
+const { refreshApplicantSummaries } = require("../services/applicantSummaryService");
 
 const DEFAULT_EUR_TO_INR_RATE = 90;
 const FX_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
@@ -8,6 +9,40 @@ let fxRateCache = {
   value: DEFAULT_EUR_TO_INR_RATE,
   fetchedAt: 0
 };
+
+const APPLICANT_LIST_SELECT_FIELDS = [
+  "firstName",
+  "lastName",
+  "fullName",
+  "personalDetails.firstName",
+  "personalDetails.lastName",
+  "countryId",
+  "companyId",
+  "agencyId",
+  "approvalStatus",
+  "stage",
+  "stageStatus",
+  "createdAt",
+  "updatedAt",
+  "totalApplicantPayment",
+  "totalAmount",
+  "totalEmployerPayment",
+  "paymentSummary",
+  "docSummary",
+  "documentSummary",
+  "approvalFlags",
+  "contract.status",
+  "visaCollection.status",
+  "embassyInterview.status",
+  "embassyAppointment",
+  "travelDetails",
+  "biometricSlip",
+  "interviewTicket",
+  "interviewBiometric",
+  "visaTravel",
+  "residencePermit",
+  "hasPendingAppointmentApproval"
+];
 
 function handleApplicantError(res, context, error) {
   if (error instanceof AppError) {
@@ -41,6 +76,34 @@ function toNumber(value) {
 
 function normalizeTextForSearch(value) {
   return String(value || "").trim().toLowerCase();
+}
+
+function parseBooleanQuery(value, fallback = false) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes"].includes(normalized)) return true;
+  if (["0", "false", "no"].includes(normalized)) return false;
+  return fallback;
+}
+
+function parseProjectionFields(value) {
+  const requested = String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  if (!requested.length) return null;
+
+  return new Set(["id", ...requested]);
+}
+
+function projectApplicantFields(applicant, fieldSet) {
+  if (!fieldSet || !applicant || typeof applicant !== "object") return applicant;
+
+  return Object.fromEntries(
+    Object.entries(applicant).filter(([key]) => fieldSet.has(key))
+  );
 }
 
 function normalizeDate(value) {
@@ -156,13 +219,13 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   }
   if (applicantStage === 4) {
     if (String(applicant?.contract?.status || "").toUpperCase() === "PENDING") {
-      return "Contract uploaded and pending approval.";
+      return "Contract issued. Pending admin approval.";
     }
     return "Issue of the contract pending.";
   }
   if (hasCompletedDocumentStage) return "Document dispatch pending";
   if (rejectedRequired) return "Admin rejected few documents. Re-upload pending.";
-  if (pendingRequired) return "Documents are pending admin approval";
+  if (pendingRequired) return "Documents pending admin approval";
   if (hasDocuments || uploadedRequired) return "Document upload pending";
   if (applicantStage === 2) return "Document upload pending";
   return "Document upload pending";
@@ -197,7 +260,9 @@ async function getTodayEurToInrRate() {
     };
     return resolvedRate;
   } catch (error) {
-    console.error("Exchange rate fetch error:", error?.message || error);
+    logger.warn("Exchange rate fetch error", {
+      message: error?.message || String(error || "")
+    });
     if (fxRateCache.fetchedAt) return fxRateCache.value;
     return DEFAULT_EUR_TO_INR_RATE;
   }
@@ -317,13 +382,21 @@ const createApplicant = async (req, res) => {
         .add(initialPayment);
     }
 
+    await refreshApplicantSummaries(applicantId, {
+      ...applicant,
+      amountPaid: normalizedAmountPaid
+    });
+
     return res.status(201).json({
       message: "Applicant created successfully",
       applicantId
     });
 
   } catch (error) {
-    console.error("Create Applicant Error:", error);
+    logger.error("Create Applicant Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -383,13 +456,18 @@ const uploadDocumentByType = async (req, res) => {
         deferReason: null
       });
 
+    await refreshApplicantSummaries(applicantId);
+
     return res.json({
       message: "Document uploaded successfully",
       fileUrl
     });
 
   } catch (error) {
-    console.error("Upload Document Error:", error);
+    logger.error("Upload Document Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -428,7 +506,10 @@ const markDocumentSeen = async (req, res) => {
     return res.json({ message: "Document marked as seen" });
 
   } catch (error) {
-    console.error("Mark Seen Error:", error);
+    logger.error("Mark Seen Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -467,10 +548,15 @@ const deferDocument = async (req, res) => {
       deferReason: reason || "Deferred by agency"
     });
 
+    await refreshApplicantSummaries(applicantId);
+
     return res.json({ message: "Document marked as deferred" });
 
   } catch (error) {
-    console.error("Defer Document Error:", error);
+    logger.error("Defer Document Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -548,10 +634,15 @@ const addPayment = async (req, res) => {
       .collection("payments")
       .add(payment);
 
+    await refreshApplicantSummaries(applicantId);
+
     return res.json({ message: "Payment added successfully" });
 
   } catch (error) {
-    console.error("Add Payment Error:", error);
+    logger.error("Add Payment Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -655,7 +746,10 @@ const getPaymentSummary = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Payment Summary Error:", error);
+    logger.error("Payment Summary Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -668,11 +762,12 @@ const getApplicants = async (req, res) => {
     const { userRole } = getAuthenticatedUser(req);
     const userId = req.user?.uid || null;
     const agencyId = req.user?.agencyId || null;
-    const liteMode = Boolean(req.query?.lite);
-    const paginated = Boolean(req.query?.paginated);
+    const liteMode = parseBooleanQuery(req.query?.lite, false);
+    const paginated = parseBooleanQuery(req.query?.paginated, true);
     const page = Number(req.query?.page || 1);
     const limit = Number(req.query?.limit || 25);
     const searchQuery = String(req.query?.q || "").trim().toLowerCase();
+    const requestedFieldSet = parseProjectionFields(req.query?.fields);
 
     const parseList = (value) =>
       String(value || "")
@@ -690,7 +785,7 @@ const getApplicants = async (req, res) => {
     }
 
     let docs = [];
-    let query = db.collection("applicants");
+    let query = db.collection("applicants").select(...APPLICANT_LIST_SELECT_FIELDS);
 
     if (userRole === "AGENCY") {
       const primaryAgencyId = agencyId || userId;
@@ -784,17 +879,22 @@ const getApplicants = async (req, res) => {
 
         const applicantPaid = roundCurrency(toNumber(data?.amountPaid ?? data?.paidAmount));
 
-        const storedTotalEur = roundCurrency(
-          data?.totalApplicantPayment ?? data?.totalAmount ?? data?.totalPayment ?? 0
-        );
-        const totalEur =
-          storedTotalEur > 0
-            ? storedTotalEur
-            : roundCurrency(companyIdToPayment[data?.companyId] ?? 0);
-        const totalInr = roundCurrency(totalEur * eurToInrRate);
-        const pendingInr = Math.max(0, roundCurrency(totalInr - applicantPaid));
+        const paymentSummary = data?.paymentSummary || {};
+        const docSummary = data?.docSummary || data?.documentSummary || {};
+        const approvalFlags = data?.approvalFlags || {};
 
-        const docSummary = data?.documentSummary || {};
+        const storedTotalEur = roundCurrency(
+          paymentSummary?.applicant?.total ??
+          data?.totalApplicantPayment ??
+          data?.totalAmount ??
+          data?.totalPayment ??
+          0
+        );
+        const totalEur = storedTotalEur > 0 ? storedTotalEur : roundCurrency(companyIdToPayment[data?.companyId] ?? 0);
+        const paidInr = roundCurrency(paymentSummary?.applicant?.paid ?? applicantPaid);
+        const totalInr = roundCurrency(totalEur * eurToInrRate);
+        const pendingInr = Math.max(0, roundCurrency(totalInr - paidInr));
+
         const approvedRequired = Number(docSummary.approvedCount || 0) > 0 && Number(docSummary.pendingCount || 0) === 0;
         const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
         const pendingRequired = Number(docSummary.pendingCount || 0) > 0;
@@ -803,13 +903,16 @@ const getApplicants = async (req, res) => {
         const hasRejectedDocument = rejectedRequired;
         const hasDocuments = uploadedRequired;
 
-        const hasPendingAppointmentApproval = Boolean(data?.hasPendingAppointmentApproval);
+        const hasPendingAppointmentApproval =
+          Boolean(approvalFlags?.hasPendingAppointmentApproval) || Boolean(data?.hasPendingAppointmentApproval);
         const hasPendingPipelineApproval =
-          data?.approvalStatus !== "approved" ||
-          data?.contract?.status === "PENDING" ||
-          data?.visaCollection?.status === "PENDING" ||
+          Boolean(approvalFlags?.hasPendingPipelineApproval) ||
+          String(data?.approvalStatus || "").toLowerCase() !== "approved" ||
+          String(data?.contract?.status || "").toUpperCase() === "PENDING" ||
+          String(data?.visaCollection?.status || "").toUpperCase() === "PENDING" ||
           hasPendingAppointmentApproval;
         const hasPendingEmbassyInterviewApproval =
+          Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
           String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING";
 
         const attentionRequired =
@@ -861,8 +964,8 @@ const getApplicants = async (req, res) => {
           total: totalEur,
           totalEur,
           totalInr,
-          paid: applicantPaid,
-          paidInr: applicantPaid,
+          paid: paidInr,
+          paidInr,
           pending: pendingInr,
           pendingInr
         };
@@ -947,7 +1050,7 @@ const getApplicants = async (req, res) => {
     }
 
     if (!paginated) {
-      return res.json(applicants);
+      return res.json(requestedFieldSet ? applicants.map((item) => projectApplicantFields(item, requestedFieldSet)) : applicants);
     }
 
     const total = applicants.length;
@@ -956,7 +1059,10 @@ const getApplicants = async (req, res) => {
     const totalPages = Math.max(1, Math.ceil(total / safeLimit));
     const currentPage = Math.min(safePage, totalPages);
     const startIndex = (currentPage - 1) * safeLimit;
-    const items = applicants.slice(startIndex, startIndex + safeLimit);
+    const pagedItems = applicants.slice(startIndex, startIndex + safeLimit);
+    const items = requestedFieldSet
+      ? pagedItems.map((item) => projectApplicantFields(item, requestedFieldSet))
+      : pagedItems;
 
     return res.json({
       items,
@@ -968,7 +1074,10 @@ const getApplicants = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error("Get Applicants Error:", error);
+    logger.error("Get Applicants Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -1005,11 +1114,18 @@ const approveApplicant = async (req, res) => {
       approvedAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
+    await refreshApplicantSummaries(applicantId, {
+      ...data,
+      approvalStatus: "approved"
+    });
 
     return res.json({ message: "Applicant approved successfully" });
 
   } catch (error) {
-    console.error("Approve Applicant Error:", error);
+    logger.error("Approve Applicant Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -1061,10 +1177,21 @@ const autoApprove = userRole === "SUPER_USER";
       .doc(type)
       .set(appointment);
 
+    await db.collection("applicants").doc(applicantId).set(
+      {
+        hasPendingAppointmentApproval: !autoApprove
+      },
+      { merge: true }
+    );
+    await refreshApplicantSummaries(applicantId);
+
     return res.json({ message: "Appointment added successfully" });
 
   } catch (error) {
-    console.error("Add Appointment Error:", error);
+    logger.error("Add Appointment Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -1099,6 +1226,14 @@ const approveAppointment = async (req, res) => {
       approvedBy: userId,
       approvedAt: admin.firestore.FieldValue.serverTimestamp()
     });
+
+    await db.collection("applicants").doc(applicantId).set(
+      {
+        hasPendingAppointmentApproval: false
+      },
+      { merge: true }
+    );
+    await refreshApplicantSummaries(applicantId);
 
     // 🔁 STAGE TRANSITION BASED ON APPOINTMENT TYPE
     let newStage = null;
@@ -1138,7 +1273,10 @@ const approveAppointment = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Approve Appointment Error:", error);
+    logger.error("Approve Appointment Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", error);
   }
 };
@@ -1388,6 +1526,7 @@ const approveAndMoveStage = async (req, res) => {
     }
 
     await docRef.update(updatePayload);
+    await refreshApplicantSummaries(applicantId);
 
     await addStageLog({
       applicantId,
@@ -1407,10 +1546,11 @@ const approveAndMoveStage = async (req, res) => {
     });
 
   } catch (error) {
-
-    console.error("Move Stage Error:", error);
-
-    return handleApplicantError(res, "Applicant controller error", err);
+    logger.error("Move Stage Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
+    return handleApplicantError(res, "Applicant controller error", error);
   }
 };
 
@@ -1508,10 +1648,11 @@ const getApplicantById = async (req, res) => {
     });
 
   } catch (error) {
-
-    console.error("Get Applicant Error:", error);
-
-    return handleApplicantError(res, "Applicant controller error", err);
+    logger.error("Get Applicant Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
+    return handleApplicantError(res, "Applicant controller error", error);
 
   }
 };
@@ -1773,10 +1914,11 @@ exports.getApplicants = async (req, res) => {
     res.json(applicants);
 
   } catch (error) {
-
-    console.error("Get Applicants Error:", error);
-
-    return handleApplicantError(res, "Applicant controller error", err);
+    logger.error("Get Applicants Error", {
+      message: error?.message,
+      stack: error?.stack
+    });
+    return handleApplicantError(res, "Applicant controller error", error);
 
   }
 };
@@ -1827,6 +1969,8 @@ exports.uploadDocument = async (req, res) => {
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role
       });
+
+    await refreshApplicantSummaries(id);
 
     res.json({ message: "Uploaded successfully" });
 
@@ -1893,6 +2037,8 @@ exports.rejectDocument = async (req, res) => {
         reviewedAt: new Date()
       });
 
+    await refreshApplicantSummaries(id);
+
     res.json({ message: "Rejected" });
 
   } catch (err) {
@@ -1922,6 +2068,8 @@ exports.deferDocument = async (req, res) => {
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role
       });
+
+    await refreshApplicantSummaries(id);
 
     res.json({ message: "Document deferred" });
 
@@ -1963,6 +2111,7 @@ exports.approveDocument = async (req, res) => {
     const applicant = applicantSnap.exists ? applicantSnap.data() : null;
 
     await syncApplicantDocumentStage(id, applicant, req.user.uid, req.user.role);
+    await refreshApplicantSummaries(id);
 
     res.json({ message: "Document approved" });
 
@@ -2153,6 +2302,8 @@ exports.uploadContract = async (req, res) => {
       }
     }
 
+    await refreshApplicantSummaries(applicantId);
+
     res.json({
       message: "Contract uploaded successfully",
       fileUrl,
@@ -2229,6 +2380,8 @@ exports.approveContract = async (req, res) => {
         action: "CONTRACT_APPROVED"
       });
     }
+
+    await refreshApplicantSummaries(applicantId);
 
     res.json({
       message: "Contract approved successfully"
@@ -2692,6 +2845,8 @@ exports.addEmbassyInterview = async (req, res) => {
       });
     }
 
+    await refreshApplicantSummaries(applicantId);
+
     res.json({
       message: "Embassy interview added"
     });
@@ -2732,6 +2887,8 @@ exports.approveEmbassyInterview = async (req, res) => {
       stage: (applicant.stage || 1) + 1,
       stageUpdatedAt: new Date()
     });
+
+    await refreshApplicantSummaries(applicantId);
 
     res.json({
       message: "Interview approved & stage moved"
@@ -2964,7 +3121,10 @@ exports.uploadInterviewBiometric = async (req, res) => {
     });
 
   } catch (err) {
-    console.error("Upload Interview Biometric Error:", err);
+    logger.error("Upload Interview Biometric Error", {
+      message: err?.message,
+      stack: err?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", err);
   }
 };
@@ -3066,6 +3226,8 @@ exports.addVisaCollection = async (req, res) => {
       });
     }
 
+    await refreshApplicantSummaries(applicantId);
+
     res.json({ message: "Visa collection saved" });
 
   } catch (err) {
@@ -3096,6 +3258,8 @@ exports.approveVisaCollection = async (req, res) => {
       stage: 10,
       stageUpdatedAt: new Date()
     });
+
+    await refreshApplicantSummaries(applicantId);
 
     res.json({ message: "Visa collection approved" });
 
@@ -3339,7 +3503,10 @@ exports.uploadResidencePermit = async (req, res) => {
     res.json({ message: "Uploaded successfully" });
 
   } catch (err) {
-    console.error(err);
+    logger.error("Upload Residence Permit Error", {
+      message: err?.message,
+      stack: err?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", err);
   }
 };
@@ -3421,12 +3588,17 @@ exports.completeApplicant = async (req, res) => {
       stageUpdatedAt: new Date()
     });
 
+    await refreshApplicantSummaries(applicantId);
+
     res.json({
       message: "Process completed successfully"
     });
 
   } catch (err) {
-    console.error("Complete Applicant Error:", err);
+    logger.error("Complete Applicant Error", {
+      message: err?.message,
+      stack: err?.stack
+    });
     return handleApplicantError(res, "Applicant controller error", err);
   }
 };
@@ -3462,6 +3634,13 @@ exports.updateApplicant = async (req, res) => {
       totalApplicantPayment: resolvedTotal,
       totalAmount: resolvedTotal,
       updatedAt: new Date()
+    });
+
+    await refreshApplicantSummaries(id, {
+      ...applicantSnap.data(),
+      ...req.body,
+      totalApplicantPayment: resolvedTotal,
+      totalAmount: resolvedTotal
     });
 
     res.json({ message: "Applicant updated successfully" });

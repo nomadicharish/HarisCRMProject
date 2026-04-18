@@ -1,9 +1,7 @@
 const { admin, db } = require("./config/firebase");
+const { logger } = require("./lib/logger");
 
-// 👇 PASTE SUPER USER UID (same one you used earlier)
 const SUPER_USER_UID = "FXLItDg2xzS4wtWs0zpXFywMqcx2";
-
-// 👇 PASTE SUPER USER EMAIL
 const SUPER_USER_EMAIL = "harishnomadic@gmail.com";
 
 (async () => {
@@ -21,7 +19,10 @@ const SUPER_USER_EMAIL = "harishnomadic@gmail.com";
 
     process.exit();
   } catch (error) {
-    console.error("❌ Error creating Super User profile:", error);
+    logger.error("Error creating Super User profile", {
+      message: error?.message,
+      stack: error?.stack
+    });
     process.exit(1);
   }
 })();

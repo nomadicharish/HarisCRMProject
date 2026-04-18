@@ -33,6 +33,33 @@ function parseCsv(value) {
     .filter(Boolean);
 }
 
+function parseProjectionFields(value) {
+  const requested = String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (!requested.length) return null;
+  return new Set(["id", ...requested]);
+}
+
+function projectEntityFields(item, fieldSet) {
+  if (!fieldSet || !item || typeof item !== "object") return item;
+  return Object.fromEntries(Object.entries(item).filter(([key]) => fieldSet.has(key)));
+}
+
+function applyProjectionToListResult(result, fieldSet) {
+  if (!fieldSet) return result;
+  if (Array.isArray(result)) {
+    return result.map((item) => projectEntityFields(item, fieldSet));
+  }
+  return {
+    ...result,
+    items: Array.isArray(result.items)
+      ? result.items.map((item) => projectEntityFields(item, fieldSet))
+      : []
+  };
+}
+
 function toComparableDate(value) {
   if (!value) return 0;
   if (typeof value?.toMillis === "function") return value.toMillis();
@@ -112,24 +139,7 @@ async function findDuplicateByNormalizedField(collectionName, normalizedField, v
     .get();
 
   const normalizedMatch = normalizedSnapshot.docs.find((doc) => doc.id !== excludeId);
-  if (normalizedMatch) {
-    return { id: normalizedMatch.id, ...normalizedMatch.data() };
-  }
-
-  const legacyField = normalizedField === "normalizedEmail" ? "email" : "contactNumber";
-  const fallbackSnapshot = await db.collection(collectionName).select(legacyField).get();
-  const fallbackMatch = fallbackSnapshot.docs.find((doc) => {
-    if (excludeId && doc.id === excludeId) return false;
-    const rawValue = doc.data()?.[legacyField];
-    const normalizedLegacyValue =
-      normalizedField === "normalizedEmail"
-        ? normalizeEmailValue(rawValue)
-        : normalizePhoneValue(rawValue);
-
-    return normalizedLegacyValue && normalizedLegacyValue === value;
-  });
-
-  return fallbackMatch ? { id: fallbackMatch.id, ...fallbackMatch.data() } : null;
+  return normalizedMatch ? { id: normalizedMatch.id, ...normalizedMatch.data() } : null;
 }
 
 async function ensureUniqueEntityDetails({
@@ -548,7 +558,8 @@ async function listAgencies({ role, query = {} }) {
     );
   }
 
-  return sortAndPaginate(items, query);
+  const projection = parseProjectionFields(query?.fields);
+  return applyProjectionToListResult(sortAndPaginate(items, query), projection);
 }
 
 async function listEmployers({ role, query = {} }) {
@@ -576,7 +587,8 @@ async function listEmployers({ role, query = {} }) {
     items = items.filter((employer) => companyFilters.includes(employer?.companyId || ""));
   }
 
-  return sortAndPaginate(items, query);
+  const projection = parseProjectionFields(query?.fields);
+  return applyProjectionToListResult(sortAndPaginate(items, query), projection);
 }
 
 async function listCompanies({ user, query: queryParams = {} }) {
@@ -601,7 +613,8 @@ async function listCompanies({ user, query: queryParams = {} }) {
       items = items.filter((company) => companyFilters.includes(company?.id || ""));
     }
 
-    return sortAndPaginate(items, queryParams);
+    const projection = parseProjectionFields(queryParams?.fields);
+    return applyProjectionToListResult(sortAndPaginate(items, queryParams), projection);
   }
 
   if (userRole === "EMPLOYER") {
@@ -625,7 +638,8 @@ async function listCompanies({ user, query: queryParams = {} }) {
       items = items.filter((company) => companyFilters.includes(company?.id || ""));
     }
 
-    return sortAndPaginate(items, queryParams);
+    const projection = parseProjectionFields(queryParams?.fields);
+    return applyProjectionToListResult(sortAndPaginate(items, queryParams), projection);
   }
 
   if (userRole === "AGENCY") {
@@ -657,7 +671,8 @@ async function listCompanies({ user, query: queryParams = {} }) {
       items = items.filter((company) => companyFilters.includes(company?.id || ""));
     }
 
-    return sortAndPaginate(items, queryParams);
+    const projection = parseProjectionFields(queryParams?.fields);
+    return applyProjectionToListResult(sortAndPaginate(items, queryParams), projection);
   }
 
   throw new AppError("Access denied", 403);
