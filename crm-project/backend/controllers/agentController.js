@@ -86,10 +86,88 @@ async function executeAction(req, res) {
   });
 }
 
+async function getApplicantAction(req, res) {
+  const applicantId = req.params.applicantId;
+  const result = await executeAgentAction({
+    operation: "APPLICANT_GET",
+    input: { applicantId },
+    actor: {
+      uid: req.user?.uid || "",
+      role: req.user?.role || ""
+    },
+    correlationId: req.correlationId || ""
+  });
+
+  return res.json({
+    message: "Applicant fetched",
+    result
+  });
+}
+
+async function approveApplicantAction(req, res) {
+  const applicantId = req.params.applicantId;
+  const result = await executeAgentAction({
+    operation: "APPLICANT_APPROVE",
+    input: { applicantId },
+    actor: {
+      uid: req.user?.uid || "",
+      role: req.user?.role || ""
+    },
+    correlationId: req.correlationId || ""
+  });
+
+  return res.json({
+    message: "Applicant approved",
+    result
+  });
+}
+
+async function setApplicantStageAction(req, res) {
+  const applicantId = req.params.applicantId;
+  const stage = Number(req.body.stage);
+  const result = await executeAgentAction({
+    operation: "APPLICANT_SET_STAGE",
+    input: { applicantId, stage },
+    actor: {
+      uid: req.user?.uid || "",
+      role: req.user?.role || ""
+    },
+    correlationId: req.correlationId || ""
+  });
+
+  return res.json({
+    message: "Applicant stage updated",
+    result
+  });
+}
+
+async function addApplicantNoteAction(req, res) {
+  const applicantId = req.params.applicantId;
+  const note = String(req.body.note || "");
+  const result = await executeAgentAction({
+    operation: "APPLICANT_ADD_NOTE",
+    input: { applicantId, note },
+    actor: {
+      uid: req.user?.uid || "",
+      role: req.user?.role || ""
+    },
+    correlationId: req.correlationId || ""
+  });
+
+  return res.json({
+    message: "Applicant note added",
+    result
+  });
+}
+
 module.exports = {
+  addApplicantNoteAction,
+  approveApplicantAction,
   executeAction,
   enqueueAgentJob,
+  getApplicantAction,
   getAgentJob,
   listActionCatalog,
-  listAgentJobs
+  listAgentJobs,
+  setApplicantStageAction
 };

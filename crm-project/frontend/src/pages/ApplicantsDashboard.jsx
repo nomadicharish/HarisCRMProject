@@ -13,8 +13,6 @@ import { getCached, hasFreshCache, invalidateCache } from "../services/cachedApi
 import CreateApplicants from "./CreateApplicants";
 import "../styles/applicantsDashboard.css";
 
-const SEARCH_ICON_PNG = "/searchfilter.png";
-const SEARCH_ICON_WEBP = "/searchfilter.webp";
 const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
@@ -484,8 +482,7 @@ function ApplicantsDashboard() {
           value: company.id,
           label: company.name,
           count: employers.filter((employer) => employer.companyId === company.id).length
-        }))
-        .filter((item) => item.count > 0),
+        })),
     [employers, visibleCompanies]
   );
 
@@ -496,8 +493,7 @@ function ApplicantsDashboard() {
           value: company.id,
           label: company.name,
           count: agencies.filter((agency) => (agency.assignedCompanyIds || []).includes(company.id)).length
-        }))
-        .filter((item) => item.count > 0),
+        })),
     [agencies, visibleCompanies]
   );
 
@@ -773,8 +769,6 @@ function ApplicantsDashboard() {
 
       <div className="dashboardContent">
         <DashboardFiltersSidebar
-          searchIconWebp={SEARCH_ICON_WEBP}
-          searchIconPng={SEARCH_ICON_PNG}
           searchPlaceholder={searchPlaceholder}
           searchInput={searchInput}
           onSearchInputChange={setSearchInput}

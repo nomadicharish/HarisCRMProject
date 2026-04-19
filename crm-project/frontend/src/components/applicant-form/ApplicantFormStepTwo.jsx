@@ -76,7 +76,7 @@ function ApplicantFormStepTwo({
 
         {user?.role === "SUPER_USER" && (
           <div>
-            <label style={label}>Total Amount in Euro</label>
+            <label style={label}>Total Amount (€)</label>
             <input
               style={{ ...input, border: errors.totalAmount ? `1px solid ${THEME.error}` : input.border }}
               value={form.totalAmount || ""}
@@ -90,7 +90,7 @@ function ApplicantFormStepTwo({
         )}
 
         <div>
-          <label style={label}>Initial Paid Amount</label>
+          <label style={label}>Initial Paid Amount (₹)</label>
           <input
             style={{ ...input, border: errors.paidAmount ? `1px solid ${THEME.error}` : input.border }}
             value={form.paidAmount || ""}
@@ -122,7 +122,7 @@ function ApplicantFormStepTwo({
               : "Creating..."
             : editData
             ? user?.role === "SUPER_USER" && autoApproveAfterSave
-              ? "Approve Profile"
+              ? "View & Approve Profile"
               : "Update Profile"
             : "Create Profile"}
         </button>

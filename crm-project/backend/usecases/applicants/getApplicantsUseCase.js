@@ -171,7 +171,8 @@ function mapApplicant({
     hasPendingAppointmentApproval;
   const hasPendingEmbassyInterviewApproval =
     Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
-    String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING";
+    String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
+    (Boolean(data?.embassyInterview?.dateTime) && !Boolean(data?.embassyInterview?.approved));
 
   const attentionRequired =
     userRole === "SUPER_USER"

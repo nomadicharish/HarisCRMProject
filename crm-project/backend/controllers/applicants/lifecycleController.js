@@ -1,5 +1,10 @@
-const legacy = require("../applicantController");
 const { createApplicantUseCase } = require("../../usecases/applicants/createApplicantUseCase");
+const {
+  approveAndMoveStageUseCase,
+  approveApplicantUseCase,
+  completeApplicantUseCase,
+  updateApplicantUseCase
+} = require("../../usecases/applicants/lifecycleUseCases");
 const { handleApplicantControllerError } = require("./controllerHelpers");
 
 async function createApplicant(req, res) {
@@ -13,8 +18,36 @@ async function createApplicant(req, res) {
 
 module.exports = {
   createApplicant,
-  approveApplicant: legacy.approveApplicant,
-  approveAndMoveStage: legacy.approveAndMoveStage,
-  completeApplicant: legacy.completeApplicant,
-  updateApplicant: legacy.updateApplicant
+  async approveApplicant(req, res) {
+    try {
+      const payload = await approveApplicantUseCase(req);
+      return res.json(payload);
+    } catch (error) {
+      return handleApplicantControllerError(res, "Approve Applicant Error", error);
+    }
+  },
+  async approveAndMoveStage(req, res) {
+    try {
+      const payload = await approveAndMoveStageUseCase(req);
+      return res.json(payload);
+    } catch (error) {
+      return handleApplicantControllerError(res, "Move Stage Error", error);
+    }
+  },
+  async completeApplicant(req, res) {
+    try {
+      const payload = await completeApplicantUseCase(req);
+      return res.json(payload);
+    } catch (error) {
+      return handleApplicantControllerError(res, "Complete Applicant Error", error);
+    }
+  },
+  async updateApplicant(req, res) {
+    try {
+      const payload = await updateApplicantUseCase(req);
+      return res.json(payload);
+    } catch (error) {
+      return handleApplicantControllerError(res, "Update Applicant Error", error);
+    }
+  }
 };

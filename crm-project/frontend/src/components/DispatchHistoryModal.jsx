@@ -7,7 +7,7 @@ function DispatchHistoryModal({ applicantId, open, onClose }) {
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard">
+      <div className="contractModalCard dispatchHistoryModalCard">
         <div className="workflowModalTopBar">
           <div className="workflowModalTopBarTitle">Dispatch History</div>
           <button type="button" className="workflowModalCloseBtn" onClick={onClose}>

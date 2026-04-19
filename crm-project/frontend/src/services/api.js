@@ -1,6 +1,7 @@
 import axios from "axios";
 import { auth } from "../firebase";
 import { clearSession } from "../utils/auth";
+import { SESSION_DURATION_MS } from "../utils/auth";
 
 const API = axios.create({
   baseURL: "http://localhost:3000/api",
@@ -33,7 +34,10 @@ API.interceptors.request.use(async (config) => {
   }
 
   if (token) config.headers.Authorization = `Bearer ${token}`;
-  if (token && localStorage.getItem("token") !== token) localStorage.setItem("token", token);
+  if (token) {
+    if (localStorage.getItem("token") !== token) localStorage.setItem("token", token);
+    localStorage.setItem("session_expires_at", String(Date.now() + SESSION_DURATION_MS));
+  }
   return config;
 });
 
@@ -47,6 +51,7 @@ API.interceptors.response.use(
         try {
           const freshToken = await currentUser.getIdToken(true);
           localStorage.setItem("token", freshToken);
+          localStorage.setItem("session_expires_at", String(Date.now() + SESSION_DURATION_MS));
           originalRequest._retry = true;
           originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers.Authorization = `Bearer ${freshToken}`;

@@ -1,13 +1,26 @@
-import React from "react";
+import React, { useState } from "react";
 
 function FilterSection({ title, items, selectedValues, onToggle, visible = true }) {
-  if (!visible || !items.length) return null;
+  const [collapsed, setCollapsed] = useState(false);
+  if (!visible) return null;
 
   return (
     <div className="dashboardFilterSection">
-      <div className="dashboardFilterTitle">{title}</div>
+      <button
+        type="button"
+        className="dashboardFilterTitleBtn"
+        onClick={() => setCollapsed((value) => !value)}
+        aria-expanded={!collapsed}
+      >
+        <span className="dashboardFilterTitle">{title}</span>
+        <span className={`dashboardFilterChevron ${collapsed ? "dashboardFilterChevronCollapsed" : ""}`}>
+          ^
+        </span>
+      </button>
 
+      {!collapsed ? (
       <div className="dashboardFilterList">
+        {!items.length ? <div className="dashboardFilterEmptyText">No options</div> : null}
         {items.map((item) => {
           const checked = selectedValues.includes(item.value);
           return (
@@ -23,6 +36,7 @@ function FilterSection({ title, items, selectedValues, onToggle, visible = true 
           );
         })}
       </div>
+      ) : null}
     </div>
   );
 }

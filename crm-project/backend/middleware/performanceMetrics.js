@@ -1,5 +1,6 @@
 const { logger } = require("../lib/logger");
 const { runWithPerfContext } = require("../lib/perfContext");
+const { recordRequestMetric } = require("../services/observabilityService");
 
 function performanceMetrics(req, res, next) {
   const startedAt = process.hrtime.bigint();
@@ -30,13 +31,23 @@ function performanceMetrics(req, res, next) {
       const elapsedNs = process.hrtime.bigint() - startedAt;
       const latencyMs = Number(elapsedNs) / 1_000_000;
       const firestoreReads = Number(context.firestoreReads || 0);
+      const roundedLatencyMs = Math.round(latencyMs * 100) / 100;
+
+      recordRequestMetric({
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        latencyMs: roundedLatencyMs,
+        firestoreReads,
+        correlationId: req.correlationId || ""
+      });
 
       logger.info("Request completed", {
         method: req.method,
         path: req.originalUrl,
         statusCode: res.statusCode,
         correlationId: req.correlationId || "",
-        latencyMs: Math.round(latencyMs * 100) / 100,
+        latencyMs: roundedLatencyMs,
         firestoreReads
       });
     });

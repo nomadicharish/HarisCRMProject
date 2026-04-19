@@ -59,6 +59,9 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
 CustomDateInput.displayName = "VisaCollectionDateInput";
 
 function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose, onUpdated }) {
+  const openTimePicker = (event) => {
+    event.target.showPicker?.();
+  };
   const [visaCollection, setVisaCollection] = useState(null);
   const [visaTravel, setVisaTravel] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -266,6 +269,8 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                       type="time"
                       value={collectionTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setCollectionTime(event.target.value)}
                     />
                   </div>
@@ -311,6 +316,8 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                       type="time"
                       value={travelTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setTravelTime(event.target.value)}
                     />
                   </div>

@@ -57,6 +57,18 @@ function getInitials(name) {
   return (first + last).toUpperCase();
 }
 
+function formatAmountInput(value) {
+  const cleaned = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
+  const [whole = "", decimal = ""] = cleaned.split(".");
+  const normalizedWhole = whole.replace(/^0+(?=\d)/, "") || (whole.includes("0") ? "0" : "");
+  const withComma = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decimal ? `${withComma}.${decimal.slice(0, 2)}` : withComma;
+}
+
+function parseAmountInput(value) {
+  return Number(String(value || "").replace(/,/g, ""));
+}
+
 function ApplicantPayments() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -133,11 +145,15 @@ function ApplicantPayments() {
   const installmentCount = applicantPayment.installmentCount || 0;
 
   const handleInputChange = (key, value) => {
+    if (key === "amount") {
+      setForm((prev) => ({ ...prev, amount: formatAmountInput(value) }));
+      return;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleAddPayment = async () => {
-    const amount = Number(form.amount);
+    const amount = parseAmountInput(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error("Paid amount must be greater than 0");
       return;
@@ -346,9 +362,7 @@ function ApplicantPayments() {
                   </label>
                   <input
                     id="payment-amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     value={form.amount}
                     onChange={(event) => handleInputChange("amount", event.target.value)}
                     placeholder="Enter paid amount"

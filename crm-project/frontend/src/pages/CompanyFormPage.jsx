@@ -72,6 +72,18 @@ const errorText = {
   marginTop: "3px"
 };
 
+function formatAmountInput(value) {
+  const cleaned = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
+  const [whole = "", decimal = ""] = cleaned.split(".");
+  const normalizedWhole = whole.replace(/^0+(?=\d)/, "") || (whole.includes("0") ? "0" : "");
+  const withComma = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decimal ? `${withComma}.${decimal.slice(0, 2)}` : withComma;
+}
+
+function parseAmountInput(value) {
+  return Number(String(value || "").replace(/,/g, ""));
+}
+
 function TrashIcon() {
   return (
     <svg className="dashboardCountryIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -143,7 +155,7 @@ function CompanyFormPage() {
             name: selected.name || "",
             countryId: selected.countryId || "",
             employerIds: Array.isArray(selected.employerIds) ? selected.employerIds : [],
-            companyPaymentPerApplicant: selected.companyPaymentPerApplicant ?? "",
+            companyPaymentPerApplicant: formatAmountInput(selected.companyPaymentPerApplicant ?? ""),
             documentsNeeded: Array.isArray(selected.documentsNeeded)
               ? selected.documentsNeeded.map((document, index) => createDocumentRow(document, index))
               : []
@@ -225,6 +237,9 @@ function CompanyFormPage() {
   const updateField = (key, value) => {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
+      if (key === "companyPaymentPerApplicant") {
+        next.companyPaymentPerApplicant = formatAmountInput(value);
+      }
       if (key === "countryId") {
         next.employerIds = prev.employerIds.filter((employerId) =>
           employers.some((employer) => employer.id === employerId && employer.countryId === value)
@@ -292,7 +307,10 @@ function CompanyFormPage() {
     if (!form.countryId) nextErrors.countryId = "Select country";
     if (form.companyPaymentPerApplicant === "") {
       nextErrors.companyPaymentPerApplicant = "Total amount is required";
-    } else if (Number.isNaN(Number(form.companyPaymentPerApplicant)) || Number(form.companyPaymentPerApplicant) < 0) {
+    } else if (
+      Number.isNaN(parseAmountInput(form.companyPaymentPerApplicant)) ||
+      parseAmountInput(form.companyPaymentPerApplicant) < 0
+    ) {
       nextErrors.companyPaymentPerApplicant = "Total amount must be a valid number";
     }
 
@@ -338,7 +356,7 @@ function CompanyFormPage() {
         name: form.name.trim(),
         countryId: form.countryId,
         employerIds: form.employerIds,
-        companyPaymentPerApplicant: Number(form.companyPaymentPerApplicant),
+        companyPaymentPerApplicant: parseAmountInput(form.companyPaymentPerApplicant),
         documentsNeeded
       };
 
@@ -454,7 +472,7 @@ function CompanyFormPage() {
             </div>
 
             <div>
-              <label style={label}>Total Amount in Euro</label>
+              <label style={label}>Total Amount (€)</label>
               <input
                 style={{
                   ...input,

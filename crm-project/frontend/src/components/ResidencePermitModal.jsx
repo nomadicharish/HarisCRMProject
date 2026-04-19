@@ -150,35 +150,39 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
               </div>
             ) : null}
 
-            {canUpload && !resolvedResidencePermit?.frontUrl ? (
+            {canUpload && (!resolvedResidencePermit?.frontUrl || !resolvedResidencePermit?.backUrl) ? (
               <div className="contractUploadPanel">
-                <div className="contractUploadLabel">Front Side</div>
-                <label className="contractFileCard" htmlFor="residence-front-file">
-                  <input
-                    id="residence-front-file"
-                    type="file"
-                    className="contractFileInput"
-                    disabled={saving}
-                    onChange={(event) => setFrontFile(event.target.files?.[0] || null)}
-                  />
-                  <span className="contractFileCardTitle">{frontFile ? frontFile.name : "Upload front side"}</span>
-                </label>
-              </div>
-            ) : null}
+                <div className="contractFormGrid">
+                  {!resolvedResidencePermit?.frontUrl ? (
+                    <div className="input-field">
+                      <label className="contractFileCard" htmlFor="residence-front-file">
+                        <input
+                          id="residence-front-file"
+                          type="file"
+                          className="contractFileInput"
+                          disabled={saving}
+                          onChange={(event) => setFrontFile(event.target.files?.[0] || null)}
+                        />
+                        <span className="contractFileCardTitle">{frontFile ? frontFile.name : "Front side"}</span>
+                      </label>
+                    </div>
+                  ) : null}
 
-            {canUpload && !resolvedResidencePermit?.backUrl ? (
-              <div className="contractUploadPanel">
-                <div className="contractUploadLabel">Back Side</div>
-                <label className="contractFileCard" htmlFor="residence-back-file">
-                  <input
-                    id="residence-back-file"
-                    type="file"
-                    className="contractFileInput"
-                    disabled={saving}
-                    onChange={(event) => setBackFile(event.target.files?.[0] || null)}
-                  />
-                  <span className="contractFileCardTitle">{backFile ? backFile.name : "Upload back side"}</span>
-                </label>
+                  {!resolvedResidencePermit?.backUrl ? (
+                    <div className="input-field">
+                      <label className="contractFileCard" htmlFor="residence-back-file">
+                        <input
+                          id="residence-back-file"
+                          type="file"
+                          className="contractFileInput"
+                          disabled={saving}
+                          onChange={(event) => setBackFile(event.target.files?.[0] || null)}
+                        />
+                        <span className="contractFileCardTitle">{backFile ? backFile.name : "Back side"}</span>
+                      </label>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 

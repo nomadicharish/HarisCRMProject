@@ -59,6 +59,9 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
 CustomDateInput.displayName = "WorkflowDateInput";
 
 function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, onUpdated }) {
+  const openTimePicker = (event) => {
+    event.target.showPicker?.();
+  };
   const [appointment, setAppointment] = useState(null);
   const [travelDetails, setTravelDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -288,6 +291,8 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                       type="time"
                       value={appointmentTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setAppointmentTime(event.target.value)}
                     />
                   </div>
@@ -347,6 +352,8 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                       type="time"
                       value={travelTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setTravelTime(event.target.value)}
                     />
                   </div>

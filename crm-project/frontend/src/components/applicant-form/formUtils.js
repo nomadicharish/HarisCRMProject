@@ -7,7 +7,7 @@ const EMPTY_FORM = {
   age: "",
   address: "",
   phone: "",
-  phoneCountry: "in",
+  phoneCountry: "IN",
   maritalStatus: "",
   companyId: "",
   countryId: "",
@@ -69,7 +69,9 @@ const validateAge = (ageValue) => {
 const validatePhone = (phone, phoneCountry) => {
   if (!phone) return "Phone number is required";
   try {
-    const phoneNumber = parsePhoneNumberFromString(`+${phone}`);
+    const normalizedPhone = String(phone || "").replace(/[^\d]/g, "");
+    const prefixedPhone = normalizedPhone.startsWith("+") ? normalizedPhone : `+${normalizedPhone}`;
+    const phoneNumber = parsePhoneNumberFromString(prefixedPhone, String(phoneCountry || "IN").toUpperCase());
     if (!phoneNumber || !phoneNumber.isValid()) {
       return `Invalid phone number for ${String(phoneCountry || "").toUpperCase()}`;
     }
@@ -82,7 +84,7 @@ const validatePhone = (phone, phoneCountry) => {
 const validateTotalAmount = (totalAmount, userRole) => {
   if (userRole !== "SUPER_USER") return null;
   if (!totalAmount) return "Total amount is required";
-  const value = Number(totalAmount);
+  const value = Number(String(totalAmount).replace(/,/g, ""));
   if (Number.isNaN(value)) return "Total amount must be a valid number";
   if (value <= 0) return "Total amount must be greater than 0";
   if (value > 999999) return "Total amount exceeds maximum limit";
@@ -91,7 +93,7 @@ const validateTotalAmount = (totalAmount, userRole) => {
 
 const validatePaidAmount = (paidAmount) => {
   if (!paidAmount) return "Initial paid amount is required";
-  const value = Number(paidAmount);
+  const value = Number(String(paidAmount).replace(/,/g, ""));
   if (Number.isNaN(value)) return "Paid amount must be a valid number";
   if (value < 0) return "Paid amount cannot be negative";
   if (value > 999999) return "Paid amount exceeds maximum limit";

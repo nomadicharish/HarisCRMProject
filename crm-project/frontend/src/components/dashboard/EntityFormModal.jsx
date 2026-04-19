@@ -103,6 +103,18 @@ const INITIAL_FORM = {
 
 const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
 
+function formatAmountInput(value) {
+  const cleaned = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
+  const [whole = "", decimal = ""] = cleaned.split(".");
+  const normalizedWhole = whole.replace(/^0+(?=\d)/, "") || (whole.includes("0") ? "0" : "");
+  const withComma = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decimal ? `${withComma}.${decimal.slice(0, 2)}` : withComma;
+}
+
+function parseAmountInput(value) {
+  return Number(String(value || "").replace(/,/g, ""));
+}
+
 function TrashIcon() {
   return (
     <svg className="dashboardCountryIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -180,7 +192,7 @@ function EntityFormModal({
       employerIds: Array.isArray(editData.employerIds) ? editData.employerIds : [],
       assignedCompanyIds: Array.isArray(editData.assignedCompanyIds) ? editData.assignedCompanyIds : [],
       companyPaymentPerApplicant:
-        editData.companyPaymentPerApplicant ?? editData.totalEmployerPayment ?? ""
+        formatAmountInput(editData.companyPaymentPerApplicant ?? editData.totalEmployerPayment ?? "")
     });
     const rawNumber = String(editData.contactNumber || "");
     const parsed = parsePhoneNumberFromString(rawNumber.startsWith("+") ? rawNumber : `+${rawNumber}`);
@@ -208,6 +220,9 @@ function EntityFormModal({
 
       if (key === "countryId" && type === "employer") {
         next.companyId = "";
+      }
+      if (key === "companyPaymentPerApplicant") {
+        next.companyPaymentPerApplicant = formatAmountInput(value);
       }
 
       return next;
@@ -238,7 +253,7 @@ function EntityFormModal({
       const paymentValue = String(form.companyPaymentPerApplicant || "").trim();
       if (!paymentValue) {
         nextErrors.companyPaymentPerApplicant = "Payment for each candidate is required";
-      } else if (Number.isNaN(Number(paymentValue)) || Number(paymentValue) < 0) {
+      } else if (Number.isNaN(parseAmountInput(paymentValue)) || parseAmountInput(paymentValue) < 0) {
         nextErrors.companyPaymentPerApplicant = "Enter a valid amount";
       }
     }
@@ -264,7 +279,7 @@ function EntityFormModal({
         employerIds: form.employerIds,
         assignedCompanyIds: form.assignedCompanyIds,
         companyPaymentPerApplicant:
-          form.companyPaymentPerApplicant === "" ? "" : Number(form.companyPaymentPerApplicant)
+          form.companyPaymentPerApplicant === "" ? "" : parseAmountInput(form.companyPaymentPerApplicant)
       };
 
       if (editData?.id) {
@@ -424,9 +439,7 @@ function EntityFormModal({
                 <div className="input-field">
                   <label className="contractUploadLabel">Payment for each candidate (EUR)</label>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     className={errors.companyPaymentPerApplicant ? "dashboardFieldError" : ""}
                     value={form.companyPaymentPerApplicant}
                     onChange={(event) => updateField("companyPaymentPerApplicant", event.target.value)}

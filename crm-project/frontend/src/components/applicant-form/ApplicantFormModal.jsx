@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-phone-input-2/lib/style.css";
 import { useNavigate } from "react-router-dom";
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import { getCached } from "../../services/cachedApi";
 import "../../styles/applicantsDashboard.css";
@@ -18,6 +19,20 @@ import {
   validatePhone,
   validateTotalAmount
 } from "./formUtils";
+
+const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
+
+function sanitizeAmountInput(value) {
+  const cleaned = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
+  const [whole = "", decimal = ""] = cleaned.split(".");
+  const normalizedWhole = whole.replace(/^0+(?=\d)/, "") || (whole.includes("0") ? "0" : "");
+  const withComma = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return decimal ? `${withComma}.${decimal.slice(0, 2)}` : withComma;
+}
+
+function parseAmountInput(value) {
+  return Number(String(value || "").replace(/,/g, ""));
+}
 
 function ApplicantFormModal({
   onClose,
@@ -78,6 +93,10 @@ function ApplicantFormModal({
   };
 
   const handleChange = (key, value) => {
+    if (key === "totalAmount" || key === "paidAmount") {
+      setForm((prev) => ({ ...prev, [key]: sanitizeAmountInput(value) }));
+      return;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -93,7 +112,7 @@ function ApplicantFormModal({
       companyId: value,
       totalAmount:
         user?.role === "SUPER_USER" && selectedCompany
-          ? selectedCompany.companyPaymentPerApplicant ?? ""
+          ? sanitizeAmountInput(selectedCompany.companyPaymentPerApplicant ?? "")
           : prev.totalAmount
     }));
   };
@@ -165,19 +184,28 @@ function ApplicantFormModal({
       dob: parsedDob || "",
       age: parsedDob ? calculateAge(parsedDob) : editData.age || editData.personalDetails?.age || "",
       address: editData.address || editData.personalDetails?.address || "",
-      phone: editData.personalDetails?.phone || editData.phone || "",
-      phoneCountry: "in",
+      phone: (() => {
+        const rawPhone = editData.personalDetails?.phone || editData.phone || "";
+        const parsedPhone = parsePhoneNumberFromString(rawPhone);
+        return parsedPhone?.nationalNumber || String(rawPhone || "").replace(/[^\d]/g, "");
+      })(),
+      phoneCountry: (() => {
+        const rawPhone = editData.personalDetails?.phone || editData.phone || "";
+        const parsedPhone = parsePhoneNumberFromString(rawPhone);
+        const country = String(parsedPhone?.country || "IN").toUpperCase();
+        return PHONE_COUNTRY_CODES.has(country) ? country : "IN";
+      })(),
       maritalStatus: editData.maritalStatus || editData.personalDetails?.maritalStatus || "",
       countryId: resolvedCountryId,
       companyId: resolvedCompanyId,
       agencyId: editData.agencyId || "",
       totalAmount:
         hasResolvedTotalAmount
-          ? resolvedTotalAmount
+          ? sanitizeAmountInput(resolvedTotalAmount)
           : user?.role === "SUPER_USER"
-          ? selectedCompany?.companyPaymentPerApplicant ?? ""
+          ? sanitizeAmountInput(selectedCompany?.companyPaymentPerApplicant ?? "")
           : "",
-      paidAmount: getApplicantPaidAmount(editData)
+      paidAmount: sanitizeAmountInput(getApplicantPaidAmount(editData))
     });
 
     setDob(parsedDob);
@@ -201,17 +229,17 @@ function ApplicantFormModal({
           lastName: form.lastName,
           dob: form.dob,
           age: form.age,
-          phone: form.phone,
+          phone: `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN")}${String(form.phone || "").replace(/[^\d]/g, "")}`,
           maritalStatus: form.maritalStatus,
           address: form.address
         },
         companyId: form.companyId,
         countryId: form.countryId,
         agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,
-        totalApplicantPayment: form.totalAmount,
-        totalAmount: form.totalAmount ? Number(form.totalAmount) : 0,
-        amountPaid: form.paidAmount ? Number(form.paidAmount) : 0,
-        paidAmount: form.paidAmount ? Number(form.paidAmount) : 0
+        totalApplicantPayment: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
+        totalAmount: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
+        amountPaid: form.paidAmount ? parseAmountInput(form.paidAmount) : 0,
+        paidAmount: form.paidAmount ? parseAmountInput(form.paidAmount) : 0
       };
 
       if (editData) {

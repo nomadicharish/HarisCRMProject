@@ -72,6 +72,9 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
 CustomDateInput.displayName = "EmbassyInterviewDateInput";
 
 function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, onClose, onUpdated }) {
+  const openTimePicker = (event) => {
+    event.target.showPicker?.();
+  };
   const [interview, setInterview] = useState(null);
   const [interviewTicket, setInterviewTicket] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -314,6 +317,8 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       type="time"
                       value={interviewTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setInterviewTime(event.target.value)}
                     />
                   </div>
@@ -360,6 +365,8 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       type="time"
                       value={travelTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setTravelTime(event.target.value)}
                     />
                   </div>

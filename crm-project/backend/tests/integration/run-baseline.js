@@ -40,6 +40,21 @@ async function run() {
         method: "POST",
         body: { type: "AGENT_ACTION", payload: { sample: true } },
         allowed: [202, 401, 403]
+      },
+      {
+        name: "GET /api/agents/actions/applicants/:applicantId",
+        path: "/api/agents/actions/applicants/non-existent-id",
+        allowed: [200, 400, 401, 403, 404]
+      },
+      {
+        name: "GET /api/observability/metrics",
+        path: "/api/observability/metrics?recentLimit=5",
+        allowed: [200, 401, 403]
+      },
+      {
+        name: "GET /api/observability/health",
+        path: "/api/observability/health",
+        allowed: [200]
       }
     ];
 

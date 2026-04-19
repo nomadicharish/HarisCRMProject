@@ -37,7 +37,8 @@ const grid = {
 
 const input = {
   width: "100%",
-  padding: "6px",
+  minHeight: "36px",
+  padding: "6px 10px",
   borderRadius: 0,
   border: `1px solid ${THEME.border}`,
   background: "#FAFBFC",

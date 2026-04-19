@@ -1,6 +1,7 @@
 import React from "react";
 import DatePicker from "react-datepicker";
 import PhoneInput from "react-phone-input-2";
+import { getCountries, getCountryCallingCode } from "libphonenumber-js";
 import {
   THEME,
   actionsRight,
@@ -47,6 +48,7 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder, error }
 ));
 
 CustomDateInput.displayName = "CustomDateInput";
+const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
 
 function ApplicantFormStepOne({
   form,
@@ -135,20 +137,33 @@ function ApplicantFormStepOne({
 
         <div>
           <label style={label}>Phone</label>
-          <div className="dashboardPhoneCodeWrap">
+          <div className="dashboardPhoneSplitWrap">
             <PhoneInput
-              country={form.phoneCountry || "in"}
-              value={form.phone || ""}
-              placeholder="Enter phone number"
+              country={
+                PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase())
+                  ? String(form.phoneCountry).toLowerCase()
+                  : "in"
+              }
+              value={String(getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN"))}
+              inputProps={{ readOnly: true }}
               countryCodeEditable={false}
-              onChange={(phone, country) => {
-                setForm((prev) => ({ ...prev, phone, phoneCountry: country.countryCode }));
-              }}
-              containerStyle={{ width: "100%" }}
-              inputClass={`dashboardPhoneCodeValue ${errors.phone ? "dashboardPhoneInputError" : ""}`}
-              buttonClass="dashboardPhoneCodeButton"
-              dropdownStyle={{ zIndex: 9999 }}
               enableSearch
+              disableSearchIcon
+              onChange={(_, countryData) => {
+                const nextCountry = String(countryData?.countryCode || "in").toUpperCase();
+                setForm((prev) => ({ ...prev, phoneCountry: PHONE_COUNTRY_CODES.has(nextCountry) ? nextCountry : "IN" }));
+              }}
+              containerClass="dashboardPhoneCodeWrap"
+              buttonClass="dashboardPhoneCodeButton"
+              inputClass={`dashboardPhoneCodeValue ${errors.phone ? "dashboardPhoneInputError" : ""}`}
+            />
+            <input
+              style={{ ...input, border: errors.phone ? `1px solid ${THEME.error}` : input.border }}
+              value={form.phone || ""}
+              onFocus={handleFocus}
+              onBlur={(event) => handleBlur(event, errors.phone)}
+              onChange={(event) => handleChange("phone", event.target.value.replace(/[^\d]/g, ""))}
+              placeholder="Enter phone number"
             />
           </div>
           {errors.phone && <div style={errorText}>{errors.phone}</div>}

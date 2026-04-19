@@ -17,7 +17,10 @@ function idempotency() {
     const idempotencyKey = String(req.headers["idempotency-key"] || "").trim();
     if (!idempotencyKey) return next();
 
-    const userId = String(req.user?.uid || "anonymous");
+    const authHeaderFingerprint = String(req.headers.authorization || "").trim()
+      ? createHash("sha256").update(String(req.headers.authorization || "")).digest("hex").slice(0, 16)
+      : "";
+    const userId = String(req.user?.uid || (authHeaderFingerprint ? `auth:${authHeaderFingerprint}` : "anonymous"));
     const method = req.method;
     const path = req.baseUrl ? `${req.baseUrl}${req.path}` : req.path;
     const docId = buildDocId(userId, method, path, idempotencyKey);

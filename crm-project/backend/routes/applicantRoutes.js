@@ -36,7 +36,7 @@ const {
 const {
   addDispatch,
   getDispatches
-} = require("../controllers/applicantController");
+} = applicantController;
 const uploadDoc = require("../middleware/upload");
 
 router.use(verifyToken);

@@ -503,7 +503,7 @@ function ApplicantProfile() {
               headerActionLabel={headerActionLabel}
               canHeaderAction={canHeaderAction}
               activeStepActionLabel={headerActionLabel}
-              canActiveStepAction={canHeaderAction}
+              canActiveStepAction={canHeaderAction && applicantStage !== 3}
               documentRowSubtitle={documentRowSubtitle}
               dispatchRowTitle={dispatchRowTitle}
               contractRowTitle={contractRowTitle}
