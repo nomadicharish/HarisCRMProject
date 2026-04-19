@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import BlockingLoader from "./common/BlockingLoader";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -28,6 +29,8 @@ function formatDateTime(value) {
 
 function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric, open, onClose, onUpdated }) {
   const [interviewBiometric, setInterviewBiometric] = useState(null);
+  const [embassyInterview, setEmbassyInterview] = useState(null);
+  const [interviewTicket, setInterviewTicket] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState(null);
@@ -41,11 +44,15 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
   const loadInterviewBiometric = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await API.get(`/applicants/${applicantId}/interview-biometric`);
-      setInterviewBiometric(res.data || null);
+      const res = await API.get(`/applicants/${applicantId}/interview-workflow`);
+      setEmbassyInterview(res.data?.embassyInterview || null);
+      setInterviewTicket(res.data?.interviewTicket || null);
+      setInterviewBiometric(res.data?.interviewBiometric || null);
     } catch (error) {
       console.error(error);
       setInterviewBiometric(null);
+      setEmbassyInterview(null);
+      setInterviewTicket(null);
     } finally {
       setLoading(false);
     }
@@ -88,11 +95,13 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard">
-        <div className="workflowModalTopBar">
-          <div className="workflowModalTopBarTitle">Add Biometric slip</div>
-          <button type="button" className="workflowModalCloseBtn" onClick={onClose} disabled={saving}>
-            ✕
+      <div className="contractModalCard" style={{ position: "relative" }}>
+        <BlockingLoader open={saving} label="Uploading biometric slip..." />
+
+        <div className="dashboardModalHeader">
+          <h3 className="dashboardModalTitle">Add Biometric slip</h3>
+          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={saving}>
+            x
           </button>
         </div>
 
@@ -102,6 +111,24 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
           <>
             {resolvedInterviewBiometric?.fileUrl ? (
               <div className="contractInfoCard">
+                {embassyInterview?.dateTime ? (
+                  <div className="contractInfoRow">
+                    <span>Interview DateTime</span>
+                    <span>{String(embassyInterview.dateTime)}</span>
+                  </div>
+                ) : null}
+                {interviewTicket ? (
+                  <>
+                    <div className="contractInfoRow">
+                      <span>Travel Date</span>
+                      <span>{String(interviewTicket.date || "-")}</span>
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Travel Time</span>
+                      <span>{String(interviewTicket.time || "-")}</span>
+                    </div>
+                  </>
+                ) : null}
                 <div className="contractInfoRow">
                   <span>Biometric Slip</span>
                   <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">

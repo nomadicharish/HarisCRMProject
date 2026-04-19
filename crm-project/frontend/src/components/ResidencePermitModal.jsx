@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import BlockingLoader from "./common/BlockingLoader";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -111,10 +112,12 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard">
-        <div className="workflowModalTopBar">
-          <div className="workflowModalTopBarTitle">Residence Permit</div>
-          <button type="button" className="workflowModalCloseBtn" onClick={onClose} disabled={saving}>
+      <div className="contractModalCard" style={{ position: "relative" }}>
+        <BlockingLoader open={saving} label="Uploading residence permit..." />
+
+        <div className="dashboardModalHeader">
+          <h3 className="dashboardModalTitle">Residence Permit</h3>
+          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={saving}>
             x
           </button>
         </div>

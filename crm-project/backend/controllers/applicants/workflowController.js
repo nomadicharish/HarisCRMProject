@@ -1,6 +1,7 @@
 const { getApplicantsUseCase } = require("../../usecases/applicants/getApplicantsUseCase");
 const {
   getApplicantByIdUseCase,
+  getApplicantDocumentsContextUseCase,
   getApplicantWorkflowBundleUseCase
 } = require("../../usecases/applicants/profileReadUseCases");
 const {
@@ -17,6 +18,7 @@ const {
   getContractUseCase,
   getDispatchesUseCase,
   getEmbassyInterviewUseCase,
+  getInterviewWorkflowUseCase,
   getInterviewBiometricUseCase,
   getInterviewTicketUseCase,
   uploadContractUseCase,
@@ -30,6 +32,7 @@ const {
   approveVisaCollectionUseCase,
   getBiometricSlipUseCase,
   getEmbassyAppointmentUseCase,
+  getEmbassyWorkflowUseCase,
   getResidencePermitUseCase,
   getTravelDetailsUseCase,
   getVisaCollectionUseCase,
@@ -63,6 +66,15 @@ async function getApplicantWorkflowBundle(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Workflow Bundle Error", error);
+  }
+}
+
+async function getApplicantDocumentsContext(req, res) {
+  try {
+    const payload = await getApplicantDocumentsContextUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Applicant Documents Context Error", error);
   }
 }
 
@@ -201,6 +213,15 @@ async function getInterviewBiometric(req, res) {
   }
 }
 
+async function getInterviewWorkflow(req, res) {
+  try {
+    const payload = await getInterviewWorkflowUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Interview Workflow Error", error);
+  }
+}
+
 async function addEmbassyAppointment(req, res) {
   try {
     const payload = await addEmbassyAppointmentUseCase(req);
@@ -252,6 +273,15 @@ async function getBiometricSlip(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Biometric Slip Error", error);
+  }
+}
+
+async function getEmbassyWorkflow(req, res) {
+  try {
+    const payload = await getEmbassyWorkflowUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Embassy Workflow Error", error);
   }
 }
 
@@ -321,6 +351,7 @@ async function getResidencePermit(req, res) {
 module.exports = {
   getApplicants,
   getApplicantById,
+  getApplicantDocumentsContext,
   getApplicantWorkflowBundle,
   addAppointment,
   approveAppointment,
@@ -336,6 +367,7 @@ module.exports = {
   getTravelDetails,
   uploadBiometricSlip,
   getBiometricSlip,
+  getEmbassyWorkflow,
   addEmbassyInterview,
   approveEmbassyInterview,
   getEmbassyInterview,
@@ -343,6 +375,7 @@ module.exports = {
   getInterviewTicket,
   uploadInterviewBiometric,
   getInterviewBiometric,
+  getInterviewWorkflow,
   addVisaCollection,
   approveVisaCollection,
   getVisaCollection,

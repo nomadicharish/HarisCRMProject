@@ -3,7 +3,9 @@ import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import BlockingLoader from "../components/common/BlockingLoader";
 import API from "../services/api";
+import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
 import "../styles/applicantDocuments.css";
 import "../styles/applicantsDashboard.css";
@@ -72,17 +74,8 @@ const errorText = {
   marginTop: "3px"
 };
 
-function formatAmountInput(value) {
-  const cleaned = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
-  const [whole = "", decimal = ""] = cleaned.split(".");
-  const normalizedWhole = whole.replace(/^0+(?=\d)/, "") || (whole.includes("0") ? "0" : "");
-  const withComma = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return decimal ? `${withComma}.${decimal.slice(0, 2)}` : withComma;
-}
-
-function parseAmountInput(value) {
-  return Number(String(value || "").replace(/,/g, ""));
-}
+const formatAmountInput = formatIndianNumberInput;
+const parseAmountInput = parseIndianNumberInput;
 
 function TrashIcon() {
   return (
@@ -406,6 +399,7 @@ function CompanyFormPage() {
 
   return (
     <div className="page-container">
+      <BlockingLoader open={saving} label={isEdit ? "Updating company..." : "Saving company..."} />
       <DashboardTopbar user={currentUser} />
       <div className="page-content" style={{ maxWidth: "980px" }}>
         <div className="card">

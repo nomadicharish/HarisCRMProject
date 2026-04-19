@@ -1,6 +1,5 @@
 import React, { Suspense, lazy } from "react";
 
-const ApplicantFormModal = lazy(() => import("../applicant-form/ApplicantFormModal"));
 const ContractSection = lazy(() => import("../ContractSection"));
 const EmbassyAppointment = lazy(() => import("../EmbassyAppointment"));
 const BiometricSlipModal = lazy(() => import("../BiometricSlipModal"));
@@ -21,10 +20,6 @@ function ApplicantProfileModalStack({
   isEmployer,
   resolvedAgencyName,
   resolvedCountryName,
-  showEditModal,
-  setShowEditModal,
-  editContext,
-  setEditContext,
   showContractModal,
   setShowContractModal,
   showEmbassyAppointmentModal,
@@ -49,25 +44,6 @@ function ApplicantProfileModalStack({
 }) {
   return (
     <Suspense fallback={null}>
-      {showEditModal && (
-        <ApplicantFormModal
-          editData={applicant}
-          onClose={() => {
-            setShowEditModal(false);
-            setEditContext("default");
-          }}
-          onSaved={onSaved}
-          onApproveStage={
-            user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
-              ? approveStage
-              : undefined
-          }
-          autoApproveAfterSave={
-            user?.role === "SUPER_USER" && editContext === "stage1" && Number(applicant?.stage) === 1
-          }
-        />
-      )}
-
       <ContractSection
         applicantId={id}
         user={user}

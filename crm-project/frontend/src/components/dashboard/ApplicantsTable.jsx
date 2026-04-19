@@ -63,7 +63,7 @@ function ApplicantsTable({
                 </td>
                 <td>
                   <span className="dashboardStatusPill">
-                    {applicant.statusText || applicant.stageLabel || "Candidate Created"}
+                    {applicant.applicantBannerStatus || applicant.statusText || applicant.stageLabel || "Candidate Created"}
                   </span>
                 </td>
                 <td>{applicant.companyName || "-"}</td>
@@ -113,7 +113,7 @@ function ApplicantsTable({
               </div>
               <div>
                 <span className="dashboardStatusPill">
-                  {applicant.statusText || applicant.stageLabel || "Candidate Created"}
+                  {applicant.applicantBannerStatus || applicant.statusText || applicant.stageLabel || "Candidate Created"}
                 </span>
               </div>
               <div>{applicant.companyName || "-"}</div>

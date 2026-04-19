@@ -38,12 +38,19 @@ API.interceptors.request.use(async (config) => {
     if (localStorage.getItem("token") !== token) localStorage.setItem("token", token);
     localStorage.setItem("session_expires_at", String(Date.now() + SESSION_DURATION_MS));
   }
+
+  const requestUrl = `${config.baseURL || ""}${config.url || ""}`;
+  console.log("Request URL:", requestUrl);
   return config;
 });
 
 API.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    console.log("Response:", response?.data ?? {});
+    return response;
+  },
   async (error) => {
+    console.log("Response:", error?.response?.data ?? { message: error?.message || "Unknown error" });
     const originalRequest = error?.config;
     if (isAuthTokenError(error) && originalRequest && !originalRequest._retry) {
       const currentUser = auth.currentUser;

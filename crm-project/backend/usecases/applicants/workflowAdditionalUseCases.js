@@ -208,6 +208,46 @@ async function getBiometricSlipUseCase(req) {
   };
 }
 
+async function getEmbassyWorkflowUseCase(req) {
+  const doc = await db.collection("applicants").doc(req.params.id).get();
+  if (!doc.exists) throw new AppError("Applicant not found", 404);
+  const data = doc.data() || {};
+
+  const embassyAppointment = data.embassyAppointment
+    ? {
+        ...data.embassyAppointment,
+        time:
+          data.embassyAppointment.time ||
+          data.embassyAppointment.appointmentTime ||
+          (data.embassyAppointment.dateTime
+            ? String(data.embassyAppointment.dateTime).split("T")[1]?.slice(0, 5)
+            : "") ||
+          "",
+        createdAt: normalizeDate(data.embassyAppointment.createdAt)
+      }
+    : null;
+
+  const travelDetails = data.travelDetails
+    ? {
+        ...data.travelDetails,
+        createdAt: normalizeDate(data.travelDetails.createdAt)
+      }
+    : null;
+
+  const biometricSlip = data.biometricSlip
+    ? {
+        ...data.biometricSlip,
+        uploadedAt: normalizeDate(data.biometricSlip.uploadedAt)
+      }
+    : null;
+
+  return {
+    embassyAppointment,
+    travelDetails,
+    biometricSlip
+  };
+}
+
 async function addVisaCollectionUseCase(req) {
   const applicantId = req.params.id;
   const { date, time } = req.body;
@@ -421,6 +461,7 @@ module.exports = {
   addVisaCollectionUseCase,
   addVisaTravelUseCase,
   approveVisaCollectionUseCase,
+  getEmbassyWorkflowUseCase,
   getBiometricSlipUseCase,
   getEmbassyAppointmentUseCase,
   getResidencePermitUseCase,
@@ -430,4 +471,3 @@ module.exports = {
   uploadBiometricSlipUseCase,
   uploadResidencePermitUseCase
 };
-

@@ -372,6 +372,39 @@ async function getInterviewBiometricUseCase(req) {
   };
 }
 
+async function getInterviewWorkflowUseCase(req) {
+  const doc = await db.collection("applicants").doc(req.params.id).get();
+  if (!doc.exists) throw new AppError("Applicant not found", 404);
+  const data = doc.data() || {};
+
+  const embassyInterview = data.embassyInterview
+    ? {
+        ...data.embassyInterview,
+        createdAt: normalizeDate(data.embassyInterview.createdAt)
+      }
+    : null;
+
+  const interviewTicket = data.interviewTicket
+    ? {
+        ...data.interviewTicket,
+        createdAt: normalizeDate(data.interviewTicket.createdAt)
+      }
+    : null;
+
+  const interviewBiometric = data.interviewBiometric
+    ? {
+        ...data.interviewBiometric,
+        uploadedAt: normalizeDate(data.interviewBiometric.uploadedAt)
+      }
+    : null;
+
+  return {
+    embassyInterview,
+    interviewTicket,
+    interviewBiometric
+  };
+}
+
 module.exports = {
   addDispatchUseCase,
   addEmbassyInterviewUseCase,
@@ -381,6 +414,7 @@ module.exports = {
   getContractUseCase,
   getDispatchesUseCase,
   getEmbassyInterviewUseCase,
+  getInterviewWorkflowUseCase,
   getInterviewBiometricUseCase,
   getInterviewTicketUseCase,
   uploadContractUseCase,

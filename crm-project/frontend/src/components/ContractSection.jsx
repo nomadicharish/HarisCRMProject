@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import BlockingLoader from "./common/BlockingLoader";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -95,13 +96,13 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard">
-        <div className="workflowModalTopBar">
-          <div>
-            <div className="workflowModalTopBarTitle">{title}</div>
-          </div>
-          <button type="button" className="workflowModalCloseBtn" onClick={onClose}>
-            ✕
+      <div className="contractModalCard" style={{ position: "relative" }}>
+        <BlockingLoader open={saving} label="Saving contract details..." />
+
+        <div className="dashboardModalHeader">
+          <h3 className="dashboardModalTitle">{title}</h3>
+          <button type="button" className="dashboardModalCloseBtn" onClick={onClose}>
+            x
           </button>
         </div>
 
@@ -139,9 +140,7 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
                     disabled={saving}
                     onChange={(event) => setFile(event.target.files?.[0] || null)}
                   />
-                  <span className="contractFileCardTitle">
-                    {file?.name || "Upload contract"}
-                  </span>
+                  <span className="contractFileCardTitle">{file?.name || "Upload contract"}</span>
                 </label>
 
                 <div className="contractActionRow">

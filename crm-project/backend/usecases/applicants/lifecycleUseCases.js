@@ -20,6 +20,7 @@ async function approveApplicantUseCase(req) {
 
   await ref.update({
     approvalStatus: "approved",
+    applicantBannerStatus: "Document upload pending",
     approvedBy: userId,
     approvedAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -46,6 +47,7 @@ async function completeApplicantUseCase(req) {
 
   await docRef.update({
     stage: 12,
+    applicantBannerStatus: "Candidate Arrived and Process Completed",
     completedAt: new Date(),
     completedBy: req.user.uid,
     stageUpdatedAt: new Date()
@@ -92,4 +94,3 @@ module.exports = {
   completeApplicantUseCase,
   updateApplicantUseCase
 };
-

@@ -42,7 +42,9 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder, error }
         color: "#666"
       }}
     >
-      cal
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
     </span>
   </div>
 ));
@@ -58,8 +60,16 @@ function ApplicantFormStepOne({
   setForm,
   handleChange,
   calculateAge,
-  onNext
+  onNext,
+  showActions = true
 }) {
+  const resolvedPhoneCountry = PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase())
+    ? String(form.phoneCountry || "IN").toUpperCase()
+    : "IN";
+  const resolvedWhatsappCountry = PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase())
+    ? String(form.whatsappCountry || "IN").toUpperCase()
+    : "IN";
+
   return (
     <>
       <div style={grid}>
@@ -122,7 +132,7 @@ function ApplicantFormStepOne({
           {errors.age && <div style={errorText}>{errors.age}</div>}
         </div>
 
-        <div style={{ gridColumn: "span 2" }}>
+        <div style={{ gridColumn: "1 / -1" }}>
           <label style={label}>Address as in passport</label>
           <input
             style={{ ...input, border: errors.address ? `1px solid ${THEME.error}` : input.border }}
@@ -135,62 +145,127 @@ function ApplicantFormStepOne({
           {errors.address && <div style={errorText}>{errors.address}</div>}
         </div>
 
-        <div>
-          <label style={label}>Phone</label>
-          <div className="dashboardPhoneSplitWrap">
-            <PhoneInput
-              country={
-                PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase())
-                  ? String(form.phoneCountry).toLowerCase()
-                  : "in"
-              }
-              value={String(getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN"))}
-              inputProps={{ readOnly: true }}
-              countryCodeEditable={false}
-              enableSearch
-              disableSearchIcon
-              onChange={(_, countryData) => {
-                const nextCountry = String(countryData?.countryCode || "in").toUpperCase();
-                setForm((prev) => ({ ...prev, phoneCountry: PHONE_COUNTRY_CODES.has(nextCountry) ? nextCountry : "IN" }));
-              }}
-              containerClass="dashboardPhoneCodeWrap"
-              buttonClass="dashboardPhoneCodeButton"
-              inputClass={`dashboardPhoneCodeValue ${errors.phone ? "dashboardPhoneInputError" : ""}`}
-            />
-            <input
-              style={{ ...input, border: errors.phone ? `1px solid ${THEME.error}` : input.border }}
-              value={form.phone || ""}
-              onFocus={handleFocus}
-              onBlur={(event) => handleBlur(event, errors.phone)}
-              onChange={(event) => handleChange("phone", event.target.value.replace(/[^\d]/g, ""))}
-              placeholder="Enter phone number"
-            />
+        <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+          <div>
+            <label style={label}>Phone</label>
+            <div className="dashboardPhoneSplitWrap">
+              <PhoneInput
+                country={resolvedPhoneCountry.toLowerCase()}
+                value={String(getCountryCallingCode(resolvedPhoneCountry))}
+                inputProps={{ readOnly: true }}
+                countryCodeEditable={false}
+                enableSearch
+                disableSearchIcon
+                onChange={(_, countryData) => {
+                  const nextCountry = String(countryData?.countryCode || "in").toUpperCase();
+                  setForm((prev) => {
+                    const normalizedCountry = PHONE_COUNTRY_CODES.has(nextCountry) ? nextCountry : "IN";
+                    return {
+                      ...prev,
+                      phoneCountry: normalizedCountry,
+                      ...(prev.isWhatsappSameAsPhone
+                        ? { whatsappCountry: normalizedCountry, whatsappNumber: String(prev.phone || "") }
+                        : {})
+                    };
+                  });
+                }}
+                containerClass="dashboardPhoneCodeWrap"
+                buttonClass="dashboardPhoneCodeButton"
+                inputClass={`dashboardPhoneCodeValue ${errors.phone ? "dashboardPhoneInputError" : ""}`}
+              />
+              <input
+                style={{ ...input, border: errors.phone ? `1px solid ${THEME.error}` : input.border }}
+                value={form.phone || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.phone)}
+                onChange={(event) => handleChange("phone", event.target.value.replace(/[^\d]/g, ""))}
+                placeholder="Enter phone number"
+              />
+            </div>
+            {errors.phone && <div style={errorText}>{errors.phone}</div>}
           </div>
-          {errors.phone && <div style={errorText}>{errors.phone}</div>}
-        </div>
 
-        <div>
-          <label style={label}>Marital Status</label>
-          <select
-            style={{ ...input, border: errors.maritalStatus ? `1px solid ${THEME.error}` : input.border }}
-            value={form.maritalStatus || ""}
-            onFocus={handleFocus}
-            onBlur={(event) => handleBlur(event, errors.maritalStatus)}
-            onChange={(event) => handleChange("maritalStatus", event.target.value)}
-          >
-            <option value="">Select Marital Status</option>
-            <option value="Single">Single</option>
-            <option value="Married">Married</option>
-          </select>
-          {errors.maritalStatus && <div style={errorText}>{errors.maritalStatus}</div>}
+          <div>
+            <label style={label}>Marital Status</label>
+            <select
+              style={{ ...input, border: errors.maritalStatus ? `1px solid ${THEME.error}` : input.border }}
+              value={form.maritalStatus || ""}
+              onFocus={handleFocus}
+              onBlur={(event) => handleBlur(event, errors.maritalStatus)}
+              onChange={(event) => handleChange("maritalStatus", event.target.value)}
+            >
+              <option value="">Select Marital Status</option>
+              <option value="Single">Single</option>
+              <option value="Married">Married</option>
+            </select>
+            {errors.maritalStatus && <div style={errorText}>{errors.maritalStatus}</div>}
+          </div>
+
+          <div>
+            <label style={label}>WhatsApp Number</label>
+            <div className="dashboardPhoneSplitWrap">
+              <PhoneInput
+                country={resolvedWhatsappCountry.toLowerCase()}
+                value={String(getCountryCallingCode(resolvedWhatsappCountry))}
+                inputProps={{ readOnly: true }}
+                countryCodeEditable={false}
+                enableSearch
+                disableSearchIcon
+                onChange={(_, countryData) => {
+                  const nextCountry = String(countryData?.countryCode || "in").toUpperCase();
+                  setForm((prev) => ({
+                    ...prev,
+                    whatsappCountry: PHONE_COUNTRY_CODES.has(nextCountry) ? nextCountry : "IN"
+                  }));
+                }}
+                containerClass="dashboardPhoneCodeWrap"
+                buttonClass="dashboardPhoneCodeButton"
+                inputClass={`dashboardPhoneCodeValue ${errors.whatsappNumber ? "dashboardPhoneInputError" : ""}`}
+              />
+              <input
+                style={{ ...input, border: errors.whatsappNumber ? `1px solid ${THEME.error}` : input.border }}
+                value={form.whatsappNumber || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.whatsappNumber)}
+                onChange={(event) => {
+                  const next = event.target.value.replace(/[^\d]/g, "");
+                  handleChange("whatsappNumber", next);
+                  if (next !== (form.phone || "")) {
+                    handleChange("isWhatsappSameAsPhone", false);
+                  }
+                }}
+                placeholder="Enter WhatsApp number"
+              />
+            </div>
+            {errors.whatsappNumber && <div style={errorText}>{errors.whatsappNumber}</div>}
+            <label style={{ display: "inline-flex", gap: 8, alignItems: "center", marginTop: 8, fontSize: 12 }}>
+              <input
+                type="checkbox"
+                checked={Boolean(form.isWhatsappSameAsPhone)}
+                onChange={(event) => {
+                  const checked = Boolean(event.target.checked);
+                  handleChange("isWhatsappSameAsPhone", checked);
+                  if (checked) {
+                    handleChange("whatsappCountry", resolvedPhoneCountry);
+                    handleChange("whatsappNumber", form.phone || "");
+                  } else {
+                    handleChange("whatsappNumber", "");
+                  }
+                }}
+              />
+              Same as contact number
+            </label>
+          </div>
         </div>
       </div>
 
-      <div style={actionsRight}>
-        <button style={btnPrimary} onClick={onNext}>
-          {"Next ->"}
-        </button>
-      </div>
+      {showActions ? (
+        <div style={actionsRight}>
+          <button style={btnPrimary} onClick={onNext}>
+            {"Next ->"}
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }

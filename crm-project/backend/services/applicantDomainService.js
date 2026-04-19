@@ -19,6 +19,7 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "companyId",
   "agencyId",
   "approvalStatus",
+  "applicantBannerStatus",
   "stage",
   "stageStatus",
   "createdAt",

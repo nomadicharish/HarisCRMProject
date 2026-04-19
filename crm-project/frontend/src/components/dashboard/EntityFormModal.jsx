@@ -5,6 +5,8 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
+import BlockingLoader from "../common/BlockingLoader";
+import { formatIndianNumberInput, parseIndianNumberInput } from "../../utils/numberFormat";
 import "../../styles/forms.css";
 import "../../styles/applicantContract.css";
 
@@ -103,17 +105,8 @@ const INITIAL_FORM = {
 
 const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
 
-function formatAmountInput(value) {
-  const cleaned = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
-  const [whole = "", decimal = ""] = cleaned.split(".");
-  const normalizedWhole = whole.replace(/^0+(?=\d)/, "") || (whole.includes("0") ? "0" : "");
-  const withComma = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return decimal ? `${withComma}.${decimal.slice(0, 2)}` : withComma;
-}
-
-function parseAmountInput(value) {
-  return Number(String(value || "").replace(/,/g, ""));
-}
+const formatAmountInput = formatIndianNumberInput;
+const parseAmountInput = parseIndianNumberInput;
 
 function TrashIcon() {
   return (
@@ -347,7 +340,8 @@ function EntityFormModal({
   return (
     <>
       <div className="contractModalOverlay">
-        <div className="contractModalCard dashboardEntityModal">
+        <div className="contractModalCard dashboardEntityModal" style={{ position: "relative" }}>
+          <BlockingLoader open={saving || deleting} label={deleting ? "Deleting..." : "Saving..."} />
           <div className="dashboardModalHeader">
             <h3 className="dashboardModalTitle">{editData ? config.editTitle : config.title}</h3>
             <div className="dashboardHeaderActions">

@@ -1,4 +1,4 @@
-import { parsePhoneNumberFromString } from "libphonenumber-js";
+import { getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 
 const EMPTY_FORM = {
   firstName: "",
@@ -7,6 +7,9 @@ const EMPTY_FORM = {
   age: "",
   address: "",
   phone: "",
+  whatsappNumber: "",
+  whatsappCountry: "IN",
+  isWhatsappSameAsPhone: false,
   phoneCountry: "IN",
   maritalStatus: "",
   companyId: "",
@@ -70,15 +73,21 @@ const validatePhone = (phone, phoneCountry) => {
   if (!phone) return "Phone number is required";
   try {
     const normalizedPhone = String(phone || "").replace(/[^\d]/g, "");
-    const prefixedPhone = normalizedPhone.startsWith("+") ? normalizedPhone : `+${normalizedPhone}`;
-    const phoneNumber = parsePhoneNumberFromString(prefixedPhone, String(phoneCountry || "IN").toUpperCase());
+    const countryIso = String(phoneCountry || "IN").toUpperCase();
+    const dialCode = getCountryCallingCode(countryIso);
+    const phoneNumber = parsePhoneNumberFromString(`+${dialCode}${normalizedPhone}`, countryIso);
     if (!phoneNumber || !phoneNumber.isValid()) {
-      return `Invalid phone number for ${String(phoneCountry || "").toUpperCase()}`;
+      return `Invalid phone number for ${countryIso}`;
     }
     return null;
   } catch {
     return "Invalid phone number";
   }
+};
+
+const validateOptionalPhone = (phone, phoneCountry) => {
+  if (!String(phone || "").trim()) return null;
+  return validatePhone(phone, phoneCountry);
 };
 
 const validateTotalAmount = (totalAmount, userRole) => {
@@ -107,6 +116,7 @@ export {
   calculateAge,
   validateAge,
   validatePhone,
+  validateOptionalPhone,
   validateTotalAmount,
   validatePaidAmount
 };

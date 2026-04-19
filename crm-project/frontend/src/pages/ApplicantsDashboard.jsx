@@ -10,7 +10,7 @@ import AgenciesTable from "../components/dashboard/AgenciesTable";
 import DashboardFiltersSidebar from "../components/dashboard/DashboardFiltersSidebar";
 import DashboardResultsHeader from "../components/dashboard/DashboardResultsHeader";
 import { getCached, hasFreshCache, invalidateCache } from "../services/cachedApi";
-import CreateApplicants from "./CreateApplicants";
+import API from "../services/api";
 import "../styles/applicantsDashboard.css";
 
 const RIGHT_ICON_SRC = "/right.png";
@@ -60,6 +60,41 @@ function parseDate(value) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function formatExcelDate(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-IN");
+}
+
+function resolveAge(applicant) {
+  const directAge = Number(applicant?.age ?? applicant?.personalDetails?.age);
+  if (Number.isFinite(directAge) && directAge > 0) return directAge;
+  const dob = applicant?.dob || applicant?.personalDetails?.dob;
+  if (!dob) return "-";
+  const dobDate = new Date(dob);
+  if (Number.isNaN(dobDate.getTime())) return "-";
+  const now = new Date();
+  let age = now.getFullYear() - dobDate.getFullYear();
+  const monthDiff = now.getMonth() - dobDate.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dobDate.getDate())) age -= 1;
+  return age >= 0 ? age : "-";
+}
+
+function normalizeListResponse(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.items)) return response.items;
+  return [];
+}
+
 function ApplicantsDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,13 +118,13 @@ function ApplicantsDashboard() {
     totalPages: 1
   });
   const [loading, setLoading] = useState(true);
-  const [showAddApplicant, setShowAddApplicant] = useState(false);
   const [entityModalType, setEntityModalType] = useState("");
   const [entityEditData, setEntityEditData] = useState(null);
   const [showCountryManager, setShowCountryManager] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState("");
+  const [isExporting, setIsExporting] = useState(false);
   const isSuperUser = user?.role === "SUPER_USER";
   const isEmployer = user?.role === "EMPLOYER";
   const isAgency = user?.role === "AGENCY";
@@ -223,7 +258,7 @@ function ApplicantsDashboard() {
           getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
           getCached("/employers", { params: entityParams, ttlMs: 30000 })
         ]);
-        setCompanies(Array.isArray(companiesData) ? companiesData : []);
+        setCompanies(normalizeListResponse(companiesData));
         const normalizedEmployers = Array.isArray(employersData)
           ? employersData
           : Array.isArray(employersData?.items)
@@ -241,7 +276,7 @@ function ApplicantsDashboard() {
           getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
           getCached("/agencies", { params: entityParams, ttlMs: 30000 })
         ]);
-        setCompanies(Array.isArray(companiesData) ? companiesData : []);
+        setCompanies(normalizeListResponse(companiesData));
         const normalizedAgencies = Array.isArray(agenciesData)
           ? agenciesData
           : Array.isArray(agenciesData?.items)
@@ -259,8 +294,8 @@ function ApplicantsDashboard() {
           getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
           isSuperUser ? getCached("/agencies", { params: { paginated: "false" }, ttlMs: 30000 }) : Promise.resolve([])
         ]);
-        setCompanies(Array.isArray(companiesData) ? companiesData : []);
-        setAgencies(Array.isArray(agenciesData) ? agenciesData : []);
+        setCompanies(normalizeListResponse(companiesData));
+        setAgencies(normalizeListResponse(agenciesData));
       }
 
       setIsRefreshing(false);
@@ -631,7 +666,7 @@ function ApplicantsDashboard() {
 
   const openCurrentAction = () => {
     if (activeTab === "applicants") {
-      setShowAddApplicant(true);
+      navigate("/create-applicant");
       return;
     }
 
@@ -644,6 +679,105 @@ function ApplicantsDashboard() {
       activeTab === "employers" ? "employer" : "agency"
     );
   };
+
+  const handleExportApplicants = useCallback(async () => {
+    try {
+      setIsExporting(true);
+      const response = await API.get("/applicants", {
+        params: {
+          paginated: "false",
+          q: searchText || "",
+          type: applicantTypes.join(","),
+          country: countryIds.join(","),
+          company: companyIds.join(","),
+          agency: agencyIds.join(",")
+        }
+      });
+      const records = Array.isArray(response?.data) ? response.data : [];
+      const rows = records.map((applicant) => {
+        const fullName =
+          applicant.fullName ||
+          [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
+          "-";
+        const dob = applicant?.dob || applicant?.personalDetails?.dob || "";
+        const totalPayment = Number(applicant?.payment?.totalInr ?? applicant?.payment?.total ?? 0);
+        const paidPayment = Number(applicant?.payment?.paidInr ?? applicant?.payment?.paid ?? 0);
+        const pendingPayment = Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0);
+        return {
+          candidateName: fullName,
+          dateOfBirth: formatExcelDate(dob),
+          age: resolveAge(applicant),
+          address: applicant?.address || applicant?.personalDetails?.address || "-",
+          contactNumber: applicant?.phone || applicant?.personalDetails?.phone || "-",
+          currentStatus: applicant?.statusText || applicant?.applicantBannerStatus || applicant?.stageLabel || "-",
+          company: applicant?.companyName || "-",
+          country: applicant?.countryName || applicant?.country || "-",
+          totalPayment,
+          paymentDone: paidPayment,
+          pendingPayment
+        };
+      });
+
+      const tableRows = rows
+        .map(
+          (row) => `
+          <tr>
+            <td>${escapeHtml(row.candidateName)}</td>
+            <td>${escapeHtml(row.dateOfBirth)}</td>
+            <td>${escapeHtml(row.age)}</td>
+            <td>${escapeHtml(row.address)}</td>
+            <td>${escapeHtml(row.contactNumber)}</td>
+            <td>${escapeHtml(row.currentStatus)}</td>
+            <td>${escapeHtml(row.company)}</td>
+            <td>${escapeHtml(row.country)}</td>
+            <td>${escapeHtml(pendingNumberFormatter.format(row.totalPayment || 0))}</td>
+            <td>${escapeHtml(pendingNumberFormatter.format(row.paymentDone || 0))}</td>
+            <td>${escapeHtml(pendingNumberFormatter.format(row.pendingPayment || 0))}</td>
+          </tr>`
+        )
+        .join("");
+
+      const content = `
+        <html>
+          <head><meta charset="UTF-8" /></head>
+          <body>
+            <table border="1">
+              <thead>
+                <tr>
+                  <th>Candidate Name</th>
+                  <th>Date of Birth</th>
+                  <th>Age</th>
+                  <th>Address</th>
+                  <th>Contact number</th>
+                  <th>Current status</th>
+                  <th>Company</th>
+                  <th>Country</th>
+                  <th>Total payment</th>
+                  <th>Payment done</th>
+                  <th>Pending payment</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const blob = new Blob([content], { type: "application/vnd.ms-excel;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `dashboard-applicants-${new Date().toISOString().slice(0, 10)}.xls`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsExporting(false);
+    }
+  }, [agencyIds, applicantTypes, companyIds, countryIds, searchText]);
 
   const applyOptimisticEntityChange = useCallback(
     (change) => {
@@ -710,49 +844,6 @@ function ApplicantsDashboard() {
     return () => clearTimeout(timer);
   }, [searchInput, searchText, updateFilters]);
 
-  const applyOptimisticApplicantChange = useCallback((change) => {
-    if (!change?.operation) return false;
-    const { operation, id, payload = {} } = change;
-
-    if (operation === "update" && id) {
-      setApplicants((prev) =>
-        prev.map((item) =>
-          item.id === id
-            ? {
-                ...item,
-                ...payload,
-                fullName: [payload.firstName || item.firstName, payload.lastName || item.lastName]
-                  .filter(Boolean)
-                  .join(" ")
-                  .trim()
-              }
-            : item
-        )
-      );
-      return true;
-    }
-
-    if (operation === "create" && id) {
-      const createdApplicant = {
-        id,
-        ...payload,
-        firstName: payload.firstName || "",
-        lastName: payload.lastName || "",
-        fullName: [payload.firstName, payload.lastName].filter(Boolean).join(" ").trim(),
-        stage: 1,
-        approvalStatus: "pending",
-        workflowStatus: "in_progress",
-        statusText: "Candidate pending for approval",
-        createdAt: Date.now(),
-        payment: { pendingInr: Number(payload.amountPaid || 0) > 0 ? 0 : 1 }
-      };
-      setApplicants((prev) => [createdApplicant, ...prev]);
-      return true;
-    }
-
-    return false;
-  }, []);
-
   if (loading) {
     return <div style={{ padding: "40px" }}>Loading...</div>;
   }
@@ -807,6 +898,9 @@ function ApplicantsDashboard() {
             onShowCountryManager={() => setShowCountryManager(true)}
             onOpenCurrentAction={openCurrentAction}
             currentActionLabel={currentActionLabel}
+            showExportAction={isSuperUser && activeTab === "applicants"}
+            onExport={handleExportApplicants}
+            exportLoading={isExporting}
           />
 
           <div className="dashboardTableCard">
@@ -874,21 +968,6 @@ function ApplicantsDashboard() {
           </div>
         </main>
       </div>
-
-      {showAddApplicant ? (
-        <CreateApplicants
-          user={user}
-          onClose={() => setShowAddApplicant(false)}
-          onSaved={(change) => {
-            setShowAddApplicant(false);
-            invalidateCache("/applicants");
-            const applied = applyOptimisticApplicantChange(change);
-            if (!applied) {
-              setRefreshKey((value) => value + 1);
-            }
-          }}
-        />
-      ) : null}
 
       {entityModalType ? (
         <EntityFormModal

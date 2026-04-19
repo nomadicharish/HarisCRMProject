@@ -7,7 +7,6 @@ const {
   getApplicantStageLabel,
   getTodayEurToInrRate,
   normalizeDate,
-  normalizePaymentMode,
   resolveApplicantTotalEur,
   roundCurrency
 } = require("../../services/applicantDomainService");
@@ -45,6 +44,9 @@ async function getApplicantByIdUseCase(req) {
   applicantPaid = Math.max(applicantPaid, storedPaidAmount);
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
 
+  const stageLabel = getApplicantStageLabel(applicantData?.stage, applicantData?.approvalStatus);
+  const applicantBannerStatus = String(applicantData?.applicantBannerStatus || stageLabel || "Candidate Created");
+
   return {
     id: doc.id,
     ...applicantData,
@@ -54,6 +56,9 @@ async function getApplicantByIdUseCase(req) {
     countryName,
     totalApplicantPayment,
     totalAmount: totalApplicantPayment,
+    stageLabel,
+    applicantBannerStatus,
+    statusText: applicantBannerStatus,
     amountPaid: applicantPaid,
     paidAmount: applicantPaid,
     payment: {
@@ -76,81 +81,28 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const refreshedApplicantSnap = await applicantRef.get();
   const applicantData = refreshedApplicantSnap.exists ? refreshedApplicantSnap.data() : applicant;
 
-  const [companyDoc, countryDoc, agencyDoc, paymentsSnap, documentsSnap] = await Promise.all([
+  const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
     applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
     applicantData.countryId ? db.collection("countries").doc(applicantData.countryId).get() : Promise.resolve(null),
-    applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null),
-    applicantRef.collection("payments").get(),
-    applicantRef.collection("documents").get()
+    applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null)
   ]);
 
   const companyName = companyDoc?.exists ? companyDoc.data()?.name || "" : "";
-  const companyDocuments = companyDoc?.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
   const countryName = countryDoc?.exists ? countryDoc.data()?.name || "" : "";
   const agencyName = agencyDoc?.exists ? agencyDoc.data()?.name || "" : "";
 
-  let applicantPaid = 0;
-  let employerPaid = 0;
-  const history = [];
-  paymentsSnap.forEach((docSnap) => {
-    const payment = docSnap.data() || {};
-    const normalizedAmount = roundCurrency(payment.amount);
-    const normalizedPaymentMode = normalizePaymentMode(payment.paymentMode);
-
-    if (payment.type === "APPLICANT") applicantPaid += normalizedAmount;
-    if (payment.type === "EMPLOYER") employerPaid += normalizedAmount;
-
-    history.push({
-      id: docSnap.id,
-      ...payment,
-      amount: normalizedAmount,
-      paymentMode: normalizedPaymentMode || payment.paymentMode || "",
-      paidDate: normalizeDate(payment.paidDate || payment.createdAt),
-      createdAt: normalizeDate(payment.createdAt)
-    });
-  });
-
-  const storedPaidAmount = roundCurrency(applicantData.amountPaid ?? applicantData.paidAmount ?? 0);
-  if (storedPaidAmount > applicantPaid) {
-    const legacyBalance = roundCurrency(storedPaidAmount - applicantPaid);
-    if (legacyBalance > 0) {
-      history.push({
-        id: "legacy-initial-payment",
-        type: "APPLICANT",
-        amount: legacyBalance,
-        currency: "INR",
-        paymentMode: "",
-        note: history.some((payment) => payment.type === "APPLICANT")
-          ? "Mapped from applicant profile"
-          : "Initial payment",
-        paidBy: applicantData.createdBy || "",
-        paidTo: "SUPER_USER",
-        paidDate: normalizeDate(applicantData.createdAt || applicantData.updatedAt || new Date()),
-        createdAt: normalizeDate(applicantData.createdAt || applicantData.updatedAt || new Date()),
-        isLegacyMapped: true
-      });
-      applicantPaid = roundCurrency(applicantPaid + legacyBalance);
-    }
-  }
-
-  history.sort((a, b) => (b.paidDate || 0) - (a.paidDate || 0));
-  const applicantInstallments = history.filter((payment) => payment.type === "APPLICANT");
-
   const eurToInrRate = await getTodayEurToInrRate();
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
-  const totalInr = roundCurrency(totalApplicantPayment * eurToInrRate);
-  const pendingInr = Math.max(0, roundCurrency(totalInr - applicantPaid));
-
-  const documents = {};
-  await Promise.all(
-    documentsSnap.docs.map(async (docSnap) => {
-      const versionsSnap = await docSnap.ref.collection("versions").orderBy("uploadedAt", "desc").limit(1).get();
-      documents[docSnap.id] = versionsSnap.docs.map((versionDoc) => ({
-        id: versionDoc.id,
-        ...versionDoc.data()
-      }));
-    })
+  const paidFromSummary = roundCurrency(
+    applicantData?.paymentSummary?.applicant?.paid ??
+      applicantData?.paymentsSummary?.applicant?.paid ??
+      applicantData?.amountPaid ??
+      applicantData?.paidAmount ??
+      0
   );
+  const applicantPaid = Math.max(0, paidFromSummary);
+
+  const includeDetails = ["1", "true", "yes"].includes(String(req.query?.includeDetails || "").toLowerCase());
 
   const contract = applicantData.contract
     ? {
@@ -270,7 +222,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
   );
   const hasCompletedDocumentStage = Number(applicantData?.stage || 1) >= 3 && approvedRequired;
   const stageLabel = getApplicantStageLabel(applicantData?.stage, applicantData?.approvalStatus);
-  const statusText = getApplicantBannerStatusText(applicantData, {
+  const computedStatusText = getApplicantBannerStatusText(applicantData, {
     hasCompletedDocumentStage,
     pendingRequired,
     rejectedRequired,
@@ -286,65 +238,147 @@ async function getApplicantWorkflowBundleUseCase(req) {
     hasPendingVisaCollectionApproval,
     hasEmbassyAppointment
   });
+  const applicantBannerStatus = String(computedStatusText || "");
+  const statusText = applicantBannerStatus;
+  if (applicantBannerStatus !== String(applicantData?.applicantBannerStatus || "")) {
+    await applicantRef.set(
+      {
+        applicantBannerStatus,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+  }
 
-  return {
+  const workflowFlags = {
+    isDocumentsApproved: Boolean(hasCompletedDocumentStage),
+    hasRejectedDocuments: Boolean(rejectedRequired),
+    hasPendingDocumentsApproval: Boolean(pendingRequired),
+    isDispatchCompleted: Number(applicantData?.stage || 1) >= 4,
+    isContractIssued: Number(applicantData?.stage || 1) >= 5 || String(applicantData?.contract?.status || "").toUpperCase() === "APPROVED",
+    isContractPendingApproval: String(applicantData?.contract?.status || "").toUpperCase() === "PENDING",
+    isEmbassyAppointmentCreated: Boolean(hasEmbassyAppointment),
+    isEmbassyAppointmentApproved:
+      Boolean(applicantData?.embassyAppointment?.approved) || Number(applicantData?.stage || 1) >= 6,
+    isEmbassyAppointmentCompleted: Number(applicantData?.stage || 1) >= 7,
+    isTravelTicketUploaded: Boolean(hasTravelDetails),
+    isBiometricCompleted: Boolean(hasBiometricSlip),
+    isEmbassyInterviewCreated: Boolean(applicantData?.embassyInterview?.dateTime),
+    isEmbassyInterviewApproved:
+      String(applicantData?.embassyInterview?.status || "").toUpperCase() === "APPROVED" ||
+      Number(applicantData?.stage || 1) >= 8,
+    isEmbassyInterviewPendingApproval: Boolean(hasPendingEmbassyInterviewApproval),
+    isInterviewTicketUploaded: Boolean(hasInterviewTicket),
+    isInterviewBiometricCompleted: Boolean(hasInterviewBiometric),
+    isVisaCollectionCreated: Boolean(applicantData?.visaCollection?.date && applicantData?.visaCollection?.time),
+    isVisaCollectionApproved:
+      String(applicantData?.visaCollection?.status || "").toUpperCase() === "APPROVED" ||
+      Number(applicantData?.stage || 1) >= 10,
+    isVisaCollectionPendingApproval: Boolean(hasPendingVisaCollectionApproval),
+    isVisaTravelUploaded: Boolean(hasVisaTravel),
+    isResidencePermitUploaded: Boolean(hasResidencePermit)
+  };
+
+  const {
+    contract: _contract,
+    biometricSlip: _biometricSlip,
+    embassyAppointment: _embassyAppointment,
+    embassyInterview: _embassyInterview,
+    interviewTicket: _interviewTicket,
+    interviewBiometric: _interviewBiometric,
+    visaCollection: _visaCollection,
+    visaTravel: _visaTravel,
+    residencePermit: _residencePermit,
+    travelDetails: _travelDetails,
+    paymentSummary: _paymentSummary,
+    paymentsSummary: _paymentsSummary,
+    companyDocuments: _companyDocuments,
+    documentSummary: _documentSummary,
+    ...applicantCore
+  } = applicantData || {};
+
+  const normalizedDocSummary = applicantData?.docSummary || applicantData?.documentSummary || {};
+
+  const totalInr = roundCurrency(totalApplicantPayment * eurToInrRate);
+  const paidInr = roundCurrency(applicantPaid);
+  const pendingInr = Math.max(0, roundCurrency(totalInr - paidInr));
+
+  const response = {
     applicant: {
       id: applicantId,
-      ...applicantData,
+      ...applicantCore,
+      docSummary: normalizedDocSummary,
       companyName,
-      companyDocuments,
       agencyName,
       countryName,
       totalApplicantPayment,
       totalAmount: totalApplicantPayment,
       stageLabel,
+      applicantBannerStatus,
+      currentStatus: applicantBannerStatus,
       statusText,
+      workflowFlags,
       amountPaid: roundCurrency(applicantPaid),
       paidAmount: roundCurrency(applicantPaid),
       payment: {
         total: totalApplicantPayment,
-        paid: roundCurrency(applicantPaid),
-        pending: Math.max(0, totalApplicantPayment - roundCurrency(applicantPaid))
-      }
-    },
-    documents,
-    paymentSummary: {
-      applicant: {
-        total: totalApplicantPayment,
         totalEur: totalApplicantPayment,
         totalInr,
-        paid: roundCurrency(applicantPaid),
-        paidInr: roundCurrency(applicantPaid),
+        paid: paidInr,
+        paidInr,
         pending: pendingInr,
         pendingInr,
         exchangeRate: roundCurrency(eurToInrRate),
         currency: "INR",
-        sourceCurrency: "EUR",
-        installmentCount: applicantInstallments.length,
-        remainingInstallments: Math.max(0, 4 - applicantInstallments.length),
-        history: applicantInstallments
-      },
-      employer: {
-        total: roundCurrency(applicantData.totalEmployerPayment || 0),
-        paid: roundCurrency(employerPaid),
-        pending: Math.max(0, roundCurrency((applicantData.totalEmployerPayment || 0) - employerPaid))
-      },
-      history
+        sourceCurrency: "EUR"
+      }
     },
-    contract,
-    embassyAppointment,
-    biometricSlip,
-    embassyInterview,
-    interviewTicket,
-    interviewBiometric,
-    visaCollection,
-    visaTravel,
-    residencePermit
+    exchangeRate: roundCurrency(eurToInrRate)
+  };
+
+  if (includeDetails) {
+    return {
+      ...response,
+      contract,
+      embassyAppointment,
+      biometricSlip,
+      embassyInterview,
+      interviewTicket,
+      interviewBiometric,
+      visaCollection,
+      visaTravel,
+      residencePermit
+    };
+  }
+
+  return response;
+}
+
+async function getApplicantDocumentsContextUseCase(req) {
+  const applicantId = req.params.id;
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantSnap = await applicantRef.get();
+  if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
+
+  const applicant = applicantSnap.data() || {};
+  const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
+  const documentConfigs = companyDoc?.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
+
+  return {
+    applicant: {
+      id: applicantId,
+      stage: Number(applicant.stage || 1),
+      approvalStatus: applicant.approvalStatus || "",
+      companyId: applicant.companyId || "",
+      countryId: applicant.countryId || "",
+      agencyId: applicant.agencyId || ""
+    },
+    documentConfigs
   };
 }
 
 module.exports = {
   getApplicantByIdUseCase,
+  getApplicantDocumentsContextUseCase,
   getApplicantWorkflowBundleUseCase
 };
-

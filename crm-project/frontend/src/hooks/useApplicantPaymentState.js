@@ -31,11 +31,15 @@ function useApplicantPaymentState({ applicant, paymentSummary }) {
   return useMemo(() => {
     const total = getApplicantTotalAmount(applicant, paymentSummary);
     const paid = getApplicantPaidAmount(applicant);
+    const exchangeRate = toNumber(applicant?.payment?.exchangeRate ?? applicant?.exchangeRate);
+    const derivedTotalInr = exchangeRate > 0 ? total * exchangeRate : total;
+    const derivedPendingInr = Math.max(0, derivedTotalInr - paid);
     const pending =
       paymentSummary?.applicant?.pendingInr ??
       paymentSummary?.applicant?.pending ??
+      applicant?.payment?.pendingInr ??
       applicant?.payment?.pending ??
-      Math.max(0, total - paid);
+      derivedPendingInr;
 
     return {
       pending,

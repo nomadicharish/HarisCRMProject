@@ -3,7 +3,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import BlockingLoader from "../components/common/BlockingLoader";
 import { getCached, invalidateCache } from "../services/cachedApi";
+import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
@@ -57,17 +59,8 @@ function getInitials(name) {
   return (first + last).toUpperCase();
 }
 
-function formatAmountInput(value) {
-  const cleaned = String(value || "").replace(/,/g, "").replace(/[^\d.]/g, "");
-  const [whole = "", decimal = ""] = cleaned.split(".");
-  const normalizedWhole = whole.replace(/^0+(?=\d)/, "") || (whole.includes("0") ? "0" : "");
-  const withComma = normalizedWhole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  return decimal ? `${withComma}.${decimal.slice(0, 2)}` : withComma;
-}
-
-function parseAmountInput(value) {
-  return Number(String(value || "").replace(/,/g, ""));
-}
+const formatAmountInput = formatIndianNumberInput;
+const parseAmountInput = parseIndianNumberInput;
 
 function ApplicantPayments() {
   const { id } = useParams();
@@ -342,15 +335,16 @@ function ApplicantPayments() {
 
         {showAddPaymentModal ? (
           <div className="contractModalOverlay">
-            <div className="contractModalCard">
-              <div className="workflowModalTopBar paymentModalTopBar">
+            <div className="contractModalCard" style={{ position: "relative" }}>
+              <BlockingLoader open={saving} label="Saving payment details..." />
+              <div className="dashboardModalHeader">
                 <div>
-                  <div className="workflowModalTopBarTitle">Add Payment Details</div>
+                  <h3 className="dashboardModalTitle">Add Payment Details</h3>
                   <div className="paymentModalSubtitle">
                     Pending Amount: {formatCurrency(applicantPayment.pendingInr, true)}
                   </div>
                 </div>
-                <button type="button" className="workflowModalCloseBtn" onClick={() => setShowAddPaymentModal(false)}>
+                <button type="button" className="dashboardModalCloseBtn" onClick={() => setShowAddPaymentModal(false)}>
                   x
                 </button>
               </div>

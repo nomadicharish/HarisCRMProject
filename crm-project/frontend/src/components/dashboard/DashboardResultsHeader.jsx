@@ -14,7 +14,10 @@ function DashboardResultsHeader({
   isSuperUser,
   onShowCountryManager,
   onOpenCurrentAction,
-  currentActionLabel
+  currentActionLabel,
+  showExportAction,
+  onExport,
+  exportLoading
 }) {
   return (
     <div className="dashboardResultsHeader">
@@ -64,6 +67,12 @@ function DashboardResultsHeader({
           <button type="button" className="dashboardPrimaryBtn" onClick={onOpenCurrentAction}>
             {currentActionLabel}
           </button>
+
+          {showExportAction ? (
+            <button type="button" className="dashboardPrimaryBtn" onClick={onExport} disabled={exportLoading}>
+              {exportLoading ? "Exporting..." : "Export to Excel"}
+            </button>
+          ) : null}
         </div>
       ) : null}
     </div>
