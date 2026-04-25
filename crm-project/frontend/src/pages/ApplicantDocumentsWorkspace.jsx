@@ -377,8 +377,20 @@ function ApplicantDocumentsWorkspace() {
       <BlockingLoader open={saving} label="Saving document updates..." />
       <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
+        <div className="docsBreadcrumb">Applicants &gt; Documents</div>
         <div className={`docsTopBar docsTopBar-${topBar.tone}`}>
-          <div className="docsTopBarTitle">{topBar.title}</div>
+          <div className="docsTopBarContent">
+            <div className="docsTopBarIcon" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16l4-2 4 2 4-2 4 2V8l-6-6Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+            <div>
+              <div className="docsTopBarTitle">{topBar.title}</div>
+              <div className="docsTopBarSubtitle">Request the admin for review &amp; approval to go to next phase.</div>
+            </div>
+          </div>
           {!canReview && topBar.actionLabel ? (
             <button
               type="button"
@@ -536,6 +548,7 @@ function ApplicantDocumentsWorkspace() {
         </div>
 
         {saving ? <div className="docsBusyLayer">Please wait...</div> : null}
+        <div className="docsFooterNote">Your documents are securely encrypted and will only be used for verification purposes.</div>
       </div>
 
       <DocumentRejectModal

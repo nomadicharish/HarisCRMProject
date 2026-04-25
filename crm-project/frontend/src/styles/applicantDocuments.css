@@ -354,3 +354,125 @@
     white-space: normal;
   }
 }
+
+.docsWorkspacePage{
+  max-width:1240px;
+}
+
+.docsTopBar{
+  border-radius:18px;
+  min-height:92px;
+  padding:20px 24px;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+}
+
+.docsTopBar-primary,
+.docsTopBar-successSoft,
+.docsTopBar-neutral{
+  background:linear-gradient(90deg, #0e67e8 0%, #0b47b8 100%);
+}
+
+.docsTopBarContent{
+  display:flex;
+  align-items:center;
+  gap:16px;
+  flex:1 1 auto;
+}
+
+.docsTopBarIcon{
+  width:48px;
+  height:48px;
+  border-radius:50%;
+  background:rgba(255,255,255,0.16);
+  color:#ffffff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.docsTopBarTitle{
+  font-size:17px;
+}
+
+.docsTopBarSubtitle{
+  margin-top:4px;
+  font-size:14px;
+  color:rgba(255,255,255,0.8);
+}
+
+.docsTopBarButton{
+  min-height:44px;
+  border-radius:10px;
+  color:#1560db;
+  font-weight:700;
+}
+
+.docsAccordion{
+  border:1px solid #e6edf5;
+  border-radius:18px;
+  overflow:hidden;
+  background:#ffffff;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+}
+
+.docsAccordionItem{
+  border:none;
+  border-radius:0;
+}
+
+.docsAccordionHead{
+  padding:22px 24px;
+  border-bottom:1px solid #eef2f7;
+}
+
+.docsAccordionTitle{
+  font-size:18px;
+}
+
+.docsAccordionStatus{
+  padding:8px 14px;
+  border-radius:999px;
+  background:#fff7ed;
+}
+
+.docsAccordionStatus.is-success{
+  background:#eafaf0;
+}
+
+.docsAccordionStatus.is-warning{
+  background:#eff6ff;
+}
+
+.docsAccordionBody{
+  padding:0 24px 24px;
+}
+
+.docsHint{
+  font-size:15px;
+  margin:0 0 16px;
+}
+
+.docsFileCard{
+  width:380px;
+  min-height:64px;
+  border-radius:12px;
+  background:#ffffff;
+  justify-content:flex-start;
+  text-align:left;
+}
+
+.docsFileCardTitle{
+  width:100%;
+  text-align:center;
+}
+
+.docsReviewRow{
+  margin-top:18px;
+}
+
+.docsFooterNote{
+  margin-top:16px;
+  color:#98a2b3;
+  font-size:14px;
+}

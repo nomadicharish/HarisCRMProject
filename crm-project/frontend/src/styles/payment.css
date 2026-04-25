@@ -290,3 +290,82 @@
     flex-wrap:wrap;
   }
 }
+
+.paymentLayout{
+  grid-template-columns:370px minmax(0, 1fr);
+  gap:24px;
+}
+
+.paymentInfoStrip{
+  min-height:110px;
+  border-radius:18px;
+  padding:20px 22px;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+}
+
+.paymentInfoStripLeft{
+  gap:14px;
+}
+
+.paymentInfoIcon{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  background:#eef4ff;
+  color:#2563eb;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.paymentSummaryLabel{
+  font-size:14px;
+  font-weight:700;
+  color:#667085;
+}
+
+.paymentInfoAmount,
+.paymentInfoDivider,
+.paymentInfoSuffix{
+  font-size:20px;
+}
+
+.paymentStripAction{
+  min-height:44px;
+  padding:0 18px;
+  border-radius:10px;
+  font-weight:700;
+}
+
+.paymentHistoryCard{
+  background:#ffffff;
+  border:1px solid #e6edf5;
+  border-radius:18px;
+  padding:20px 22px;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+}
+
+.paymentHistoryTable{
+  min-width:100%;
+}
+
+.paymentHistoryTable thead th{
+  padding:16px 0;
+}
+
+.paymentHistoryTable tbody td{
+  padding:18px 0;
+  border-bottom:1px solid #eef2f7;
+}
+
+.paymentHistoryFooter{
+  margin-top:16px;
+  color:#667085;
+  font-size:14px;
+}
+
+.paymentBackLink{
+  margin-top:22px;
+  font-weight:700;
+}

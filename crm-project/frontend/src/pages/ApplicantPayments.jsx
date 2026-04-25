@@ -5,6 +5,7 @@ import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
+import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getCached, invalidateCache } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
@@ -28,36 +29,6 @@ function formatDate(value) {
     month: "short",
     year: "numeric"
   });
-}
-
-function formatCreatedAt(createdAt) {
-  if (!createdAt) return "";
-  try {
-    const date =
-      typeof createdAt?.toDate === "function"
-        ? createdAt.toDate()
-        : typeof createdAt === "object" && createdAt._seconds
-        ? new Date(createdAt._seconds * 1000)
-        : new Date(createdAt);
-
-    if (Number.isNaN(date.getTime())) return "";
-
-    return date.toLocaleDateString(undefined, {
-      day: "2-digit",
-      month: "short",
-      year: "numeric"
-    });
-  } catch {
-    return "";
-  }
-}
-
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = String(name).trim().split(/\s+/).filter(Boolean);
-  const first = parts[0]?.[0] || "?";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase();
 }
 
 const formatAmountInput = formatIndianNumberInput;
@@ -128,14 +99,6 @@ function ApplicantPayments() {
     ["SUPER_USER", "AGENCY"].includes(user?.role) &&
     applicantPayment.remainingInstallments > 0 &&
     Number(applicantPayment.pendingInr || 0) > 0;
-  const fullName =
-    applicant?.fullName ||
-    [applicant?.firstName, applicant?.lastName].filter(Boolean).join(" ").trim() ||
-    "Applicant";
-  const phone = applicant?.phone || applicant?.personalDetails?.phone || "-";
-  const address = applicant?.address || applicant?.personalDetails?.address || "-";
-  const employerLine = [applicant?.companyName, applicant?.countryName || applicant?.country].filter(Boolean).join(", ");
-  const createdOn = formatCreatedAt(applicant?.createdAt);
   const installmentCount = applicantPayment.installmentCount || 0;
 
   const handleInputChange = (key, value) => {
@@ -236,45 +199,31 @@ function ApplicantPayments() {
       <DashboardTopbar user={user} />
       <div className="page-content paymentPage paymentLayout">
         <aside className="paymentSidebar">
-          <div className="paymentProfileCard">
-            <div className="paymentProfileTop">
-              <div className="paymentAvatar">{getInitials(fullName)}</div>
-              <div className="paymentProfileMeta">
-                <div className="paymentProfileName">{fullName}</div>
-                <div className="paymentProfileAge">Age {applicant?.age ?? applicant?.personalDetails?.age ?? "-"}</div>
-                {createdOn ? <div className="paymentProfileCreated">Created on {createdOn}</div> : null}
-              </div>
-            </div>
-
-            <div className="paymentProfileSection">
-              <div className="paymentProfileLabel">Phone No:</div>
-              <div className="paymentProfileValue">{phone}</div>
-            </div>
-
-            <div className="paymentProfileSection">
-              <div className="paymentProfileLabel">Address</div>
-              <div className="paymentProfileValue paymentProfileAddress">{address}</div>
-            </div>
-
-            <div className="paymentProfileSection">
-              <div className="paymentProfileLabel">Employer</div>
-              <div className="paymentProfileValue">{employerLine || "-"}</div>
-            </div>
-
-            <button type="button" className="paymentPendingCard" onClick={() => navigate(`/applicants/${id}/payments`)}>
-              <div>
-                <div className="paymentPendingLabel">Pending Amount</div>
-                <div className="paymentPendingValue">{formatCurrency(applicantPayment.pendingInr)}</div>
-              </div>
-              <span className="paymentPendingArrow">&gt;</span>
-            </button>
-          </div>
+          <ApplicantSummaryCard
+            applicant={applicant}
+            pendingAmount={applicantPayment.pendingInr}
+            pendingDisplayValue={formatCurrency(applicantPayment.pendingInr)}
+            onPendingClick={() => navigate(`/applicants/${id}/payments`)}
+            agencyName={applicant?.agencyName || applicant?.agency?.name || ""}
+            countryName={applicant?.countryName || applicant?.country || ""}
+            showAgency={Boolean(applicant?.agencyName || applicant?.agency?.name || applicant?.agencyId)}
+            showPendingAmount
+          />
         </aside>
 
         <main className="paymentMain">
           <div className="paymentInfoStrip">
             <div className="paymentInfoStripLeft">
+              <div className="paymentInfoIcon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <rect x="4" y="3" width="12" height="18" rx="2.5" stroke="currentColor" strokeWidth="1.7" />
+                  <path d="M8 8h5M8 12h8M8 16h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                  <circle cx="18" cy="17" r="3" stroke="currentColor" strokeWidth="1.7" />
+                  <path d="M18 15.5v3M16.5 17h3" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                </svg>
+              </div>
               <div className="paymentInfoText">
+                <div className="paymentSummaryLabel">Payment Summary</div>
                 <div className="paymentInfoLine">
                   <span className="paymentInfoAmount">{formatCurrency(applicantPayment.paidInr)}</span>
                   <span className="paymentInfoDivider">/</span>
@@ -291,7 +240,7 @@ function ApplicantPayments() {
 
             {canAddPayment ? (
               <button type="button" className="paymentStripAction" onClick={() => setShowAddPaymentModal(true)}>
-                Add payment
+                Add Payment
               </button>
             ) : null}
           </div>
@@ -327,6 +276,7 @@ function ApplicantPayments() {
                 </tbody>
               </table>
             </div>
+            <div className="paymentHistoryFooter">Showing {paymentHistory.length} of {paymentHistory.length} records</div>
 
             <button type="button" className="paymentBackLink" onClick={() => navigate(`/applicants/${id}`)}>
               Go back to Profile

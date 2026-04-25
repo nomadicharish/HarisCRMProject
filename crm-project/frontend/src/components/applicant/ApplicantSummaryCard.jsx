@@ -45,6 +45,7 @@ function ApplicantSummaryCard({
   const createdText = formatCreatedAt(applicant?.createdAt);
 
   const phone = applicant?.phone || applicant?.personalDetails?.phone || "";
+  const email = applicant?.email || applicant?.personalDetails?.email || "-";
   const whatsappRaw =
     applicant?.whatsappNumber ||
     applicant?.personalDetails?.whatsappNumber ||
@@ -64,6 +65,49 @@ function ApplicantSummaryCard({
     "";
 
   const PendingContainer = onPendingClick ? "button" : "div";
+  const InfoIcon = ({ type }) => {
+    if (type === "phone") {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.78 19.78 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.78 19.78 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.64 2.62a2 2 0 0 1-.45 2.11L8.03 9.97a16 16 0 0 0 6 6l1.52-1.27a2 2 0 0 1 2.11-.45c.84.31 1.72.52 2.62.64A2 2 0 0 1 22 16.92Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    if (type === "email") {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.7" />
+          <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    if (type === "address") {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" stroke="currentColor" strokeWidth="1.7" />
+          <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.7" />
+        </svg>
+      );
+    }
+    if (type === "company") {
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        </svg>
+      );
+    }
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  };
+  const ActionGlyph = ({ type }) => (
+    <span className="sideActionGlyph" aria-hidden="true">
+      <InfoIcon type={type} />
+    </span>
+  );
 
   return (
     <div className="applicantSideCard">
@@ -79,14 +123,20 @@ function ApplicantSummaryCard({
 
         {canEdit ? (
           <button className="iconBtn" type="button" onClick={onEdit} aria-label="Edit applicant">
-            Edit
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 12h.01M19 12h.01M5 12h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
           </button>
         ) : null}
       </div>
 
-      <div className="sideSection">
+      <div className="sideSection sideSectionCard">
         <div className="sideLabelRow">
-          <div className="sideLabel">Phone No:</div>
+          <div className="sideSectionIcon"><InfoIcon type="phone" /></div>
+          <div className="sideSectionMeta">
+            <div className="sideLabel">Phone No.</div>
+            <div className="sideValue">{phone || "-"}</div>
+          </div>
           {whatsappLink ? (
             <a
               href={whatsappLink}
@@ -96,35 +146,58 @@ function ApplicantSummaryCard({
               aria-label="Open WhatsApp"
               title="Open WhatsApp"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.5 0 .17 5.33.17 11.9c0 2.1.55 4.15 1.6 5.96L0 24l6.31-1.65a11.85 11.85 0 0 0 5.75 1.47h.01c6.56 0 11.89-5.33 11.89-11.9 0-3.18-1.24-6.17-3.44-8.44ZM12.07 21.8h-.01a9.86 9.86 0 0 1-5.02-1.37l-.36-.22-3.74.98.99-3.64-.24-.38a9.85 9.85 0 0 1-1.51-5.27c0-5.45 4.43-9.89 9.9-9.89a9.84 9.84 0 0 1 7.01 2.9 9.81 9.81 0 0 1 2.89 6.99c0 5.45-4.44 9.9-9.9 9.9Zm5.43-7.42c-.3-.15-1.77-.87-2.05-.97-.28-.1-.49-.15-.69.15-.2.3-.79.97-.97 1.16-.18.2-.36.22-.66.07-.3-.15-1.29-.47-2.45-1.49-.9-.8-1.5-1.78-1.68-2.08-.18-.3-.02-.46.14-.61.13-.13.3-.33.45-.5.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.08-.15-.69-1.66-.95-2.28-.25-.6-.5-.52-.69-.53h-.59c-.2 0-.52.08-.8.37-.28.3-1.05 1.03-1.05 2.5s1.07 2.9 1.22 3.1c.15.2 2.1 3.22 5.08 4.51.71.31 1.27.49 1.7.62.72.23 1.37.2 1.88.12.57-.08 1.77-.72 2.02-1.41.25-.69.25-1.28.17-1.41-.08-.13-.28-.2-.58-.35Z" />
-              </svg>
+              <ActionGlyph type="phone" />
             </a>
           ) : (
             <span className="waBtn waBtnDisabled" aria-hidden="true">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.52 3.48A11.86 11.86 0 0 0 12.06 0C5.5 0 .17 5.33.17 11.9c0 2.1.55 4.15 1.6 5.96L0 24l6.31-1.65a11.85 11.85 0 0 0 5.75 1.47h.01c6.56 0 11.89-5.33 11.89-11.9 0-3.18-1.24-6.17-3.44-8.44Z" />
-              </svg>
+              <ActionGlyph type="phone" />
             </span>
           )}
         </div>
-        <div className="sideValue">{phone || "-"}</div>
       </div>
 
-      <div className="sideSection">
-        <div className="sideLabel">Address</div>
-        <div className="sideValue">{address}</div>
+      <div className="sideSection sideSectionCard">
+        <div className="sideLabelRow">
+          <div className="sideSectionIcon"><InfoIcon type="email" /></div>
+          <div className="sideSectionMeta">
+            <div className="sideLabel">Email</div>
+            <div className="sideValue">{email}</div>
+          </div>
+          <span className="waBtn waBtnDisabled" aria-hidden="true">
+            <ActionGlyph type="email" />
+          </span>
+        </div>
       </div>
 
-      <div className="sideSection">
-        <div className="sideLabel">Company</div>
-        <div className="sideValue">{employerDisplay}</div>
+      <div className="sideSection sideSectionCard">
+        <div className="sideLabelRow">
+          <div className="sideSectionIcon"><InfoIcon type="address" /></div>
+          <div className="sideSectionMeta">
+            <div className="sideLabel">Address</div>
+            <div className="sideValue">{address}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="sideSection sideSectionCard">
+        <div className="sideLabelRow">
+          <div className="sideSectionIcon"><InfoIcon type="company" /></div>
+          <div className="sideSectionMeta">
+            <div className="sideLabel">Company</div>
+            <div className="sideValue">{employerDisplay}</div>
+          </div>
+        </div>
       </div>
 
       {showAgency && agency ? (
-        <div className="sideSection">
-          <div className="sideLabel">Agency</div>
-          <div className="sideValue">{agency}</div>
+        <div className="sideSection sideSectionCard">
+          <div className="sideLabelRow">
+            <div className="sideSectionIcon"><InfoIcon type="agency" /></div>
+            <div className="sideSectionMeta">
+              <div className="sideLabel">Agency</div>
+              <div className="sideValue">{agency}</div>
+            </div>
+          </div>
         </div>
       ) : null}
 

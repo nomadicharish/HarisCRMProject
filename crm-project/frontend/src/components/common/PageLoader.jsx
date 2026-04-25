@@ -29,9 +29,22 @@ function PageLoader({ label = "Loading..." }) {
           boxShadow: "0 10px 24px rgba(15,23,42,0.08)"
         }}
       >
-        <img src="/loading.gif" alt="Loading" style={{ width: "52px", height: "52px", objectFit: "contain" }} />
+        <div
+          aria-hidden="true"
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            border: "4px solid rgba(0,82,204,0.18)",
+            borderTopColor: "#0052CC",
+            animation: "pageLoaderSpin 0.85s linear infinite"
+          }}
+        />
         <div style={{ fontSize: "13px", fontWeight: 600, color: "#334155" }}>{label}</div>
       </div>
+      <style>
+        {`@keyframes pageLoaderSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}
+      </style>
     </div>
   );
 }

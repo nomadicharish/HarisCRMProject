@@ -966,3 +966,266 @@
   padding:0;
   min-height:auto;
 }
+
+.dashboardPage{
+  background:linear-gradient(180deg, #f9fbff 0%, #f3f7fc 100%);
+}
+
+.dashboardTopbar{
+  height:72px;
+  padding:0 28px;
+  box-shadow:0 2px 18px rgba(15,23,42,0.04);
+}
+
+.dashboardBrand{
+  gap:12px;
+  font-size:16px;
+  font-weight:700;
+}
+
+.dashboardBrandIcon{
+  width:36px;
+  height:36px;
+  font-size:14px;
+}
+
+.dashboardTab{
+  font-size:15px;
+  padding:10px 0 16px;
+}
+
+.dashboardTabActive{
+  color:#1767ea;
+  border-bottom-width:3px;
+}
+
+.dashboardTopbarIconBtn{
+  width:34px;
+  height:34px;
+  border:none;
+  background:transparent;
+  color:#667085;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  position:relative;
+}
+
+.dashboardTopbarBellBtn{
+  margin-right:2px;
+}
+
+.dashboardTopbarDot{
+  position:absolute;
+  top:6px;
+  right:5px;
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#1767ea;
+}
+
+.dashboardUserMenuBtn{
+  gap:10px;
+}
+
+.dashboardUserAvatar{
+  width:36px;
+  height:36px;
+}
+
+.dashboardContent{
+  grid-template-columns:260px minmax(0, 1fr);
+  gap:20px;
+  max-width:1440px;
+  margin:0 auto;
+  padding:18px 20px 28px;
+}
+
+.dashboardFilterCard{
+  background:#ffffff;
+  color:#101828;
+  border:1px solid #e6edf5;
+  border-radius:18px;
+  padding:18px 16px;
+  box-shadow:0 12px 30px rgba(15,23,42,0.06);
+}
+
+.dashboardSearchWrap{
+  display:none;
+}
+
+.dashboardFilterHeading{
+  font-size:24px;
+  color:#1d2939;
+}
+
+.dashboardResetBtn{
+  color:#1767ea;
+  font-weight:700;
+}
+
+.dashboardFilterSection{
+  border-top:1px solid #edf2f7;
+}
+
+.dashboardFilterTitleBtn{
+  color:#1d2939;
+}
+
+.dashboardFilterChevron{
+  color:#667085;
+}
+
+.dashboardFilterOption{
+  color:#475467;
+}
+
+.dashboardFilterOption input{
+  border-color:#cbd5e1;
+}
+
+.dashboardFilterCount{
+  background:#f2f4f7;
+  color:#667085;
+}
+
+.dashboardMain{
+  padding:0;
+}
+
+.dashboardResultsHeader{
+  align-items:center;
+  margin-bottom:14px;
+}
+
+.dashboardResultsCount{
+  font-size:32px;
+  color:#1d2939;
+  font-weight:700;
+}
+
+.dashboardActionGroup{
+  gap:12px;
+}
+
+.dashboardPrimaryBtn,
+.dashboardSecondaryBtn{
+  min-height:44px;
+  padding:0 16px;
+  border-radius:10px;
+  font-weight:700;
+}
+
+.dashboardSecondaryBtn{
+  border:1px solid #d8e2f0;
+  background:#ffffff;
+  color:#1767ea;
+}
+
+.dashboardTableCard{
+  border-radius:18px;
+  overflow:hidden;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+}
+
+.dashboardTable thead th{
+  padding:18px 22px;
+}
+
+.dashboardTable tbody td{
+  padding:18px 22px;
+}
+
+.dashboardNameCell{
+  gap:14px;
+}
+
+.dashboardAvatarPill{
+  width:36px;
+  height:36px;
+  border-radius:50%;
+  background:#eff6ff;
+  color:#2563eb;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:13px;
+  font-weight:800;
+  flex:0 0 auto;
+}
+
+.dashboardNameText{
+  text-decoration:none;
+  font-weight:700;
+}
+
+.dashboardStatusCell{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:4px;
+}
+
+.dashboardStatusPill{
+  border-radius:999px;
+  font-weight:700;
+  padding:4px 10px;
+}
+
+.dashboardStatusPillInfo{
+  background:#eff6ff;
+  color:#1767ea;
+}
+
+.dashboardStatusPillSuccess{
+  background:#eafaf0;
+  color:#16a34a;
+}
+
+.dashboardPaymentPillPending{
+  background:#fff4e8;
+  color:#f97316;
+}
+
+.dashboardPaymentPillSuccess{
+  background:#eafaf0;
+  color:#16a34a;
+}
+
+.dashboardStatusMetaTitle,
+.dashboardPaymentAmount{
+  font-size:14px;
+  color:#475467;
+}
+
+.dashboardStatusMetaSubtitle{
+  font-size:13px;
+  color:#98a2b3;
+}
+
+.dashboardPagination{
+  margin-top:18px;
+}
+
+.dashboardPaginationBtn{
+  border-radius:10px;
+}
+
+.dashboardPhoneSplitWrap{
+  grid-template-columns:108px minmax(0, 1fr);
+  gap:10px;
+}
+
+.dashboardPhoneCodeWrap .form-control.dashboardPhoneCodeValue{
+  min-height:44px !important;
+  height:44px !important;
+  border-radius:12px !important;
+  background:#fff !important;
+}
+
+.dashboardPhoneCodeWrap .flag-dropdown.dashboardPhoneCodeButton{
+  border-radius:12px !important;
+  background:#fff !important;
+}

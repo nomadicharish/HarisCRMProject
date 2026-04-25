@@ -7,6 +7,18 @@ function ApplicantsTable({
   onOpenApplicant,
   formatPendingAmount
 }) {
+  const getInitials = (name) => {
+    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+    return (parts[0]?.[0] || "A") + (parts[1]?.[0] || "");
+  };
+  const getWorkflowMeta = (applicant) => {
+    const statusText = applicant.applicantBannerStatus || applicant.statusText || applicant.stageLabel || "Candidate Created";
+    const parts = String(statusText).split(".").map((item) => item.trim()).filter(Boolean);
+    return {
+      title: parts[0] || statusText,
+      subtitle: parts.slice(1).join(". ") || ""
+    };
+  };
   const gridTemplateColumns = isEmployer ? "2fr 2fr 2fr" : "2fr 2fr 1.5fr 1.5fr";
 
   if (!rows.length) {
@@ -48,6 +60,8 @@ function ApplicantsTable({
               applicant.fullName ||
               [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
               "Applicant";
+            const workflow = getWorkflowMeta(applicant);
+            const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
 
             return (
               <tr
@@ -57,21 +71,29 @@ function ApplicantsTable({
               >
                 <td>
                   <div className="dashboardNameCell">
+                    <span className="dashboardAvatarPill">{getInitials(fullName).toUpperCase()}</span>
                     <span className="dashboardNameText">{fullName}</span>
                     {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
                   </div>
                 </td>
                 <td>
-                  <span className="dashboardStatusPill">
-                    {applicant.applicantBannerStatus || applicant.statusText || applicant.stageLabel || "Candidate Created"}
-                  </span>
+                  <div className="dashboardStatusCell">
+                    <span className={`dashboardStatusPill ${paymentPending ? "dashboardStatusPillInfo" : "dashboardStatusPillSuccess"}`}>
+                      {applicant.workflowStatus === "completed" ? "Completed" : "In Progress"}
+                    </span>
+                    <span className="dashboardStatusMetaTitle">{workflow.title}</span>
+                    {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
+                  </div>
                 </td>
                 <td>{applicant.companyName || "-"}</td>
                 {!isEmployer ? (
                   <td>
-                    {applicant.payment?.pendingInr > 0
-                      ? `Pending ${formatPendingAmount(applicant.payment.pendingInr)}`
-                      : "Completed"}
+                    <div className="dashboardStatusCell">
+                      <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
+                        {paymentPending ? "Pending" : "Completed"}
+                      </span>
+                      {paymentPending ? <span className="dashboardPaymentAmount">{formatPendingAmount(applicant.payment.pendingInr)}</span> : null}
+                    </div>
                   </td>
                 ) : null}
               </tr>
@@ -99,6 +121,8 @@ function ApplicantsTable({
             applicant.fullName ||
             [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
             "Applicant";
+          const workflow = getWorkflowMeta(applicant);
+          const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
           return (
             <div
               className="dashboardVirtualRow"
@@ -108,20 +132,24 @@ function ApplicantsTable({
               tabIndex={0}
             >
               <div className="dashboardNameCell">
+                <span className="dashboardAvatarPill">{getInitials(fullName).toUpperCase()}</span>
                 <span className="dashboardNameText">{fullName}</span>
                 {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
               </div>
-              <div>
-                <span className="dashboardStatusPill">
-                  {applicant.applicantBannerStatus || applicant.statusText || applicant.stageLabel || "Candidate Created"}
+              <div className="dashboardStatusCell">
+                <span className={`dashboardStatusPill ${paymentPending ? "dashboardStatusPillInfo" : "dashboardStatusPillSuccess"}`}>
+                  {applicant.workflowStatus === "completed" ? "Completed" : "In Progress"}
                 </span>
+                <span className="dashboardStatusMetaTitle">{workflow.title}</span>
+                {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
               </div>
               <div>{applicant.companyName || "-"}</div>
               {!isEmployer ? (
-                <div>
-                  {applicant.payment?.pendingInr > 0
-                    ? `Pending ${formatPendingAmount(applicant.payment.pendingInr)}`
-                    : "Completed"}
+                <div className="dashboardStatusCell">
+                  <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
+                    {paymentPending ? "Pending" : "Completed"}
+                  </span>
+                  {paymentPending ? <span className="dashboardPaymentAmount">{formatPendingAmount(applicant.payment.pendingInr)}</span> : null}
                 </div>
               ) : null}
             </div>

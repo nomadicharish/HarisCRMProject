@@ -57,15 +57,15 @@ function DashboardResultsHeader({
           {activeTab === "companies" && isSuperUser ? (
             <button
               type="button"
-              className="dashboardPrimaryBtn"
+              className="dashboardSecondaryBtn"
               onClick={onShowCountryManager}
             >
               Add/Update Country
             </button>
           ) : null}
 
-          <button type="button" className="dashboardPrimaryBtn" onClick={onOpenCurrentAction}>
-            {currentActionLabel}
+          <button type="button" className="dashboardSecondaryBtn" onClick={onOpenCurrentAction}>
+            + {currentActionLabel}
           </button>
 
           {showExportAction ? (

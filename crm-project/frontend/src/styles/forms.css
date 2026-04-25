@@ -11,6 +11,7 @@
 .page-content{
   width:100%;
   max-width:1100px;
+  overflow:visible;
 }
 
 .card{
@@ -87,6 +88,53 @@
   .form-grid{
     grid-template-columns:1fr;
     gap:14px;
+  }
+}
+
+.applicantFormFieldShell{
+  position:relative;
+}
+
+.applicantFormFieldShell input,
+.applicantFormFieldShell select{
+  box-shadow:none;
+}
+
+.applicantFormFieldShellMuted input{
+  background:#f8fafc !important;
+}
+
+.applicantFormSelectShell .css-b62m3t-container{
+  width:100%;
+}
+
+.applicantFormSelectShell .css-13cymwt-control,
+.applicantFormSelectShell .css-t3ipsp-control{
+  padding-left:34px !important;
+}
+
+.applicantFormTripleRow{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+  gap:16px;
+}
+
+.applicantFormContactRow{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:16px;
+}
+
+.applicantFormPhoneSplitWrap{
+  align-items:stretch;
+}
+
+@media (max-width: 860px){
+  .applicantFormTripleRow,
+  .applicantFormContactRow{
+    grid-template-columns:1fr;
   }
 }
 

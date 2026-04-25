@@ -54,13 +54,26 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
         )}
 
         <div className="dashboardTopbarRight">
+          <button type="button" className="dashboardTopbarIconBtn" aria-label="Search">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+              <path d="m20 20-3.5-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </button>
+          <button type="button" className="dashboardTopbarIconBtn dashboardTopbarBellBtn" aria-label="Notifications">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M15 17h5l-1.4-1.4a2 2 0 0 1-.6-1.42V11a6 6 0 1 0-12 0v3.18c0 .53-.21 1.04-.59 1.42L4 17h5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 20a2 2 0 0 0 4 0" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+            </svg>
+            <span className="dashboardTopbarDot" aria-hidden="true" />
+          </button>
           <button
             type="button"
             className="dashboardUserMenuBtn"
             onClick={() => setShowProfilePanel((value) => !value)}
           >
             <span className="dashboardUserAvatar">{userInitials}</span>
-            <div className="dashboardUserName">{user?.name || "User"}</div>
+            <div className="dashboardUserName">{user?.role === "SUPER_USER" ? "Super User" : user?.name || "User"}</div>
             <img src={DOWN_ICON_SRC} alt="" className="dashboardInlineIcon dashboardUserChevronImg" />
           </button>
         </div>

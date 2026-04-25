@@ -368,6 +368,7 @@ function ApplicantProfile() {
     <div className="page-container">
       <DashboardTopbar user={user} />
       <div className="page-content">
+        <div className="breadcrumbRow">Applicants &gt; {applicant?.fullName || [applicant?.firstName, applicant?.lastName].filter(Boolean).join(" ").trim() || "Applicant"}</div>
         <div className="applicantProfileLayout">
           <aside className="applicantProfileSidebar">
             <ApplicantSummaryCard

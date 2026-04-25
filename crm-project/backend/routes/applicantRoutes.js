@@ -45,6 +45,9 @@ router.use(noStore);
 // Create Applicant
 router.post("/create", validate(createApplicantSchema), asyncHandler(applicantController.createApplicant));
 
+// Exchange rate (EUR -> INR)
+router.get("/exchange-rate", readCache(60), asyncHandler(applicantController.getExchangeRate));
+
 // Approve Applicant
 router.patch("/approve/:applicantId", validate(applicantIdParamsSchema, "params"), asyncHandler(applicantController.approveApplicant));
 

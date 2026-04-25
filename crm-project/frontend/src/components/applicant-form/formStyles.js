@@ -20,32 +20,34 @@ const overlay = {
 
 const modal = {
   background: "#fff",
-  borderRadius: 0,
+  borderRadius: 16,
   width: "100%",
   maxWidth: "600px",
   maxHeight: "90vh",
   overflowY: "auto",
-  padding: "20px"
+  padding: "24px",
+  boxShadow: "0 20px 54px rgba(15, 23, 42, 0.12)",
+  border: "1px solid #e7edf5"
 };
 
 const grid = {
   display: "grid",
   gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-  gap: "12px",
+  gap: "16px",
   width: "100%"
 };
 
 const input = {
   width: "100%",
-  minHeight: "36px",
-  padding: "6px 10px",
-  borderRadius: 0,
+  minHeight: "44px",
+  padding: "10px 14px",
+  borderRadius: 12,
   border: `1px solid ${THEME.border}`,
-  background: "#FAFBFC",
+  background: "#FFFFFF",
   fontSize: "14px",
   boxSizing: "border-box",
   outline: "none",
-  transition: "border 0.2s ease"
+  transition: "border 0.2s ease, box-shadow 0.2s ease"
 };
 
 const actions = {
@@ -65,20 +67,20 @@ const btnPrimary = {
   background: "#0052CC",
   color: "#fff",
   border: "none",
-  padding: "8px 12px",
-  borderRadius: 0,
+  padding: "12px 20px",
+  borderRadius: 10,
   cursor: "pointer",
-  fontWeight: "500",
+  fontWeight: "600",
   fontSize: "14px"
 };
 
 const btnSecondary = {
-  background: "transparent",
-  border: "none",
-  padding: "8px 12px",
-  borderRadius: 0,
+  background: "#fff",
+  border: "1px solid #d9e2f0",
+  padding: "12px 20px",
+  borderRadius: 10,
   cursor: "pointer",
-  color: "#333",
+  color: "#344054",
   fontSize: "14px"
 };
 
@@ -91,10 +93,10 @@ const stepText = {
 
 const label = {
   fontSize: "13px",
-  marginBottom: "5px",
+  marginBottom: "6px",
   display: "block",
-  color: "#6B778C",
-  fontWeight: "500"
+  color: "#667085",
+  fontWeight: "600"
 };
 
 const errorText = {
@@ -105,17 +107,19 @@ const errorText = {
 
 const handleFocus = (event) => {
   event.target.style.border = `1px solid ${THEME.primary}`;
+  event.target.style.boxShadow = "0 0 0 3px rgba(0,82,204,0.12)";
 };
 
 const handleBlur = (event, hasError) => {
   event.target.style.border = hasError ? `1px solid ${THEME.error}` : `1px solid ${THEME.border}`;
+  event.target.style.boxShadow = "none";
 };
 
 const getSelectStyles = () => ({
   control: (base) => ({
     ...base,
     padding: "0",
-    borderRadius: 0,
+    borderRadius: 12,
     border: `1px solid ${THEME.border}`,
     boxShadow: "none",
     minHeight: input.minHeight,
@@ -129,7 +133,7 @@ const getSelectStyles = () => ({
   }),
   valueContainer: (base) => ({
     ...base,
-    padding: "0 10px",
+    padding: "0 14px 0 42px",
     minHeight: input.minHeight,
     height: input.minHeight,
     display: "flex",
@@ -157,7 +161,7 @@ const getSelectStyles = () => ({
   }),
   menu: (base) => ({
     ...base,
-    borderRadius: 0,
+    borderRadius: 12,
     zIndex: 9999
   }),
   option: (base, state) => ({

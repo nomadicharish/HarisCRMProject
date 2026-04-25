@@ -74,12 +74,13 @@ const validatePhone = (phone, phoneCountry) => {
   try {
     const normalizedPhone = String(phone || "").replace(/[^\d]/g, "");
     const countryIso = String(phoneCountry || "IN").toUpperCase();
+    if (!countryIso) return "Invalid country code";
     if (countryIso === "IN" && normalizedPhone.length !== 10) {
       return "Contact number must be exactly 10 digits for IN";
     }
     const dialCode = getCountryCallingCode(countryIso);
     const phoneNumber = parsePhoneNumberFromString(`+${dialCode}${normalizedPhone}`, countryIso);
-    if (!phoneNumber || !phoneNumber.isValid()) {
+    if (!phoneNumber || !phoneNumber.isPossible() || !phoneNumber.isValid()) {
       return `Invalid phone number for ${countryIso}`;
     }
     return null;

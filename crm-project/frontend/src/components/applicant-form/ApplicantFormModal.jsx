@@ -171,8 +171,21 @@ function ApplicantFormModal({
       }
     }
 
+    async function loadExchangeRate() {
+      try {
+        const data = await getCached("/applicants/exchange-rate", { ttlMs: 12 * 60 * 60 * 1000 });
+        const nextRate = Number(data?.rate);
+        if (Number.isFinite(nextRate) && nextRate > 0) {
+          setExchangeRate(nextRate);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
     loadDropdowns();
     loadUser();
+    loadExchangeRate();
   }, [userProp]);
 
   useEffect(() => {
@@ -270,15 +283,16 @@ function ApplicantFormModal({
 
     setDob(parsedDob);
     setStep(1);
-    setExchangeRate(
-      Number(
-        editData?.payment?.exchangeRate ||
-          editData?.paymentsSummary?.exchangeRate ||
-          editData?.paymentSummary?.exchangeRate ||
-          editData?.exchangeRate ||
-          DEFAULT_EXCHANGE_RATE
-      ) || DEFAULT_EXCHANGE_RATE
+    const editExchangeRate = Number(
+      editData?.payment?.exchangeRate ||
+        editData?.paymentsSummary?.exchangeRate ||
+        editData?.paymentSummary?.exchangeRate ||
+        editData?.exchangeRate ||
+        0
     );
+    if (Number.isFinite(editExchangeRate) && editExchangeRate > 0) {
+      setExchangeRate(editExchangeRate);
+    }
 
     if (resolvedCountryId) {
       setFilteredCompanies(companies.filter((company) => company.countryId === resolvedCountryId));
@@ -399,48 +413,157 @@ function ApplicantFormModal({
     return (
       <div className="page-container">
         <div className="page-content">
-          <div style={{ ...modal, maxWidth: "980px", margin: "0 auto", position: "relative" }}>
+          <div
+            style={{
+              ...modal,
+              maxWidth: "980px",
+              margin: "0 auto",
+              position: "relative",
+              borderRadius: 14,
+              padding: 24,
+              boxShadow: "0 16px 44px rgba(15,23,42,0.12)",
+              maxHeight: "none",
+              overflowY: "visible"
+            }}
+          >
             <BlockingLoader open={loading} label={editData ? "Updating profile..." : "Creating profile..."} />
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", alignItems: "center" }}>
-              <h3 style={{ margin: 0 }}>{editData ? "Edit Applicant" : "Add Applicant"}</h3>
-              <button onClick={pageCancelHandler} style={{ border: "none", background: "none", fontSize: "18px" }}>
-                x
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#101828" }}>
+                  {editData ? "Edit Applicant" : "Add Applicant"}
+                </h2>
+                <div style={{ ...stepText, marginBottom: 0, marginTop: 4 }}>Update the applicant details below</div>
+              </div>
+              <button
+                type="button"
+                onClick={pageCancelHandler}
+                aria-label="Close"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 10,
+                  border: "1px solid rgba(148,163,184,0.35)",
+                  background: "#ffffff",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 20,
+                  lineHeight: 1,
+                  color: "#344054",
+                  cursor: "pointer"
+                }}
+              >
+                ×
               </button>
             </div>
 
-            <div style={{ ...stepText, marginTop: 2 }}>Fill all applicant details below</div>
+            <div
+              style={{
+                marginTop: 18,
+                border: "1px solid #e6eaf2",
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#ffffff"
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 16px",
+                  borderLeft: "4px solid #0052CC",
+                  borderBottom: "1px solid #eef2f7",
+                  background: "#fbfdff"
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1"
+                    stroke="#0052CC"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+                    stroke="#0052CC"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Personal Information</div>
+              </div>
+              <div style={{ padding: 16 }}>
+                <ApplicantFormStepOne
+                  form={form}
+                  errors={errors}
+                  dob={dob}
+                  setDob={setDob}
+                  setForm={setForm}
+                  handleChange={handleChange}
+                  calculateAge={calculateAge}
+                  onNext={() => {}}
+                  showActions={false}
+                />
+              </div>
+            </div>
 
-            <ApplicantFormStepOne
-              form={form}
-              errors={errors}
-              dob={dob}
-              setDob={setDob}
-              setForm={setForm}
-              handleChange={handleChange}
-              calculateAge={calculateAge}
-              onNext={() => {}}
-              showActions={false}
-            />
-
-            <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 18, paddingTop: 18 }}>
-              <ApplicantFormStepTwo
-                user={user}
-                form={form}
-                errors={errors}
-                countryOptions={countryOptions}
-                companyOptions={companyOptions}
-                agencyOptions={agencyOptions}
-                handleCountryChange={handleCountryChange}
-                handleCompanyChange={handleCompanyChange}
-                handleChange={handleChange}
-                setStep={setStep}
-                handleSubmit={handleSubmit}
-                loading={loading}
-                editData={editData}
-                autoApproveAfterSave={autoApproveAfterSave}
-                showActions={false}
-                totalInrNeeded={totalInrNeeded}
-              />
+            <div
+              style={{
+                marginTop: 14,
+                border: "1px solid #e6eaf2",
+                borderRadius: 12,
+                overflow: "hidden",
+                background: "#ffffff"
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 10,
+                  padding: "14px 16px",
+                  borderLeft: "4px solid #0052CC",
+                  borderBottom: "1px solid #eef2f7",
+                  background: "#fbfdff"
+                }}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path
+                    d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14"
+                    stroke="#0052CC"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M9 9h6M9 12h6M9 15h6"
+                    stroke="#0052CC"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Application Details</div>
+              </div>
+              <div style={{ padding: 16 }}>
+                <ApplicantFormStepTwo
+                  user={user}
+                  form={form}
+                  errors={errors}
+                  countryOptions={countryOptions}
+                  companyOptions={companyOptions}
+                  agencyOptions={agencyOptions}
+                  handleCountryChange={handleCountryChange}
+                  handleCompanyChange={handleCompanyChange}
+                  handleChange={handleChange}
+                  setStep={setStep}
+                  handleSubmit={handleSubmit}
+                  loading={loading}
+                  editData={editData}
+                  autoApproveAfterSave={autoApproveAfterSave}
+                  showActions={false}
+                  totalInrNeeded={totalInrNeeded}
+                />
+              </div>
             </div>
 
             <div style={actions}>
