@@ -3,6 +3,7 @@ const { AppError } = require("../../lib/AppError");
 const { normalizeDate } = require("../../services/applicantDomainService");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
 const { addStageLog, autoAdvanceStage } = require("../../services/applicantWorkflowStageService");
+const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 
 async function addDispatchUseCase(req) {
   const applicantId = req.params.id;
@@ -71,6 +72,10 @@ async function uploadContractUseCase(req) {
 
   const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
   const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantSnapBeforeUpdate = await applicantRef.get();
+  const previousContractUrl = applicantSnapBeforeUpdate.exists
+    ? applicantSnapBeforeUpdate.data()?.contract?.fileUrl || ""
+    : "";
   const uploadedAt = new Date();
   const contractStatus = isSuperUser ? "APPROVED" : "PENDING";
 
@@ -90,9 +95,10 @@ async function uploadContractUseCase(req) {
     { merge: true }
   );
 
+  await deleteStorageFileIfExists(bucket, previousContractUrl);
+
   if (isSuperUser) {
-    const applicantSnap = await applicantRef.get();
-    const currentStage = applicantSnap.data()?.stage || 1;
+    const currentStage = applicantSnapBeforeUpdate.data()?.stage || 1;
     if (currentStage === 4) {
       await applicantRef.update({
         stage: 5,
@@ -203,6 +209,7 @@ async function addEmbassyInterviewUseCase(req) {
     {
       embassyInterview: {
         dateTime,
+        status: isSuperUser ? "APPROVED" : "PENDING",
         createdBy: req.user.uid,
         createdByRole: req.user.role,
         approved: isSuperUser,
@@ -237,6 +244,7 @@ async function approveEmbassyInterviewUseCase(req) {
 
   await docRef.update({
     "embassyInterview.approved": true,
+    "embassyInterview.status": "APPROVED",
     "embassyInterview.approvedBy": req.user.uid,
     stage: (applicant.stage || 1) + 1,
     stageUpdatedAt: new Date()
@@ -270,6 +278,7 @@ async function addInterviewTicketUseCase(req) {
   if (currentStage < 8) throw new AppError("Cannot add interview ticket before interview completion stage", 400);
 
   let fileUrl = "";
+  const existingTicket = applicantSnap.data()?.interviewTicket || {};
   if (req.file) {
     const bucket = admin.storage().bucket();
     const fileName = `interview-ticket/${applicantId}_${Date.now()}`;
@@ -279,6 +288,7 @@ async function addInterviewTicketUseCase(req) {
     });
     await fileUpload.makePublic();
     fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    await deleteStorageFileIfExists(bucket, existingTicket.fileUrl);
   }
 
   await applicantRef.set(
@@ -326,6 +336,7 @@ async function uploadInterviewBiometricUseCase(req) {
   const docSnap = await docRef.get();
   if (!docSnap.exists) throw new AppError("Applicant not found", 404);
   const currentStage = Number(docSnap.data()?.stage || 1);
+  const previousBiometricUrl = docSnap.data()?.interviewBiometric?.fileUrl || "";
   if (currentStage < 8) throw new AppError("Cannot add interview biometric before interview completion stage", 400);
 
   await docRef.set(
@@ -339,6 +350,8 @@ async function uploadInterviewBiometricUseCase(req) {
     },
     { merge: true }
   );
+
+  await deleteStorageFileIfExists(bucket, previousBiometricUrl);
 
   await docRef.update({
     stage: 9,
@@ -359,6 +372,39 @@ async function getInterviewBiometricUseCase(req) {
   };
 }
 
+async function getInterviewWorkflowUseCase(req) {
+  const doc = await db.collection("applicants").doc(req.params.id).get();
+  if (!doc.exists) throw new AppError("Applicant not found", 404);
+  const data = doc.data() || {};
+
+  const embassyInterview = data.embassyInterview
+    ? {
+        ...data.embassyInterview,
+        createdAt: normalizeDate(data.embassyInterview.createdAt)
+      }
+    : null;
+
+  const interviewTicket = data.interviewTicket
+    ? {
+        ...data.interviewTicket,
+        createdAt: normalizeDate(data.interviewTicket.createdAt)
+      }
+    : null;
+
+  const interviewBiometric = data.interviewBiometric
+    ? {
+        ...data.interviewBiometric,
+        uploadedAt: normalizeDate(data.interviewBiometric.uploadedAt)
+      }
+    : null;
+
+  return {
+    embassyInterview,
+    interviewTicket,
+    interviewBiometric
+  };
+}
+
 module.exports = {
   addDispatchUseCase,
   addEmbassyInterviewUseCase,
@@ -368,6 +414,7 @@ module.exports = {
   getContractUseCase,
   getDispatchesUseCase,
   getEmbassyInterviewUseCase,
+  getInterviewWorkflowUseCase,
   getInterviewBiometricUseCase,
   getInterviewTicketUseCase,
   uploadContractUseCase,

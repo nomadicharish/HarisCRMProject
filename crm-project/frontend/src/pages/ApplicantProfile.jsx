@@ -9,6 +9,8 @@ import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import ApplicantPipelineList from "../components/applicant/ApplicantPipelineList";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import ApplicantProfileModalStack from "../components/applicant-profile/ApplicantProfileModalStack";
+import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 import useApplicantPaymentState from "../hooks/useApplicantPaymentState";
 import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
 
@@ -19,7 +21,6 @@ function ApplicantProfile() {
   const [loading, setLoading] = useState(true);
   const [user, setUser] = useState(null);
   const [documents, setDocuments] = useState({});
-  const [paymentSummary, setPaymentSummary] = useState(null);
   const [contract, setContract] = useState(null);
   const [embassyAppointment, setEmbassyAppointment] = useState(null);
   const [biometricSlip, setBiometricSlip] = useState(null);
@@ -43,6 +44,7 @@ function ApplicantProfile() {
   const [showCompleteProcessModal, setShowCompleteProcessModal] = useState(false);
   const [showApplicantDetailsModal, setShowApplicantDetailsModal] = useState(false);
   const [showDispatchHistoryModal, setShowDispatchHistoryModal] = useState(false);
+  const [approvingStage, setApprovingStage] = useState(false);
   const profileCacheTtlMs = 15000;
 
   const loadApplicant = useCallback(async () => {
@@ -67,130 +69,17 @@ function ApplicantProfile() {
     }
   }, []);
 
-  const loadDocuments = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/documents`, {
-        params: { latest: "true" },
-        ttlMs: profileCacheTtlMs
-      });
-      setDocuments(data || {});
-    } catch (err) {
-      console.error(err);
-      setDocuments({});
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadPaymentSummary = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/payments/summary`, { ttlMs: profileCacheTtlMs });
-      setPaymentSummary(data || null);
-    } catch (err) {
-      console.error(err);
-      setPaymentSummary(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadContract = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/contract`, { ttlMs: profileCacheTtlMs });
-      setContract(data || null);
-    } catch (err) {
-      console.error(err);
-      setContract(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadEmbassyAppointment = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/embassy-appointment`, { ttlMs: profileCacheTtlMs });
-      setEmbassyAppointment(data || null);
-    } catch (err) {
-      console.error(err);
-      setEmbassyAppointment(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadBiometricSlip = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/biometric`, { ttlMs: profileCacheTtlMs });
-      setBiometricSlip(data || null);
-    } catch (err) {
-      console.error(err);
-      setBiometricSlip(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadEmbassyInterview = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/interview`, { ttlMs: profileCacheTtlMs });
-      setEmbassyInterview(data || null);
-    } catch (err) {
-      console.error(err);
-      setEmbassyInterview(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadInterviewTicket = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/interview-ticket`, { ttlMs: profileCacheTtlMs });
-      setInterviewTicket(data || null);
-    } catch (err) {
-      console.error(err);
-      setInterviewTicket(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadInterviewBiometric = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/interview-biometric`, { ttlMs: profileCacheTtlMs });
-      setInterviewBiometric(data || null);
-    } catch (err) {
-      console.error(err);
-      setInterviewBiometric(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadVisaCollection = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/visa-collection`, { ttlMs: profileCacheTtlMs });
-      setVisaCollection(data || null);
-    } catch (err) {
-      console.error(err);
-      setVisaCollection(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadVisaTravel = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/visa-travel`, { ttlMs: profileCacheTtlMs });
-      setVisaTravel(data || null);
-    } catch (err) {
-      console.error(err);
-      setVisaTravel(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
-  const loadResidencePermit = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}/residence-permit`, { ttlMs: profileCacheTtlMs });
-      setResidencePermit(data || null);
-    } catch (err) {
-      console.error(err);
-      setResidencePermit(null);
-    }
-  }, [id, profileCacheTtlMs]);
-
   const loadProfileWorkflowData = useCallback(
     async ({ force = false } = {}) => {
       try {
         if (!force) setLoading(true);
         const data = await getCached(`/applicants/${id}/workflow-bundle`, {
+          params: { includeDetails: "false" },
           ttlMs: profileCacheTtlMs,
           force
         });
         setApplicant(data?.applicant || null);
-        setDocuments(data?.documents || {});
-        setPaymentSummary(data?.paymentSummary || null);
+        setDocuments({});
         setContract(data?.contract || null);
         setEmbassyAppointment(data?.embassyAppointment || null);
         setBiometricSlip(data?.biometricSlip || null);
@@ -261,8 +150,7 @@ function ApplicantProfile() {
   }, [applicant?.countryId, applicant?.countryName, applicant?.country]);
 
   const openEditProfile = (context = "default") => {
-    setEditContext(context);
-    setShowEditModal(true);
+    navigate(`/applicants/${id}/edit${context === "stage1" ? "?context=stage1" : ""}`);
   };
 
   const openContractSection = () => {
@@ -298,8 +186,7 @@ function ApplicantProfile() {
     formattedPendingAmount,
     isTotalAmountMissing
   } = useApplicantPaymentState({
-    applicant,
-    paymentSummary
+    applicant
   });
 
   const {
@@ -401,7 +288,7 @@ function ApplicantProfile() {
     loadProfileWorkflowData
   ]);
 
-  if (loading) return <div style={{ padding: "40px" }}>Loading...</div>;
+  if (loading) return <PageLoader label="Loading applicant profile..." />;
   if (!applicant) return <div style={{ padding: "40px" }}>Applicant not found</div>;
 
 
@@ -423,6 +310,7 @@ function ApplicantProfile() {
 
   const approveStage = async () => {
     const previousApplicant = applicant;
+    setApprovingStage(true);
     setApplicant((prev) => {
       if (!prev) return prev;
       return {
@@ -437,10 +325,12 @@ function ApplicantProfile() {
       invalidateCache(`/applicants/${id}`);
       invalidateCache(`/applicants/${id}/workflow-bundle`);
       invalidateCache("/applicants");
-      loadProfileWorkflowData({ force: true });
+      await loadProfileWorkflowData({ force: true });
     } catch (error) {
       console.error(error);
       setApplicant(previousApplicant);
+    } finally {
+      setApprovingStage(false);
     }
   };
 
@@ -501,9 +391,9 @@ function ApplicantProfile() {
               onUploadDocuments={handleShowDocuments}
               onHeaderAction={headerActionHandler}
               headerActionLabel={headerActionLabel}
-              canHeaderAction={canHeaderAction}
+              canHeaderAction={canHeaderAction && !approvingStage}
               activeStepActionLabel={headerActionLabel}
-              canActiveStepAction={canHeaderAction}
+              canActiveStepAction={canHeaderAction && !approvingStage}
               documentRowSubtitle={documentRowSubtitle}
               dispatchRowTitle={dispatchRowTitle}
               contractRowTitle={contractRowTitle}
@@ -531,23 +421,25 @@ function ApplicantProfile() {
                 applicantStage === 1 && canApproveProfile ? () => openEditProfile("stage1") : handleShowProfileDetails
               }
               onDispatchDocuments={
-                applicantStage >= 4 ? handleShowDispatchDetails : canAccessDispatch ? handleShowDispatch : undefined
+                user?.role === "AGENCY"
+                  ? undefined
+                  : applicantStage >= 4
+                  ? handleShowDispatchDetails
+                  : canAccessDispatch
+                  ? handleShowDispatch
+                  : undefined
               }
               onContractAction={applicantStage >= 4 ? openContractSection : undefined}
               onEmbassyAppointmentAction={applicantStage >= 5 ? openEmbassyAppointmentSection : undefined}
               onBiometricSlipAction={
                 applicantStage >= 6
-                  ? hasTravelDetails
-                    ? openBiometricSlipSection
-                    : openEmbassyAppointmentSection
+                  ? openEmbassyAppointmentSection
                   : undefined
               }
               onEmbassyInterviewAction={applicantStage >= 7 ? openEmbassyInterviewSection : undefined}
               onInterviewCompletionAction={
                 applicantStage >= 8
-                  ? hasInterviewTicket
-                    ? openInterviewBiometricSection
-                    : openEmbassyInterviewSection
+                  ? openEmbassyInterviewSection
                   : undefined
               }
               onVisaCollectionAction={applicantStage >= 9 ? openVisaCollectionSection : undefined}
@@ -608,11 +500,11 @@ function ApplicantProfile() {
         {showCompleteProcessModal ? (
           <div className="contractModalOverlay">
             <div className="contractModalCard">
-              <div className="workflowModalTopBar">
-                <div className="workflowModalTopBarTitle">Candidate Arrived</div>
+              <div className="dashboardModalHeader">
+                <h3 className="dashboardModalTitle">Candidate Arrived</h3>
                 <button
                   type="button"
-                  className="workflowModalCloseBtn"
+                  className="dashboardModalCloseBtn"
                   onClick={() => setShowCompleteProcessModal(false)}
                 >
                   x
@@ -640,6 +532,8 @@ function ApplicantProfile() {
             </div>
           </div>
         ) : null}
+
+        <BlockingLoader open={approvingStage} label="Approving candidate and updating pipeline..." />
       </div>
     </div>
   );

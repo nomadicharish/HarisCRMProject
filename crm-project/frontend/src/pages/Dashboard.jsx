@@ -1,6 +1,13 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
 import { getCached } from "../services/cachedApi";
+import PageLoader from "../components/common/PageLoader";
+
+function normalizeListResponse(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.items)) return response.items;
+  return [];
+}
 
 function Dashboard() {
   const [data, setData] = useState(null);
@@ -40,8 +47,8 @@ function Dashboard() {
           getCached("/companies", { ttlMs: 60000 }),
           getCached("/agencies", { ttlMs: 60000 })
         ]);
-        setCompanies(companiesData || []);
-        setAgencies(agenciesData || []);
+        setCompanies(normalizeListResponse(companiesData));
+        setAgencies(normalizeListResponse(agenciesData));
       } catch (err) {
         console.error(err);
       }
@@ -124,7 +131,7 @@ function Dashboard() {
 
   
 
-  if (!data) return <p>Loading...</p>;
+  if (!data) return <PageLoader label="Loading dashboard..." />;
 
   return (
     <div style={{ padding: "20px", background: "#f5f7fb", minHeight: "100vh" }}>

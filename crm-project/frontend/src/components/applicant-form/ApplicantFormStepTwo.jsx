@@ -28,7 +28,9 @@ function ApplicantFormStepTwo({
   handleSubmit,
   loading,
   editData,
-  autoApproveAfterSave
+  autoApproveAfterSave,
+  showActions = true,
+  totalInrNeeded = "0"
 }) {
   const customSelectStyles = getSelectStyles();
 
@@ -42,7 +44,7 @@ function ApplicantFormStepTwo({
             options={countryOptions}
             placeholder="Search country..."
             value={countryOptions.find((country) => country.value === form.countryId)}
-            onChange={(selected) => handleCountryChange(selected.value)}
+            onChange={(selected) => handleCountryChange(selected?.value || "")}
           />
           {errors.countryId && <div style={errorText}>{errors.countryId}</div>}
         </div>
@@ -55,7 +57,7 @@ function ApplicantFormStepTwo({
             placeholder={form.countryId ? "Search company..." : "Select country first"}
             isDisabled={!form.countryId}
             value={companyOptions.find((company) => company.value === form.companyId)}
-            onChange={(selected) => handleCompanyChange(selected.value)}
+            onChange={(selected) => handleCompanyChange(selected?.value || "")}
           />
           {errors.companyId && <div style={errorText}>{errors.companyId}</div>}
         </div>
@@ -68,7 +70,7 @@ function ApplicantFormStepTwo({
               options={agencyOptions}
               placeholder="Search agency..."
               value={agencyOptions.find((agency) => agency.value === form.agencyId)}
-              onChange={(selected) => handleChange("agencyId", selected.value)}
+              onChange={(selected) => handleChange("agencyId", selected?.value || "")}
             />
             {errors.agencyId && <div style={errorText}>{errors.agencyId}</div>}
           </div>
@@ -76,7 +78,7 @@ function ApplicantFormStepTwo({
 
         {user?.role === "SUPER_USER" && (
           <div>
-            <label style={label}>Total Amount in Euro</label>
+            <label style={label}>Total Amount (EUR)</label>
             <input
               style={{ ...input, border: errors.totalAmount ? `1px solid ${THEME.error}` : input.border }}
               value={form.totalAmount || ""}
@@ -90,7 +92,7 @@ function ApplicantFormStepTwo({
         )}
 
         <div>
-          <label style={label}>Initial Paid Amount</label>
+          <label style={label}>Initial Paid Amount (INR)</label>
           <input
             style={{ ...input, border: errors.paidAmount ? `1px solid ${THEME.error}` : input.border }}
             value={form.paidAmount || ""}
@@ -101,34 +103,47 @@ function ApplicantFormStepTwo({
           />
           {errors.paidAmount && <div style={errorText}>{errors.paidAmount}</div>}
         </div>
+
+        <div>
+          <label style={label}>Total INR Needed to Pay (INR)</label>
+          <input
+            style={{ ...input, background: "#f3f4f6", color: "#374151" }}
+            value={totalInrNeeded || "0"}
+            readOnly
+            tabIndex={-1}
+          />
+        </div>
       </div>
 
-      <div style={actions}>
-        <button style={btnSecondary} onClick={() => setStep(1)}>
-          {"<- Back"}
-        </button>
-        <button
-          style={{
-            ...btnPrimary,
-            opacity: loading ? 0.7 : 1,
-            cursor: loading ? "not-allowed" : "pointer"
-          }}
-          disabled={loading}
-          onClick={handleSubmit}
-        >
-          {loading
-            ? editData
-              ? "Updating..."
-              : "Creating..."
-            : editData
-            ? user?.role === "SUPER_USER" && autoApproveAfterSave
-              ? "Approve Profile"
-              : "Update Profile"
-            : "Create Profile"}
-        </button>
-      </div>
+      {showActions ? (
+        <div style={actions}>
+          <button style={btnSecondary} onClick={() => setStep(1)}>
+            {"<- Back"}
+          </button>
+          <button
+            style={{
+              ...btnPrimary,
+              opacity: loading ? 0.7 : 1,
+              cursor: loading ? "not-allowed" : "pointer"
+            }}
+            disabled={loading}
+            onClick={handleSubmit}
+          >
+            {loading
+              ? editData
+                ? "Updating..."
+                : "Creating..."
+              : editData
+              ? user?.role === "SUPER_USER" && autoApproveAfterSave
+                ? "Approve Profile"
+                : "Update Profile"
+              : "Create Profile"}
+          </button>
+        </div>
+      ) : null}
     </>
   );
 }
 
 export default ApplicantFormStepTwo;
+

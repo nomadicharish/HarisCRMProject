@@ -46,6 +46,7 @@ const createApplicantSchema = z.object({
   totalAmount: z.coerce.number().optional(),
   amountPaid: z.coerce.number().optional(),
   paidAmount: z.coerce.number().optional(),
+  whatsappNumber: optionalTrimmedString,
   currency: optionalTrimmedString,
   totalApplicantPayment: z.coerce.number().optional(),
   totalEmployerPayment: z.coerce.number().optional(),
@@ -56,6 +57,8 @@ const createApplicantSchema = z.object({
     age: z.union([z.coerce.number(), z.literal(""), z.null()]).optional(),
     address: optionalTrimmedString,
     phone: optionalTrimmedString,
+    whatsappNumber: optionalTrimmedString,
+    whatsapp: optionalTrimmedString,
     maritalStatus: optionalTrimmedString
   }).optional().default({})
 });

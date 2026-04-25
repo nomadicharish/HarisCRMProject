@@ -1,13 +1,21 @@
-const assert = require("node:assert/strict");
-const { hasScope } = require("../../services/policyService");
+const fs = require("node:fs");
+const path = require("node:path");
 
 function run() {
-  assert.equal(hasScope({ role: "SUPER_USER" }, "agent.actions.write"), true);
-  assert.equal(hasScope({ role: "ACCOUNTANT" }, "agent.actions.write"), false);
-  assert.equal(
-    hasScope({ role: "ACCOUNTANT", agentScopes: ["agent.actions.write"] }, "agent.actions.write"),
-    true
-  );
+  const unitDir = __dirname;
+  const testFiles = fs
+    .readdirSync(unitDir)
+    .filter((fileName) => fileName.endsWith(".unit.test.js"))
+    .sort();
+
+  for (const fileName of testFiles) {
+    // eslint-disable-next-line import/no-dynamic-require, global-require
+    const runTest = require(path.join(unitDir, fileName));
+    if (typeof runTest === "function") {
+      runTest();
+      process.stdout.write(`PASS ${fileName}\n`);
+    }
+  }
 
   process.stdout.write("Unit checks passed\n");
 }

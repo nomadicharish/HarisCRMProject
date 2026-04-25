@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import BlockingLoader from "./common/BlockingLoader";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -63,15 +64,16 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
       readOnly
       className="workflowDateInput"
     />
-    <span className="workflowDateIcon" onClick={onClick}>
-      📅
-    </span>
+    <span className="workflowDateIcon" onClick={onClick}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg></span>
   </div>
 ));
 
 CustomDateInput.displayName = "EmbassyInterviewDateInput";
 
 function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, onClose, onUpdated }) {
+  const openTimePicker = (event) => {
+    event.target.showPicker?.();
+  };
   const [interview, setInterview] = useState(null);
   const [interviewTicket, setInterviewTicket] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -82,9 +84,16 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
   const [travelDate, setTravelDate] = useState(null);
   const [travelTime, setTravelTime] = useState("");
   const [travelFile, setTravelFile] = useState(null);
+  const [biometricFromApi, setBiometricFromApi] = useState(null);
 
-  const hasInterviewBiometric = Boolean(interviewBiometric?.fileUrl);
-  const canEditInterview = (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && !hasInterviewBiometric;
+  const resolvedInterviewBiometric = biometricFromApi || interviewBiometric || null;
+  const hasInterviewBiometric = Boolean(resolvedInterviewBiometric?.fileUrl);
+  const canEditInterview =
+    (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") &&
+    !hasInterviewBiometric &&
+    !interviewTicket &&
+    !interview?.approved &&
+    String(interview?.status || "").toUpperCase() !== "APPROVED";
   const canApprove = user?.role === "SUPER_USER" && interview && !interview.approved && !hasInterviewBiometric;
   const canAddTicket = user?.role === "AGENCY" && interview && !interviewTicket && !hasInterviewBiometric;
   const isBusy = savingInterview || savingTicket;
@@ -92,13 +101,11 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [interviewRes, ticketRes] = await Promise.all([
-        API.get(`/applicants/${applicantId}/interview`),
-        API.get(`/applicants/${applicantId}/interview-ticket`)
-      ]);
+      const workflowRes = await API.get(`/applicants/${applicantId}/interview-workflow`);
 
-      const interviewData = interviewRes.data || null;
-      const ticketData = ticketRes.data || null;
+      const interviewData = workflowRes.data?.embassyInterview || null;
+      const ticketData = workflowRes.data?.interviewTicket || null;
+      const biometricData = workflowRes.data?.interviewBiometric || null;
       const normalizedInterviewTime = interviewData?.dateTime
         ? String(interviewData.dateTime).split("T")[1]?.slice(0, 5) || ""
         : "";
@@ -109,6 +116,7 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
       setInterviewTime(normalizedInterviewTime);
       setTravelDate(ticketData?.date ? new Date(ticketData.date) : null);
       setTravelTime(ticketData?.time || "");
+      setBiometricFromApi(biometricData);
     } catch (error) {
       console.error(error);
       setInterview(null);
@@ -117,6 +125,7 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
       setInterviewTime("");
       setTravelDate(null);
       setTravelTime("");
+      setBiometricFromApi(null);
     } finally {
       setLoading(false);
     }
@@ -218,14 +227,17 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
   };
 
   if (!open) return null;
+  const sectionTitleStyle = { marginTop: 18, marginBottom: 8, fontWeight: 600 };
+  const sectionDividerStyle = { borderTop: "1px solid #e5e7eb", marginTop: 16, paddingTop: 10 };
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard">
-        <div className="workflowModalTopBar">
-          <div className="workflowModalTopBarTitle">{title}</div>
-          <button type="button" className="workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
-            ✕
+      <div className="contractModalCard" style={{ position: "relative" }}>
+        <BlockingLoader open={isBusy} label="Saving details..." />
+        <div className="dashboardModalHeader">
+          <h3 className="dashboardModalTitle">{title}</h3>
+          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={isBusy}>
+            x
           </button>
         </div>
 
@@ -235,27 +247,24 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
           <>
             {interview ? (
               <div className="contractInfoCard">
-                <div className="contractInfoRow">
-                  <span>Interview Date</span>
-                  <span>{formatDate(interview.dateTime)}</span>
+                <div className="contractUploadLabel" style={sectionTitleStyle}>
+                  Interview Details
                 </div>
                 <div className="contractInfoRow">
-                  <span>Interview Time</span>
-                  <span>{formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}</span>
+                  <span>Interview Date & Time</span>
+                  <span>
+                    {`${formatDate(interview.dateTime)} ${formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}`}
+                  </span>
                 </div>
 
                 {interviewTicket ? (
-                  <>
-                    <div className="contractUploadLabel" style={{ marginTop: 18 }}>
+                  <div style={sectionDividerStyle}>
+                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
                       Travel Details
                     </div>
                     <div className="contractInfoRow">
-                      <span>Travel Date</span>
-                      <span>{formatDate(interviewTicket.date)}</span>
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Time</span>
-                      <span>{formatTime(interviewTicket.time)}</span>
+                      <span>Travel Date & Time</span>
+                      <span>{`${formatDate(interviewTicket.date)} ${formatTime(interviewTicket.time)}`}</span>
                     </div>
                     {interviewTicket.fileUrl ? (
                       <div className="contractInfoRow">
@@ -265,25 +274,24 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                         </a>
                       </div>
                     ) : null}
-                  </>
+                  </div>
                 ) : null}
 
                 {hasInterviewBiometric ? (
-                  <>
-                    <div className="contractUploadLabel" style={{ marginTop: 18 }}>
+                  <div style={sectionDividerStyle}>
+                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
                       Biometric Slip
                     </div>
                     <div className="contractInfoRow">
-                      <span>Biometric Slip</span>
-                      <a href={interviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                        View document
-                      </a>
+                      <span>Biometric Slip & Uploaded On</span>
+                      <span>
+                        <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
+                          View document
+                        </a>
+                        {` (${formatDateTime(resolvedInterviewBiometric.uploadedAt)})`}
+                      </span>
                     </div>
-                    <div className="contractInfoRow">
-                      <span>Uploaded On</span>
-                      <span>{formatDateTime(interviewBiometric.uploadedAt)}</span>
-                    </div>
-                  </>
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -314,6 +322,8 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       type="time"
                       value={interviewTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setInterviewTime(event.target.value)}
                     />
                   </div>
@@ -360,6 +370,8 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       type="time"
                       value={travelTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setTravelTime(event.target.value)}
                     />
                   </div>
@@ -392,3 +404,6 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
 }
 
 export default EmbassyInterviewModal;
+
+
+

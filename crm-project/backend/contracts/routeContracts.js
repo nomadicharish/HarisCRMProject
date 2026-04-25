@@ -1,6 +1,13 @@
 const { applicantsListQuerySchema, createApplicantSchema } = require("../validators/applicantSchemas");
 const { listCompaniesQuerySchema, listAgenciesQuerySchema, listEmployersQuerySchema } = require("../validators/entitySchemas");
-const { enqueueAgentJobSchema, executeAgentActionSchema, listJobsQuerySchema } = require("../validators/agentSchemas");
+const {
+  addApplicantNoteSchema,
+  enqueueAgentJobSchema,
+  executeAgentActionSchema,
+  listJobsQuerySchema,
+  setApplicantStageSchema
+} = require("../validators/agentSchemas");
+const { recentLimitQuerySchema } = require("../validators/observabilitySchemas");
 const { listChangeFeedQuerySchema, createWebhookSchema } = require("../validators/changeFeedSchemas");
 
 const routeContracts = [
@@ -67,6 +74,44 @@ const routeContracts = [
     summary: "Execute explicit agent action",
     security: true,
     body: executeAgentActionSchema
+  },
+  {
+    method: "post",
+    path: "/agents/actions/applicants/:applicantId/approve",
+    tags: ["Agents"],
+    summary: "Approve applicant via explicit agent operation",
+    security: true
+  },
+  {
+    method: "post",
+    path: "/agents/actions/applicants/:applicantId/stage",
+    tags: ["Agents"],
+    summary: "Set applicant stage via explicit agent operation",
+    security: true,
+    body: setApplicantStageSchema
+  },
+  {
+    method: "post",
+    path: "/agents/actions/applicants/:applicantId/notes",
+    tags: ["Agents"],
+    summary: "Append applicant note via explicit agent operation",
+    security: true,
+    body: addApplicantNoteSchema
+  },
+  {
+    method: "get",
+    path: "/observability/metrics",
+    tags: ["Observability"],
+    summary: "Read service metrics and recent traces",
+    security: true,
+    query: recentLimitQuerySchema
+  },
+  {
+    method: "get",
+    path: "/observability/health",
+    tags: ["Observability"],
+    summary: "Health check",
+    security: false
   },
   {
     method: "get",

@@ -124,7 +124,8 @@ async function buildDocSummary(applicantId, applicantData = {}) {
 
 function buildApprovalFlags(applicantData = {}, docSummary = {}) {
   const hasPendingEmbassyInterviewApproval =
-    String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING";
+    String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
+    (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
   const hasPendingVisaCollectionApproval =
     String(applicantData?.visaCollection?.status || "").toUpperCase() === "PENDING";
   const hasPendingContractApproval =

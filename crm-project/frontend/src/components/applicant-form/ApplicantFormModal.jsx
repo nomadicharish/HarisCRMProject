@@ -2,22 +2,44 @@ import React, { useEffect, useState } from "react";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-phone-input-2/lib/style.css";
 import { useNavigate } from "react-router-dom";
+import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import { getCached } from "../../services/cachedApi";
 import "../../styles/applicantsDashboard.css";
 import ApplicantFormStepOne from "./ApplicantFormStepOne";
 import ApplicantFormStepTwo from "./ApplicantFormStepTwo";
-import { modal, overlay, stepText } from "./formStyles";
+import { actions, btnPrimary, btnSecondary, modal, overlay, stepText } from "./formStyles";
+import BlockingLoader from "../common/BlockingLoader";
+import { formatIndianNumberInput, parseIndianNumberInput } from "../../utils/numberFormat";
 import {
   EMPTY_FORM,
   calculateAge,
   getApplicantPaidAmount,
   getApplicantTotalAmount,
   validateAge,
+  validateOptionalPhone,
   validatePaidAmount,
   validatePhone,
   validateTotalAmount
 } from "./formUtils";
+
+const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
+
+const sanitizeAmountInput = formatIndianNumberInput;
+const parseAmountInput = parseIndianNumberInput;
+const DEFAULT_EXCHANGE_RATE = 90;
+
+function normalizeListResponse(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.items)) return response.items;
+  return [];
+}
+
+function roundTo2(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.round((parsed + Number.EPSILON) * 100) / 100;
+}
 
 function ApplicantFormModal({
   onClose,
@@ -25,7 +47,8 @@ function ApplicantFormModal({
   editData,
   user: userProp = null,
   onApproveStage,
-  autoApproveAfterSave = false
+  autoApproveAfterSave = false,
+  asPage = false
 }) {
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -37,6 +60,7 @@ function ApplicantFormModal({
   const [dob, setDob] = useState(null);
   const [step, setStep] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [exchangeRate, setExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
 
   const navigate = useNavigate();
 
@@ -52,6 +76,8 @@ function ApplicantFormModal({
     if (ageError) newErrors.age = ageError;
     const phoneError = validatePhone(form.phone, form.phoneCountry);
     if (phoneError) newErrors.phone = phoneError;
+    const whatsappError = validateOptionalPhone(form.whatsappNumber, form.whatsappCountry || form.phoneCountry);
+    if (whatsappError) newErrors.whatsappNumber = whatsappError;
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -78,7 +104,24 @@ function ApplicantFormModal({
   };
 
   const handleChange = (key, value) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    if (key === "totalAmount" || key === "paidAmount") {
+      setForm((prev) => ({ ...prev, [key]: sanitizeAmountInput(value) }));
+      return;
+    }
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === "phone" && prev.isWhatsappSameAsPhone) {
+        next.whatsappNumber = String(value || "");
+      }
+      if (key === "phoneCountry" && prev.isWhatsappSameAsPhone) {
+        next.whatsappCountry = String(value || "IN");
+      }
+      if (key === "isWhatsappSameAsPhone" && !value) {
+        next.whatsappNumber = "";
+        next.whatsappCountry = next.phoneCountry || "IN";
+      }
+      return next;
+    });
   };
 
   const handleCountryChange = (value) => {
@@ -91,10 +134,11 @@ function ApplicantFormModal({
     setForm((prev) => ({
       ...prev,
       companyId: value,
-      totalAmount:
-        user?.role === "SUPER_USER" && selectedCompany
-          ? selectedCompany.companyPaymentPerApplicant ?? ""
-          : prev.totalAmount
+      totalAmount: selectedCompany
+        ? user?.role === "SUPER_USER"
+          ? sanitizeAmountInput(selectedCompany.companyPaymentPerApplicant ?? "")
+          : sanitizeAmountInput(prev.totalAmount || selectedCompany.companyPaymentPerApplicant || "")
+        : prev.totalAmount
     }));
   };
 
@@ -106,9 +150,9 @@ function ApplicantFormModal({
           getCached("/countries", { ttlMs: 120000 }),
           getCached("/agencies", { ttlMs: 60000 })
         ]);
-        setCompanies(companiesData || []);
-        setCountries(countriesData || []);
-        setAgencies(agenciesData || []);
+        setCompanies(normalizeListResponse(companiesData));
+        setCountries(normalizeListResponse(countriesData));
+        setAgencies(normalizeListResponse(agenciesData));
       } catch (err) {
         console.error(err);
       }
@@ -136,6 +180,7 @@ function ApplicantFormModal({
       resetForm();
       setDob(null);
       setStep(1);
+      setExchangeRate(DEFAULT_EXCHANGE_RATE);
       return;
     }
 
@@ -165,23 +210,75 @@ function ApplicantFormModal({
       dob: parsedDob || "",
       age: parsedDob ? calculateAge(parsedDob) : editData.age || editData.personalDetails?.age || "",
       address: editData.address || editData.personalDetails?.address || "",
-      phone: editData.personalDetails?.phone || editData.phone || "",
-      phoneCountry: "in",
+      phone: (() => {
+        const rawPhone = editData.personalDetails?.phone || editData.phone || "";
+        const parsedPhone = parsePhoneNumberFromString(rawPhone);
+        return parsedPhone?.nationalNumber || String(rawPhone || "").replace(/[^\d]/g, "");
+      })(),
+      phoneCountry: (() => {
+        const rawPhone = editData.personalDetails?.phone || editData.phone || "";
+        const parsedPhone = parsePhoneNumberFromString(rawPhone);
+        const country = String(parsedPhone?.country || "IN").toUpperCase();
+        return PHONE_COUNTRY_CODES.has(country) ? country : "IN";
+      })(),
+      whatsappNumber: (() => {
+        const rawWhatsapp =
+          editData.personalDetails?.whatsappNumber ||
+          editData.personalDetails?.whatsapp ||
+          editData.whatsappNumber ||
+          "";
+        const parsedWhatsapp = parsePhoneNumberFromString(rawWhatsapp);
+        return parsedWhatsapp?.nationalNumber || String(rawWhatsapp || "").replace(/[^\d]/g, "");
+      })(),
+      whatsappCountry: (() => {
+        const rawWhatsapp =
+          editData.personalDetails?.whatsappNumber ||
+          editData.personalDetails?.whatsapp ||
+          editData.whatsappNumber ||
+          "";
+        const parsedWhatsapp = parsePhoneNumberFromString(rawWhatsapp);
+        const country = String(parsedWhatsapp?.country || "IN").toUpperCase();
+        return PHONE_COUNTRY_CODES.has(country) ? country : "IN";
+      })(),
+      isWhatsappSameAsPhone: (() => {
+        const rawPhone = editData.personalDetails?.phone || editData.phone || "";
+        const rawWhatsapp =
+          editData.personalDetails?.whatsappNumber ||
+          editData.personalDetails?.whatsapp ||
+          editData.whatsappNumber ||
+          "";
+        const parsedPhone = parsePhoneNumberFromString(rawPhone);
+        const parsedWhatsapp = parsePhoneNumberFromString(rawWhatsapp);
+        if (!rawWhatsapp) return false;
+        return (
+          String(parsedPhone?.nationalNumber || rawPhone).replace(/[^\d]/g, "") ===
+          String(parsedWhatsapp?.nationalNumber || rawWhatsapp).replace(/[^\d]/g, "")
+        );
+      })(),
       maritalStatus: editData.maritalStatus || editData.personalDetails?.maritalStatus || "",
       countryId: resolvedCountryId,
       companyId: resolvedCompanyId,
       agencyId: editData.agencyId || "",
       totalAmount:
         hasResolvedTotalAmount
-          ? resolvedTotalAmount
+          ? sanitizeAmountInput(resolvedTotalAmount)
           : user?.role === "SUPER_USER"
-          ? selectedCompany?.companyPaymentPerApplicant ?? ""
+          ? sanitizeAmountInput(selectedCompany?.companyPaymentPerApplicant ?? "")
           : "",
-      paidAmount: getApplicantPaidAmount(editData)
+      paidAmount: sanitizeAmountInput(getApplicantPaidAmount(editData))
     });
 
     setDob(parsedDob);
     setStep(1);
+    setExchangeRate(
+      Number(
+        editData?.payment?.exchangeRate ||
+          editData?.paymentsSummary?.exchangeRate ||
+          editData?.paymentSummary?.exchangeRate ||
+          editData?.exchangeRate ||
+          DEFAULT_EXCHANGE_RATE
+      ) || DEFAULT_EXCHANGE_RATE
+    );
 
     if (resolvedCountryId) {
       setFilteredCompanies(companies.filter((company) => company.countryId === resolvedCountryId));
@@ -201,28 +298,42 @@ function ApplicantFormModal({
           lastName: form.lastName,
           dob: form.dob,
           age: form.age,
-          phone: form.phone,
+          phone: `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN")}${String(form.phone || "").replace(/[^\d]/g, "")}`,
+          whatsappNumber: form.whatsappNumber
+            ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
+            : "",
+          whatsapp: form.whatsappNumber
+            ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
+            : "",
           maritalStatus: form.maritalStatus,
           address: form.address
         },
+        whatsappNumber: form.whatsappNumber
+          ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
+          : "",
         companyId: form.companyId,
         countryId: form.countryId,
         agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,
-        totalApplicantPayment: form.totalAmount,
-        totalAmount: form.totalAmount ? Number(form.totalAmount) : 0,
-        amountPaid: form.paidAmount ? Number(form.paidAmount) : 0,
-        paidAmount: form.paidAmount ? Number(form.paidAmount) : 0
+        totalApplicantPayment: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
+        totalAmount: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
+        amountPaid: form.paidAmount ? parseAmountInput(form.paidAmount) : 0,
+        paidAmount: form.paidAmount ? parseAmountInput(form.paidAmount) : 0
+      };
+      const selectedCompany = companies.find((company) => company.id === form.companyId);
+      const savedPayload = {
+        ...payload,
+        companyName: selectedCompany?.name || ""
       };
 
       if (editData) {
         await API.patch(`/applicants/${editData.id}`, payload);
         if (typeof onSaved === "function") {
-          await onSaved({ operation: "update", id: editData.id, payload });
+          await onSaved({ operation: "update", id: editData.id, payload: savedPayload });
         }
       } else {
         const response = await API.post("/applicants/create", payload);
         if (typeof onSaved === "function") {
-          await onSaved({ operation: "create", id: response?.data?.applicantId || "", payload });
+          await onSaved({ operation: "create", id: response?.data?.applicantId || "", payload: savedPayload });
         }
         resetForm();
       }
@@ -253,10 +364,111 @@ function ApplicantFormModal({
   const countryOptions = countries.map((country) => ({ value: country.id, label: country.name }));
   const companyOptions = filteredCompanies.map((company) => ({ value: company.id, label: company.name }));
   const agencyOptions = agencies.map((agency) => ({ value: agency.id, label: agency.name }));
+  const selectedCompany = companies.find((company) => company.id === form.companyId);
+  const totalInrNeeded = (() => {
+    const totalEur = (() => {
+      const parsed = parseAmountInput(form.totalAmount);
+      if (Number.isFinite(parsed) && parsed > 0) return parsed;
+      const companyAmount = Number(selectedCompany?.companyPaymentPerApplicant || 0);
+      return Number.isFinite(companyAmount) && companyAmount > 0 ? companyAmount : 0;
+    })();
+    if (!Number.isFinite(totalEur) || totalEur <= 0) return "0";
+    return sanitizeAmountInput(roundTo2(totalEur * exchangeRate));
+  })();
+  const pageSubmitLabel = loading
+    ? editData
+      ? "Updating..."
+      : "Creating..."
+    : editData
+    ? user?.role === "SUPER_USER" && autoApproveAfterSave
+      ? "Approve Profile"
+      : "Update Profile"
+    : "Create Profile";
+  const pageCancelHandler = () => {
+    if (typeof onClose === "function") onClose();
+    else navigate(-1);
+  };
+  const handlePageSubmit = () => {
+    const validStep1 = validateStep1();
+    const validStep2 = validateStep2();
+    if (!validStep1 || !validStep2) return;
+    handleSubmit();
+  };
+
+  if (asPage) {
+    return (
+      <div className="page-container">
+        <div className="page-content">
+          <div style={{ ...modal, maxWidth: "980px", margin: "0 auto", position: "relative" }}>
+            <BlockingLoader open={loading} label={editData ? "Updating profile..." : "Creating profile..."} />
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px", alignItems: "center" }}>
+              <h3 style={{ margin: 0 }}>{editData ? "Edit Applicant" : "Add Applicant"}</h3>
+              <button onClick={pageCancelHandler} style={{ border: "none", background: "none", fontSize: "18px" }}>
+                x
+              </button>
+            </div>
+
+            <div style={{ ...stepText, marginTop: 2 }}>Fill all applicant details below</div>
+
+            <ApplicantFormStepOne
+              form={form}
+              errors={errors}
+              dob={dob}
+              setDob={setDob}
+              setForm={setForm}
+              handleChange={handleChange}
+              calculateAge={calculateAge}
+              onNext={() => {}}
+              showActions={false}
+            />
+
+            <div style={{ borderTop: "1px solid #e5e7eb", marginTop: 18, paddingTop: 18 }}>
+              <ApplicantFormStepTwo
+                user={user}
+                form={form}
+                errors={errors}
+                countryOptions={countryOptions}
+                companyOptions={companyOptions}
+                agencyOptions={agencyOptions}
+                handleCountryChange={handleCountryChange}
+                handleCompanyChange={handleCompanyChange}
+                handleChange={handleChange}
+                setStep={setStep}
+                handleSubmit={handleSubmit}
+                loading={loading}
+                editData={editData}
+                autoApproveAfterSave={autoApproveAfterSave}
+                showActions={false}
+                totalInrNeeded={totalInrNeeded}
+              />
+            </div>
+
+            <div style={actions}>
+              <button style={btnSecondary} onClick={pageCancelHandler}>
+                Cancel
+              </button>
+              <button
+                style={{
+                  ...btnPrimary,
+                  opacity: loading ? 0.7 : 1,
+                  cursor: loading ? "not-allowed" : "pointer"
+                }}
+                disabled={loading}
+                onClick={handlePageSubmit}
+              >
+                {pageSubmitLabel}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={overlay}>
-      <div style={modal}>
+      <div style={{ ...modal, position: "relative" }}>
+        <BlockingLoader open={loading} label={editData ? "Updating profile..." : "Creating profile..."} />
         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
           <h3 style={{ margin: 0 }}>{editData ? "Edit Applicant" : "Add Applicant"}</h3>
           <button onClick={onClose} style={{ border: "none", background: "none", fontSize: "18px" }}>
@@ -295,6 +507,7 @@ function ApplicantFormModal({
             loading={loading}
             editData={editData}
             autoApproveAfterSave={autoApproveAfterSave}
+            totalInrNeeded={totalInrNeeded}
           />
         )}
       </div>

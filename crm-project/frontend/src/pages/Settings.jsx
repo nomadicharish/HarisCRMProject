@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import PageLoader from "../components/common/PageLoader";
 import { getStoredUser } from "../utils/auth";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
@@ -118,7 +119,7 @@ function Settings() {
 
           <section className="settingsContent">
             {loading ? (
-              <div>Loading...</div>
+              <PageLoader label="Loading settings..." />
             ) : (
               <>
                 <div className="settingsProfileHead">

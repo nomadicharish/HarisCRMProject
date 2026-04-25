@@ -3,6 +3,7 @@ const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
 const { getAuthenticatedUserFromReq } = require("../../services/applicantDomainService");
 const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
+const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 
 async function uploadDocumentByTypeUseCase(req) {
   const { applicantId, docType } = req.params;
@@ -25,6 +26,8 @@ async function uploadDocumentByTypeUseCase(req) {
   });
 
   const docRef = db.collection("applicants").doc(applicantId).collection("documents").doc(docType);
+  const existingDoc = await docRef.get();
+  const previousFileUrl = existingDoc.exists ? existingDoc.data()?.fileUrl : "";
   await docRef.update({
     uploaded: true,
     fileUrl,
@@ -35,6 +38,8 @@ async function uploadDocumentByTypeUseCase(req) {
     deferredBy: null,
     deferReason: null
   });
+
+  await deleteStorageFileIfExists(bucket, previousFileUrl);
 
   await refreshApplicantSummaries(applicantId);
   return { message: "Document uploaded successfully", fileUrl };
@@ -110,6 +115,12 @@ async function uploadDocumentGenericUseCase(req) {
 
   const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
   const docRef = db.collection("applicants").doc(id).collection("documents").doc(documentType);
+  const latestVersionSnap = await docRef
+    .collection("versions")
+    .orderBy("uploadedAt", "desc")
+    .limit(1)
+    .get();
+  const previousVersionFileUrl = latestVersionSnap.empty ? "" : latestVersionSnap.docs[0].data()?.fileUrl || "";
 
   await docRef.set({ documentType, updatedAt: new Date() }, { merge: true });
   await docRef.collection("versions").add({
@@ -120,6 +131,8 @@ async function uploadDocumentGenericUseCase(req) {
     uploadedBy: req.user.uid,
     uploadedByRole: req.user.role
   });
+
+  await deleteStorageFileIfExists(bucket, previousVersionFileUrl);
 
   await refreshApplicantSummaries(id);
   return { message: "Uploaded successfully" };

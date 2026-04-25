@@ -112,6 +112,14 @@ function App() {
           }
         />
         <Route
+          path="/applicants/:id/edit"
+          element={
+            <ProtectedRoute>
+              <CreateApplicant />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/companies/new"
           element={
             <ProtectedRoute allowedRoles={["SUPER_USER"]}>

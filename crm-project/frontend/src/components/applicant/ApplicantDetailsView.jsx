@@ -1,4 +1,5 @@
 import React from "react";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 function Field({ label, value }) {
   return (
@@ -17,6 +18,18 @@ function toDisplayValue(...values) {
   }
 
   return "-";
+}
+
+function formatPhoneWithSeparator(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  try {
+    const parsed = parsePhoneNumberFromString(raw.startsWith("+") ? raw : `+${raw}`);
+    if (!parsed) return raw;
+    return `+${parsed.countryCallingCode}-${parsed.nationalNumber}`;
+  } catch {
+    return raw;
+  }
 }
 
 function ApplicantDetailsView({ applicant, showPaymentDetails = true }) {
@@ -56,7 +69,8 @@ function ApplicantDetailsView({ applicant, showPaymentDetails = true }) {
         <Field label="Date of Birth" value={pd.dob ? String(pd.dob).slice(0, 10) : applicant?.dob} />
         <Field label="Age" value={pd.age ?? applicant?.age} />
         <Field label="Marital Status" value={pd.maritalStatus ?? applicant?.maritalStatus} />
-        <Field label="Phone" value={pd.phone ?? applicant?.phone} />
+        <Field label="Contact number" value={formatPhoneWithSeparator(pd.phone ?? applicant?.phone)} />
+        <Field label="WhatsApp number" value={formatPhoneWithSeparator(pd.whatsappNumber ?? pd.whatsapp ?? applicant?.whatsappNumber)} />
         <Field label="Address" value={pd.address ?? applicant?.address} />
         <Field label="Country" value={applicant?.countryName} />
         <Field label="Employer" value={applicant?.companyName} />

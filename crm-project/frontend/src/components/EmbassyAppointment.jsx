@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import BlockingLoader from "./common/BlockingLoader";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -50,15 +51,16 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
       readOnly
       className="workflowDateInput"
     />
-    <span className="workflowDateIcon" onClick={onClick}>
-      📅
-    </span>
+    <span className="workflowDateIcon" onClick={onClick}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg></span>
   </div>
 ));
 
 CustomDateInput.displayName = "WorkflowDateInput";
 
 function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, onUpdated }) {
+  const openTimePicker = (event) => {
+    event.target.showPicker?.();
+  };
   const [appointment, setAppointment] = useState(null);
   const [travelDetails, setTravelDetails] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -70,8 +72,9 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
   const [travelDate, setTravelDate] = useState(null);
   const [travelTime, setTravelTime] = useState("");
   const [travelFile, setTravelFile] = useState(null);
+  const [biometricFromApi, setBiometricFromApi] = useState(null);
 
-  const hasBiometricSlip = Boolean(biometricSlip?.fileUrl);
+  const hasBiometricSlip = Boolean(biometricSlip?.fileUrl || biometricFromApi?.fileUrl);
   const canEditAppointment = (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && !hasBiometricSlip;
   const canAddTicket = user?.role === "AGENCY" && appointment && !travelDetails && !hasBiometricSlip;
   const isBusy = savingAppointment || savingTicket;
@@ -79,13 +82,10 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [appointmentRes, travelRes] = await Promise.all([
-        API.get(`/applicants/${applicantId}/embassy-appointment`),
-        API.get(`/applicants/${applicantId}/travel`)
-      ]);
-
-      const appointmentData = appointmentRes.data || null;
-      const travelData = travelRes.data || null;
+      const workflowRes = await API.get(`/applicants/${applicantId}/embassy-workflow`);
+      const appointmentData = workflowRes.data?.embassyAppointment || null;
+      const travelData = workflowRes.data?.travelDetails || null;
+      const biometricData = workflowRes.data?.biometricSlip || null;
       const normalizedAppointmentTime =
         appointmentData?.time ||
         appointmentData?.appointmentTime ||
@@ -100,6 +100,7 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
       setAppointmentTime(normalizedAppointmentTime);
       setTravelDate(travelData?.travelDate ? new Date(travelData.travelDate) : null);
       setTravelTime(travelData?.time || "");
+      setBiometricFromApi(biometricData);
     } catch (error) {
       console.error(error);
       setAppointment(null);
@@ -108,6 +109,7 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
       setAppointmentTime("");
       setTravelDate(null);
       setTravelTime("");
+      setBiometricFromApi(null);
     } finally {
       setLoading(false);
     }
@@ -203,13 +205,17 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
 
   if (!open) return null;
 
+  const sectionTitleStyle = { marginTop: 18, marginBottom: 8, fontWeight: 600 };
+  const sectionDividerStyle = { borderTop: "1px solid #e5e7eb", marginTop: 16, paddingTop: 10 };
+
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard">
-        <div className="workflowModalTopBar">
-          <div className="workflowModalTopBarTitle">{title}</div>
-          <button type="button" className="workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
-            ✕
+      <div className="contractModalCard" style={{ position: "relative" }}>
+        <BlockingLoader open={isBusy} label="Saving details..." />
+        <div className="dashboardModalHeader">
+          <h3 className="dashboardModalTitle">{title}</h3>
+          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={isBusy}>
+            x
           </button>
         </div>
 
@@ -219,13 +225,12 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
           <>
             {appointment ? (
               <div className="contractInfoCard">
-                <div className="contractInfoRow">
-                  <span>Appointment Date</span>
-                  <span>{formatDate(appointment.dateTime || appointment.date)}</span>
+                <div className="contractUploadLabel" style={sectionTitleStyle}>
+                  Appointment Details
                 </div>
                 <div className="contractInfoRow">
-                  <span>Appointment Time</span>
-                  <span>{formatTime(appointment.time)}</span>
+                  <span>Appointment Date & Time</span>
+                  <span>{`${formatDate(appointment.dateTime || appointment.date)} ${formatTime(appointment.time)}`}</span>
                 </div>
                 {appointment.fileUrl ? (
                   <div className="contractInfoRow">
@@ -237,17 +242,13 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                 ) : null}
 
                 {travelDetails ? (
-                  <>
-                    <div className="contractUploadLabel" style={{ marginTop: 18 }}>
+                  <div style={sectionDividerStyle}>
+                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
                       Travel Details
                     </div>
                     <div className="contractInfoRow">
-                      <span>Travel Date</span>
-                      <span>{formatDate(travelDetails.travelDate)}</span>
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Time</span>
-                      <span>{formatTime(travelDetails.time)}</span>
+                      <span>Travel Date & Time</span>
+                      <span>{`${formatDate(travelDetails.travelDate)} ${formatTime(travelDetails.time)}`}</span>
                     </div>
                     {travelDetails.fileUrl ? (
                       <div className="contractInfoRow">
@@ -257,7 +258,26 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                         </a>
                       </div>
                     ) : null}
-                  </>
+                  </div>
+                ) : null}
+
+                {hasBiometricSlip ? (
+                  <div style={sectionDividerStyle}>
+                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
+                      Biometric Slip
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Biometric Slip</span>
+                      <a
+                        href={(biometricFromApi?.fileUrl || biometricSlip?.fileUrl || "")}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="linkBtn"
+                      >
+                        View document
+                      </a>
+                    </div>
+                  </div>
                 ) : null}
               </div>
             ) : null}
@@ -288,6 +308,8 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                       type="time"
                       value={appointmentTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setAppointmentTime(event.target.value)}
                     />
                   </div>
@@ -347,6 +369,8 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                       type="time"
                       value={travelTime}
                       disabled={isBusy}
+                      onClick={openTimePicker}
+                      onFocus={openTimePicker}
                       onChange={(event) => setTravelTime(event.target.value)}
                     />
                   </div>
@@ -379,3 +403,6 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
 }
 
 export default EmbassyAppointment;
+
+
+

@@ -2,8 +2,6 @@ import React from "react";
 import FilterSection from "./FilterSection";
 
 function DashboardFiltersSidebar({
-  searchIconWebp,
-  searchIconPng,
   searchPlaceholder,
   searchInput,
   onSearchInputChange,
@@ -29,10 +27,16 @@ function DashboardFiltersSidebar({
     <aside className="dashboardSidebar">
       <div className="dashboardFilterCard">
         <div className="dashboardSearchWrap">
-          <picture>
-            <source srcSet={searchIconWebp} type="image/webp" />
-            <img src={searchIconPng} alt="" className="dashboardSearchIcon" />
-          </picture>
+          <span className="dashboardSearchIcon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none">
+              <path
+                d="M11 4a7 7 0 1 1 0 14a7 7 0 0 1 0-14Zm0 0v0m6 12l3 3"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
           <input
             type="text"
             className="dashboardSearchInput"
@@ -83,7 +87,6 @@ function DashboardFiltersSidebar({
           }
           selectedValues={companyIds}
           onToggle={(value) => onToggleFilterValue("company", companyIds, value)}
-          visible={activeTab !== "companies"}
         />
 
         <FilterSection

@@ -1,5 +1,9 @@
-const legacy = require("../applicantController");
 const { getApplicantsUseCase } = require("../../usecases/applicants/getApplicantsUseCase");
+const {
+  getApplicantByIdUseCase,
+  getApplicantDocumentsContextUseCase,
+  getApplicantWorkflowBundleUseCase
+} = require("../../usecases/applicants/profileReadUseCases");
 const {
   addAppointmentUseCase,
   approveAndMoveStageUseCase,
@@ -14,11 +18,28 @@ const {
   getContractUseCase,
   getDispatchesUseCase,
   getEmbassyInterviewUseCase,
+  getInterviewWorkflowUseCase,
   getInterviewBiometricUseCase,
   getInterviewTicketUseCase,
   uploadContractUseCase,
   uploadInterviewBiometricUseCase
 } = require("../../usecases/applicants/workflowExecutionUseCases");
+const {
+  addEmbassyAppointmentUseCase,
+  addTravelDetailsUseCase,
+  addVisaCollectionUseCase,
+  addVisaTravelUseCase,
+  approveVisaCollectionUseCase,
+  getBiometricSlipUseCase,
+  getEmbassyAppointmentUseCase,
+  getEmbassyWorkflowUseCase,
+  getResidencePermitUseCase,
+  getTravelDetailsUseCase,
+  getVisaCollectionUseCase,
+  getVisaTravelUseCase,
+  uploadBiometricSlipUseCase,
+  uploadResidencePermitUseCase
+} = require("../../usecases/applicants/workflowAdditionalUseCases");
 const { handleApplicantControllerError } = require("./controllerHelpers");
 
 async function getApplicants(req, res) {
@@ -27,6 +48,33 @@ async function getApplicants(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Applicants Error", error);
+  }
+}
+
+async function getApplicantById(req, res) {
+  try {
+    const payload = await getApplicantByIdUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Applicant Error", error);
+  }
+}
+
+async function getApplicantWorkflowBundle(req, res) {
+  try {
+    const payload = await getApplicantWorkflowBundleUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Workflow Bundle Error", error);
+  }
+}
+
+async function getApplicantDocumentsContext(req, res) {
+  try {
+    const payload = await getApplicantDocumentsContextUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Applicant Documents Context Error", error);
   }
 }
 
@@ -165,10 +213,146 @@ async function getInterviewBiometric(req, res) {
   }
 }
 
+async function getInterviewWorkflow(req, res) {
+  try {
+    const payload = await getInterviewWorkflowUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Interview Workflow Error", error);
+  }
+}
+
+async function addEmbassyAppointment(req, res) {
+  try {
+    const payload = await addEmbassyAppointmentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Add Embassy Appointment Error", error);
+  }
+}
+
+async function getEmbassyAppointment(req, res) {
+  try {
+    const payload = await getEmbassyAppointmentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Embassy Appointment Error", error);
+  }
+}
+
+async function addTravelDetails(req, res) {
+  try {
+    const payload = await addTravelDetailsUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Add Travel Details Error", error);
+  }
+}
+
+async function getTravelDetails(req, res) {
+  try {
+    const payload = await getTravelDetailsUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Travel Details Error", error);
+  }
+}
+
+async function uploadBiometricSlip(req, res) {
+  try {
+    const payload = await uploadBiometricSlipUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Upload Biometric Slip Error", error);
+  }
+}
+
+async function getBiometricSlip(req, res) {
+  try {
+    const payload = await getBiometricSlipUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Biometric Slip Error", error);
+  }
+}
+
+async function getEmbassyWorkflow(req, res) {
+  try {
+    const payload = await getEmbassyWorkflowUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Embassy Workflow Error", error);
+  }
+}
+
+async function addVisaCollection(req, res) {
+  try {
+    const payload = await addVisaCollectionUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Add Visa Collection Error", error);
+  }
+}
+
+async function approveVisaCollection(req, res) {
+  try {
+    const payload = await approveVisaCollectionUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Approve Visa Collection Error", error);
+  }
+}
+
+async function getVisaCollection(req, res) {
+  try {
+    const payload = await getVisaCollectionUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Visa Collection Error", error);
+  }
+}
+
+async function addVisaTravel(req, res) {
+  try {
+    const payload = await addVisaTravelUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Add Visa Travel Error", error);
+  }
+}
+
+async function getVisaTravel(req, res) {
+  try {
+    const payload = await getVisaTravelUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Visa Travel Error", error);
+  }
+}
+
+async function uploadResidencePermit(req, res) {
+  try {
+    const payload = await uploadResidencePermitUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Upload Residence Permit Error", error);
+  }
+}
+
+async function getResidencePermit(req, res) {
+  try {
+    const payload = await getResidencePermitUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Residence Permit Error", error);
+  }
+}
+
 module.exports = {
   getApplicants,
-  getApplicantById: legacy.getApplicantById,
-  getApplicantWorkflowBundle: legacy.getApplicantWorkflowBundle,
+  getApplicantById,
+  getApplicantDocumentsContext,
+  getApplicantWorkflowBundle,
   addAppointment,
   approveAppointment,
   approveAndMoveStage,
@@ -177,12 +361,13 @@ module.exports = {
   uploadContract,
   approveContract,
   getContract,
-  addEmbassyAppointment: legacy.addEmbassyAppointment,
-  getEmbassyAppointment: legacy.getEmbassyAppointment,
-  addTravelDetails: legacy.addTravelDetails,
-  getTravelDetails: legacy.getTravelDetails,
-  uploadBiometricSlip: legacy.uploadBiometricSlip,
-  getBiometricSlip: legacy.getBiometricSlip,
+  addEmbassyAppointment,
+  getEmbassyAppointment,
+  addTravelDetails,
+  getTravelDetails,
+  uploadBiometricSlip,
+  getBiometricSlip,
+  getEmbassyWorkflow,
   addEmbassyInterview,
   approveEmbassyInterview,
   getEmbassyInterview,
@@ -190,11 +375,12 @@ module.exports = {
   getInterviewTicket,
   uploadInterviewBiometric,
   getInterviewBiometric,
-  addVisaCollection: legacy.addVisaCollection,
-  approveVisaCollection: legacy.approveVisaCollection,
-  getVisaCollection: legacy.getVisaCollection,
-  addVisaTravel: legacy.addVisaTravel,
-  getVisaTravel: legacy.getVisaTravel,
-  uploadResidencePermit: legacy.uploadResidencePermit,
-  getResidencePermit: legacy.getResidencePermit
+  getInterviewWorkflow,
+  addVisaCollection,
+  approveVisaCollection,
+  getVisaCollection,
+  addVisaTravel,
+  getVisaTravel,
+  uploadResidencePermit,
+  getResidencePermit
 };

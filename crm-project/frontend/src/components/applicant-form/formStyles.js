@@ -30,14 +30,15 @@ const modal = {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
   gap: "12px",
   width: "100%"
 };
 
 const input = {
   width: "100%",
-  padding: "6px",
+  minHeight: "36px",
+  padding: "6px 10px",
   borderRadius: 0,
   border: `1px solid ${THEME.border}`,
   background: "#FAFBFC",
@@ -117,14 +118,42 @@ const getSelectStyles = () => ({
     borderRadius: 0,
     border: `1px solid ${THEME.border}`,
     boxShadow: "none",
-    minHeight: "36px",
+    minHeight: input.minHeight,
+    height: input.minHeight,
+    overflow: "hidden",
+    background: input.background,
+    alignItems: "center",
     "&:hover": {
       border: `1px solid ${THEME.primary}`
     }
   }),
   valueContainer: (base) => ({
     ...base,
-    padding: "0 10px"
+    padding: "0 10px",
+    minHeight: input.minHeight,
+    height: input.minHeight,
+    display: "flex",
+    alignItems: "center"
+  }),
+  indicatorsContainer: (base) => ({
+    ...base,
+    minHeight: input.minHeight,
+    height: input.minHeight
+  }),
+  placeholder: (base) => ({
+    ...base,
+    margin: 0,
+    lineHeight: "1.2"
+  }),
+  singleValue: (base) => ({
+    ...base,
+    margin: 0,
+    lineHeight: "1.2"
+  }),
+  input: (base) => ({
+    ...base,
+    margin: 0,
+    padding: 0
   }),
   menu: (base) => ({
     ...base,

@@ -36,7 +36,7 @@ const {
 const {
   addDispatch,
   getDispatches
-} = require("../controllers/applicantController");
+} = applicantController;
 const uploadDoc = require("../middleware/upload");
 
 router.use(verifyToken);
@@ -97,6 +97,12 @@ router.get(
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getApplicantWorkflowBundle)
+);
+router.get(
+  "/:id/documents-context",
+  readCache(15),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getApplicantDocumentsContext)
 );
 
 // Upload Document
@@ -177,6 +183,12 @@ router.get(
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getEmbassyAppointment)
 );
+router.get(
+  "/:id/embassy-workflow",
+  readCache(15),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getEmbassyWorkflow)
+);
 
 // Get Contract
 router.get("/:id/contract", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getContract));
@@ -254,6 +266,12 @@ router.get(
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getInterviewBiometric)
+);
+router.get(
+  "/:id/interview-workflow",
+  readCache(15),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getInterviewWorkflow)
 );
 
 // Add Visa Collection

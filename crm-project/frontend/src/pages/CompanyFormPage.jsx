@@ -3,7 +3,10 @@ import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 import API from "../services/api";
+import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
 import "../styles/applicantDocuments.css";
 import "../styles/applicantsDashboard.css";
@@ -71,6 +74,9 @@ const errorText = {
   fontSize: "12px",
   marginTop: "3px"
 };
+
+const formatAmountInput = formatIndianNumberInput;
+const parseAmountInput = parseIndianNumberInput;
 
 function TrashIcon() {
   return (
@@ -143,7 +149,7 @@ function CompanyFormPage() {
             name: selected.name || "",
             countryId: selected.countryId || "",
             employerIds: Array.isArray(selected.employerIds) ? selected.employerIds : [],
-            companyPaymentPerApplicant: selected.companyPaymentPerApplicant ?? "",
+            companyPaymentPerApplicant: formatAmountInput(selected.companyPaymentPerApplicant ?? ""),
             documentsNeeded: Array.isArray(selected.documentsNeeded)
               ? selected.documentsNeeded.map((document, index) => createDocumentRow(document, index))
               : []
@@ -225,6 +231,9 @@ function CompanyFormPage() {
   const updateField = (key, value) => {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
+      if (key === "companyPaymentPerApplicant") {
+        next.companyPaymentPerApplicant = formatAmountInput(value);
+      }
       if (key === "countryId") {
         next.employerIds = prev.employerIds.filter((employerId) =>
           employers.some((employer) => employer.id === employerId && employer.countryId === value)
@@ -292,7 +301,10 @@ function CompanyFormPage() {
     if (!form.countryId) nextErrors.countryId = "Select country";
     if (form.companyPaymentPerApplicant === "") {
       nextErrors.companyPaymentPerApplicant = "Total amount is required";
-    } else if (Number.isNaN(Number(form.companyPaymentPerApplicant)) || Number(form.companyPaymentPerApplicant) < 0) {
+    } else if (
+      Number.isNaN(parseAmountInput(form.companyPaymentPerApplicant)) ||
+      parseAmountInput(form.companyPaymentPerApplicant) < 0
+    ) {
       nextErrors.companyPaymentPerApplicant = "Total amount must be a valid number";
     }
 
@@ -338,7 +350,7 @@ function CompanyFormPage() {
         name: form.name.trim(),
         countryId: form.countryId,
         employerIds: form.employerIds,
-        companyPaymentPerApplicant: Number(form.companyPaymentPerApplicant),
+        companyPaymentPerApplicant: parseAmountInput(form.companyPaymentPerApplicant),
         documentsNeeded
       };
 
@@ -383,11 +395,12 @@ function CompanyFormPage() {
   };
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading company details..." />;
   }
 
   return (
     <div className="page-container">
+      <BlockingLoader open={saving} label={isEdit ? "Updating company..." : "Saving company..."} />
       <DashboardTopbar user={currentUser} />
       <div className="page-content" style={{ maxWidth: "980px" }}>
         <div className="card">
@@ -454,7 +467,7 @@ function CompanyFormPage() {
             </div>
 
             <div>
-              <label style={label}>Total Amount in Euro</label>
+              <label style={label}>Total Amount (€)</label>
               <input
                 style={{
                   ...input,

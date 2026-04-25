@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import BlockingLoader from "./common/BlockingLoader";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -28,6 +29,8 @@ function formatDateTime(value) {
 
 function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, onClose, onUpdated }) {
   const [biometricSlip, setBiometricSlip] = useState(null);
+  const [embassyAppointment, setEmbassyAppointment] = useState(null);
+  const [travelDetails, setTravelDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [file, setFile] = useState(null);
@@ -42,11 +45,15 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
   const loadBiometricSlip = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await API.get(`/applicants/${applicantId}/biometric`);
-      setBiometricSlip(res.data || null);
+      const res = await API.get(`/applicants/${applicantId}/embassy-workflow`);
+      setBiometricSlip(res.data?.biometricSlip || null);
+      setEmbassyAppointment(res.data?.embassyAppointment || null);
+      setTravelDetails(res.data?.travelDetails || null);
     } catch (error) {
       console.error(error);
       setBiometricSlip(null);
+      setEmbassyAppointment(null);
+      setTravelDetails(null);
     } finally {
       setLoading(false);
     }
@@ -89,11 +96,13 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard">
-        <div className="workflowModalTopBar">
-          <div className="workflowModalTopBarTitle">{title}</div>
-          <button type="button" className="workflowModalCloseBtn" onClick={onClose} disabled={saving}>
-            ✕
+      <div className="contractModalCard" style={{ position: "relative" }}>
+        <BlockingLoader open={saving} label="Uploading biometric slip..." />
+
+        <div className="dashboardModalHeader">
+          <h3 className="dashboardModalTitle">{title}</h3>
+          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={saving}>
+            x
           </button>
         </div>
 
@@ -103,6 +112,30 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
           <>
             {resolvedBiometricSlip?.fileUrl ? (
               <div className="contractInfoCard">
+                {embassyAppointment ? (
+                  <>
+                    <div className="contractInfoRow">
+                      <span>Appointment Date</span>
+                      <span>{String(embassyAppointment.date || embassyAppointment.dateTime || "-")}</span>
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Appointment Time</span>
+                      <span>{String(embassyAppointment.time || "-")}</span>
+                    </div>
+                  </>
+                ) : null}
+                {travelDetails ? (
+                  <>
+                    <div className="contractInfoRow">
+                      <span>Travel Date</span>
+                      <span>{String(travelDetails.travelDate || "-")}</span>
+                    </div>
+                    <div className="contractInfoRow">
+                      <span>Travel Time</span>
+                      <span>{String(travelDetails.time || "-")}</span>
+                    </div>
+                  </>
+                ) : null}
                 <div className="contractInfoRow">
                   <span>Biometric Slip</span>
                   <a href={resolvedBiometricSlip.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">

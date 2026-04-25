@@ -5,10 +5,13 @@ const allowRoles = require("../middleware/roleMiddleware");
 const { requireAgentScope, requireApplicantAccess } = require("../middleware/agentPolicy");
 const { validate } = require("../middleware/validate");
 const {
+  addApplicantNoteSchema,
+  applicantIdParamsSchema,
   executeAgentActionSchema,
   enqueueAgentJobSchema,
   jobIdParamsSchema,
-  listJobsQuerySchema
+  listJobsQuerySchema,
+  setApplicantStageSchema
 } = require("../validators/agentSchemas");
 const agentController = require("../controllers/agentController");
 
@@ -24,6 +27,36 @@ router.post(
   validate(executeAgentActionSchema),
   requireApplicantAccess("applicantId"),
   asyncHandler(agentController.executeAction)
+);
+router.get(
+  "/actions/applicants/:applicantId",
+  requireAgentScope("agent.actions.read"),
+  validate(applicantIdParamsSchema, "params"),
+  requireApplicantAccess("applicantId"),
+  asyncHandler(agentController.getApplicantAction)
+);
+router.post(
+  "/actions/applicants/:applicantId/approve",
+  requireAgentScope("agent.actions.write"),
+  validate(applicantIdParamsSchema, "params"),
+  requireApplicantAccess("applicantId"),
+  asyncHandler(agentController.approveApplicantAction)
+);
+router.post(
+  "/actions/applicants/:applicantId/stage",
+  requireAgentScope("agent.actions.write"),
+  validate(applicantIdParamsSchema, "params"),
+  validate(setApplicantStageSchema),
+  requireApplicantAccess("applicantId"),
+  asyncHandler(agentController.setApplicantStageAction)
+);
+router.post(
+  "/actions/applicants/:applicantId/notes",
+  requireAgentScope("agent.actions.write"),
+  validate(applicantIdParamsSchema, "params"),
+  validate(addApplicantNoteSchema),
+  requireApplicantAccess("applicantId"),
+  asyncHandler(agentController.addApplicantNoteAction)
 );
 
 router.post("/jobs", requireAgentScope("agent.jobs.enqueue"), validate(enqueueAgentJobSchema), asyncHandler(agentController.enqueueAgentJob));

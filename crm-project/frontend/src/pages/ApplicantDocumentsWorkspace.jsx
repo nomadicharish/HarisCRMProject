@@ -10,6 +10,8 @@ import {
   getLatestVersion
 } from "../constants/applicantDocuments";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 
 function StatusIcon({ tone = "success" }) {
   if (tone === "danger") {
@@ -184,6 +186,7 @@ function ApplicantDocumentsWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [applicant, setApplicant] = useState(null);
+  const [documentConfigs, setDocumentConfigs] = useState([]);
   const [documents, setDocuments] = useState({});
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -197,15 +200,16 @@ function ApplicantDocumentsWorkspace() {
 
     async function load() {
       try {
-        const [userRes, applicantRes, docsRes] = await Promise.all([
+        const [userRes, documentsContextRes, docsRes] = await Promise.all([
           getCached("/auth/me", { ttlMs: 120000 }),
-          getCached(`/applicants/${id}`, { ttlMs: 15000 }),
+          getCached(`/applicants/${id}/documents-context`, { ttlMs: 15000 }),
           getCached(`/applicants/${id}/documents`, { ttlMs: 10000 })
         ]);
 
         if (cancelled) return;
         setUser(userRes || null);
-        setApplicant(applicantRes || null);
+        setApplicant(documentsContextRes?.applicant || null);
+        setDocumentConfigs(Array.isArray(documentsContextRes?.documentConfigs) ? documentsContextRes.documentConfigs : []);
         setDocuments(docsRes || {});
       } catch (error) {
         console.error(error);
@@ -221,7 +225,7 @@ function ApplicantDocumentsWorkspace() {
   }, [id]);
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading documents..." />;
   }
 
   if (!applicant) {
@@ -229,8 +233,8 @@ function ApplicantDocumentsWorkspace() {
   }
 
   const canReview = user?.role === "SUPER_USER";
-  const visibleDocs = getVisibleApplicantDocuments(applicant);
-  const reviewState = getDocumentReviewState(documents, applicant);
+  const visibleDocs = getVisibleApplicantDocuments(applicant, documentConfigs);
+  const reviewState = getDocumentReviewState(documents, applicant, documentConfigs);
 
   const requiredSelected = reviewState.requiredDocs.every((doc) => {
     const latest = reviewState.latestByType[doc.key];
@@ -261,14 +265,16 @@ function ApplicantDocumentsWorkspace() {
   };
 
   const ChevronIcon = ({ expanded }) => (
-    <img
-      src={expanded ? "/up.png" : "/down.png"}
-      alt=""
+    <svg
       width="16"
       height="16"
-      style={{ display: "block" }}
+      viewBox="0 0 20 20"
+      fill="none"
+      style={{ display: "block", transform: expanded ? "rotate(180deg)" : "none" }}
       aria-hidden="true"
-    />
+    >
+      <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 
   const handleSendForApproval = async () => {
@@ -368,6 +374,7 @@ function ApplicantDocumentsWorkspace() {
 
   return (
     <div className="page-container">
+      <BlockingLoader open={saving} label="Saving document updates..." />
       <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
         <div className={`docsTopBar docsTopBar-${topBar.tone}`}>

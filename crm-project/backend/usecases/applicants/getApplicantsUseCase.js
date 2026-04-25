@@ -171,7 +171,8 @@ function mapApplicant({
     hasPendingAppointmentApproval;
   const hasPendingEmbassyInterviewApproval =
     Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
-    String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING";
+    String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
+    (Boolean(data?.embassyInterview?.dateTime) && !Boolean(data?.embassyInterview?.approved));
 
   const attentionRequired =
     userRole === "SUPER_USER"
@@ -194,7 +195,7 @@ function mapApplicant({
   const hasResidencePermit = Boolean(data?.residencePermit?.frontFileUrl || data?.residencePermit?.backFileUrl || data?.residencePermit?.fileUrl);
   const hasCompletedDocumentStage = Number(data?.stage || 1) >= 3 && approvedRequired;
   const stageLabel = getApplicantStageLabel(data?.stage, data?.approvalStatus);
-  const statusText = getApplicantBannerStatusText(data, {
+  const computedStatusText = getApplicantBannerStatusText(data, {
     hasCompletedDocumentStage,
     pendingRequired,
     rejectedRequired,
@@ -210,6 +211,8 @@ function mapApplicant({
     hasPendingVisaCollectionApproval,
     hasEmbassyAppointment
   });
+  const applicantBannerStatus = String(data?.applicantBannerStatus || computedStatusText);
+  const statusText = applicantBannerStatus;
 
   const workflowStatus =
     Number(data?.stage || 1) >= 12
@@ -245,6 +248,7 @@ function mapApplicant({
       attentionRequired,
       workflowStatus,
       stageLabel,
+      applicantBannerStatus,
       statusText,
       createdAt: data?.createdAt || null,
       updatedAt: data?.updatedAt || null,
@@ -263,6 +267,7 @@ function mapApplicant({
     attentionRequired,
     workflowStatus,
     stageLabel,
+    applicantBannerStatus,
     statusText,
     exchangeRate: eurToInrRate,
     payment

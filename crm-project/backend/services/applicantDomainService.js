@@ -3,7 +3,7 @@ const { logger } = require("../lib/logger");
 const { AppError } = require("../lib/AppError");
 
 const DEFAULT_EUR_TO_INR_RATE = 90;
-const FX_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FX_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 let fxRateCache = {
   value: DEFAULT_EUR_TO_INR_RATE,
   fetchedAt: 0
@@ -19,6 +19,7 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "companyId",
   "agencyId",
   "approvalStatus",
+  "applicantBannerStatus",
   "stage",
   "stageStatus",
   "createdAt",
@@ -130,7 +131,7 @@ async function resolveApplicantTotalEur(applicant = {}) {
 
 function getApplicantStageLabel(stage, approvalStatus) {
   const normalizedStage = Number(stage || 1);
-  if (normalizedStage === 1 && approvalStatus !== "approved") return "Candidate pending for approval";
+  if (normalizedStage === 1 && approvalStatus !== "approved") return "Candidate created. Pending for Admin approval";
   if (normalizedStage <= 1) return "Candidate Created";
   if (normalizedStage === 2) return "Upload Documents";
   if (normalizedStage === 3) return "Dispatch Documents";
@@ -166,15 +167,17 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   } = context;
 
   const isPendingSuperUserApproval = applicantStage === 1 && approvalStatus === "pending";
-  if (isPendingSuperUserApproval) return "Candidate pending for approval";
+  if (isPendingSuperUserApproval) return "Candidate created. Pending for Admin approval";
   if (applicantStage === 1 && approvalStatus === "approved") return "Document upload pending";
   if (applicantStage === 1) return "Complete the candidate profile for approval";
   if (applicantStage >= 12) return "Candidate Arrived and Process Completed";
   if (applicantStage === 11) return "Candidate arrival pending";
-  if (applicantStage === 10) return hasVisaTravel ? "Pending Residence Permit upload" : "Visa collection initiation pending.";
+  if (applicantStage === 10) {
+    return hasVisaTravel ? "Pending Residence Permit upload" : "Visa Collection Initiated. Travel Ticket upload pending.";
+  }
   if (applicantStage === 9) {
-    if (hasPendingVisaCollectionApproval) return "Visa collection initiated. Admin approval pending.";
-    return "Visa collection initiation pending.";
+    if (hasPendingVisaCollectionApproval) return "Visa collection Initiated. Pending admin approval";
+    return "Visa Collection Initiated. Travel Ticket upload pending.";
   }
   if (applicantStage === 8) {
     if (hasInterviewBiometric) return "Pending visa collection";
@@ -182,7 +185,7 @@ function getApplicantBannerStatusText(applicant, context = {}) {
     return "Embassy Interview Initiated. Travel ticket upload pending.";
   }
   if (applicantStage === 7) {
-    if (hasPendingEmbassyInterviewApproval) return "Embassy Interview pending admin approval";
+    if (hasPendingEmbassyInterviewApproval) return "Embassy interview Initiated. Pending admin approval";
     return "Embassy Interview initiation pending";
   }
   if (applicantStage === 6) {

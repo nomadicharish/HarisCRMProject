@@ -76,6 +76,10 @@
   display:none;
 }
 
+.dispatchHistoryModalCard{
+  max-width:980px;
+}
+
 @media (max-width: 768px){
   .dispatchHistoryHeader{
     flex-direction:column;

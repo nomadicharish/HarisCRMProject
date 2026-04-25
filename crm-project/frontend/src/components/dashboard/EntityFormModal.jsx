@@ -5,6 +5,8 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
+import BlockingLoader from "../common/BlockingLoader";
+import { formatIndianNumberInput, parseIndianNumberInput } from "../../utils/numberFormat";
 import "../../styles/forms.css";
 import "../../styles/applicantContract.css";
 
@@ -103,6 +105,9 @@ const INITIAL_FORM = {
 
 const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
 
+const formatAmountInput = formatIndianNumberInput;
+const parseAmountInput = parseIndianNumberInput;
+
 function TrashIcon() {
   return (
     <svg className="dashboardCountryIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -180,7 +185,7 @@ function EntityFormModal({
       employerIds: Array.isArray(editData.employerIds) ? editData.employerIds : [],
       assignedCompanyIds: Array.isArray(editData.assignedCompanyIds) ? editData.assignedCompanyIds : [],
       companyPaymentPerApplicant:
-        editData.companyPaymentPerApplicant ?? editData.totalEmployerPayment ?? ""
+        formatAmountInput(editData.companyPaymentPerApplicant ?? editData.totalEmployerPayment ?? "")
     });
     const rawNumber = String(editData.contactNumber || "");
     const parsed = parsePhoneNumberFromString(rawNumber.startsWith("+") ? rawNumber : `+${rawNumber}`);
@@ -208,6 +213,9 @@ function EntityFormModal({
 
       if (key === "countryId" && type === "employer") {
         next.companyId = "";
+      }
+      if (key === "companyPaymentPerApplicant") {
+        next.companyPaymentPerApplicant = formatAmountInput(value);
       }
 
       return next;
@@ -238,7 +246,7 @@ function EntityFormModal({
       const paymentValue = String(form.companyPaymentPerApplicant || "").trim();
       if (!paymentValue) {
         nextErrors.companyPaymentPerApplicant = "Payment for each candidate is required";
-      } else if (Number.isNaN(Number(paymentValue)) || Number(paymentValue) < 0) {
+      } else if (Number.isNaN(parseAmountInput(paymentValue)) || parseAmountInput(paymentValue) < 0) {
         nextErrors.companyPaymentPerApplicant = "Enter a valid amount";
       }
     }
@@ -264,7 +272,7 @@ function EntityFormModal({
         employerIds: form.employerIds,
         assignedCompanyIds: form.assignedCompanyIds,
         companyPaymentPerApplicant:
-          form.companyPaymentPerApplicant === "" ? "" : Number(form.companyPaymentPerApplicant)
+          form.companyPaymentPerApplicant === "" ? "" : parseAmountInput(form.companyPaymentPerApplicant)
       };
 
       if (editData?.id) {
@@ -332,7 +340,8 @@ function EntityFormModal({
   return (
     <>
       <div className="contractModalOverlay">
-        <div className="contractModalCard dashboardEntityModal">
+        <div className="contractModalCard dashboardEntityModal" style={{ position: "relative" }}>
+          <BlockingLoader open={saving || deleting} label={deleting ? "Deleting..." : "Saving..."} />
           <div className="dashboardModalHeader">
             <h3 className="dashboardModalTitle">{editData ? config.editTitle : config.title}</h3>
             <div className="dashboardHeaderActions">
@@ -424,9 +433,7 @@ function EntityFormModal({
                 <div className="input-field">
                   <label className="contractUploadLabel">Payment for each candidate (EUR)</label>
                   <input
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     className={errors.companyPaymentPerApplicant ? "dashboardFieldError" : ""}
                     value={form.companyPaymentPerApplicant}
                     onChange={(event) => updateField("companyPaymentPerApplicant", event.target.value)}

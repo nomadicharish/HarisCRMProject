@@ -3,7 +3,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 import { getCached, invalidateCache } from "../services/cachedApi";
+import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
@@ -56,6 +59,9 @@ function getInitials(name) {
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
   return (first + last).toUpperCase();
 }
+
+const formatAmountInput = formatIndianNumberInput;
+const parseAmountInput = parseIndianNumberInput;
 
 function ApplicantPayments() {
   const { id } = useParams();
@@ -133,11 +139,15 @@ function ApplicantPayments() {
   const installmentCount = applicantPayment.installmentCount || 0;
 
   const handleInputChange = (key, value) => {
+    if (key === "amount") {
+      setForm((prev) => ({ ...prev, amount: formatAmountInput(value) }));
+      return;
+    }
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleAddPayment = async () => {
-    const amount = Number(form.amount);
+    const amount = parseAmountInput(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
       toast.error("Paid amount must be greater than 0");
       return;
@@ -218,7 +228,7 @@ function ApplicantPayments() {
   };
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading payment details..." />;
   }
 
   return (
@@ -326,15 +336,16 @@ function ApplicantPayments() {
 
         {showAddPaymentModal ? (
           <div className="contractModalOverlay">
-            <div className="contractModalCard">
-              <div className="workflowModalTopBar paymentModalTopBar">
+            <div className="contractModalCard" style={{ position: "relative" }}>
+              <BlockingLoader open={saving} label="Saving payment details..." />
+              <div className="dashboardModalHeader">
                 <div>
-                  <div className="workflowModalTopBarTitle">Add Payment Details</div>
+                  <h3 className="dashboardModalTitle">Add Payment Details</h3>
                   <div className="paymentModalSubtitle">
                     Pending Amount: {formatCurrency(applicantPayment.pendingInr, true)}
                   </div>
                 </div>
-                <button type="button" className="workflowModalCloseBtn" onClick={() => setShowAddPaymentModal(false)}>
+                <button type="button" className="dashboardModalCloseBtn" onClick={() => setShowAddPaymentModal(false)}>
                   x
                 </button>
               </div>
@@ -346,9 +357,7 @@ function ApplicantPayments() {
                   </label>
                   <input
                     id="payment-amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     value={form.amount}
                     onChange={(event) => handleInputChange("amount", event.target.value)}
                     placeholder="Enter paid amount"
