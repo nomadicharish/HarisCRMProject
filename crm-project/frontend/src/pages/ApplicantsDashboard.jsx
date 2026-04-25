@@ -9,6 +9,7 @@ import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import DashboardFiltersSidebar from "../components/dashboard/DashboardFiltersSidebar";
 import DashboardResultsHeader from "../components/dashboard/DashboardResultsHeader";
+import PageLoader from "../components/common/PageLoader";
 import { getCached, hasFreshCache, invalidateCache } from "../services/cachedApi";
 import API from "../services/api";
 import "../styles/applicantsDashboard.css";
@@ -845,7 +846,7 @@ function ApplicantsDashboard() {
   }, [searchInput, searchText, updateFilters]);
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading dashboard..." />;
   }
 
   return (

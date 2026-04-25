@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 import API from "../services/api";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
@@ -394,7 +395,7 @@ function CompanyFormPage() {
   };
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading company details..." />;
   }
 
   return (

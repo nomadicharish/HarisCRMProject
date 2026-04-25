@@ -11,6 +11,7 @@ import {
 } from "../constants/applicantDocuments";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 
 function StatusIcon({ tone = "success" }) {
   if (tone === "danger") {
@@ -224,7 +225,7 @@ function ApplicantDocumentsWorkspace() {
   }, [id]);
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading documents..." />;
   }
 
   if (!applicant) {

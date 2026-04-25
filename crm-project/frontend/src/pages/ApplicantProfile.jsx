@@ -10,6 +10,7 @@ import ApplicantPipelineList from "../components/applicant/ApplicantPipelineList
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import ApplicantProfileModalStack from "../components/applicant-profile/ApplicantProfileModalStack";
 import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 import useApplicantPaymentState from "../hooks/useApplicantPaymentState";
 import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
 
@@ -287,7 +288,7 @@ function ApplicantProfile() {
     loadProfileWorkflowData
   ]);
 
-  if (loading) return <div style={{ padding: "40px" }}>Loading...</div>;
+  if (loading) return <PageLoader label="Loading applicant profile..." />;
   if (!applicant) return <div style={{ padding: "40px" }}>Applicant not found</div>;
 
 
@@ -420,8 +421,8 @@ function ApplicantProfile() {
                 applicantStage === 1 && canApproveProfile ? () => openEditProfile("stage1") : handleShowProfileDetails
               }
               onDispatchDocuments={
-                user?.role === "AGENCY" && applicantStage >= 3 && applicantStage < 5
-                  ? handleShowDispatch
+                user?.role === "AGENCY"
+                  ? undefined
                   : applicantStage >= 4
                   ? handleShowDispatchDetails
                   : canAccessDispatch

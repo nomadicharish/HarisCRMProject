@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import ApplicantFormModal from "../components/applicant-form/ApplicantFormModal";
+import PageLoader from "../components/common/PageLoader";
 import API from "../services/api";
 import { getCached, invalidateCache } from "../services/cachedApi";
 
@@ -34,7 +35,7 @@ function CreateApplicant() {
   }, [loadContext]);
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading applicant data..." />;
   }
 
   const shouldAutoApprove = Boolean(id) && searchParams.get("context") === "stage1";

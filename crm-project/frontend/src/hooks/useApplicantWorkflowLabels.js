@@ -126,7 +126,7 @@ function useApplicantWorkflowLabels({
       ? "Document uploaded. Pending admin approval"
       : "Upload relevant documents for admin approval";
     const pipelineBannerText = applicant?.applicantBannerStatus || applicant?.statusText || (isPendingSuperUserApproval
-      ? "Candidate pending for approval"
+      ? "Candidate created. Pending for Admin approval"
       : applicantStage === 1
       ? "Complete the candidate profile for approval"
       : applicantStage >= 12

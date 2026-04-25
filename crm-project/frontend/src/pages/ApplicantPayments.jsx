@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
+import PageLoader from "../components/common/PageLoader";
 import { getCached, invalidateCache } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
@@ -227,7 +228,7 @@ function ApplicantPayments() {
   };
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading payment details..." />;
   }
 
   return (

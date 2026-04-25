@@ -1,4 +1,5 @@
 import React from "react";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 function toDisplayValue(...values) {
   for (const value of values) {
@@ -17,6 +18,18 @@ function Field({ label, value }) {
       <input style={inputStyle} value={value ?? "-"} readOnly />
     </div>
   );
+}
+
+function formatPhoneWithSeparator(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "-";
+  try {
+    const parsed = parsePhoneNumberFromString(raw.startsWith("+") ? raw : `+${raw}`);
+    if (!parsed) return raw;
+    return `+${parsed.countryCallingCode}-${parsed.nationalNumber}`;
+  } catch {
+    return raw;
+  }
 }
 
 function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = true, agencyName = "", countryName = "" }) {
@@ -60,7 +73,11 @@ function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = 
           <Field label="Date of Birth" value={personalDetails.dob ? String(personalDetails.dob).slice(0, 10) : applicant?.dob} />
           <Field label="Age" value={personalDetails.age ?? applicant.age} />
           <Field label="Marital Status" value={personalDetails.maritalStatus ?? applicant.maritalStatus} />
-          <Field label="Phone" value={personalDetails.phone ?? applicant.phone} />
+          <Field label="Contact number" value={formatPhoneWithSeparator(personalDetails.phone ?? applicant.phone)} />
+          <Field
+            label="WhatsApp number"
+            value={formatPhoneWithSeparator(personalDetails.whatsappNumber ?? personalDetails.whatsapp ?? applicant.whatsappNumber)}
+          />
           <Field label="Address" value={personalDetails.address ?? applicant.address} />
           <Field label="Country" value={countryName || applicant.countryName || applicant.country} />
           <Field label="Employer" value={applicant.companyName} />

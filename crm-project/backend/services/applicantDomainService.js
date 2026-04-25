@@ -131,7 +131,7 @@ async function resolveApplicantTotalEur(applicant = {}) {
 
 function getApplicantStageLabel(stage, approvalStatus) {
   const normalizedStage = Number(stage || 1);
-  if (normalizedStage === 1 && approvalStatus !== "approved") return "Candidate pending for approval";
+  if (normalizedStage === 1 && approvalStatus !== "approved") return "Candidate created. Pending for Admin approval";
   if (normalizedStage <= 1) return "Candidate Created";
   if (normalizedStage === 2) return "Upload Documents";
   if (normalizedStage === 3) return "Dispatch Documents";
@@ -167,7 +167,7 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   } = context;
 
   const isPendingSuperUserApproval = applicantStage === 1 && approvalStatus === "pending";
-  if (isPendingSuperUserApproval) return "Candidate pending for approval";
+  if (isPendingSuperUserApproval) return "Candidate created. Pending for Admin approval";
   if (applicantStage === 1 && approvalStatus === "approved") return "Document upload pending";
   if (applicantStage === 1) return "Complete the candidate profile for approval";
   if (applicantStage >= 12) return "Candidate Arrived and Process Completed";

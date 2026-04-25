@@ -229,12 +229,8 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                   Appointment Details
                 </div>
                 <div className="contractInfoRow">
-                  <span>Appointment Date</span>
-                  <span>{formatDate(appointment.dateTime || appointment.date)}</span>
-                </div>
-                <div className="contractInfoRow">
-                  <span>Appointment Time</span>
-                  <span>{formatTime(appointment.time)}</span>
+                  <span>Appointment Date & Time</span>
+                  <span>{`${formatDate(appointment.dateTime || appointment.date)} ${formatTime(appointment.time)}`}</span>
                 </div>
                 {appointment.fileUrl ? (
                   <div className="contractInfoRow">
@@ -251,12 +247,8 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                       Travel Details
                     </div>
                     <div className="contractInfoRow">
-                      <span>Travel Date</span>
-                      <span>{formatDate(travelDetails.travelDate)}</span>
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Time</span>
-                      <span>{formatTime(travelDetails.time)}</span>
+                      <span>Travel Date & Time</span>
+                      <span>{`${formatDate(travelDetails.travelDate)} ${formatTime(travelDetails.time)}`}</span>
                     </div>
                     {travelDetails.fileUrl ? (
                       <div className="contractInfoRow">

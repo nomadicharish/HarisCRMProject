@@ -70,7 +70,7 @@ async function createApplicantUseCase(req) {
     agencyId: assignedAgencyId,
     createdBy: userId,
     approvalStatus,
-    applicantBannerStatus: approvalStatus === "approved" ? "Document upload pending" : "Candidate pending for approval",
+    applicantBannerStatus: approvalStatus === "approved" ? "Document upload pending" : "Candidate created. Pending for Admin approval",
     stage: 1,
     stageStatus: "ongoing",
     totalApplicantPayment: normalizedTotalApplicantPayment,

@@ -135,7 +135,7 @@ function ApplicantFormStepTwo({
                 : "Creating..."
               : editData
               ? user?.role === "SUPER_USER" && autoApproveAfterSave
-                ? "View & Approve Profile"
+                ? "Approve Profile"
                 : "Update Profile"
               : "Create Profile"}
           </button>

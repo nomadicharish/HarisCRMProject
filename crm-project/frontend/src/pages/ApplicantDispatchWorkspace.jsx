@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 import DispatchSection from "../components/DispatchSection";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import PageLoader from "../components/common/PageLoader";
 import "../styles/forms.css";
 import "../styles/applicantProfile.css";
 import "../styles/applicantsDashboard.css";
@@ -42,7 +43,7 @@ function ApplicantDispatchWorkspace() {
   }, [id]);
 
   if (loading) {
-    return <div style={{ padding: "40px" }}>Loading...</div>;
+    return <PageLoader label="Loading dispatch details..." />;
   }
 
   if (!applicant) {

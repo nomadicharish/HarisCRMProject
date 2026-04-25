@@ -266,6 +266,40 @@
   font-weight:600;
 }
 
+.pageLoaderWrap{
+  width:100%;
+  min-height:280px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+}
+
+.pageLoaderCard{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:18px 20px;
+  border-radius:14px;
+  background:#ffffff;
+  border:1px solid rgba(148,163,184,0.35);
+  box-shadow:0 10px 24px rgba(15,23,42,0.08);
+}
+
+.pageLoaderGif{
+  width:52px;
+  height:52px;
+  object-fit:contain;
+}
+
+.pageLoaderLabel{
+  font-size:13px;
+  font-weight:600;
+  color:#334155;
+}
+
 @keyframes blockingLoaderSpin{
   from{ transform:rotate(0deg); }
   to{ transform:rotate(360deg); }

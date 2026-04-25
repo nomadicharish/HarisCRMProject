@@ -99,37 +99,55 @@ function ApplicantFormStepOne({
           {errors.lastName && <div style={errorText}>{errors.lastName}</div>}
         </div>
 
-        <div>
-          <label style={label}>Date of Birth</label>
-          <DatePicker
-            selected={dob}
-            onChange={(date) => {
-              setDob(date);
-              handleChange("dob", date);
-              handleChange("age", calculateAge(date));
-            }}
-            dateFormat="dd/MM/yyyy"
-            maxDate={new Date()}
-            showMonthDropdown
-            showYearDropdown
-            dropdownMode="select"
-            customInput={<CustomDateInput placeholder="Select DOB" error={errors.dob} />}
-          />
-          {errors.dob && <div style={errorText}>{errors.dob}</div>}
-        </div>
+        <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
+          <div>
+            <label style={label}>Date of Birth</label>
+            <DatePicker
+              selected={dob}
+              onChange={(date) => {
+                setDob(date);
+                handleChange("dob", date);
+                handleChange("age", calculateAge(date));
+              }}
+              dateFormat="dd/MM/yyyy"
+              maxDate={new Date()}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              customInput={<CustomDateInput placeholder="Select DOB" error={errors.dob} />}
+            />
+            {errors.dob && <div style={errorText}>{errors.dob}</div>}
+          </div>
 
-        <div>
-          <label style={label}>Age</label>
-          <input
-            style={{ ...input, border: errors.age ? `1px solid ${THEME.error}` : input.border }}
-            value={form.age || ""}
-            onFocus={handleFocus}
-            placeholder="Age"
-            onBlur={(event) => handleBlur(event, errors.age)}
-            onChange={(event) => handleChange("age", event.target.value)}
-            readOnly
-          />
-          {errors.age && <div style={errorText}>{errors.age}</div>}
+          <div>
+            <label style={label}>Marital Status</label>
+            <select
+              style={{ ...input, border: errors.maritalStatus ? `1px solid ${THEME.error}` : input.border }}
+              value={form.maritalStatus || ""}
+              onFocus={handleFocus}
+              onBlur={(event) => handleBlur(event, errors.maritalStatus)}
+              onChange={(event) => handleChange("maritalStatus", event.target.value)}
+            >
+              <option value="">Select Marital Status</option>
+              <option value="Single">Single</option>
+              <option value="Married">Married</option>
+            </select>
+            {errors.maritalStatus && <div style={errorText}>{errors.maritalStatus}</div>}
+          </div>
+
+          <div>
+            <label style={label}>Age</label>
+            <input
+              style={{ ...input, border: errors.age ? `1px solid ${THEME.error}` : input.border }}
+              value={form.age || ""}
+              onFocus={handleFocus}
+              placeholder="Age"
+              onBlur={(event) => handleBlur(event, errors.age)}
+              onChange={(event) => handleChange("age", event.target.value)}
+              readOnly
+            />
+            {errors.age && <div style={errorText}>{errors.age}</div>}
+          </div>
         </div>
 
         <div style={{ gridColumn: "1 / -1" }}>
@@ -147,7 +165,7 @@ function ApplicantFormStepOne({
 
         <div style={{ gridColumn: "1 / -1", display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12 }}>
           <div>
-            <label style={label}>Phone</label>
+            <label style={label}>Contact number</label>
             <div className="dashboardPhoneSplitWrap">
               <PhoneInput
                 country={resolvedPhoneCountry.toLowerCase()}
@@ -179,26 +197,11 @@ function ApplicantFormStepOne({
                 onFocus={handleFocus}
                 onBlur={(event) => handleBlur(event, errors.phone)}
                 onChange={(event) => handleChange("phone", event.target.value.replace(/[^\d]/g, ""))}
+                maxLength={resolvedPhoneCountry === "IN" ? 10 : 15}
                 placeholder="Enter phone number"
               />
             </div>
             {errors.phone && <div style={errorText}>{errors.phone}</div>}
-          </div>
-
-          <div>
-            <label style={label}>Marital Status</label>
-            <select
-              style={{ ...input, border: errors.maritalStatus ? `1px solid ${THEME.error}` : input.border }}
-              value={form.maritalStatus || ""}
-              onFocus={handleFocus}
-              onBlur={(event) => handleBlur(event, errors.maritalStatus)}
-              onChange={(event) => handleChange("maritalStatus", event.target.value)}
-            >
-              <option value="">Select Marital Status</option>
-              <option value="Single">Single</option>
-              <option value="Married">Married</option>
-            </select>
-            {errors.maritalStatus && <div style={errorText}>{errors.maritalStatus}</div>}
           </div>
 
           <div>
@@ -234,6 +237,7 @@ function ApplicantFormStepOne({
                     handleChange("isWhatsappSameAsPhone", false);
                   }
                 }}
+                maxLength={resolvedWhatsappCountry === "IN" ? 10 : 15}
                 placeholder="Enter WhatsApp number"
               />
             </div>

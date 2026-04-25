@@ -92,6 +92,7 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
     (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") &&
     !hasInterviewBiometric &&
     !interviewTicket &&
+    !interview?.approved &&
     String(interview?.status || "").toUpperCase() !== "APPROVED";
   const canApprove = user?.role === "SUPER_USER" && interview && !interview.approved && !hasInterviewBiometric;
   const canAddTicket = user?.role === "AGENCY" && interview && !interviewTicket && !hasInterviewBiometric;
@@ -250,12 +251,10 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                   Interview Details
                 </div>
                 <div className="contractInfoRow">
-                  <span>Interview Date</span>
-                  <span>{formatDate(interview.dateTime)}</span>
-                </div>
-                <div className="contractInfoRow">
-                  <span>Interview Time</span>
-                  <span>{formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}</span>
+                  <span>Interview Date & Time</span>
+                  <span>
+                    {`${formatDate(interview.dateTime)} ${formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}`}
+                  </span>
                 </div>
 
                 {interviewTicket ? (
@@ -264,12 +263,8 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       Travel Details
                     </div>
                     <div className="contractInfoRow">
-                      <span>Travel Date</span>
-                      <span>{formatDate(interviewTicket.date)}</span>
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Time</span>
-                      <span>{formatTime(interviewTicket.time)}</span>
+                      <span>Travel Date & Time</span>
+                      <span>{`${formatDate(interviewTicket.date)} ${formatTime(interviewTicket.time)}`}</span>
                     </div>
                     {interviewTicket.fileUrl ? (
                       <div className="contractInfoRow">
@@ -288,14 +283,13 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       Biometric Slip
                     </div>
                     <div className="contractInfoRow">
-                      <span>Biometric Slip</span>
-                      <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                        View document
-                      </a>
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Uploaded On</span>
-                      <span>{formatDateTime(resolvedInterviewBiometric.uploadedAt)}</span>
+                      <span>Biometric Slip & Uploaded On</span>
+                      <span>
+                        <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
+                          View document
+                        </a>
+                        {` (${formatDateTime(resolvedInterviewBiometric.uploadedAt)})`}
+                      </span>
                     </div>
                   </div>
                 ) : null}

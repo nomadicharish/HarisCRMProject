@@ -271,7 +271,13 @@ function ApplicantFormModal({
     setDob(parsedDob);
     setStep(1);
     setExchangeRate(
-      Number(editData?.payment?.exchangeRate || editData?.exchangeRate || DEFAULT_EXCHANGE_RATE) || DEFAULT_EXCHANGE_RATE
+      Number(
+        editData?.payment?.exchangeRate ||
+          editData?.paymentsSummary?.exchangeRate ||
+          editData?.paymentSummary?.exchangeRate ||
+          editData?.exchangeRate ||
+          DEFAULT_EXCHANGE_RATE
+      ) || DEFAULT_EXCHANGE_RATE
     );
 
     if (resolvedCountryId) {
@@ -369,7 +375,15 @@ function ApplicantFormModal({
     if (!Number.isFinite(totalEur) || totalEur <= 0) return "0";
     return sanitizeAmountInput(roundTo2(totalEur * exchangeRate));
   })();
-  const pageSubmitLabel = loading ? (editData ? "Updating..." : "Creating...") : editData ? "Update Profile" : "Create Profile";
+  const pageSubmitLabel = loading
+    ? editData
+      ? "Updating..."
+      : "Creating..."
+    : editData
+    ? user?.role === "SUPER_USER" && autoApproveAfterSave
+      ? "Approve Profile"
+      : "Update Profile"
+    : "Create Profile";
   const pageCancelHandler = () => {
     if (typeof onClose === "function") onClose();
     else navigate(-1);
@@ -423,7 +437,7 @@ function ApplicantFormModal({
                 handleSubmit={handleSubmit}
                 loading={loading}
                 editData={editData}
-                autoApproveAfterSave={false}
+                autoApproveAfterSave={autoApproveAfterSave}
                 showActions={false}
                 totalInrNeeded={totalInrNeeded}
               />
