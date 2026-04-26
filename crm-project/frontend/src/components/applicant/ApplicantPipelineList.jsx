@@ -124,6 +124,8 @@ function ApplicantPipelineList({
   bannerText = "Complete the document uploading for admin to approve the candidate",
   documentRowStatus = ""
 }) {
+  const resolvedCurrentStep = Number(currentStep || 1);
+
   return (
     <div className="pipelineCard">
       <div className="pipelineBannerCard">
@@ -148,16 +150,13 @@ function ApplicantPipelineList({
 
       <div className="pipelineHeaderRow">
         <h3 className="pipelineTitle">Application Pipeline</h3>
-        <button type="button" className="pipelineLink" disabled>
-          View Timeline
-        </button>
       </div>
 
       <div className="pipelineListCard">
-      <div className="pipelineList">
+        <div className="pipelineList">
         {PIPELINE_ITEMS.map((item) => {
           const status =
-            item.id < currentStep ? "completed" : item.id === currentStep ? "active" : "locked";
+            item.id < resolvedCurrentStep ? "completed" : item.id === resolvedCurrentStep ? "active" : "locked";
           const resolvedStatus =
             item.id === 2 && documentRowStatus
               ? documentRowStatus
@@ -198,7 +197,7 @@ function ApplicantPipelineList({
               : undefined;
           const canRowClick = typeof rowAction === "function";
           const isCompletedRow = resolvedStatus === "completed";
-          const isActiveRow = item.id === Number(currentStep);
+          const isActiveRow = item.id === resolvedCurrentStep;
           const resolvedSubtitle =
             item.id === 2
               ? documentRowSubtitle
@@ -243,11 +242,16 @@ function ApplicantPipelineList({
             typeof onHeaderAction === "function" &&
             Boolean(canActiveStepAction);
           const showCompletedArrow = isCompletedRow && canRowClick;
+          const isLastRow = item.id === totalSteps;
 
           return (
             <div key={item.key} className={`pipeRow pipeRow-${resolvedStatus}`}>
-              <div className="pipeLeft">
+              <div className="pipeRail" aria-hidden="true">
                 <div className="pipeStepNumber">{item.id}</div>
+                {!isLastRow ? <div className={`pipeConnector pipeConnector-${resolvedStatus}`} /> : null}
+              </div>
+
+              <div className="pipeLeft">
                 <StatusIcon status={resolvedStatus} />
                 <div className="pipeText">
                   <div className="pipeTitle">{resolvedTitle}</div>
@@ -278,7 +282,7 @@ function ApplicantPipelineList({
             </div>
           );
         })}
-      </div>
+        </div>
       </div>
     </div>
   );

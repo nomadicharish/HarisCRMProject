@@ -166,8 +166,8 @@ function ApplicantFormStepTwo({
           {errors.paidAmount && <div style={errorText}>{errors.paidAmount}</div>}
         </div>
 
-        <div>
-          <label style={label}>Total INR Needed to Pay (INR)</label>
+        <div> 
+          <label style={label}>Total Amount to Pay (INR)</label>
           <InputShell icon={inrIcon} muted>
             <input
               style={{ ...input, paddingLeft: "44px", background: "#f8fafc", color: "#374151", fontWeight: 600 }}

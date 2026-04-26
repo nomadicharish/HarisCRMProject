@@ -276,8 +276,6 @@ function ApplicantPayments() {
                 </tbody>
               </table>
             </div>
-            <div className="paymentHistoryFooter">Showing {paymentHistory.length} of {paymentHistory.length} records</div>
-
             <button type="button" className="paymentBackLink" onClick={() => navigate(`/applicants/${id}`)}>
               Go back to Profile
             </button>

@@ -237,6 +237,7 @@ function mapApplicant({
       firstName,
       lastName,
       fullName: [firstName, lastName].filter(Boolean).join(" ").trim(),
+      email: data?.email || data?.personalDetails?.email || "",
       stage: Number(data?.stage || 1),
       approvalStatus: data?.approvalStatus || "pending",
       companyId: data?.companyId || "",
@@ -281,6 +282,7 @@ function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilt
       normalizeTextForSearch(
         applicant.fullName ||
         `${applicant.firstName || ""} ${applicant.lastName || ""}` ||
+        applicant.email ||
         applicant.companyName ||
         ""
       ).includes(searchQuery)

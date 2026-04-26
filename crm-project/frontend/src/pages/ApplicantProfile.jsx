@@ -367,8 +367,7 @@ function ApplicantProfile() {
   return (
     <div className="page-container">
       <DashboardTopbar user={user} />
-      <div className="page-content">
-        <div className="breadcrumbRow">Applicants &gt; {applicant?.fullName || [applicant?.firstName, applicant?.lastName].filter(Boolean).join(" ").trim() || "Applicant"}</div>
+      <div className="page-content applicantProfilePage">
         <div className="applicantProfileLayout">
           <aside className="applicantProfileSidebar">
             <ApplicantSummaryCard
@@ -418,13 +417,9 @@ function ApplicantProfile() {
               candidateArrivalRowSubtitle={candidateArrivalRowSubtitle}
               bannerText={pipelineBannerText}
               documentRowStatus={documentRowStatus}
-              onCandidateAccountCreation={
-                applicantStage === 1 && canApproveProfile ? () => openEditProfile("stage1") : handleShowProfileDetails
-              }
+              onCandidateAccountCreation={handleShowProfileDetails}
               onDispatchDocuments={
-                user?.role === "AGENCY"
-                  ? undefined
-                  : applicantStage >= 4
+                applicantStage >= 4
                   ? handleShowDispatchDetails
                   : canAccessDispatch
                   ? handleShowDispatch

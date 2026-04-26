@@ -47,7 +47,7 @@ function DashboardFiltersSidebar({
         </div>
 
         <div className="dashboardFilterHeader">
-          <span className="dashboardFilterHeading">Filter</span>
+          <span className="dashboardFilterHeading">Filters</span>
           <button type="button" className="dashboardResetBtn" onClick={onResetFilters}>
             Reset
           </button>

@@ -2,6 +2,10 @@ const { z } = require("zod");
 
 const trimmedString = z.string().trim();
 const optionalTrimmedString = trimmedString.optional().or(z.literal(""));
+const optionalEmailSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value.trim().toLowerCase() : value),
+  z.union([z.literal(""), z.string().email("Valid email is required")]).optional()
+);
 const idSchema = trimmedString.min(1, "Id is required");
 
 const applicantIdParamsSchema = z.object({
@@ -43,6 +47,7 @@ const createApplicantSchema = z.object({
   countryId: idSchema,
   companyId: idSchema,
   agencyId: optionalTrimmedString,
+  email: optionalEmailSchema,
   totalAmount: z.coerce.number().optional(),
   amountPaid: z.coerce.number().optional(),
   paidAmount: z.coerce.number().optional(),
@@ -53,6 +58,7 @@ const createApplicantSchema = z.object({
   personalDetails: z.object({
     firstName: optionalTrimmedString,
     lastName: optionalTrimmedString,
+    email: optionalEmailSchema,
     dob: optionalTrimmedString,
     age: z.union([z.coerce.number(), z.literal(""), z.null()]).optional(),
     address: optionalTrimmedString,

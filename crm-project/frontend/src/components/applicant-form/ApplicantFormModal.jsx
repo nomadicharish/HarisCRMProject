@@ -17,6 +17,7 @@ import {
   getApplicantPaidAmount,
   getApplicantTotalAmount,
   validateAge,
+  validateEmail,
   validateOptionalPhone,
   validatePaidAmount,
   validatePhone,
@@ -74,6 +75,8 @@ function ApplicantFormModal({
 
     const ageError = validateAge(form.age);
     if (ageError) newErrors.age = ageError;
+    const emailError = validateEmail(form.email);
+    if (emailError) newErrors.email = emailError;
     const phoneError = validatePhone(form.phone, form.phoneCountry);
     if (phoneError) newErrors.phone = phoneError;
     const whatsappError = validateOptionalPhone(form.whatsappNumber, form.whatsappCountry || form.phoneCountry);
@@ -115,10 +118,6 @@ function ApplicantFormModal({
       }
       if (key === "phoneCountry" && prev.isWhatsappSameAsPhone) {
         next.whatsappCountry = String(value || "IN");
-      }
-      if (key === "isWhatsappSameAsPhone" && !value) {
-        next.whatsappNumber = "";
-        next.whatsappCountry = next.phoneCountry || "IN";
       }
       return next;
     });
@@ -193,7 +192,6 @@ function ApplicantFormModal({
       resetForm();
       setDob(null);
       setStep(1);
-      setExchangeRate(DEFAULT_EXCHANGE_RATE);
       return;
     }
 
@@ -220,6 +218,7 @@ function ApplicantFormModal({
     setForm({
       firstName: nameParts[0] || "",
       lastName: nameParts.slice(1).join(" ") || "",
+      email: editData.email || editData.personalDetails?.email || "",
       dob: parsedDob || "",
       age: parsedDob ? calculateAge(parsedDob) : editData.age || editData.personalDetails?.age || "",
       address: editData.address || editData.personalDetails?.address || "",
@@ -310,6 +309,7 @@ function ApplicantFormModal({
         personalDetails: {
           firstName: form.firstName,
           lastName: form.lastName,
+          email: String(form.email || "").trim().toLowerCase(),
           dob: form.dob,
           age: form.age,
           phone: `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN")}${String(form.phone || "").replace(/[^\d]/g, "")}`,
@@ -325,6 +325,7 @@ function ApplicantFormModal({
         whatsappNumber: form.whatsappNumber
           ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
           : "",
+        email: String(form.email || "").trim().toLowerCase(),
         companyId: form.companyId,
         countryId: form.countryId,
         agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,

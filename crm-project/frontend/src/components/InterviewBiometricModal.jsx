@@ -27,6 +27,29 @@ function formatDateTime(value) {
   });
 }
 
+function DetailCard({ title, icon, children }) {
+  return (
+    <div className="workflowDetailCard">
+      <div className="workflowDetailHeader">
+        <span className="workflowDetailHeaderIcon" aria-hidden="true">
+          {icon}
+        </span>
+        <span>{title}</span>
+      </div>
+      <div className="workflowDetailBody">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, action }) {
+  return (
+    <div className="workflowDetailRow">
+      <span className="workflowDetailRowLabel">{label}</span>
+      <span className="workflowDetailRowValue">{action || value}</span>
+    </div>
+  );
+}
+
 function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric, open, onClose, onUpdated }) {
   const [interviewBiometric, setInterviewBiometric] = useState(null);
   const [embassyInterview, setEmbassyInterview] = useState(null);
@@ -95,55 +118,85 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard" style={{ position: "relative" }}>
+      <div className="contractModalCard workflowModalCard workflowEntryModalCard" style={{ position: "relative" }}>
         <BlockingLoader open={saving} label="Uploading biometric slip..." />
 
-        <div className="dashboardModalHeader">
-          <h3 className="dashboardModalTitle">Add Biometric slip</h3>
-          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={saving}>
+        <div className="workflowModalHero">
+          <div className="workflowModalHeroIcon" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <path d="M12 3a4 4 0 0 0-4 4v2m8-2V7a4 4 0 0 0-8 0m-1 6v3m3-7v7m4-9v11m3-9v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="workflowModalHeroText">
+            <h3 className="dashboardModalTitle">Interview Biometric Details</h3>
+            <div className="workflowModalSubtitle">Review interview, travel and biometric slip details.</div>
+          </div>
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving}>
             x
           </button>
         </div>
 
         {loading ? (
-          <div className="contractInfoRow">Loading biometric slip details...</div>
+          <div className="workflowModalBody">
+            <div className="contractInfoRow">Loading biometric slip details...</div>
+          </div>
         ) : (
           <>
             {resolvedInterviewBiometric?.fileUrl ? (
-              <div className="contractInfoCard">
-                {embassyInterview?.dateTime ? (
-                  <div className="contractInfoRow">
-                    <span>Interview DateTime</span>
-                    <span>{String(embassyInterview.dateTime)}</span>
-                  </div>
-                ) : null}
-                {interviewTicket ? (
-                  <>
-                    <div className="contractInfoRow">
-                      <span>Travel Date</span>
-                      <span>{String(interviewTicket.date || "-")}</span>
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Time</span>
-                      <span>{String(interviewTicket.time || "-")}</span>
-                    </div>
-                  </>
-                ) : null}
-                <div className="contractInfoRow">
-                  <span>Biometric Slip</span>
-                  <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                    View document
-                  </a>
-                </div>
-                <div className="contractInfoRow">
-                  <span>Uploaded On</span>
-                  <span>{formatDateTime(resolvedInterviewBiometric.uploadedAt)}</span>
+              <div className="workflowModalBody">
+                <div className="workflowDetailStack">
+                  {embassyInterview?.dateTime ? (
+                    <DetailCard
+                      title="Interview Details"
+                      icon={(
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <path d="M4 7h16M7 3v4m10-4v4M6 21h12a2 2 0 0 0 2-2V7H4v12a2 2 0 0 0 2 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    >
+                      <DetailRow label="Interview Date & Time" value={String(embassyInterview.dateTime)} />
+                    </DetailCard>
+                  ) : null}
+
+                  {interviewTicket ? (
+                    <DetailCard
+                      title="Travel Details"
+                      icon={(
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    >
+                      <DetailRow label="Travel Date" value={String(interviewTicket.date || "-")} />
+                      <DetailRow label="Travel Time" value={String(interviewTicket.time || "-")} />
+                    </DetailCard>
+                  ) : null}
+
+                  <DetailCard
+                    title="Biometric Slip"
+                    icon={(
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <path d="M12 3a4 4 0 0 0-4 4v2m8-2V7a4 4 0 0 0-8 0m-1 6v3m3-7v7m4-9v11m3-9v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  >
+                    <DetailRow
+                      label="Biometric Slip"
+                      action={(
+                        <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                          View document
+                        </a>
+                      )}
+                    />
+                    <DetailRow label="Uploaded On" value={formatDateTime(resolvedInterviewBiometric.uploadedAt)} />
+                  </DetailCard>
                 </div>
               </div>
             ) : null}
 
             {canUpload ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+              <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractUploadLabel">Biometric Slip</div>
                 <label className="contractFileCard" htmlFor="interview-biometric-slip-file">
                   <input
@@ -162,7 +215,14 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
                   </button>
                 </div>
               </div>
+              </div>
             ) : null}
+
+            <div className="workflowModalFooter">
+              <button type="button" className="btn btnSecondary" onClick={onClose} disabled={saving}>
+                Close
+              </button>
+            </div>
           </>
         )}
       </div>

@@ -369,3 +369,137 @@
   margin-top:22px;
   font-weight:700;
 }
+
+/* Final typography/color alignment */
+.paymentPage,
+.paymentInfoStrip,
+.paymentHistoryCard{
+  font-family:"Inter", system-ui, sans-serif;
+}
+
+.paymentSummaryLabel,
+.paymentInfoMeta,
+.paymentHistoryFooter,
+.paymentModalSubtitle{
+  color:var(--ui-text-soft);
+}
+
+.paymentHistoryTitle,
+.paymentInfoAmount,
+.paymentInfoDivider,
+.paymentInfoSuffix{
+  color:var(--ui-text-strong);
+}
+
+.paymentSummaryLabel{
+  font-size:14px;
+  font-weight:700;
+}
+
+.paymentInfoAmount,
+.paymentInfoDivider,
+.paymentInfoSuffix{
+  font-size:18px;
+  font-weight:700;
+}
+
+.paymentInfoMeta{
+  font-size:13px;
+  font-weight:500;
+}
+
+.paymentStripAction{
+  background:var(--ui-blue);
+  border-color:var(--ui-blue);
+  font-size:14px;
+}
+
+.paymentHistoryTitle{
+  font-size:17px;
+  font-weight:700;
+}
+
+.paymentHistoryTable thead th{
+  color:var(--ui-text-soft);
+  font-size:12px;
+  font-weight:600;
+}
+
+.paymentHistoryTable tbody td{
+  color:var(--ui-text);
+  font-size:14px;
+  font-weight:500;
+}
+
+.paymentBackLink{
+  color:var(--ui-blue);
+  font-size:14px;
+}
+
+/* Spec-aligned payment typography */
+.paymentSummaryLabel{
+  font-size:14px;
+  font-weight:500;
+  color:var(--ui-text-soft);
+}
+
+.paymentInfoAmount{
+  font-size:20px;
+  font-weight:600;
+  color:#111827;
+}
+
+.paymentInfoDivider,
+.paymentInfoSuffix{
+  font-size:20px;
+  font-weight:500;
+  color:#111827;
+}
+
+.paymentInfoMeta{
+  font-size:14px;
+  font-weight:500;
+  color:#6b7280;
+}
+
+.paymentHistoryTitle{
+  font-size:18px;
+  font-weight:600;
+  color:#111827;
+}
+
+.paymentHistoryTable thead th{
+  font-size:13px;
+  font-weight:500;
+  color:var(--ui-text-soft);
+}
+
+.paymentHistoryTable tbody td{
+  font-size:14px;
+  font-weight:500;
+  color:#334155;
+}
+
+.paymentHistoryFooter{
+  font-size:14px;
+  font-weight:400;
+  color:var(--ui-text-soft);
+}
+
+.paymentBackLink{
+  font-weight:500;
+}
+
+.paymentLayout{
+  grid-template-columns:320px minmax(0, 1fr);
+}
+
+.paymentPage{
+  max-width:1440px;
+}
+
+@media (max-width: 900px){
+  .paymentLayout{
+    grid-template-columns:1fr;
+  }
+}

@@ -46,13 +46,6 @@ function ApplicantSummaryCard({
 
   const phone = applicant?.phone || applicant?.personalDetails?.phone || "";
   const email = applicant?.email || applicant?.personalDetails?.email || "-";
-  const whatsappRaw =
-    applicant?.whatsappNumber ||
-    applicant?.personalDetails?.whatsappNumber ||
-    applicant?.personalDetails?.whatsapp ||
-    "";
-  const whatsappDigits = String(whatsappRaw || "").replace(/[^\d+]/g, "").replace(/^\+/, "");
-  const whatsappLink = whatsappDigits ? `https://wa.me/${whatsappDigits}` : "";
   const address = applicant?.address || applicant?.personalDetails?.address || "-";
   const employer = applicant?.companyName || "-";
   const country = countryNameOverride || applicant?.countryName || applicant?.country || "";
@@ -103,12 +96,6 @@ function ApplicantSummaryCard({
       </svg>
     );
   };
-  const ActionGlyph = ({ type }) => (
-    <span className="sideActionGlyph" aria-hidden="true">
-      <InfoIcon type={type} />
-    </span>
-  );
-
   return (
     <div className="applicantSideCard">
       <div className="sideTop">
@@ -137,22 +124,6 @@ function ApplicantSummaryCard({
             <div className="sideLabel">Phone No.</div>
             <div className="sideValue">{phone || "-"}</div>
           </div>
-          {whatsappLink ? (
-            <a
-              href={whatsappLink}
-              target="_blank"
-              rel="noreferrer"
-              className="waBtn"
-              aria-label="Open WhatsApp"
-              title="Open WhatsApp"
-            >
-              <ActionGlyph type="phone" />
-            </a>
-          ) : (
-            <span className="waBtn waBtnDisabled" aria-hidden="true">
-              <ActionGlyph type="phone" />
-            </span>
-          )}
         </div>
       </div>
 
@@ -163,9 +134,6 @@ function ApplicantSummaryCard({
             <div className="sideLabel">Email</div>
             <div className="sideValue">{email}</div>
           </div>
-          <span className="waBtn waBtnDisabled" aria-hidden="true">
-            <ActionGlyph type="email" />
-          </span>
         </div>
       </div>
 
@@ -206,6 +174,9 @@ function ApplicantSummaryCard({
           className={`pendingBox ${onPendingClick ? "pendingBoxActionable" : ""}`}
           {...(onPendingClick ? { type: "button", onClick: onPendingClick } : {})}
         >
+          <div className="pendingIcon" aria-hidden="true">
+            <span className="pendingCurrencyGlyph">&#8377;</span>
+          </div>
           <div className="pendingText">
             <div className="pendingLabel">Pending Amount</div>
             <div className="pendingValue">{pendingDisplayValue || `INR ${pendingAmount ?? 0}`}</div>

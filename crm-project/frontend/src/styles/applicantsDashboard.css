@@ -77,6 +77,10 @@
   cursor:pointer;
 }
 
+.dashboardTabs .dashboardTab{
+  border-radius:0 !important;
+}
+
 .dashboardTabActive{
   color:#172b4d;
   border-bottom-color:#0052cc;
@@ -1228,4 +1232,270 @@
 .dashboardPhoneCodeWrap .flag-dropdown.dashboardPhoneCodeButton{
   border-radius:12px !important;
   background:#fff !important;
+}
+
+/* Final typography/color alignment */
+.dashboardPage,
+.dashboardTopbar,
+.dashboardTable,
+.dashboardVirtualTable{
+  font-family:"Inter", system-ui, sans-serif;
+}
+
+.dashboardBrand,
+.dashboardFilterHeading,
+.dashboardResultsCount,
+.dashboardModalTitle{
+  color:var(--ui-text-strong);
+}
+
+.dashboardTab{
+  color:var(--ui-text-soft);
+  font-size:14px;
+  font-weight:500;
+}
+
+.dashboardTabActive{
+  color:var(--ui-blue);
+}
+
+.dashboardUserName,
+.dashboardFilterOption,
+.dashboardPaginationText,
+.dashboardCountryName{
+  color:var(--ui-text);
+}
+
+.dashboardTopbarIconBtn,
+.dashboardFilterChevron,
+.dashboardResultsSync,
+.dashboardSortText{
+  color:var(--ui-text-soft);
+}
+
+.dashboardFilterHeading{
+  font-size:22px;
+  font-weight:700;
+}
+
+.dashboardResetBtn,
+.dashboardInlineLinkBtn,
+.dashboardSecondaryBtn,
+.dashboardNameText{
+  color:var(--ui-blue);
+}
+
+.dashboardTable thead th,
+.dashboardVirtualHeader{
+  color:var(--ui-text-soft);
+  font-size:12px;
+  font-weight:600;
+  text-transform:none;
+  letter-spacing:0;
+}
+
+.dashboardTable tbody td,
+.dashboardVirtualRow{
+  color:var(--ui-text);
+  font-size:14px;
+}
+
+.dashboardAvatarPill{
+  background:var(--ui-blue-soft);
+  color:var(--ui-blue);
+}
+
+.dashboardStatusPill{
+  font-size:11px;
+  font-weight:700;
+}
+
+.dashboardStatusPillInfo{
+  background:var(--ui-blue-soft);
+  color:var(--ui-blue);
+}
+
+.dashboardStatusPillSuccess,
+.dashboardPaymentPillSuccess{
+  background:var(--ui-green-soft);
+  color:var(--ui-green);
+}
+
+.dashboardPaymentPillPending{
+  background:var(--ui-orange-soft);
+  color:var(--ui-orange);
+}
+
+.dashboardStatusMetaTitle,
+.dashboardPaymentAmount{
+  color:var(--ui-text);
+  font-size:13px;
+  font-weight:500;
+}
+
+.dashboardStatusMetaSubtitle,
+.dashboardEmptyState,
+.dashboardFilterEmptyText{
+  color:var(--ui-text-soft);
+  font-size:12px;
+}
+
+.dashboardPrimaryBtn{
+  background:var(--ui-blue);
+  border-color:var(--ui-blue);
+  color:#fff;
+}
+
+.dashboardSecondaryBtn{
+  background:#fff;
+  border-color:#d9e3f0;
+  color:var(--ui-blue);
+}
+
+/* Spec-aligned dashboard typography */
+.dashboardPage{
+  color:var(--ui-text);
+}
+
+.dashboardBrand{
+  font-size:20px;
+  font-weight:600;
+  color:var(--ui-text-strong);
+}
+
+.dashboardTab{
+  font-size:14px;
+  font-weight:500;
+  color:var(--ui-text-soft);
+}
+
+.dashboardTabActive{
+  color:var(--ui-blue);
+  border-bottom-color:var(--ui-blue);
+}
+
+.dashboardUserName{
+  font-size:14px;
+  font-weight:500;
+  color:#334155;
+}
+
+.dashboardFilterHeading{
+  font-size:20px;
+  font-weight:600;
+  color:var(--ui-text-strong);
+}
+
+.dashboardResetBtn{
+  font-size:14px;
+  font-weight:500;
+  color:var(--ui-blue);
+}
+
+.dashboardFilterTitle{
+  font-size:14px;
+  font-weight:600;
+  color:var(--ui-text-strong);
+}
+
+.dashboardFilterOption{
+  font-size:13px;
+  font-weight:400;
+  color:var(--ui-text-soft);
+}
+
+.dashboardFilterCount{
+  font-size:12px;
+  font-weight:500;
+}
+
+.dashboardResultsCount{
+  font-size:14px;
+  font-weight:400;
+  color:var(--ui-text);
+}
+
+.dashboardTable thead th,
+.dashboardVirtualHeader{
+  font-size:13px;
+  font-weight:500;
+  color:var(--ui-text-soft);
+}
+
+.dashboardNameText{
+  font-size:14px;
+  font-weight:500;
+  color:var(--ui-blue);
+}
+
+.dashboardStatusMetaTitle,
+.dashboardPaymentAmount{
+  font-size:13px;
+  font-weight:400;
+  color:var(--ui-text);
+}
+
+.dashboardStatusMetaSubtitle{
+  font-size:13px;
+  font-weight:400;
+  color:var(--ui-text-soft);
+}
+
+.dashboardStatusPillInfo{
+  background:#eff6ff;
+  color:var(--ui-blue);
+  border:1px solid #bfdbfe;
+}
+
+.dashboardStatusPillSuccess,
+.dashboardPaymentPillSuccess{
+  background:#dcfce7;
+  color:var(--ui-green);
+  border:1px solid #bbf7d0;
+}
+
+.dashboardPaymentPillPending{
+  background:#fff7ed;
+  color:var(--ui-orange);
+  border:1px solid #fed7aa;
+}
+
+.dashboardPrimaryBtn{
+  background:var(--ui-blue);
+  border-color:var(--ui-blue);
+  font-size:14px;
+  font-weight:500;
+}
+
+.dashboardPrimaryBtn:hover,
+.dashboardSecondaryBtn:hover{
+  border-color:var(--ui-blue-dark);
+}
+
+.dashboardSearchWrap{
+  display:block;
+  margin-bottom:22px;
+  position:relative;
+}
+
+.dashboardSearchIcon{
+  color:#98a2b3;
+}
+
+.dashboardSearchInput{
+  min-height:40px;
+  padding:8px 14px 8px 38px;
+  border:1px solid #d0d5dd;
+  border-radius:12px;
+  background:#ffffff;
+  font-size:14px;
+  color:#101828;
+}
+
+.dashboardSearchInput::placeholder{
+  color:#98a2b3;
+}
+
+.dashboardNameCell{
+  gap:8px;
 }

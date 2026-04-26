@@ -7,10 +7,6 @@ function ApplicantsTable({
   onOpenApplicant,
   formatPendingAmount
 }) {
-  const getInitials = (name) => {
-    const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-    return (parts[0]?.[0] || "A") + (parts[1]?.[0] || "");
-  };
   const getWorkflowMeta = (applicant) => {
     const statusText = applicant.applicantBannerStatus || applicant.statusText || applicant.stageLabel || "Candidate Created";
     const parts = String(statusText).split(".").map((item) => item.trim()).filter(Boolean);
@@ -71,7 +67,6 @@ function ApplicantsTable({
               >
                 <td>
                   <div className="dashboardNameCell">
-                    <span className="dashboardAvatarPill">{getInitials(fullName).toUpperCase()}</span>
                     <span className="dashboardNameText">{fullName}</span>
                     {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
                   </div>
@@ -132,7 +127,6 @@ function ApplicantsTable({
               tabIndex={0}
             >
               <div className="dashboardNameCell">
-                <span className="dashboardAvatarPill">{getInitials(fullName).toUpperCase()}</span>
                 <span className="dashboardNameText">{fullName}</span>
                 {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
               </div>

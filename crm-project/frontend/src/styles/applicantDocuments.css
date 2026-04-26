@@ -1,5 +1,5 @@
 .docsWorkspacePage {
-  max-width: 1220px;
+  max-width: 1440px;
   position: relative;
 }
 
@@ -45,7 +45,7 @@
 }
 
 .docsTopBarTitle {
-  font-size: 14px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.3;
   flex: 1 1 auto;
@@ -201,7 +201,7 @@
 }
 
 .docsHint {
-  font-size: 12px;
+  font-size: 10px;
   color: #8a94a6;
   margin: 12px 0 10px;
 }
@@ -475,4 +475,293 @@
   margin-top:16px;
   color:#98a2b3;
   font-size:14px;
+}
+
+/* Final typography/color alignment */
+.docsWorkspacePage,
+.docsAccordion,
+.docModalCard{
+  font-family:"Inter", system-ui, sans-serif;
+}
+
+.docsBreadcrumb,
+.docsHint,
+.docsFooterNote{
+  color:var(--ui-text-soft);
+}
+
+.docsTopBarTitle,
+.docsAccordionTitle,
+.docModalCard h3{
+  color:var(--ui-text-strong);
+}
+
+.docsTopBar-primary .docsTopBarTitle,
+.docsTopBar-successSoft .docsTopBarTitle,
+.docsTopBar-neutral .docsTopBarTitle{
+  color:#ffffff;
+  font-size:16px;
+  font-weight:700;
+}
+
+.docsTopBarSubtitle{
+  color:rgba(255,255,255,0.82);
+  font-size:13px;
+  font-weight:400;
+}
+
+.docsTopBarButton{
+  color:var(--ui-blue);
+  font-size:14px;
+  font-weight:700;
+}
+
+.docsAccordionTitle{
+  font-size:15px;
+  font-weight:700;
+}
+
+.docsAccordionStatus{
+  font-size:13px;
+  font-weight:600;
+  color:var(--ui-orange);
+}
+
+.docsAccordionStatus.is-success{
+  color:var(--ui-green);
+}
+
+.docsAccordionStatus.is-warning{
+  color:var(--ui-blue);
+}
+
+.docsAccordionStatus.is-danger,
+.docsRejectedNote{
+  color:#d92d20;
+}
+
+.docsFileCardTitle,
+.docRejectTextarea{
+  color:var(--ui-text);
+}
+
+.docsRequiredTag{
+  color:#f04438;
+}
+
+/* Spec-aligned documents typography */
+.docsTopBarButton{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+
+.docsTopBarButtonIcon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+
+.docsTableCard{
+  border:1px solid #e6edf5;
+  border-radius:18px;
+  overflow:hidden;
+  background:#ffffff;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+}
+
+.docsRow{
+  display:grid;
+  grid-template-columns:minmax(260px, 1.3fr) minmax(320px, 1.3fr) minmax(220px, 0.9fr);
+  gap:18px;
+  align-items:center;
+}
+
+.docsRow{
+  padding:16px 20px;
+  border-bottom:1px solid #eef2f7;
+}
+
+.docsRow:last-child{
+  border-bottom:none;
+}
+
+.docsDocCell{
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+}
+
+.docsDocIcon{
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:#edf4ff;
+  color:#2563eb;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.docsDocMeta{
+  min-width:0;
+}
+
+.docsDocTitle{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:14px;
+  font-weight:600;
+  color:#1d2939;
+}
+
+.docsTemplateLink{
+  margin-top:8px;
+  display:inline-flex;
+  font-size:12px;
+  font-weight:500;
+  color:#2563eb;
+}
+
+.docsFileCell{
+  min-width:0;
+}
+
+.docsFileBox{
+  width:100%;
+  min-height:58px;
+  border:1px solid #dbe5f1;
+  border-radius:14px;
+  background:#ffffff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:10px 14px;
+}
+
+.docsFileBoxUpload{
+  cursor:pointer;
+}
+
+.docsFileBoxEmpty{
+  justify-content:flex-start;
+}
+
+.docsFileBoxLeft{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-width:0;
+}
+
+.docsFileTypeIcon{
+  width:28px;
+  height:28px;
+  border-radius:10px;
+  background:#eef4ff;
+  color:#2563eb;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.docsFileName{
+  font-size:13px;
+  font-weight:500;
+  color:#1d2939;
+  word-break:break-word;
+}
+
+.docsFileMeta{
+  margin-top:2px;
+  font-size:11px;
+  color:#98a2b3;
+}
+
+.docsViewBtn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid #d9e3f0;
+  background:#ffffff;
+  color:#2563eb;
+  border-radius:12px;
+  min-height:40px;
+  padding:0 14px;
+  font-weight:500;
+  flex:0 0 auto;
+}
+
+.docsStatusCell{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:8px;
+  text-align:right;
+}
+
+.docsStatusBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:12px;
+  font-size:12px;
+  font-weight:500;
+}
+
+.docsStatusBadge.is-success{
+  background:#dcfce7;
+  color:#16a34a;
+}
+
+.docsStatusBadge.is-warning{
+  background:#eff6ff;
+  color:#2563eb;
+}
+
+.docsStatusBadge.is-danger,
+.docsStatusBadge.is-pending{
+  background:#fff7ed;
+  color:#f97316;
+}
+
+.docsStatusBadge.is-selected{
+  background:#f4f7ff;
+  color:#1767ea;
+}
+
+@media (max-width: 1024px) {
+  .docsRow{
+    grid-template-columns:1fr;
+  }
+
+  .docsStatusCell{
+    align-items:flex-start;
+    text-align:left;
+  }
+}
+
+.docsTopBar-primary .docsTopBarTitle,
+.docsTopBar-successSoft .docsTopBarTitle,
+.docsTopBar-neutral .docsTopBarTitle{
+  font-size:18px;
+  font-weight:600;
+  color:#ffffff;
+}
+
+.docsTopBarSubtitle{
+  font-size:12px;
+  font-weight:400;
+  color:#e6eeff;
+}
+
+.docsFooterNote{
+  font-size:12px;
+  font-weight:400;
+  color:var(--ui-text-soft);
 }

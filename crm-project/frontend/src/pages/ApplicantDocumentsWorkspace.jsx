@@ -190,7 +190,6 @@ function ApplicantDocumentsWorkspace() {
   const [documents, setDocuments] = useState({});
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [expandedKeys, setExpandedKeys] = useState({});
   const [selectedFiles, setSelectedFiles] = useState({});
   const [saving, setSaving] = useState(false);
   const [rejectState, setRejectState] = useState({ open: false, docKey: "", versionId: "" });
@@ -260,22 +259,20 @@ function ApplicantDocumentsWorkspace() {
     ...reviewState
   });
 
-  const toggleExpanded = (docKey) => {
-    setExpandedKeys((prev) => ({ ...prev, [docKey]: !prev[docKey] }));
+  const getDocumentFileName = (docKey, latest, selectedFile) => {
+    if (selectedFile?.name) return selectedFile.name;
+    if (latest?.fileName) return latest.fileName;
+    if (latest?.fileUrl) {
+      try {
+        const url = new URL(latest.fileUrl);
+        const candidate = url.pathname.split("/").pop();
+        if (candidate) return decodeURIComponent(candidate);
+      } catch {
+        return latest.fileUrl.split("/").pop() || `${docKey}.file`;
+      }
+    }
+    return "";
   };
-
-  const ChevronIcon = ({ expanded }) => (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 20 20"
-      fill="none"
-      style={{ display: "block", transform: expanded ? "rotate(180deg)" : "none" }}
-      aria-hidden="true"
-    >
-      <path d="m5 7.5 5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
 
   const handleSendForApproval = async () => {
     const uploads = Object.entries(selectedFiles);
@@ -377,7 +374,6 @@ function ApplicantDocumentsWorkspace() {
       <BlockingLoader open={saving} label="Saving document updates..." />
       <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
-        <div className="docsBreadcrumb">Applicants &gt; Documents</div>
         <div className={`docsTopBar docsTopBar-${topBar.tone}`}>
           <div className="docsTopBarContent">
             <div className="docsTopBarIcon" aria-hidden="true">
@@ -398,6 +394,12 @@ function ApplicantDocumentsWorkspace() {
               disabled={!canSendForApproval || saving}
               onClick={handleSendForApproval}
             >
+              <span className="docsTopBarButtonIcon" aria-hidden="true">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                  <path d="M22 2 11 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="m22 2-7 20-4-9-9-4 20-7Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
               {saving ? "Submitting..." : topBar.actionLabel}
             </button>
           ) : null}
@@ -405,7 +407,7 @@ function ApplicantDocumentsWorkspace() {
 
         <div className="docsSectionSpacer" />
 
-        <div className="docsAccordion">
+        <div className="docsTableCard">
           {visibleDocs.length === 0 ? (
             <div className="docsHint">No company documents are configured for this applicant.</div>
           ) : null}
@@ -413,135 +415,146 @@ function ApplicantDocumentsWorkspace() {
           {visibleDocs.map((doc) => {
             const versions = documents?.[doc.key] || [];
             const latest = getLatestVersion(versions);
-            const expanded = expandedKeys[doc.key] ?? latest?.status === "REJECTED";
             const isRejected = latest?.status === "REJECTED";
             const isPending = latest?.status === "PENDING";
             const isApproved = latest?.status === "APPROVED";
             const canAgentUpload = !canReview && (!latest || latest.status === "REJECTED");
             const selectedFile = selectedFiles[doc.key];
-            const statusLabel = isApproved
-              ? "Document approved"
+            const fileName = getDocumentFileName(doc.key, latest, selectedFile);
+            const hasSelectedFile = Boolean(selectedFile);
+            const statusLabel = hasSelectedFile
+              ? "Selected"
+              : isApproved
+              ? "Uploaded"
               : latest?.status === "PENDING"
               ? canReview
                 ? "Approval pending"
                 : "Pending admin approval"
               : latest?.status === "REJECTED"
-              ? "Admin Rejected"
+              ? "Changes required"
               : "To be uploaded";
-            const statusTone = isRejected ? "is-danger" : isApproved ? "is-success" : isPending ? "is-warning" : "is-pending";
+            const statusTone = hasSelectedFile
+              ? "is-selected"
+              : isRejected
+              ? "is-danger"
+              : isApproved
+              ? "is-success"
+              : isPending
+              ? "is-warning"
+              : "is-pending";
 
             return (
-              <div
-                key={doc.key}
-                className={`docsAccordionItem ${doc.required ? "is-required" : ""} ${isRejected ? "is-rejected" : ""}`}
-              >
-                <button type="button" className="docsAccordionHead" onClick={() => toggleExpanded(doc.key)}>
-                  <span className="docsAccordionTitle">
-                    {doc.label}
-                    {doc.required ? <span className="docsRequiredTag">*</span> : null}
-                  </span>
-                  <span className="docsAccordionRight">
-                    <span className={`docsAccordionStatus ${statusTone}`}>
-                      {isApproved ? <StatusIcon tone="success" /> : null}
-                      {isPending ? <StatusIcon tone="warning" /> : null}
-                      {isRejected ? <StatusIcon tone="danger" /> : null}
-                      {statusLabel}
-                    </span>
-                    <span className="docsAccordionChevron">
-                      <ChevronIcon expanded={expanded} />
-                    </span>
-                  </span>
-                </button>
-
-                {expanded ? (
-                  <div className="docsAccordionBody">
-                    {!canReview ? (
-                      <>
-                        {doc.templateFileUrl ? (
-                          <div className="docsReviewRow">
-                            <span className="docsHint">
-                              {doc.templateFileName || "Document to fill"}
-                            </span>
-                            <a className="linkBtn" href={doc.templateFileUrl} target="_blank" rel="noreferrer">
-                              Download
-                            </a>
-                          </div>
-                        ) : null}
-
-                        {canAgentUpload ? (
-                          <>
-                            <div className="docsHint">Upload png, pdf or jpeg within 2MB</div>
-                            <label className="docsFileCard">
-                              <input
-                                type="file"
-                                className="docsFileInput"
-                                disabled={saving}
-                                onChange={(event) =>
-                                  setSelectedFiles((prev) => ({
-                                    ...prev,
-                                    [doc.key]: event.target.files?.[0] || null
-                                  }))
-                                }
-                              />
-                              <span className="docsFileCardTitle">
-                                {selectedFile?.name || "Upload document"}
-                              </span>
-                            </label>
-                          </>
-                        ) : null}
-
-                        {latest?.fileUrl && !isRejected ? (
-                          <a className="linkBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
-                            View Document
-                          </a>
-                        ) : null}
-
-                        {isRejected && latest?.rejectedReason ? (
-                          <div className="docsRejectedNote">{latest.rejectedReason}</div>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        {latest?.fileUrl ? (
-                          <div className="docsReviewRow">
-                            <a className="linkBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
-                              View Document
-                            </a>
-
-                            {latest.status === "PENDING" ? (
-                              <div className="docsReviewActions">
-                                <button
-                                  type="button"
-                                  className="btn btnSuccess btnSm"
-                                  disabled={saving}
-                                  onClick={() => handleApprove(doc.key, latest.id)}
-                                >
-                                  {saving ? "Saving..." : "Approve"}
-                                </button>
-                                <button
-                                  type="button"
-                                  className="btn btnDanger btnSm"
-                                  disabled={saving}
-                                  onClick={() =>
-                                    setRejectState({ open: true, docKey: doc.key, versionId: latest.id })
-                                  }
-                                >
-                                  {saving ? "Saving..." : "Reject"}
-                                </button>
-                              </div>
-                            ) : null}
-                          </div>
-                        ) : (
-                          <div className="docsHint">No document uploaded yet</div>
-                        )}
-
-                        {latest?.status === "REJECTED" && latest?.rejectedReason ? (
-                          <div className="docsRejectedNote">{latest.rejectedReason}</div>
-                        ) : null}
-                      </>
-                    )}
+              <div key={doc.key} className={`docsRow ${isRejected ? "is-rejected" : ""}`}>
+                <div className="docsDocCell">
+                  <div className="docsDocIcon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16l4-2 4 2 4-2 4 2V8l-6-6Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                      <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
-                ) : null}
+                  <div className="docsDocMeta">
+                    <div className="docsDocTitle">
+                      {doc.label}
+                      {doc.required ? <span className="docsRequiredTag">*</span> : null}
+                    </div>
+                    <div className="docsHint">Upload png, pdf or jpeg within 2MB</div>
+                    {doc.templateFileUrl ? (
+                      <a className="docsTemplateLink" href={doc.templateFileUrl} target="_blank" rel="noreferrer">
+                        Download template
+                      </a>
+                    ) : null}
+                    {isRejected && latest?.rejectedReason ? (
+                      <div className="docsRejectedNote">{latest.rejectedReason}</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="docsFileCell">
+                  {canAgentUpload ? (
+                    <label className="docsFileBox docsFileBoxUpload">
+                      <input
+                        type="file"
+                        className="docsFileInput"
+                        disabled={saving}
+                        onChange={(event) =>
+                          setSelectedFiles((prev) => ({
+                            ...prev,
+                            [doc.key]: event.target.files?.[0] || null
+                          }))
+                        }
+                      />
+                      <div className="docsFileBoxLeft">
+                        <span className="docsFileTypeIcon" aria-hidden="true">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M14 2H7a2 2 0 0 0-2 2v16l4-2 4 2 4-2 4 2V8l-7-6Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                        <div>
+                          <div className="docsFileName">{fileName || "Choose document"}</div>
+                          <div className="docsFileMeta">{fileName ? "Ready to send for approval" : "Tap to browse files"}</div>
+                        </div>
+                      </div>
+                    </label>
+                  ) : latest?.fileUrl ? (
+                    <div className="docsFileBox">
+                      <div className="docsFileBoxLeft">
+                        <span className="docsFileTypeIcon" aria-hidden="true">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                            <path d="M14 2H7a2 2 0 0 0-2 2v16l4-2 4 2 4-2 4 2V8l-7-6Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                        <div>
+                          <div className="docsFileName">{fileName || `${doc.label}.file`}</div>
+                          <div className="docsFileMeta">{isPending ? "Awaiting review" : "Latest uploaded file"}</div>
+                        </div>
+                      </div>
+                      <a className="docsViewBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                        </svg>
+                        View
+                      </a>
+                    </div>
+                  ) : (
+                    <div className="docsFileBox docsFileBoxEmpty">
+                      <div className="docsFileMeta">No document uploaded yet</div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="docsStatusCell">
+                  <span className={`docsStatusBadge ${statusTone}`}>
+                    {isApproved ? <StatusIcon tone="success" /> : null}
+                    {isPending ? <StatusIcon tone="warning" /> : null}
+                    {isRejected ? <StatusIcon tone="danger" /> : null}
+                    {hasSelectedFile ? <StatusIcon tone="neutral" /> : null}
+                    {statusLabel}
+                  </span>
+
+                  {canReview && latest?.status === "PENDING" ? (
+                    <div className="docsReviewActions">
+                      <button
+                        type="button"
+                        className="btn btnSuccess btnSm"
+                        disabled={saving}
+                        onClick={() => handleApprove(doc.key, latest.id)}
+                      >
+                        {saving ? "Saving..." : "Approve"}
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btnDanger btnSm"
+                        disabled={saving}
+                        onClick={() => setRejectState({ open: true, docKey: doc.key, versionId: latest.id })}
+                      >
+                        {saving ? "Saving..." : "Reject"}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
               </div>
             );
           })}

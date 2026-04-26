@@ -131,6 +131,12 @@ function ApplicantFormStepOne({
       <path d="M16.93 14.96c-.22.62-1.1 1.13-1.81 1.21-.48.05-1.09.08-3.16-.78-2.64-1.1-4.34-3.79-4.47-3.96-.13-.17-1.07-1.43-1.07-2.73s.68-1.94.92-2.2c.24-.26.53-.33.7-.33h.5c.16 0 .38-.06.59.46.22.52.74 1.79.8 1.92.07.13.11.29.02.46-.09.17-.13.28-.26.42-.13.15-.27.33-.38.44-.13.13-.27.27-.12.53.15.26.67 1.1 1.43 1.78.99.88 1.83 1.15 2.09 1.28.26.13.41.11.56-.07.15-.17.66-.77.84-1.03.17-.26.35-.22.59-.13.24.09 1.53.72 1.79.85.26.13.44.2.5.31.07.11.07.64-.15 1.26Z" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+  const emailIcon = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.7" />
+      <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 
   return (
     <>
@@ -343,6 +349,22 @@ function ApplicantFormStepOne({
               Same as contact number
             </label>
           </div>
+        </div>
+
+        <div style={{ gridColumn: "1 / -1" }}>
+          <label style={label}>Email</label>
+          <InputShell icon={emailIcon} error={Boolean(errors.email)}>
+            <input
+              type="email"
+              style={{ ...input, paddingLeft: "44px", border: errors.email ? `1px solid ${THEME.error}` : input.border }}
+              value={form.email || ""}
+              onFocus={handleFocus}
+              onBlur={(event) => handleBlur(event, errors.email)}
+              onChange={(event) => handleChange("email", event.target.value)}
+              placeholder="Enter email address"
+            />
+          </InputShell>
+          {errors.email && <div style={errorText}>{errors.email}</div>}
         </div>
       </div>
 

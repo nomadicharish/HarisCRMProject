@@ -3,12 +3,6 @@ import React from "react";
 function DashboardResultsHeader({
   headerText,
   isRefreshing,
-  activeFilterChips,
-  applicantTypes,
-  countryIds,
-  companyIds,
-  agencyIds,
-  onToggleFilterValue,
   showHeaderAction,
   activeTab,
   isSuperUser,
@@ -24,32 +18,6 @@ function DashboardResultsHeader({
       <div>
         <div className="dashboardResultsCount">{headerText}</div>
         {isRefreshing ? <div className="dashboardResultsSync">Syncing latest data...</div> : null}
-        {activeFilterChips.length ? (
-          <div className="dashboardChipRow">
-            {activeFilterChips.map((chip) => (
-              <button
-                key={`${chip.key}-${chip.value}`}
-                type="button"
-                className="dashboardChip"
-                onClick={() =>
-                  onToggleFilterValue(
-                    chip.key,
-                    chip.key === "type"
-                      ? applicantTypes
-                      : chip.key === "country"
-                        ? countryIds
-                        : chip.key === "company"
-                          ? companyIds
-                          : agencyIds,
-                    chip.value
-                  )
-                }
-              >
-                {chip.label} x
-              </button>
-            ))}
-          </div>
-        ) : null}
       </div>
 
       {showHeaderAction ? (

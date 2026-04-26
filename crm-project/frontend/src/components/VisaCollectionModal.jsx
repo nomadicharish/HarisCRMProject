@@ -57,6 +57,29 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
 
 CustomDateInput.displayName = "VisaCollectionDateInput";
 
+function DetailCard({ title, icon, children }) {
+  return (
+    <div className="workflowDetailCard">
+      <div className="workflowDetailHeader">
+        <span className="workflowDetailHeaderIcon" aria-hidden="true">
+          {icon}
+        </span>
+        <span>{title}</span>
+      </div>
+      <div className="workflowDetailBody">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, action }) {
+  return (
+    <div className="workflowDetailRow">
+      <span className="workflowDetailRowLabel">{label}</span>
+      <span className="workflowDetailRowValue">{action || value}</span>
+    </div>
+  );
+}
+
 function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose, onUpdated }) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
@@ -191,71 +214,89 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
   };
 
   if (!open) return null;
-  const sectionTitleStyle = { marginTop: 18, marginBottom: 8, fontWeight: 600 };
-  const sectionDividerStyle = { borderTop: "1px solid #e5e7eb", marginTop: 16, paddingTop: 10 };
-
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard" style={{ position: "relative" }}>
+      <div className="contractModalCard workflowModalCard workflowEntryModalCard" style={{ position: "relative" }}>
         <BlockingLoader open={isBusy} label="Saving details..." />
-        <div className="dashboardModalHeader">
-          <h3 className="dashboardModalTitle">{title}</h3>
-          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={isBusy}>
+        <div className="workflowModalHero">
+          <div className="workflowModalHeroIcon" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <path d="M6 3h9l3 3v15H6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <circle cx="12" cy="14" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+            </svg>
+          </div>
+          <div className="workflowModalHeroText">
+            <h3 className="dashboardModalTitle">{title}</h3>
+            <div className="workflowModalSubtitle">
+              {visaCollection ? "View visa collection and travel details." : "Enter the date and time when the visa was collected."}
+            </div>
+          </div>
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
             x
           </button>
         </div>
 
         {loading ? (
-          <div className="contractInfoRow">Loading visa collection details...</div>
+          <div className="workflowModalBody">
+            <div className="contractInfoRow">Loading visa collection details...</div>
+          </div>
         ) : (
           <>
             {visaCollection ? (
-              <div className="contractInfoCard">
-                <div className="contractUploadLabel" style={sectionTitleStyle}>
-                  Visa Collection Details
+              <div className="workflowModalBody">
+                <div className="workflowDetailStack">
+                  <DetailCard
+                    title="Visa Collection Details"
+                    icon={(
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <path d="M6 3h9l3 3v15H6z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    )}
+                  >
+                    <DetailRow label="Visa Collection Date" value={formatDate(visaCollection.date)} />
+                    <DetailRow label="Visa Collection Time" value={formatTime(visaCollection.time)} />
+                  </DetailCard>
+
+                  {visaTravel ? (
+                    <DetailCard
+                      title="Travel Details"
+                      icon={(
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    >
+                      <DetailRow label="Travel Date" value={formatDate(visaTravel.date)} />
+                      <DetailRow label="Travel Time" value={formatTime(visaTravel.time)} />
+                      {visaTravel.fileUrl ? (
+                        <DetailRow
+                          label="Ticket"
+                          action={(
+                            <a href={visaTravel.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                              Open ticket
+                            </a>
+                          )}
+                        />
+                      ) : null}
+                    </DetailCard>
+                  ) : null}
                 </div>
-                <div className="contractInfoRow">
-                  <span>Visa Collection Date</span>
-                  <span>{formatDate(visaCollection.date)}</span>
-                </div>
-                <div className="contractInfoRow">
-                  <span>Visa Collection Time</span>
-                  <span>{formatTime(visaCollection.time)}</span>
-                </div>
-                {visaTravel ? (
-                  <div style={sectionDividerStyle}>
-                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
-                      Travel Details
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Date</span>
-                      <span>{formatDate(visaTravel.date)}</span>
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Time</span>
-                      <span>{formatTime(visaTravel.time)}</span>
-                    </div>
-                    {visaTravel.fileUrl ? (
-                      <div className="contractInfoRow">
-                        <span>Ticket</span>
-                        <a href={visaTravel.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                          Open ticket
-                        </a>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
             ) : null}
 
             {canEditCollection ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+              <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractFormGrid">
                   <div className="input-field">
                     <label className="contractUploadLabel">Visa Collection Date</label>
                     <DatePicker
                       selected={collectionDate}
                       onChange={(date) => setCollectionDate(date)}
+                      portalId="root"
+                      popperPlacement="bottom-start"
                       minDate={getTomorrow()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
@@ -281,7 +322,10 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                   </div>
                 </div>
 
-                <div className="contractActionRow">
+                <div className="contractActionRow workflowActionRow workflowActionRowEnd">
+                  <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={onClose}>
+                    Cancel
+                  </button>
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveCollection}>
                     {savingCollection ? "Saving..." : visaCollection ? "Update Visa Collection" : "Add Visa Collection"}
                   </button>
@@ -292,10 +336,12 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                   ) : null}
                 </div>
               </div>
+              </div>
             ) : null}
 
             {canAddTicket ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+              <div className="contractUploadPanel workflowEntryPanel">
                 <div className="contractUploadLabel">Travel Details</div>
                 <div className="contractFormGrid">
                   <div className="input-field">
@@ -303,6 +349,8 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                     <DatePicker
                       selected={travelDate}
                       onChange={(date) => setTravelDate(date)}
+                      portalId="root"
+                      popperPlacement="bottom-start"
                       minDate={getTomorrow()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
@@ -340,13 +388,20 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                   <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
                 </label>
 
-                <div className="contractActionRow">
+                <div className="contractActionRow workflowActionRow workflowActionRowEnd">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveTicket}>
                     {savingTicket ? "Saving..." : "Save Ticket Details"}
                   </button>
                 </div>
               </div>
+              </div>
             ) : null}
+
+            <div className="workflowModalFooter">
+              <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                Close
+              </button>
+            </div>
           </>
         )}
       </div>

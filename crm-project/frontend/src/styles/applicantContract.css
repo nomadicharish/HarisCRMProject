@@ -6,6 +6,7 @@
   align-items:center;
   justify-content:center;
   padding:20px;
+  overflow-y:auto;
   z-index:1300;
 }
 
@@ -314,5 +315,264 @@
   .workflowModalTopBar{
     flex-direction:column;
     align-items:flex-start;
+  }
+}
+
+.contractModalOverlay{
+  z-index:1500;
+}
+
+.contractModalCard{
+  max-width:720px;
+  border-radius:24px;
+  padding:26px;
+}
+
+.workflowDateInput{
+  min-height:52px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#ffffff;
+  font-size:16px;
+}
+
+.contractUploadLabel{
+  font-size:16px;
+  font-weight:600;
+  color:#667085;
+}
+
+.contractFormGrid input,
+.contractFormGrid select,
+.contractModalCard input[type="time"]{
+  min-height:52px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:#ffffff;
+  font-size:16px;
+}
+
+.contractInfoCard{
+  background:#ffffff;
+}
+
+.contractFileCard{
+  border-radius:14px;
+  background:#ffffff;
+}
+
+.workflowModalCard{
+  max-width:1160px;
+  padding:0;
+  overflow:visible;
+}
+
+.workflowModalHero{
+  display:flex;
+  align-items:flex-start;
+  gap:18px;
+  padding:26px 28px 18px;
+  border-bottom:1px solid #e8eef6;
+}
+
+.workflowModalHeroIcon{
+  width:84px;
+  height:84px;
+  border-radius:50%;
+  background:#edf4ff;
+  color:#2563eb;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.workflowModalHeroText{
+  flex:1 1 auto;
+}
+
+.workflowModalSubtitle{
+  margin-top:6px;
+  color:#667085;
+  font-size:14px;
+  line-height:1.5;
+}
+
+.workflowModalCloseBtn{
+  font-size:24px;
+  color:#667085;
+}
+
+.workflowModalCard .contractInfoCard,
+.workflowEntryPanel{
+  margin:0 28px 20px;
+}
+
+.workflowEntryPanel{
+  padding:18px 0 0;
+}
+
+.workflowEntryPanelNoBorder{
+  border-top:none;
+}
+
+.workflowActionRow{
+  padding:0 28px 24px;
+  margin-top:18px;
+}
+
+.workflowActionRowEnd{
+  justify-content:flex-end;
+}
+
+.workflowModalBody{
+  padding:22px 28px 24px;
+}
+
+.workflowDetailStack{
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+}
+
+.workflowDetailCard{
+  border:1px solid #dce6f5;
+  border-radius:14px;
+  overflow:hidden;
+  background:#ffffff;
+}
+
+.workflowDetailHeader{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:18px 24px;
+  background:linear-gradient(180deg, #f7faff 0%, #eef4ff 100%);
+  color:#1767ea;
+  font-size:17px;
+  font-weight:600;
+}
+
+.workflowDetailHeaderIcon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:inherit;
+  flex:0 0 auto;
+}
+
+.workflowDetailBody{
+  padding:0 24px;
+}
+
+.workflowDetailRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  padding:18px 0;
+  color:#334155;
+  font-size:16px;
+}
+
+.workflowDetailRow + .workflowDetailRow{
+  border-top:1px solid #e8eef6;
+}
+
+.workflowDetailRowLabel{
+  color:#334155;
+  font-weight:500;
+}
+
+.workflowDetailRowValue{
+  color:#1e293b;
+  font-weight:500;
+  text-align:right;
+}
+
+.workflowDetailAction{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-height:40px;
+  padding:0 18px;
+  border:1px solid #d9e3f0;
+  border-radius:12px;
+  background:#ffffff;
+  color:#1767ea;
+  font-size:14px;
+  font-weight:600;
+}
+
+.workflowModalFooter{
+  display:flex;
+  justify-content:flex-end;
+  padding:22px 28px 26px;
+  border-top:1px solid #e8eef6;
+}
+
+.workflowEntryModalCard{
+  max-width:920px;
+}
+
+.workflowEntryModalCard .workflowModalHero{
+  padding-bottom:16px;
+}
+
+.workflowEntryModalCard .workflowModalBody{
+  padding-top:18px;
+}
+
+.workflowEntryModalCard .contractUploadLabel{
+  font-size:14px;
+}
+
+.workflowEntryModalCard .contractFormGrid input,
+.workflowEntryModalCard .contractFormGrid select,
+.workflowEntryModalCard input[type="time"],
+.workflowEntryModalCard .workflowDateInput{
+  min-height:46px;
+  font-size:14px;
+}
+
+.workflowEntryModalCard .contractFileCard{
+  width:100%;
+  min-height:72px;
+  justify-content:flex-start;
+  text-align:left;
+}
+
+.workflowEntryModalCard .contractFileCardTitle{
+  font-size:13px;
+  font-weight:600;
+}
+
+@media (max-width: 900px){
+  .workflowModalHero,
+  .workflowModalBody,
+  .workflowModalFooter,
+  .workflowModalCard .contractInfoCard,
+  .workflowEntryPanel,
+  .workflowActionRow{
+    padding-left:18px;
+    padding-right:18px;
+    margin-left:0;
+    margin-right:0;
+  }
+
+  .workflowDetailHeader,
+  .workflowDetailBody{
+    padding-left:16px;
+    padding-right:16px;
+  }
+
+  .workflowDetailRow{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:8px;
+  }
+
+  .workflowDetailRowValue{
+    text-align:left;
   }
 }

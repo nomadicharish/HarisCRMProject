@@ -46,7 +46,8 @@ function DispatchSection({
   showTitle = true,
   compact = false,
   onSaved,
-  truncateTrackingUrl = false
+  truncateTrackingUrl = false,
+  showHistoryHeader = true
 }) {
   const [dispatches, setDispatches] = useState([]);
   const [saving, setSaving] = useState(false);
@@ -183,9 +184,11 @@ function DispatchSection({
 
         {(loading || dispatches.length > 0) ? (
           <>
-            <div className="dispatchHistoryHeader">
-              <div className="dispatchHistoryTitle">Dispatch History</div>
-            </div>
+            {showHistoryHeader ? (
+              <div className="dispatchHistoryHeader">
+                <div className="dispatchHistoryTitle">Dispatch History</div>
+              </div>
+            ) : null}
 
             <div className="tableWrap">
               <table className="docTable">

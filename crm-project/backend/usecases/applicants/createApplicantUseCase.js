@@ -23,6 +23,7 @@ async function createApplicantUseCase(req) {
   const {
     firstName = personalDetails.firstName,
     lastName = personalDetails.lastName,
+    email = personalDetails.email,
     dob = personalDetails.dob,
     age = personalDetails.age,
     address = personalDetails.address,
@@ -53,6 +54,7 @@ async function createApplicantUseCase(req) {
     personalDetails: {
       firstName,
       lastName,
+      email: email || "",
       dob,
       age,
       address,
@@ -63,6 +65,7 @@ async function createApplicantUseCase(req) {
     },
     firstName,
     lastName,
+    email: email || "",
     age,
     whatsappNumber: whatsappNumber || "",
     countryId,

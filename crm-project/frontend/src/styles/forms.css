@@ -138,3 +138,17 @@
   }
 }
 
+.card{
+  border-radius:18px;
+}
+
+.input-field input,
+.input-field select,
+.input-field textarea{
+  border-radius:12px;
+}
+
+.submit-btn{
+  border-radius:12px;
+}
+

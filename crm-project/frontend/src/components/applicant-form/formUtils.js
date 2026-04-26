@@ -3,6 +3,7 @@ import { getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumbe
 const EMPTY_FORM = {
   firstName: "",
   lastName: "",
+  email: "",
   dob: "",
   age: "",
   address: "",
@@ -94,6 +95,15 @@ const validateOptionalPhone = (phone, phoneCountry) => {
   return validatePhone(phone, phoneCountry);
 };
 
+const validateEmail = (emailValue) => {
+  const normalizedEmail = String(emailValue || "").trim().toLowerCase();
+  if (!normalizedEmail) return "Email is required";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    return "Enter a valid email address";
+  }
+  return null;
+};
+
 const validateTotalAmount = (totalAmount, userRole) => {
   if (userRole !== "SUPER_USER") return null;
   if (!totalAmount) return "Total amount is required";
@@ -119,6 +129,7 @@ export {
   getApplicantPaidAmount,
   calculateAge,
   validateAge,
+  validateEmail,
   validatePhone,
   validateOptionalPhone,
   validateTotalAmount,

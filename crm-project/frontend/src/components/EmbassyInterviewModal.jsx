@@ -70,6 +70,29 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
 
 CustomDateInput.displayName = "EmbassyInterviewDateInput";
 
+function DetailCard({ title, icon, children }) {
+  return (
+    <div className="workflowDetailCard">
+      <div className="workflowDetailHeader">
+        <span className="workflowDetailHeaderIcon" aria-hidden="true">
+          {icon}
+        </span>
+        <span>{title}</span>
+      </div>
+      <div className="workflowDetailBody">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, action }) {
+  return (
+    <div className="workflowDetailRow">
+      <span className="workflowDetailRowLabel">{label}</span>
+      <span className="workflowDetailRowValue">{action || value}</span>
+    </div>
+  );
+}
+
 function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, onClose, onUpdated }) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
@@ -227,83 +250,106 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
   };
 
   if (!open) return null;
-  const sectionTitleStyle = { marginTop: 18, marginBottom: 8, fontWeight: 600 };
-  const sectionDividerStyle = { borderTop: "1px solid #e5e7eb", marginTop: 16, paddingTop: 10 };
-
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard" style={{ position: "relative" }}>
+      <div className="contractModalCard workflowModalCard" style={{ position: "relative" }}>
         <BlockingLoader open={isBusy} label="Saving details..." />
-        <div className="dashboardModalHeader">
-          <h3 className="dashboardModalTitle">{title}</h3>
-          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={isBusy}>
+        <div className="workflowModalHero">
+          <div className="workflowModalHeroIcon" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h16M7 3v4m10-4v4M6 21h12a2 2 0 0 0 2-2V7H4v12a2 2 0 0 0 2 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="workflowModalHeroText">
+            <h3 className="dashboardModalTitle">{title}</h3>
+            <div className="workflowModalSubtitle">Review interview, travel and biometric details.</div>
+          </div>
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
             x
           </button>
         </div>
 
         {loading ? (
-          <div className="contractInfoRow">Loading embassy interview details...</div>
+          <div className="workflowModalBody">
+            <div className="contractInfoRow">Loading embassy interview details...</div>
+          </div>
         ) : (
           <>
             {interview ? (
-              <div className="contractInfoCard">
-                <div className="contractUploadLabel" style={sectionTitleStyle}>
-                  Interview Details
-                </div>
-                <div className="contractInfoRow">
-                  <span>Interview Date & Time</span>
-                  <span>
-                    {`${formatDate(interview.dateTime)} ${formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}`}
-                  </span>
-                </div>
+              <div className="workflowModalBody">
+                <div className="workflowDetailStack">
+                  <DetailCard
+                    title="Interview Details"
+                    icon={(
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <path d="M4 7h16M7 3v4m10-4v4M6 21h12a2 2 0 0 0 2-2V7H4v12a2 2 0 0 0 2 2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  >
+                    <DetailRow
+                      label="Interview Date & Time"
+                      value={`${formatDate(interview.dateTime)} ${formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}`}
+                    />
+                  </DetailCard>
 
-                {interviewTicket ? (
-                  <div style={sectionDividerStyle}>
-                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
-                      Travel Details
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Date & Time</span>
-                      <span>{`${formatDate(interviewTicket.date)} ${formatTime(interviewTicket.time)}`}</span>
-                    </div>
-                    {interviewTicket.fileUrl ? (
-                      <div className="contractInfoRow">
-                        <span>Ticket</span>
-                        <a href={interviewTicket.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                          Open ticket
-                        </a>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
+                  {interviewTicket ? (
+                    <DetailCard
+                      title="Travel Details"
+                      icon={(
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    >
+                      <DetailRow label="Travel Date & Time" value={`${formatDate(interviewTicket.date)} ${formatTime(interviewTicket.time)}`} />
+                      {interviewTicket.fileUrl ? (
+                        <DetailRow
+                          label="Ticket"
+                          action={(
+                            <a href={interviewTicket.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                              Open ticket
+                            </a>
+                          )}
+                        />
+                      ) : null}
+                    </DetailCard>
+                  ) : null}
 
-                {hasInterviewBiometric ? (
-                  <div style={sectionDividerStyle}>
-                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
-                      Biometric Slip
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Biometric Slip & Uploaded On</span>
-                      <span>
-                        <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                          View document
-                        </a>
-                        {` (${formatDateTime(resolvedInterviewBiometric.uploadedAt)})`}
-                      </span>
-                    </div>
-                  </div>
-                ) : null}
+                  {hasInterviewBiometric ? (
+                    <DetailCard
+                      title="Biometric Slip"
+                      icon={(
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 3a4 4 0 0 0-4 4v2m8-2V7a4 4 0 0 0-8 0m-1 6v3m3-7v7m4-9v11m3-9v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    >
+                      <DetailRow
+                        label="Biometric Slip"
+                        action={(
+                          <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                            View document
+                          </a>
+                        )}
+                      />
+                      <DetailRow label="Uploaded On" value={formatDateTime(resolvedInterviewBiometric.uploadedAt)} />
+                    </DetailCard>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
             {canEditInterview ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+              <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractFormGrid">
                   <div className="input-field">
                     <label className="contractUploadLabel">Interview Date</label>
                     <DatePicker
                       selected={interviewDate}
                       onChange={(date) => setInterviewDate(date)}
+                      portalId="root"
+                      popperPlacement="bottom-start"
                       minDate={getTomorrow()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
@@ -340,10 +386,12 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                   ) : null}
                 </div>
               </div>
+              </div>
             ) : null}
 
             {canAddTicket ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+              <div className="contractUploadPanel workflowEntryPanel">
                 <div className="contractUploadLabel">Travel Details</div>
 
                 <div className="contractFormGrid">
@@ -352,6 +400,8 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                     <DatePicker
                       selected={travelDate}
                       onChange={(date) => setTravelDate(date)}
+                      portalId="root"
+                      popperPlacement="bottom-start"
                       minDate={getTomorrow()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
@@ -395,7 +445,14 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                   </button>
                 </div>
               </div>
+              </div>
             ) : null}
+
+            <div className="workflowModalFooter">
+              <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                Close
+              </button>
+            </div>
           </>
         )}
       </div>

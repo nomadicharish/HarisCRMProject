@@ -119,6 +119,7 @@ function ApplicantsDashboard() {
     totalPages: 1
   });
   const [loading, setLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [entityModalType, setEntityModalType] = useState("");
   const [entityEditData, setEntityEditData] = useState(null);
   const [showCountryManager, setShowCountryManager] = useState(false);
@@ -201,9 +202,10 @@ function ApplicantsDashboard() {
         hasFreshCache("/auth/me") &&
         hasFreshCache("/countries") &&
         hasFreshCache("/applicants", { params: applicantsParams });
+      const shouldUsePageLoader = !hasLoadedOnce && !hasBootstrapCache;
 
-      setLoading(!hasBootstrapCache);
-      setIsRefreshing(hasBootstrapCache);
+      setLoading(shouldUsePageLoader);
+      setIsRefreshing(!shouldUsePageLoader);
 
       const [userData, countriesData, applicantsData] = await Promise.all([
         getCached("/auth/me", { ttlMs: 120000 }),
@@ -304,6 +306,7 @@ function ApplicantsDashboard() {
       console.error(error);
       setIsRefreshing(false);
     } finally {
+      setHasLoadedOnce(true);
       setLoading(false);
     }
   }, [
@@ -313,6 +316,7 @@ function ApplicantsDashboard() {
     companyIds,
     countryIds,
     currentPage,
+    hasLoadedOnce,
     isSuperUser,
     searchText
   ]);

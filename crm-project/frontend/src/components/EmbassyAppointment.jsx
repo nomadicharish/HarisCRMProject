@@ -57,6 +57,31 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
 
 CustomDateInput.displayName = "WorkflowDateInput";
 
+function DetailCard({ title, icon, children }) {
+  return (
+    <div className="workflowDetailCard">
+      <div className="workflowDetailHeader">
+        <span className="workflowDetailHeaderIcon" aria-hidden="true">
+          {icon}
+        </span>
+        <span>{title}</span>
+      </div>
+      <div className="workflowDetailBody">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, action }) {
+  return (
+    <div className="workflowDetailRow">
+      <span className="workflowDetailRowLabel">{label}</span>
+      <span className="workflowDetailRowValue">
+        {action || value}
+      </span>
+    </div>
+  );
+}
+
 function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, onUpdated }) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
@@ -205,91 +230,117 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
 
   if (!open) return null;
 
-  const sectionTitleStyle = { marginTop: 18, marginBottom: 8, fontWeight: 600 };
-  const sectionDividerStyle = { borderTop: "1px solid #e5e7eb", marginTop: 16, paddingTop: 10 };
-
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard" style={{ position: "relative" }}>
+      <div className="contractModalCard workflowModalCard" style={{ position: "relative" }}>
         <BlockingLoader open={isBusy} label="Saving details..." />
-        <div className="dashboardModalHeader">
-          <h3 className="dashboardModalTitle">{title}</h3>
-          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={isBusy}>
+        <div className="workflowModalHero">
+          <div className="workflowModalHeroIcon" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="workflowModalHeroText">
+            <h3 className="dashboardModalTitle">{title}</h3>
+            <div className="workflowModalSubtitle">View appointment, travel and document details.</div>
+          </div>
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
             x
           </button>
         </div>
 
         {loading ? (
-          <div className="contractInfoRow">Loading embassy appointment details...</div>
+          <div className="workflowModalBody">
+            <div className="contractInfoRow">Loading embassy appointment details...</div>
+          </div>
         ) : (
           <>
             {appointment ? (
-              <div className="contractInfoCard">
-                <div className="contractUploadLabel" style={sectionTitleStyle}>
-                  Appointment Details
-                </div>
-                <div className="contractInfoRow">
-                  <span>Appointment Date & Time</span>
-                  <span>{`${formatDate(appointment.dateTime || appointment.date)} ${formatTime(appointment.time)}`}</span>
-                </div>
-                {appointment.fileUrl ? (
-                  <div className="contractInfoRow">
-                    <span>Appointment Document</span>
-                    <a href={appointment.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                      Open document
-                    </a>
-                  </div>
-                ) : null}
-
-                {travelDetails ? (
-                  <div style={sectionDividerStyle}>
-                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
-                      Travel Details
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Travel Date & Time</span>
-                      <span>{`${formatDate(travelDetails.travelDate)} ${formatTime(travelDetails.time)}`}</span>
-                    </div>
-                    {travelDetails.fileUrl ? (
-                      <div className="contractInfoRow">
-                        <span>Ticket</span>
-                        <a href={travelDetails.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                          Open ticket
-                        </a>
-                      </div>
+              <div className="workflowModalBody">
+                <div className="workflowDetailStack">
+                  <DetailCard
+                    title="Appointment Details"
+                    icon={(
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  >
+                    <DetailRow label="Appointment Date & Time" value={`${formatDate(appointment.dateTime || appointment.date)} ${formatTime(appointment.time)}`} />
+                    {appointment.fileUrl ? (
+                      <DetailRow
+                        label="Appointment Document"
+                        action={(
+                          <a href={appointment.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                            Open document
+                          </a>
+                        )}
+                      />
                     ) : null}
-                  </div>
-                ) : null}
+                  </DetailCard>
 
-                {hasBiometricSlip ? (
-                  <div style={sectionDividerStyle}>
-                    <div className="contractUploadLabel" style={{ marginBottom: 8, fontWeight: 600 }}>
-                      Biometric Slip
-                    </div>
-                    <div className="contractInfoRow">
-                      <span>Biometric Slip</span>
-                      <a
-                        href={(biometricFromApi?.fileUrl || biometricSlip?.fileUrl || "")}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="linkBtn"
-                      >
-                        View document
-                      </a>
-                    </div>
-                  </div>
-                ) : null}
+                  {travelDetails ? (
+                    <DetailCard
+                      title="Travel Details"
+                      icon={(
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      )}
+                    >
+                      <DetailRow label="Travel Date & Time" value={`${formatDate(travelDetails.travelDate)} ${formatTime(travelDetails.time)}`} />
+                      {travelDetails.fileUrl ? (
+                        <DetailRow
+                          label="Ticket"
+                          action={(
+                            <a href={travelDetails.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                              Open ticket
+                            </a>
+                          )}
+                        />
+                      ) : null}
+                    </DetailCard>
+                  ) : null}
+
+                  {hasBiometricSlip ? (
+                    <DetailCard
+                      title="Biometric Slip"
+                      icon={(
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 3a4 4 0 0 0-4 4v2m8-2V7a4 4 0 0 0-8 0m-1 6v3m3-7v7m4-9v11m3-9v7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      )}
+                    >
+                      <DetailRow
+                        label="Biometric Slip"
+                        action={(
+                          <a
+                            href={(biometricFromApi?.fileUrl || biometricSlip?.fileUrl || "")}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="workflowDetailAction"
+                          >
+                            View document
+                          </a>
+                        )}
+                      />
+                    </DetailCard>
+                  ) : null}
+                </div>
               </div>
             ) : null}
 
             {canEditAppointment ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+              <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractFormGrid">
                   <div className="input-field">
                     <label className="contractUploadLabel">Appointment Date</label>
                     <DatePicker
                       selected={appointmentDate}
                       onChange={(date) => setAppointmentDate(date)}
+                      portalId="root"
+                      popperPlacement="bottom-start"
                       minDate={getTomorrow()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
@@ -339,10 +390,12 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                   </button>
                 </div>
               </div>
+              </div>
             ) : null}
 
             {canAddTicket ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+              <div className="contractUploadPanel workflowEntryPanel">
                 <div className="contractUploadLabel">Travel Details</div>
 
                 <div className="contractFormGrid">
@@ -351,6 +404,8 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                     <DatePicker
                       selected={travelDate}
                       onChange={(date) => setTravelDate(date)}
+                      portalId="root"
+                      popperPlacement="bottom-start"
                       minDate={getTomorrow()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
@@ -394,7 +449,14 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                   </button>
                 </div>
               </div>
+              </div>
             ) : null}
+
+            <div className="workflowModalFooter">
+              <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                Close
+              </button>
+            </div>
           </>
         )}
       </div>
