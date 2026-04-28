@@ -13,9 +13,10 @@ const overlay = {
   background: "rgba(0,0,0,0.5)",
   display: "flex",
   justifyContent: "center",
-  alignItems: "center",
-  padding: "10px",
-  zIndex: 1000
+  alignItems: "flex-start",
+  padding: "24px 16px",
+  overflowY: "auto",
+  zIndex: 1400
 };
 
 const modal = {
@@ -67,7 +68,8 @@ const btnPrimary = {
   background: "#0052CC",
   color: "#fff",
   border: "none",
-  padding: "12px 20px",
+  padding: "0px 20px",
+  height: "44px",
   borderRadius: 10,
   cursor: "pointer",
   fontWeight: "600",
@@ -77,7 +79,8 @@ const btnPrimary = {
 const btnSecondary = {
   background: "#fff",
   border: "1px solid #d9e2f0",
-  padding: "12px 20px",
+  padding: "0px 20px",
+  height: "44px",
   borderRadius: 10,
   cursor: "pointer",
   color: "#344054",
@@ -163,6 +166,10 @@ const getSelectStyles = () => ({
     ...base,
     borderRadius: 12,
     zIndex: 9999
+  }),
+  menuPortal: (base) => ({
+    ...base,
+    zIndex: 20000
   }),
   option: (base, state) => ({
     ...base,

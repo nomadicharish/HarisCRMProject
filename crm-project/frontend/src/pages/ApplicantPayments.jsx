@@ -6,8 +6,10 @@ import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
-import { getCached, invalidateCache } from "../services/cachedApi";
+import { getCached, invalidateCache, readCached, updateCached, writeCached } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
+import { getStoredUser } from "../utils/auth";
+import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
@@ -37,10 +39,13 @@ const parseAmountInput = parseIndianNumberInput;
 function ApplicantPayments() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [user, setUser] = useState(null);
-  const [applicant, setApplicant] = useState(null);
-  const [paymentSummary, setPaymentSummary] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const initialPaymentPage = readCached(`/applicants/${id}/payments-page`) || null;
+  const initialSidebarProfile = readCached(getApplicantSidebarCacheKey(id)) || null;
+  const [user, setUser] = useState(() => getStoredUser());
+  const [applicant, setApplicant] = useState(initialSidebarProfile?.applicant || initialPaymentPage?.applicant || null);
+  const [paymentSummary, setPaymentSummary] = useState(initialPaymentPage?.paymentSummary || null);
+  const [sidebarProfile, setSidebarProfile] = useState(initialSidebarProfile);
+  const [loading, setLoading] = useState(!initialPaymentPage);
   const [saving, setSaving] = useState(false);
   const [showAddPaymentModal, setShowAddPaymentModal] = useState(false);
   const [form, setForm] = useState({
@@ -53,28 +58,33 @@ function ApplicantPayments() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [userRes, applicantRes, summaryRes] = await Promise.allSettled([
-        getCached("/auth/me", { ttlMs: 120000 }),
-        getCached(`/applicants/${id}`, { ttlMs: 15000 }),
-        getCached(`/applicants/${id}/payments/summary`, { ttlMs: 10000 })
+      const [paymentPageRes, userRes] = await Promise.allSettled([
+        getCached(`/applicants/${id}/payments-page`, { ttlMs: 15000 }),
+        user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 })
       ]);
 
       if (userRes.status === "fulfilled") {
         setUser(userRes.value || null);
-      } else if (userRes.reason?.response?.status === 429) {
-        console.warn("auth/me rate limited. Using last known user state.");
       }
 
-      if (applicantRes.status === "fulfilled") {
-        setApplicant(applicantRes.value || null);
-      } else {
-        throw applicantRes.reason;
+      if (paymentPageRes.status !== "fulfilled") {
+        throw paymentPageRes.reason;
       }
 
-      if (summaryRes.status === "fulfilled") {
-        setPaymentSummary(summaryRes.value || null);
-      } else {
-        throw summaryRes.reason;
+      const nextApplicant = paymentPageRes.value?.applicant || null;
+      setApplicant(nextApplicant || null);
+      setPaymentSummary(paymentPageRes.value?.paymentSummary || null);
+
+      const nextSidebarProfile = buildApplicantSidebarCache({
+        applicant: nextApplicant,
+        pendingAmount: paymentPageRes.value?.paymentSummary?.applicant?.pendingInr || 0,
+        countryName: nextApplicant?.countryName || nextApplicant?.country || "",
+        agencyName: nextApplicant?.agencyName || nextApplicant?.agency?.name || ""
+      });
+
+      if (nextSidebarProfile) {
+        setSidebarProfile(nextSidebarProfile);
+        writeCached(getApplicantSidebarCacheKey(id), nextSidebarProfile, { ttlMs: 15000 });
       }
     } catch (error) {
       console.error(error);
@@ -82,7 +92,7 @@ function ApplicantPayments() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, user]);
 
   useEffect(() => {
     loadData();
@@ -157,6 +167,26 @@ function ApplicantPayments() {
       };
     });
 
+    setSidebarProfile((prev) => {
+      if (!prev?.applicant) return prev;
+      return {
+        ...prev,
+        pendingAmount: nextPendingInr
+      };
+    });
+
+    updateCached(
+      getApplicantSidebarCacheKey(id),
+      (current) => {
+        if (!current?.applicant) return current;
+        return {
+          ...current,
+          pendingAmount: nextPendingInr
+        };
+      },
+      { ttlMs: 15000 }
+    );
+
     try {
       setSaving(true);
       await API.post(`/applicants/${id}/payments`, {
@@ -171,6 +201,7 @@ function ApplicantPayments() {
       setShowAddPaymentModal(false);
       invalidateCache(`/applicants/${id}`);
       invalidateCache("/auth/me");
+      invalidateCache(`/applicants/${id}/payments-page`);
       invalidateCache(`/applicants/${id}/payments/summary`);
       invalidateCache("/applicants");
       setForm({
@@ -200,13 +231,13 @@ function ApplicantPayments() {
       <div className="page-content paymentPage paymentLayout">
         <aside className="paymentSidebar">
           <ApplicantSummaryCard
-            applicant={applicant}
-            pendingAmount={applicantPayment.pendingInr}
-            pendingDisplayValue={formatCurrency(applicantPayment.pendingInr)}
+            applicant={sidebarProfile?.applicant || applicant}
+            pendingAmount={sidebarProfile?.pendingAmount ?? applicantPayment.pendingInr}
+            pendingDisplayValue={formatCurrency(sidebarProfile?.pendingAmount ?? applicantPayment.pendingInr)}
             onPendingClick={() => navigate(`/applicants/${id}/payments`)}
-            agencyName={applicant?.agencyName || applicant?.agency?.name || ""}
-            countryName={applicant?.countryName || applicant?.country || ""}
-            showAgency={Boolean(applicant?.agencyName || applicant?.agency?.name || applicant?.agencyId)}
+            agencyName={sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || ""}
+            countryName={sidebarProfile?.countryName || applicant?.countryName || applicant?.country || ""}
+            showAgency={Boolean((sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || applicant?.agencyId))}
             showPendingAmount
           />
         </aside>

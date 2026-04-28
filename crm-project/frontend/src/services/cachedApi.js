@@ -36,6 +36,43 @@ export async function getCached(url, { params = {}, ttlMs = 30000, force = false
   });
 }
 
+export function prefetchCached(url, { params = {}, ttlMs = 30000 } = {}) {
+  const key = buildKey(url, params);
+  const queryKey = ["api", key];
+  const staleTime = toStaleTime(ttlMs);
+  staleTimeByKey.set(key, staleTime);
+
+  return queryClient.prefetchQuery({
+    queryKey,
+    queryFn: async () => {
+      const response = await API.get(url, { params });
+      return response.data;
+    },
+    staleTime
+  });
+}
+
+export function readCached(url, { params = {} } = {}) {
+  const key = buildKey(url, params);
+  return queryClient.getQueryData(["api", key]);
+}
+
+export function writeCached(url, data, { params = {}, ttlMs = 30000 } = {}) {
+  const key = buildKey(url, params);
+  const staleTime = toStaleTime(ttlMs);
+  staleTimeByKey.set(key, staleTime);
+  queryClient.setQueryData(["api", key], data);
+}
+
+export function updateCached(url, updater, { params = {}, ttlMs = 30000 } = {}) {
+  const key = buildKey(url, params);
+  const staleTime = toStaleTime(ttlMs);
+  staleTimeByKey.set(key, staleTime);
+  queryClient.setQueryData(["api", key], (current) =>
+    typeof updater === "function" ? updater(current) : current
+  );
+}
+
 export function hasFreshCache(url, { params = {} } = {}) {
   const key = buildKey(url, params);
   const state = queryClient.getQueryState(["api", key]);

@@ -74,6 +74,12 @@ router.get(
   validate(applicantIdParamsSchema, "params"),
   asyncHandler(applicantController.getPaymentSummary)
 );
+router.get(
+  "/:applicantId/payments-page",
+  readCache(15),
+  validate(applicantIdParamsSchema, "params"),
+  asyncHandler(applicantController.getApplicantPaymentsPage)
+);
 
 // Add appointment
 router.post(
@@ -106,6 +112,12 @@ router.get(
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getApplicantDocumentsContext)
+);
+router.get(
+  "/:id/documents-page",
+  readCache(15),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getApplicantDocumentsPage)
 );
 
 // Upload Document

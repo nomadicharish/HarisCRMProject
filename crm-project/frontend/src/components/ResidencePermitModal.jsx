@@ -112,48 +112,94 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard" style={{ position: "relative" }}>
+      <div className="contractModalCard workflowModalCard" style={{ position: "relative" }}>
         <BlockingLoader open={saving} label="Uploading residence permit..." />
-
-        <div className="dashboardModalHeader">
-          <h3 className="dashboardModalTitle">Residence Permit</h3>
-          <button type="button" className="dashboardModalCloseBtn" onClick={onClose} disabled={saving}>
+        <div className="workflowModalHero">
+          <div className="workflowModalHeroIcon" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10.5 14.5a1.5 1.5 0 1 1 3 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M9.5 18a2.5 2.5 0 0 1 5 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="workflowModalHeroText">
+            <h3 className="dashboardModalTitle">Residence Permit</h3>
+            <div className="workflowModalSubtitle">View the residence permit details below.</div>
+          </div>
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving}>
             x
           </button>
         </div>
 
         {loading ? (
-          <div className="contractInfoRow">Loading residence permit details...</div>
+          <div className="workflowModalBody">
+            <div className="contractInfoRow">Loading residence permit details...</div>
+          </div>
         ) : (
           <>
             {resolvedResidencePermit ? (
-              <div className="contractInfoCard">
+              <div className="workflowModalBody">
+              <div className="workflowDetailCard workflowDetailCardFlat">
                 {resolvedResidencePermit.frontUrl ? (
-                  <div className="contractInfoRow">
-                    <span>Front Side</span>
-                    <a href={resolvedResidencePermit.frontUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                      View document
+                  <div className="workflowDetailRow">
+                    <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                      <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      Front Side
+                    </span>
+                    <a href={resolvedResidencePermit.frontUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                      </svg>
+                      View
                     </a>
                   </div>
                 ) : null}
                 {resolvedResidencePermit.backUrl ? (
-                  <div className="contractInfoRow">
-                    <span>Back Side</span>
-                    <a href={resolvedResidencePermit.backUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                      View document
+                  <div className="workflowDetailRow">
+                    <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                      <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      Back Side
+                    </span>
+                    <a href={resolvedResidencePermit.backUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                      </svg>
+                      View
                     </a>
                   </div>
                 ) : null}
                 {resolvedResidencePermit.frontUrl || resolvedResidencePermit.backUrl ? (
-                  <div className="contractInfoRow">
-                    <span>Uploaded On</span>
-                    <span>{formatDateTime(resolvedResidencePermit.uploadedAt)}</span>
+                  <div className="workflowDetailRow">
+                    <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                      <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                      Uploaded On
+                    </span>
+                    <span className="workflowDetailRowValue">{formatDateTime(resolvedResidencePermit.uploadedAt)}</span>
                   </div>
                 ) : null}
+              </div>
               </div>
             ) : null}
 
             {canUpload && (!resolvedResidencePermit?.frontUrl || !resolvedResidencePermit?.backUrl) ? (
+              <div className="workflowModalBody">
               <div className="contractUploadPanel">
                 <div className="contractFormGrid">
                   {!resolvedResidencePermit?.frontUrl ? (
@@ -187,12 +233,20 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
                   ) : null}
                 </div>
               </div>
+              </div>
             ) : null}
 
             {canUpload && (!resolvedResidencePermit?.frontUrl || !resolvedResidencePermit?.backUrl) ? (
-              <div className="contractActionRow">
+              <div className="workflowModalFooter">
                 <button type="button" className="btn btnPrimary" disabled={saving} onClick={uploadSelectedFiles}>
                   {saving ? "Uploading..." : "Upload Residence Permit"}
+                </button>
+              </div>
+            ) : null}
+            {!canUpload || (resolvedResidencePermit?.frontUrl && resolvedResidencePermit?.backUrl) ? (
+              <div className="workflowModalFooter">
+                <button type="button" className="btn btnSecondary" onClick={onClose} disabled={saving}>
+                  Close
                 </button>
               </div>
             ) : null}

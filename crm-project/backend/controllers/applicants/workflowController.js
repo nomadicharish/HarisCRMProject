@@ -1,6 +1,7 @@
 const { getApplicantsUseCase } = require("../../usecases/applicants/getApplicantsUseCase");
 const {
   getApplicantByIdUseCase,
+  getApplicantDocumentsPageUseCase,
   getApplicantDocumentsContextUseCase,
   getApplicantWorkflowBundleUseCase
 } = require("../../usecases/applicants/profileReadUseCases");
@@ -75,6 +76,15 @@ async function getApplicantDocumentsContext(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Applicant Documents Context Error", error);
+  }
+}
+
+async function getApplicantDocumentsPage(req, res) {
+  try {
+    const payload = await getApplicantDocumentsPageUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Applicant Documents Page Error", error);
   }
 }
 
@@ -351,6 +361,7 @@ async function getResidencePermit(req, res) {
 module.exports = {
   getApplicants,
   getApplicantById,
+  getApplicantDocumentsPage,
   getApplicantDocumentsContext,
   getApplicantWorkflowBundle,
   addAppointment,

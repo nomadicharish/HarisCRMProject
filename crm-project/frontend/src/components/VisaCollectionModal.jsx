@@ -41,8 +41,20 @@ function formatTime(value) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+const calendarIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <path
+      d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
 const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
-  <div style={{ position: "relative", width: "100%" }}>
+  <div className="workflowDateShell">
+    <span className="workflowDateIcon workflowDateIconLeft" aria-hidden="true">{calendarIcon}</span>
     <input
       ref={ref}
       value={value || ""}
@@ -51,7 +63,7 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
       readOnly
       className="workflowDateInput"
     />
-    <span className="workflowDateIcon" onClick={onClick}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg></span>
+    <span className="workflowDateIcon" aria-hidden="true">{calendarIcon}</span>
   </div>
 ));
 
@@ -274,8 +286,12 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                         <DetailRow
                           label="Ticket"
                           action={(
-                            <a href={visaTravel.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                              Open ticket
+                            <a href={visaTravel.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
+                              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                              </svg>
+                              View
                             </a>
                           )}
                         />
@@ -341,8 +357,15 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
 
             {canAddTicket ? (
               <div className="workflowModalBody">
-              <div className="contractUploadPanel workflowEntryPanel">
-                <div className="contractUploadLabel">Travel Details</div>
+              <div className="contractUploadPanel workflowEntryPanel workflowTicketUploadPanel">
+                <div className="workflowDetailHeader workflowDetailHeaderInline">
+                  <span className="workflowDetailHeaderIcon" aria-hidden="true">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                      <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span>Travel Details</span>
+                </div>
                 <div className="contractFormGrid">
                   <div className="input-field">
                     <label className="contractUploadLabel">Travel Date</label>
@@ -377,7 +400,7 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                 </div>
 
                 <div className="contractUploadLabel">Ticket (Optional)</div>
-                <label className="contractFileCard" htmlFor="visa-travel-file">
+                <label className="workflowUploadBox" htmlFor="visa-travel-file">
                   <input
                     id="visa-travel-file"
                     type="file"
@@ -385,7 +408,16 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                     disabled={isBusy}
                     onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
                   />
-                  <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
+                    <span className="workflowUploadBoxMeta">Upload png, pdf or jpeg within 2MB</span>
+                  </span>
                 </label>
 
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
@@ -397,11 +429,13 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
               </div>
             ) : null}
 
-            <div className="workflowModalFooter">
-              <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
-                Close
-              </button>
-            </div>
+            {!canAddTicket ? (
+              <div className="workflowModalFooter">
+                <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                  Close
+                </button>
+              </div>
+            ) : null}
           </>
         )}
       </div>

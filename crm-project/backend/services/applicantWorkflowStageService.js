@@ -48,34 +48,42 @@ async function getRequiredDocumentTypes(applicant) {
 }
 
 async function areLatestRequiredDocumentsApproved(applicantId, applicant) {
+  if (applicant?.docSummary?.allRequiredApproved === true || applicant?.documentSummary?.allRequiredApproved === true) {
+    return true;
+  }
+
   const requiredDocs = await getRequiredDocumentTypes(applicant);
   if (!requiredDocs.length) return true;
 
-  for (const docType of requiredDocs) {
-    const latestSnap = await db
-      .collection("applicants")
-      .doc(applicantId)
-      .collection("documents")
-      .doc(docType)
-      .collection("versions")
-      .orderBy("uploadedAt", "desc")
-      .limit(1)
-      .get();
+  const docRefs = requiredDocs.map((docType) =>
+    db.collection("applicants").doc(applicantId).collection("documents").doc(docType)
+  );
+  const docSnaps = docRefs.length ? await db.getAll(...docRefs) : [];
 
+  for (const docSnap of docSnaps) {
+    if (!docSnap.exists) return false;
+    const docData = docSnap.data() || {};
+    const latestStatus = String(docData?.latestVersion?.status || docData?.latestStatus || "").toUpperCase();
+    if (latestStatus) {
+      if (latestStatus !== "APPROVED") return false;
+      continue;
+    }
+
+    const latestSnap = await docSnap.ref.collection("versions").orderBy("uploadedAt", "desc").limit(1).get();
     if (latestSnap.empty) return false;
-    if (latestSnap.docs[0].data()?.status !== "APPROVED") return false;
+    if (String(latestSnap.docs[0].data()?.status || "").toUpperCase() !== "APPROVED") return false;
   }
 
   return true;
 }
 
 async function syncApplicantDocumentStage(applicantId, applicant, actorId, actorRole = "SYSTEM") {
-  if (!applicant) return;
+  if (!applicant) return applicant;
   const currentStage = Number(applicant.stage || 1);
-  if (currentStage < 2) return;
+  if (currentStage < 2) return applicant;
 
   const allApproved = await areLatestRequiredDocumentsApproved(applicantId, applicant);
-  if (!allApproved || currentStage >= 3) return;
+  if (!allApproved || currentStage >= 3) return applicant;
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   await applicantRef.update({
@@ -91,6 +99,12 @@ async function syncApplicantDocumentStage(applicantId, applicant, actorId, actor
     role: actorRole,
     action: "ALL_REQUIRED_DOCUMENTS_APPROVED"
   });
+
+  return {
+    ...applicant,
+    stage: 3,
+    stageUpdatedAt: new Date()
+  };
 }
 
 async function autoAdvanceStage(applicantId, currentStage, reason = "AUTO_ADVANCE") {

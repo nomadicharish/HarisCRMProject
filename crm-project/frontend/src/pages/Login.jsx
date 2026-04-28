@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
-import { auth } from "../firebase";
+import { auth, authReady } from "../firebase";
 import "../styles/auth.css";
 import { getDashboardPathByRole, getStoredUser, isSessionExpired, storeSession, validateEmail } from "../utils/auth";
 
@@ -27,6 +27,25 @@ function EyeIcon({ open }) {
       <path d="M4 4 20 20" stroke="currentColor" strokeWidth="1.8" />
       <path d="M10.6 6.3A10.8 10.8 0 0 1 12 6c5.5 0 9 6 9 6a15.5 15.5 0 0 1-3.1 3.7" stroke="currentColor" strokeWidth="1.8" />
       <path d="M6.7 8.2C4.5 10 3 12 3 12s3.5 6 9 6c1.4 0 2.6-.3 3.8-.8" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M8 11V8a4 4 0 1 1 8 0v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="6" y="11" width="12" height="10" rx="2.5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="16" r="1.2" fill="currentColor" />
     </svg>
   );
 }
@@ -85,6 +104,7 @@ function Login() {
     setLoading(true);
 
     try {
+      await authReady;
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       const token = await userCredential.user.getIdToken(true);
       const response = await API.get("/auth/me", {
@@ -117,7 +137,10 @@ function Login() {
 
       <div className="authCard authCardWide">
         <div className="authTopBar">
-          <h1 className="authTitle">Hey, <span className="authTitleStrong">welcome back</span> <img src="/hand.png" alt="" className="authInlineIcon" /></h1>
+          <h1 className="authTitle">
+            Welcome back <img src="/hand.png" alt="" className="authInlineIcon" />
+          </h1>
+          <p className="authSubtitle">Please login to continue to your account</p>
         </div>
 
         <div className="authBody">
@@ -127,9 +150,10 @@ function Login() {
                 Email
               </label>
               <div className="authInputWrap">
+                <span className="authFieldIcon"><MailIcon /></span>
                 <input
                   id="login-email"
-                  className="authInput"
+                  className="authInput authInputLeading"
                   type="email"
                   autoComplete="username"
                   value={email}
@@ -144,9 +168,10 @@ function Login() {
                 Password
               </label>
               <div className="authInputWrap">
+                <span className="authFieldIcon"><LockIcon /></span>
                 <input
                   id="login-password"
-                  className="authInput authInputWithIcon"
+                  className="authInput authInputLeading authInputWithIcon"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
                   value={password}
@@ -172,6 +197,8 @@ function Login() {
               </button>
             </div>
 
+            <div className="authDivider">or</div>
+
             <div className="authLinks">
               <button type="button" className="authLinkBtn" onClick={() => navigate("/forgot-password")}>
                 Forgot password?
@@ -180,6 +207,8 @@ function Login() {
           </form>
         </div>
       </div>
+
+      <div className="authFooterText">© 2026 Talent Acquisition. All rights reserved.</div>
     </div>
   );
 }

@@ -96,41 +96,84 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
 
   return (
     <div className="contractModalOverlay">
-      <div className="contractModalCard" style={{ position: "relative" }}>
+      <div className="contractModalCard workflowModalCard" style={{ position: "relative" }}>
         <BlockingLoader open={saving} label="Saving contract details..." />
-
-        <div className="dashboardModalHeader">
-          <h3 className="dashboardModalTitle">{title}</h3>
-          <button type="button" className="dashboardModalCloseBtn" onClick={onClose}>
+        <div className="workflowModalHero">
+          <div className="workflowModalHeroIcon" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+              <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 12h6M10 16h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+            </svg>
+          </div>
+          <div className="workflowModalHeroText">
+            <h3 className="dashboardModalTitle">{title}</h3>
+            <div className="workflowModalSubtitle">
+              {contract?.fileUrl ? "View the issued contract details below." : "Upload and manage the candidate contract."}
+            </div>
+          </div>
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose}>
             x
           </button>
         </div>
 
         {loading ? (
-          <div className="contractInfoRow">Loading contract details...</div>
+          <div className="workflowModalBody">
+            <div className="contractInfoRow">Loading contract details...</div>
+          </div>
         ) : (
           <>
             {contract?.fileUrl ? (
-              <div className="contractInfoCard">
-                <div className="contractInfoRow">
-                  <span>View Contract</span>
-                  <a href={contract.fileUrl} target="_blank" rel="noreferrer" className="linkBtn">
-                    Open contract
-                  </a>
-                </div>
-                <div className="contractInfoRow">
-                  <span>Date of Issue</span>
-                  <span>{formatDate(contract.issuedAt || contract.uploadedAt)}</span>
-                </div>
-                <div className="contractInfoRow">
-                  <span>Uploaded By</span>
-                  <span>{contract.uploadedByName || contract.uploadedByRole || "-"}</span>
+              <div className="workflowModalBody">
+                <div className="workflowDetailCard workflowDetailCardFlat">
+                  <div className="workflowDetailRow">
+                    <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                      <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      Contract
+                    </span>
+                    <a href={contract.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                      </svg>
+                      View
+                    </a>
+                  </div>
+                  <div className="workflowDetailRow">
+                    <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                      <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                      Date of Issue
+                    </span>
+                    <span className="workflowDetailRowValue">{formatDate(contract.issuedAt || contract.uploadedAt)}</span>
+                  </div>
+                  <div className="workflowDetailRow">
+                    <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                      <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                          <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        </svg>
+                      </span>
+                      Uploaded By
+                    </span>
+                    <span className="workflowDetailRowValue">{contract.uploadedByName || contract.uploadedByRole || "-"}</span>
+                  </div>
                 </div>
               </div>
             ) : null}
 
             {canUpload ? (
-              <div className="contractUploadPanel">
+              <div className="workflowModalBody">
+                <div className="contractUploadPanel">
                 <div className="contractUploadLabel">Upload contract file</div>
                 <label className="contractFileCard" htmlFor="contract-file">
                   <input
@@ -154,10 +197,11 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
                   </button>
                 </div>
               </div>
+              </div>
             ) : null}
 
             {canApprove ? (
-              <div className="contractActionRow">
+              <div className="workflowModalFooter">
                 <button
                   type="button"
                   className="btn btnSuccess"
@@ -165,6 +209,13 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
                   onClick={handleApproveContract}
                 >
                   {saving ? "Saving..." : "Approve Contract"}
+                </button>
+              </div>
+            ) : null}
+            {!canApprove ? (
+              <div className="workflowModalFooter">
+                <button type="button" className="btn btnSecondary" onClick={onClose}>
+                  Close
                 </button>
               </div>
             ) : null}

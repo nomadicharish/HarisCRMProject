@@ -12,7 +12,7 @@
   border-bottom:1px solid #e6ebf2;
   padding:0 24px;
   display:flex;
-  align-items:center;
+  align-items:stretch;
   justify-content:space-between;
   gap:20px;
   position:fixed;
@@ -31,6 +31,7 @@
   font-weight:600;
   color:#253858;
   white-space:nowrap;
+  align-self:center;
 }
 .dashboardBrandBtn{
   border:none;
@@ -60,6 +61,9 @@
   gap:24px;
   flex:1 1 auto;
   justify-content:center;
+  align-self:stretch;
+  padding:0;
+  margin:0;
 }
 .dashboardTabsHidden{
   visibility:hidden;
@@ -90,6 +94,7 @@
   display:flex;
   align-items:center;
   gap:16px;
+  align-self:center;
 }
 
 .dashboardActionGroup{
@@ -106,12 +111,18 @@
   color:#ffffff;
   border-radius:0;
   min-height:36px;
-  padding:0 12px;
+  padding:0 20px;
   font-size:14px;
   font-weight:500;
   font-family:Inter, sans-serif;
   line-height:1.2;
   cursor:pointer;
+}
+
+.dashboardPrimaryBtn:hover{
+  background:#ffffff;
+  color:#172b4d;
+  border-color:#d0d7e2;
 }
 
 .dashboardUserName{
@@ -162,6 +173,14 @@
   min-height:calc(100vh - 64px);
 }
 
+.dashboardContentLoader{
+  grid-column:1 / -1;
+  min-height:420px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
 .dashboardSidebar{
   min-width:0;
   display:flex;
@@ -175,7 +194,7 @@
 .dashboardSearchIcon{
   position:absolute;
   left:10px;
-  top:50%;
+  top:45%;
   transform:translateY(-50%);
   width:16px;
   height:16px;
@@ -218,7 +237,6 @@
   display:flex;
   align-items:center;
   justify-content:space-between;
-  margin-bottom:12px;
 }
 
 .dashboardFilterHeading{
@@ -237,7 +255,7 @@
 
 .dashboardFilterSection{
   border-top:1px solid rgba(255,255,255,0.18);
-  padding-top:14px;
+  padding-top:8px;
   margin-top:14px;
 }
 
@@ -256,7 +274,7 @@
   align-items:center;
   justify-content:space-between;
   gap:8px;
-  margin-bottom:14px;
+  margin-bottom:6px;
 }
 
 .dashboardFilterChevron{
@@ -301,9 +319,9 @@
 }
 
 .dashboardFilterOption input:checked{
-  background:#ffffff;
-  border-color:#ffffff;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='8' viewBox='0 0 10 8'%3E%3Cpath d='M1 4L3.6 6.6L9 1.2' fill='none' stroke='%230052CC' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background:#0052CC;
+  border-color:#0052CC;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='8' viewBox='0 0 10 8'%3E%3Cpath d='M1 4L3.6 6.6L9 1.2' fill='none' stroke='%23FFFFFF' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat:no-repeat;
   background-position:center;
 }
@@ -414,7 +432,7 @@
 }
 
 .dashboardTable tbody td{
-  padding:14px 18px;
+  padding:10px 18px;
   font-size:14px;
   font-weight:400;
   color:#172b4d;
@@ -451,7 +469,7 @@
   grid-template-columns:2fr 2fr 1.5fr 1.5fr;
   gap:12px;
   align-items:center;
-  padding:12px 18px;
+  padding:10px 18px;
   border-bottom:1px solid #edf1f7;
   cursor:pointer;
   color:#172b4d;
@@ -523,6 +541,10 @@
   font-size:14px;
   font-weight:500;
   font-family:Inter, sans-serif;
+}
+
+.dashboardPaginationBtn:hover:not(:disabled){
+  background:#f8fafc;
 }
 
 .dashboardPaginationBtn:disabled{
@@ -735,6 +757,9 @@
   display:grid;
   grid-template-columns:92px minmax(0, 1fr);
   gap:8px;
+  position:relative;
+  overflow:visible;
+  z-index:10;
 }
 
 .dashboardPhoneCodeWrap{
@@ -766,6 +791,10 @@
 
 .dashboardPhoneCodeWrap .flag-dropdown.dashboardPhoneCodeButton.open{
   box-shadow:none !important;
+}
+
+.dashboardPhoneCodeWrap .country-list{
+  z-index:20000 !important;
 }
 
 .dashboardPhoneInputError{
@@ -995,7 +1024,7 @@
 
 .dashboardTab{
   font-size:15px;
-  padding:10px 0 16px;
+  padding:10px 0 4px;
 }
 
 .dashboardTabActive{
@@ -1139,7 +1168,7 @@
 }
 
 .dashboardTable tbody td{
-  padding:18px 22px;
+  padding:12px 22px;
 }
 
 .dashboardNameCell{
@@ -1381,7 +1410,7 @@
 }
 
 .dashboardFilterHeading{
-  font-size:20px;
+  font-size:14px;
   font-weight:600;
   color:var(--ui-text-strong);
 }
@@ -1474,7 +1503,7 @@
 
 .dashboardSearchWrap{
   display:block;
-  margin-bottom:22px;
+  margin-bottom:8px;
   position:relative;
 }
 

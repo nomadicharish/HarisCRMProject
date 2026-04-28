@@ -44,6 +44,7 @@ const interviewOrStageParamsSchema = z.object({
 const createApplicantSchema = z.object({
   firstName: optionalTrimmedString,
   lastName: optionalTrimmedString,
+  education: optionalTrimmedString,
   countryId: idSchema,
   companyId: idSchema,
   agencyId: optionalTrimmedString,
@@ -61,11 +62,13 @@ const createApplicantSchema = z.object({
     email: optionalEmailSchema,
     dob: optionalTrimmedString,
     age: z.union([z.coerce.number(), z.literal(""), z.null()]).optional(),
+    placeOfBirth: optionalTrimmedString,
+    passportNumber: optionalTrimmedString,
     address: optionalTrimmedString,
     phone: optionalTrimmedString,
     whatsappNumber: optionalTrimmedString,
     whatsapp: optionalTrimmedString,
-    maritalStatus: optionalTrimmedString
+    education: optionalTrimmedString
   }).optional().default({})
 });
 

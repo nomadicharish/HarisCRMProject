@@ -16,6 +16,8 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "personalDetails.firstName",
   "personalDetails.lastName",
   "personalDetails.email",
+  "personalDetails.education",
+  "education",
   "countryId",
   "companyId",
   "agencyId",

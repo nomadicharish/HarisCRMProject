@@ -85,8 +85,9 @@ function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = 
           <div className="applicantInfoGrid">
             <Field label="Full Name" value={fullName} />
             <Field label="Date of Birth" value={personalDetails.dob ? String(personalDetails.dob).slice(0, 10) : applicant?.dob} />
+            <Field label="Place of Birth" value={personalDetails.placeOfBirth ?? applicant.placeOfBirth} />
+            <Field label="Passport Number" value={personalDetails.passportNumber ?? applicant.passportNumber} />
             <Field label="Age" value={personalDetails.age ?? applicant.age} />
-            <Field label="Marital Status" value={personalDetails.maritalStatus ?? applicant.maritalStatus} />
             <Field label="Address" value={personalDetails.address ?? applicant.address} />
           </div>
         </div>

@@ -32,7 +32,6 @@ async function run() {
         age: 31,
         address: "Test Address",
         phone: "+919999999999",
-        maritalStatus: "Single"
       },
       companyId: "missing-company-id",
       countryId: "missing-country-id",

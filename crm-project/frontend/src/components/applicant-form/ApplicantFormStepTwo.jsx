@@ -69,9 +69,11 @@ function ApplicantFormStepTwo({
   editData,
   autoApproveAfterSave,
   showActions = true,
-  totalInrNeeded = "0"
+  totalInrNeeded = "0",
+  readOnly = false
 }) {
   const customSelectStyles = getSelectStyles();
+  const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
   const globeIcon = (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
@@ -83,7 +85,7 @@ function ApplicantFormStepTwo({
       <path d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
-  const euroIcon = <span style={{ fontSize: 16, fontWeight: 700 }}>EUR</span>;
+  const euroIcon = <span style={{ fontSize: 16, fontWeight: 700 }}>€</span>;
   const inrIcon = <span style={{ fontSize: 18, fontWeight: 700 }}>&#8377;</span>;
 
   return (
@@ -98,6 +100,9 @@ function ApplicantFormStepTwo({
               placeholder="Search country..."
               value={countryOptions.find((country) => country.value === form.countryId)}
               onChange={(selected) => handleCountryChange(selected?.value || "")}
+              menuPortalTarget={menuPortalTarget}
+              menuPosition="fixed"
+              isDisabled={readOnly}
             />
           </SelectShell>
           {errors.countryId && <div style={errorText}>{errors.countryId}</div>}
@@ -110,9 +115,11 @@ function ApplicantFormStepTwo({
               styles={customSelectStyles}
               options={companyOptions}
               placeholder={form.countryId ? "Search company..." : "Select country first"}
-              isDisabled={!form.countryId}
+              isDisabled={readOnly || !form.countryId}
               value={companyOptions.find((company) => company.value === form.companyId)}
               onChange={(selected) => handleCompanyChange(selected?.value || "")}
+              menuPortalTarget={menuPortalTarget}
+              menuPosition="fixed"
             />
           </SelectShell>
           {errors.companyId && <div style={errorText}>{errors.companyId}</div>}
@@ -128,6 +135,9 @@ function ApplicantFormStepTwo({
                 placeholder="Search agency..."
                 value={agencyOptions.find((agency) => agency.value === form.agencyId)}
                 onChange={(selected) => handleChange("agencyId", selected?.value || "")}
+                menuPortalTarget={menuPortalTarget}
+                menuPosition="fixed"
+                isDisabled={readOnly}
               />
             </SelectShell>
             {errors.agencyId && <div style={errorText}>{errors.agencyId}</div>}
@@ -145,6 +155,7 @@ function ApplicantFormStepTwo({
                 placeholder="Total Amount"
                 onBlur={(event) => handleBlur(event, errors.totalAmount)}
                 onChange={(event) => handleChange("totalAmount", event.target.value)}
+                disabled={readOnly}
               />
             </InputShell>
             {errors.totalAmount && <div style={errorText}>{errors.totalAmount}</div>}
@@ -161,6 +172,7 @@ function ApplicantFormStepTwo({
               placeholder="Initial Paid Amount"
               onBlur={(event) => handleBlur(event, errors.paidAmount)}
               onChange={(event) => handleChange("paidAmount", event.target.value)}
+              disabled={readOnly}
             />
           </InputShell>
           {errors.paidAmount && <div style={errorText}>{errors.paidAmount}</div>}
@@ -210,4 +222,3 @@ function ApplicantFormStepTwo({
 }
 
 export default ApplicantFormStepTwo;
-

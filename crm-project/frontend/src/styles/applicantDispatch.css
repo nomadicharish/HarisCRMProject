@@ -88,7 +88,7 @@
 }
 
 .dispatchHistoryModalCard{
-  max-width:1260px;
+  max-width:980px;
   padding:0;
   overflow:hidden;
 }
@@ -102,8 +102,8 @@
 }
 
 .dispatchModalHeroIcon{
-  width:84px;
-  height:84px;
+  width:60px;
+  height:60px;
   border-radius:50%;
   background:#edf4ff;
   color:#2563eb;
@@ -143,7 +143,7 @@
   align-items:center;
   justify-content:flex-end;
   gap:12px;
-  padding:0 30px 30px;
+  padding:0 30px 15px;
 }
 
 .dispatchModalFooterBtn{

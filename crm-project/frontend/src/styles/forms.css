@@ -116,6 +116,13 @@
 .applicantFormTripleRow{
   grid-column:1 / -1;
   display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:16px;
+}
+
+.applicantFormThreeRow{
+  grid-column:1 / -1;
+  display:grid;
   grid-template-columns:repeat(3, minmax(0, 1fr));
   gap:16px;
 }
@@ -133,6 +140,7 @@
 
 @media (max-width: 860px){
   .applicantFormTripleRow,
+  .applicantFormThreeRow,
   .applicantFormContactRow{
     grid-template-columns:1fr;
   }

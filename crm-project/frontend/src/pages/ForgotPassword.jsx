@@ -16,6 +16,26 @@ function BrandMark() {
   );
 }
 
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ResetIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16v10H4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="m4 8 8 6 8-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16.5 16.5a2.5 2.5 0 1 1 5 0v2h-5z" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M19 14.5v1.2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
@@ -67,7 +87,8 @@ function ForgotPassword() {
 
       <div className="authCard authCardWide">
         <div className="authTopBar">
-          <h1 className="authTitle">Forgot <span className="authTitleStrong">password?</span></h1>
+          <div className="authHeroIcon"><ResetIcon /></div>
+          <h1 className="authTitle">Forgot password?</h1>
           <p className="authSubtitle">Enter your registered email to receive a change password link</p>
         </div>
 
@@ -77,15 +98,18 @@ function ForgotPassword() {
               <label className="authLabel" htmlFor="forgot-email">
                 Email
               </label>
-              <input
-                id="forgot-email"
-                className="authInput"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="Enter your email"
-              />
+              <div className="authInputWrap">
+                <span className="authFieldIcon"><MailIcon /></span>
+                <input
+                  id="forgot-email"
+                  className="authInput authInputLeading"
+                  type="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="Enter your email"
+                />
+              </div>
             </div>
 
             {error ? <div className="authError">{error}</div> : null}
@@ -95,13 +119,18 @@ function ForgotPassword() {
               <button type="submit" className="authPrimaryBtn" disabled={loading}>
                 {loading ? "Sending..." : "Send Reset Link"}
               </button>
-              <button type="button" className="authSecondaryBtn" onClick={() => navigate("/login")}>
-                Back to Login
-              </button>
             </div>
+
+            <div className="authDivider">or</div>
+
+            <button type="button" className="authSecondaryBtn" onClick={() => navigate("/login")}>
+              Back to Login
+            </button>
           </form>
         </div>
       </div>
+
+      <div className="authFooterText">© 2026 Talent Acquisition. All rights reserved.</div>
     </div>
   );
 }

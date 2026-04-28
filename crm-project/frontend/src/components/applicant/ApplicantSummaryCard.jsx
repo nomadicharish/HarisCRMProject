@@ -34,7 +34,8 @@ function ApplicantSummaryCard({
   agencyName: agencyNameOverride,
   countryName: countryNameOverride,
   showAgency = false,
-  showPendingAmount = true
+  showPendingAmount = true,
+  pendingStyle = "default"
 }) {
   const fullName =
     applicant?.fullName ||
@@ -58,6 +59,7 @@ function ApplicantSummaryCard({
     "";
 
   const PendingContainer = onPendingClick ? "button" : "div";
+  const pendingValue = pendingDisplayValue || `INR ${pendingAmount ?? 0}`;
   const InfoIcon = ({ type }) => {
     if (type === "phone") {
       return (
@@ -169,7 +171,21 @@ function ApplicantSummaryCard({
         </div>
       ) : null}
 
-      {showPendingAmount ? (
+      {showPendingAmount && pendingStyle === "section" ? (
+        <div className="sideSection sideSectionCard">
+          <div className="sideLabelRow">
+            <div className="sideSectionIcon" aria-hidden="true">
+              <span className="pendingCurrencyGlyph">&#8377;</span>
+            </div>
+            <div className="sideSectionMeta">
+              <div className="sideLabel">Pending Amount</div>
+              <div className="sideValue">{pendingValue}</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showPendingAmount && pendingStyle !== "section" ? (
         <PendingContainer
           className={`pendingBox ${onPendingClick ? "pendingBoxActionable" : ""}`}
           {...(onPendingClick ? { type: "button", onClick: onPendingClick } : {})}
@@ -179,7 +195,7 @@ function ApplicantSummaryCard({
           </div>
           <div className="pendingText">
             <div className="pendingLabel">Pending Amount</div>
-            <div className="pendingValue">{pendingDisplayValue || `INR ${pendingAmount ?? 0}`}</div>
+            <div className="pendingValue">{pendingValue}</div>
           </div>
           <div className="pendingChevron" aria-hidden="true">
             &gt;

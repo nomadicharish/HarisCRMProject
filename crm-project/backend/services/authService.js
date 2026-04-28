@@ -9,7 +9,35 @@ const {
 } = require("./accountService");
 const { ensureUniqueEntityDetails } = require("./entityService");
 
+const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_PROFILE_READ_CACHE_TTL_MS || 30_000);
+const userProfileCache = new Map();
+
+function getCachedUserProfile(uid) {
+  const cached = userProfileCache.get(uid);
+  if (!cached) return null;
+  if (cached.expiresAt <= Date.now()) {
+    userProfileCache.delete(uid);
+    return null;
+  }
+  return cached.value;
+}
+
+function setCachedUserProfile(uid, value) {
+  userProfileCache.set(uid, {
+    value,
+    expiresAt: Date.now() + USER_PROFILE_CACHE_TTL_MS
+  });
+}
+
+function invalidateCachedUserProfile(uid) {
+  if (!uid) return;
+  userProfileCache.delete(uid);
+}
+
 async function getCurrentUserProfile(uid) {
+  const cachedProfile = getCachedUserProfile(uid);
+  if (cachedProfile) return cachedProfile;
+
   const userDoc = await db.collection("users").doc(uid).get();
 
   if (!userDoc.exists) {
@@ -18,7 +46,7 @@ async function getCurrentUserProfile(uid) {
 
   const userData = userDoc.data() || {};
 
-  return {
+  const profile = {
     uid,
     name: userData.name || "",
     email: await readEncryptedUserEmail(userData),
@@ -28,6 +56,8 @@ async function getCurrentUserProfile(uid) {
     agencyId: userData.agencyId || null,
     employerId: userData.employerId || null
   };
+  setCachedUserProfile(uid, profile);
+  return profile;
 }
 
 async function changePassword(uid, newPassword) {
@@ -45,6 +75,7 @@ async function changePassword(uid, newPassword) {
     },
     { merge: true }
   );
+  invalidateCachedUserProfile(uid);
 
   return { message: "Password updated successfully" };
 }
@@ -130,6 +161,7 @@ async function updateSettings(uid, { contactNumber }) {
   }
 
   await Promise.all(updates);
+  invalidateCachedUserProfile(uid);
   return { message: "Settings updated successfully" };
 }
 
@@ -141,6 +173,7 @@ async function markPasswordUpdated(uid) {
     },
     { merge: true }
   );
+  invalidateCachedUserProfile(uid);
 
   return { message: "Password status updated" };
 }
@@ -154,6 +187,7 @@ async function disableUser(uid) {
     },
     { merge: true }
   );
+  invalidateCachedUserProfile(uid);
 
   return { message: "User disabled successfully" };
 }

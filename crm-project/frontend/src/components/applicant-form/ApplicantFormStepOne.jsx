@@ -94,7 +94,8 @@ function ApplicantFormStepOne({
   handleChange,
   calculateAge,
   onNext,
-  showActions = true
+  showActions = true,
+  readOnly = false
 }) {
   const resolvedPhoneCountry = PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase())
     ? String(form.phoneCountry || "IN").toUpperCase()
@@ -137,6 +138,30 @@ function ApplicantFormStepOne({
       <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+  const passportIcon = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+      />
+      <path d="M9 7h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M9 11h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M9 15h4" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+  const educationIcon = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 3 2 8l10 5 10-5-10-5Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path d="M6 10.5V16c0 1.2 2.7 3 6 3s6-1.8 6-3v-5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
 
   return (
     <>
@@ -151,6 +176,7 @@ function ApplicantFormStepOne({
               onBlur={(event) => handleBlur(event, errors.firstName)}
               onChange={(event) => handleChange("firstName", event.target.value)}
               placeholder="First Name"
+              disabled={readOnly}
             />
           </InputShell>
           {errors.firstName && <div style={errorText}>{errors.firstName}</div>}
@@ -166,16 +192,35 @@ function ApplicantFormStepOne({
               onChange={(event) => handleChange("lastName", event.target.value)}
               placeholder="Surname"
               value={form.lastName || ""}
+              disabled={readOnly}
             />
           </InputShell>
           {errors.lastName && <div style={errorText}>{errors.lastName}</div>}
         </div>
 
-        <div className="applicantFormTripleRow">
+        <div className="applicantFormThreeRow">
+          <div>
+            <label style={label}>Email</label>
+            <InputShell icon={emailIcon} error={Boolean(errors.email)}>
+              <input
+                type="email"
+                style={{ ...input, paddingLeft: "44px", border: errors.email ? `1px solid ${THEME.error}` : input.border }}
+                value={form.email || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.email)}
+                onChange={(event) => handleChange("email", event.target.value)}
+                placeholder="Enter email address"
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.email && <div style={errorText}>{errors.email}</div>}
+          </div>
+
           <div>
             <label style={label}>Date of Birth</label>
             <DatePicker
               selected={dob}
+              disabled={readOnly}
               onChange={(date) => {
                 setDob(date);
                 handleChange("dob", date);
@@ -192,28 +237,37 @@ function ApplicantFormStepOne({
           </div>
 
           <div>
-            <label style={label}>Marital Status</label>
-            <InputShell
-              error={Boolean(errors.maritalStatus)}
-              trailingIcon={
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              }
-            >
-              <select
-                style={{ ...input, paddingRight: "44px", border: errors.maritalStatus ? `1px solid ${THEME.error}` : input.border, appearance: "none" }}
-                value={form.maritalStatus || ""}
+            <label style={label}>Place of Birth</label>
+            <InputShell icon={locationIcon} error={Boolean(errors.placeOfBirth)}>
+              <input
+                style={{ ...input, paddingLeft: "44px", border: errors.placeOfBirth ? `1px solid ${THEME.error}` : input.border }}
+                value={form.placeOfBirth || ""}
                 onFocus={handleFocus}
-                onBlur={(event) => handleBlur(event, errors.maritalStatus)}
-                onChange={(event) => handleChange("maritalStatus", event.target.value)}
-              >
-                <option value="">Select Marital Status</option>
-                <option value="Single">Single</option>
-                <option value="Married">Married</option>
-              </select>
+                onBlur={(event) => handleBlur(event, errors.placeOfBirth)}
+                onChange={(event) => handleChange("placeOfBirth", event.target.value)}
+                placeholder="Enter place of birth"
+                disabled={readOnly}
+              />
             </InputShell>
-            {errors.maritalStatus && <div style={errorText}>{errors.maritalStatus}</div>}
+            {errors.placeOfBirth && <div style={errorText}>{errors.placeOfBirth}</div>}
+          </div>
+        </div>
+
+        <div className="applicantFormThreeRow">
+          <div>
+            <label style={label}>Passport Number</label>
+            <InputShell icon={passportIcon} error={Boolean(errors.passportNumber)}>
+              <input
+                style={{ ...input, paddingLeft: "44px", border: errors.passportNumber ? `1px solid ${THEME.error}` : input.border }}
+                value={form.passportNumber || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.passportNumber)}
+                onChange={(event) => handleChange("passportNumber", event.target.value)}
+                placeholder="Enter passport number"
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.passportNumber && <div style={errorText}>{errors.passportNumber}</div>}
           </div>
 
           <div>
@@ -227,9 +281,49 @@ function ApplicantFormStepOne({
                 onBlur={(event) => handleBlur(event, errors.age)}
                 onChange={(event) => handleChange("age", event.target.value)}
                 readOnly
+                disabled={readOnly}
               />
             </InputShell>
             {errors.age && <div style={errorText}>{errors.age}</div>}
+          </div>
+
+          <div>
+            <label style={label}>Education</label>
+            <InputShell
+              icon={educationIcon}
+              error={Boolean(errors.education)}
+              trailingIcon={
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="m7 10 5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              }
+            >
+              <select
+                style={{
+                  ...input,
+                  paddingLeft: "44px",
+                  paddingRight: "44px",
+                  border: errors.education ? `1px solid ${THEME.error}` : input.border,
+                  appearance: "none"
+                }}
+                value={form.education || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.education)}
+                onChange={(event) => handleChange("education", event.target.value)}
+                disabled={readOnly}
+              >
+                <option value="">Select Education</option>
+                <option value="High School Diploma">High School Diploma</option>
+                <option value="Vocational / Technical Certificate">Vocational / Technical Certificate</option>
+                <option value="Diploma">Diploma</option>
+                <option value="Bachelor's Degree">Bachelor's Degree</option>
+                <option value="Master's Degree">Master's Degree</option>
+                <option value="Professional Degree">Professional Degree</option>
+                <option value="Doctorate (Ph.D.)">Doctorate (Ph.D.)</option>
+                <option value="No Formal Education">No Formal Education</option>
+              </select>
+            </InputShell>
+            {errors.education && <div style={errorText}>{errors.education}</div>}
           </div>
         </div>
 
@@ -243,6 +337,7 @@ function ApplicantFormStepOne({
               onBlur={(event) => handleBlur(event, errors.address)}
               onChange={(event) => handleChange("address", event.target.value)}
               placeholder="Address"
+              disabled={readOnly}
             />
           </InputShell>
           {errors.address && <div style={errorText}>{errors.address}</div>}
@@ -259,6 +354,7 @@ function ApplicantFormStepOne({
                 countryCodeEditable={false}
                 enableSearch
                 disableSearchIcon
+                disabled={readOnly}
                 onChange={(_, countryData) => {
                   const nextCountry = String(countryData?.countryCode || "in").toUpperCase();
                   setForm((prev) => {
@@ -285,6 +381,7 @@ function ApplicantFormStepOne({
                   onChange={(event) => handleChange("phone", event.target.value.replace(/[^\d]/g, ""))}
                   maxLength={resolvedPhoneCountry === "IN" ? 10 : undefined}
                   placeholder="Enter phone number"
+                  disabled={readOnly}
                 />
               </InputShell>
             </div>
@@ -301,6 +398,7 @@ function ApplicantFormStepOne({
                 countryCodeEditable={false}
                 enableSearch
                 disableSearchIcon
+                disabled={readOnly}
                 onChange={(_, countryData) => {
                   const nextCountry = String(countryData?.countryCode || "in").toUpperCase();
                   setForm((prev) => ({
@@ -327,6 +425,7 @@ function ApplicantFormStepOne({
                   }}
                   maxLength={resolvedWhatsappCountry === "IN" ? 10 : undefined}
                   placeholder="Enter WhatsApp number"
+                  disabled={readOnly}
                 />
               </InputShell>
             </div>
@@ -335,6 +434,7 @@ function ApplicantFormStepOne({
               <input
                 type="checkbox"
                 checked={Boolean(form.isWhatsappSameAsPhone)}
+                disabled={readOnly}
                 onChange={(event) => {
                   const checked = Boolean(event.target.checked);
                   handleChange("isWhatsappSameAsPhone", checked);
@@ -351,21 +451,6 @@ function ApplicantFormStepOne({
           </div>
         </div>
 
-        <div style={{ gridColumn: "1 / -1" }}>
-          <label style={label}>Email</label>
-          <InputShell icon={emailIcon} error={Boolean(errors.email)}>
-            <input
-              type="email"
-              style={{ ...input, paddingLeft: "44px", border: errors.email ? `1px solid ${THEME.error}` : input.border }}
-              value={form.email || ""}
-              onFocus={handleFocus}
-              onBlur={(event) => handleBlur(event, errors.email)}
-              onChange={(event) => handleChange("email", event.target.value)}
-              placeholder="Enter email address"
-            />
-          </InputShell>
-          {errors.email && <div style={errorText}>{errors.email}</div>}
-        </div>
       </div>
 
       {showActions ? (

@@ -58,6 +58,10 @@ function ApplicantsTable({
               "Applicant";
             const workflow = getWorkflowMeta(applicant);
             const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
+            const workflowCompleted =
+              applicant.workflowStatus === "completed" ||
+              applicant.stageStatus === "completed" ||
+              Number(applicant.stage || 0) === 12;
 
             return (
               <tr
@@ -73,8 +77,8 @@ function ApplicantsTable({
                 </td>
                 <td>
                   <div className="dashboardStatusCell">
-                    <span className={`dashboardStatusPill ${paymentPending ? "dashboardStatusPillInfo" : "dashboardStatusPillSuccess"}`}>
-                      {applicant.workflowStatus === "completed" ? "Completed" : "In Progress"}
+                    <span className={`dashboardStatusPill ${workflowCompleted ? "dashboardStatusPillSuccess" : "dashboardStatusPillInfo"}`}>
+                      {workflowCompleted ? "Completed" : "In Progress"}
                     </span>
                     <span className="dashboardStatusMetaTitle">{workflow.title}</span>
                     {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
@@ -118,6 +122,10 @@ function ApplicantsTable({
             "Applicant";
           const workflow = getWorkflowMeta(applicant);
           const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
+          const workflowCompleted =
+            applicant.workflowStatus === "completed" ||
+            applicant.stageStatus === "completed" ||
+            Number(applicant.stage || 0) === 12;
           return (
             <div
               className="dashboardVirtualRow"
@@ -131,8 +139,8 @@ function ApplicantsTable({
                 {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
               </div>
               <div className="dashboardStatusCell">
-                <span className={`dashboardStatusPill ${paymentPending ? "dashboardStatusPillInfo" : "dashboardStatusPillSuccess"}`}>
-                  {applicant.workflowStatus === "completed" ? "Completed" : "In Progress"}
+                <span className={`dashboardStatusPill ${workflowCompleted ? "dashboardStatusPillSuccess" : "dashboardStatusPillInfo"}`}>
+                  {workflowCompleted ? "Completed" : "In Progress"}
                 </span>
                 <span className="dashboardStatusMetaTitle">{workflow.title}</span>
                 {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}

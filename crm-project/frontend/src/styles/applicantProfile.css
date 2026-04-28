@@ -7,6 +7,7 @@
 
 .applicantProfilePage{
   max-width:1440px;
+  padding-top:8px;
 }
 
 .applicantProfileSidebar{
@@ -78,21 +79,30 @@
 .btn{
   border:none;
   border-radius:10px;
-  padding:8px 12px;
+  padding:0 20px;
+  min-height:36px;
   cursor:pointer;
   font-weight:500;
   font-size:14px;
 }
 
 .btnSm{
-  padding:8px 12px;
+  padding:0 20px;
+  min-height:34px;
   border-radius:9px;
   font-weight:500;
 }
 
 .btnPrimary{
   background:#0052cc;
+  border:1px solid #0052cc;
   color:#fff;
+}
+
+.btnPrimary:hover{
+  background:#fff;
+  color:#111827;
+  border-color:#e5e7eb;
 }
 
 .btnSecondary{
@@ -101,14 +111,29 @@
   color:#111827;
 }
 
+.btnSecondary:hover{
+  background:#f8fafc;
+}
+
 .btnSuccess{
   background:#0052cc;
+  border:1px solid #0052cc;
   color:#fff;
+}
+
+.btnSuccess:hover{
+  background:#fff;
+  color:#111827;
+  border-color:#e5e7eb;
 }
 
 .btnDanger{
   background:#dc2626;
   color:#fff;
+}
+
+.btnDanger:hover{
+  background:#b91c1c;
 }
 
 .applicantSideCard{
@@ -239,11 +264,10 @@
 }
 
 .pendingBox{
-  margin-top:12px;
   background:rgba(255,255,255,0.86);
   color:#111827;
   border-radius:10px;
-  padding:10px 12px;
+  padding:10px 12px;  
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -344,7 +368,8 @@
 .bannerBtn{
   background:#FFFFFF;
   color:#000000;
-  padding:8px 12px;
+  padding:0 20px;
+  min-height:34px;
   border-radius:8px;
   border:1px solid #FFFFFF;
   font-weight:500;
@@ -398,7 +423,7 @@
   align-items:center;
   justify-content:space-between;
   gap:14px;
-  padding:12px 14px;
+  padding:5px 14px;
   border-bottom:1px solid #eef2f7;
 }
 
@@ -486,17 +511,18 @@
 
 .pipeStageActionBtn{
   white-space:nowrap;
-  background:#0052CC;
-  color:#FFFFFF;
-  border:1px solid #0052CC;
-  padding:8px 12px;
+  background:#fff;
+  border:1px solid #e5e7eb;
+  color:#111827;
+  padding:0 20px;
+  min-height:34px;
   font-weight:500;
   font-size:14px;
 }
 
 .pipeStageActionBtn:hover{
-  background:#0041A3;
-  color:#FFFFFF;
+  background:#f8fafc;
+  color:#111827;
 }
 
 .pipeIcon{
@@ -706,7 +732,7 @@
 
 .sideTop{
   margin-bottom:0;
-  padding:26px 22px 18px;
+  padding:16px 22px 12px;
   align-items:flex-start;
   background:linear-gradient(135deg, #1f3762 0%, #182645 100%);
 }
@@ -753,7 +779,7 @@
 }
 
 .sideSectionCard{
-  padding:18px 22px;
+  padding:12px 22px;
   border-bottom:1px solid #eef2f7;
 }
 
@@ -926,7 +952,6 @@
   display:flex;
   align-items:flex-start;
   justify-content:center;
-  padding-top:18px;
 }
 
 .pipeStepNumber{

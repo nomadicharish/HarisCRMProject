@@ -10,8 +10,9 @@ import AgenciesTable from "../components/dashboard/AgenciesTable";
 import DashboardFiltersSidebar from "../components/dashboard/DashboardFiltersSidebar";
 import DashboardResultsHeader from "../components/dashboard/DashboardResultsHeader";
 import PageLoader from "../components/common/PageLoader";
-import { getCached, hasFreshCache, invalidateCache } from "../services/cachedApi";
+import { getCached, hasFreshCache, invalidateCache, prefetchCached } from "../services/cachedApi";
 import API from "../services/api";
+import { getStoredUser } from "../utils/auth";
 import "../styles/applicantsDashboard.css";
 
 const RIGHT_ICON_SRC = "/right.png";
@@ -100,7 +101,7 @@ function ApplicantsDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchParamsKey = searchParams.toString();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => getStoredUser());
   const [applicants, setApplicants] = useState([]);
   const [countries, setCountries] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -208,7 +209,7 @@ function ApplicantsDashboard() {
       setIsRefreshing(!shouldUsePageLoader);
 
       const [userData, countriesData, applicantsData] = await Promise.all([
-        getCached("/auth/me", { ttlMs: 120000 }),
+        user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 }),
         getCached("/countries", { ttlMs: 120000 }),
         getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
       ]);
@@ -318,7 +319,8 @@ function ApplicantsDashboard() {
     currentPage,
     hasLoadedOnce,
     isSuperUser,
-    searchText
+    searchText,
+    user
   ]);
 
   useEffect(() => {
@@ -611,6 +613,10 @@ function ApplicantsDashboard() {
   };
 
   const handleOpenApplicant = (applicantId) => {
+    prefetchCached(`/applicants/${applicantId}/workflow-bundle`, {
+      params: { includeDetails: "false" },
+      ttlMs: 15000
+    });
     navigate(`/applicants/${applicantId}${window.location.search || ""}`);
   };
 
@@ -849,10 +855,6 @@ function ApplicantsDashboard() {
     return () => clearTimeout(timer);
   }, [searchInput, searchText, updateFilters]);
 
-  if (loading) {
-    return <PageLoader label="Loading dashboard..." />;
-  }
-
   return (
     <div className="dashboardPage">
       <DashboardTopbar
@@ -864,79 +866,85 @@ function ApplicantsDashboard() {
       />
 
       <div className="dashboardContent">
-        <DashboardFiltersSidebar
-          searchPlaceholder={searchPlaceholder}
-          searchInput={searchInput}
-          onSearchInputChange={setSearchInput}
-          onResetFilters={resetFilters}
-          activeTab={activeTab}
-          applicantTypeOptions={applicantTypeOptions}
-          applicantTypes={applicantTypes}
-          countryIds={countryIds}
-          companyIds={companyIds}
-          agencyIds={agencyIds}
-          companyCountryOptions={companyCountryOptions}
-          employerCountryOptions={employerCountryOptions}
-          agencyCountryOptions={agencyCountryOptions}
-          countryOptions={countryOptions}
-          employerCompanyOptions={employerCompanyOptions}
-          agencyCompanyOptions={agencyCompanyOptions}
-          companyOptions={companyOptions}
-          agencyOptions={agencyOptions}
-          isSuperUser={isSuperUser}
-          onToggleFilterValue={toggleFilterValue}
-        />
+        {loading ? (
+          <div className="dashboardContentLoader dashboardTableCard">
+            <PageLoader label="Loading dashboard..." />
+          </div>
+        ) : (
+          <>
+            <DashboardFiltersSidebar
+              searchPlaceholder={searchPlaceholder}
+              searchInput={searchInput}
+              onSearchInputChange={setSearchInput}
+              onResetFilters={resetFilters}
+              activeTab={activeTab}
+              applicantTypeOptions={applicantTypeOptions}
+              applicantTypes={applicantTypes}
+              countryIds={countryIds}
+              companyIds={companyIds}
+              agencyIds={agencyIds}
+              companyCountryOptions={companyCountryOptions}
+              employerCountryOptions={employerCountryOptions}
+              agencyCountryOptions={agencyCountryOptions}
+              countryOptions={countryOptions}
+              employerCompanyOptions={employerCompanyOptions}
+              agencyCompanyOptions={agencyCompanyOptions}
+              companyOptions={companyOptions}
+              agencyOptions={agencyOptions}
+              isSuperUser={isSuperUser}
+              onToggleFilterValue={toggleFilterValue}
+            />
 
-        <main className="dashboardMain">
-          <DashboardResultsHeader
-            headerText={headerText}
-            isRefreshing={isRefreshing}
-            activeFilterChips={activeFilterChips}
-            applicantTypes={applicantTypes}
-            countryIds={countryIds}
-            companyIds={companyIds}
-            agencyIds={agencyIds}
-            onToggleFilterValue={toggleFilterValue}
-            showHeaderAction={showHeaderAction}
-            activeTab={activeTab}
-            isSuperUser={isSuperUser}
-            onShowCountryManager={() => setShowCountryManager(true)}
-            onOpenCurrentAction={openCurrentAction}
-            currentActionLabel={currentActionLabel}
-            showExportAction={isSuperUser && activeTab === "applicants"}
-            onExport={handleExportApplicants}
-            exportLoading={isExporting}
-          />
-
-          <div className="dashboardTableCard">
-            {activeTab === "applicants" ? (
-              <ApplicantsTable
-                rows={paginatedRows}
-                isEmployer={isEmployer}
-                onOpenApplicant={handleOpenApplicant}
-                formatPendingAmount={formatPendingAmount}
-              />
-            ) : null}
-
-            {activeTab === "companies" ? (
-              <CompaniesTable
-                rows={paginatedRows}
+            <main className="dashboardMain">
+              <DashboardResultsHeader
+                headerText={headerText}
+                isRefreshing={isRefreshing}
+                activeFilterChips={activeFilterChips}
+                applicantTypes={applicantTypes}
+                countryIds={countryIds}
+                companyIds={companyIds}
+                agencyIds={agencyIds}
+                onToggleFilterValue={toggleFilterValue}
+                showHeaderAction={showHeaderAction}
+                activeTab={activeTab}
                 isSuperUser={isSuperUser}
-                rightIconSrc={RIGHT_ICON_SRC}
-                formatEuroAmount={formatEuroAmount}
-                onOpenCompanyEdit={(id) => navigate(`/companies/${id}/edit`)}
-                onOpenApplicantsForCompany={handleOpenApplicantsForCompany}
+                onShowCountryManager={() => setShowCountryManager(true)}
+                onOpenCurrentAction={openCurrentAction}
+                currentActionLabel={currentActionLabel}
+                showExportAction={isSuperUser && activeTab === "applicants"}
+                onExport={handleExportApplicants}
+                exportLoading={isExporting}
               />
-            ) : null}
 
-            {activeTab === "employers" ? (
-              <EmployersTable
-                rows={paginatedRows}
-                companyMap={companyMap}
-                countryMap={countryMap}
-                onOpenEmployer={(employer) => handleOpenEntityModal("employer", employer)}
-              />
-            ) : null}
+              <div className="dashboardTableCard">
+                {activeTab === "applicants" ? (
+                  <ApplicantsTable
+                    rows={paginatedRows}
+                    isEmployer={isEmployer}
+                    onOpenApplicant={handleOpenApplicant}
+                    formatPendingAmount={formatPendingAmount}
+                  />
+                ) : null}
+
+                {activeTab === "companies" ? (
+                  <CompaniesTable
+                    rows={paginatedRows}
+                    isSuperUser={isSuperUser}
+                    rightIconSrc={RIGHT_ICON_SRC}
+                    formatEuroAmount={formatEuroAmount}
+                    onOpenCompanyEdit={(id) => navigate(`/companies/${id}/edit`)}
+                    onOpenApplicantsForCompany={handleOpenApplicantsForCompany}
+                  />
+                ) : null}
+
+                {activeTab === "employers" ? (
+                  <EmployersTable
+                    rows={paginatedRows}
+                    companyMap={companyMap}
+                    countryMap={countryMap}
+                    onOpenEmployer={(employer) => handleOpenEntityModal("employer", employer)}
+                  />
+                ) : null}
 
             {activeTab === "agencies" ? (
               <AgenciesTable
@@ -972,6 +980,8 @@ function ApplicantsDashboard() {
             </button>
           </div>
         </main>
+          </>
+        )}
       </div>
 
       {entityModalType ? (

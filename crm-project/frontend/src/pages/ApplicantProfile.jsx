@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
-import { getCached, invalidateCache } from "../services/cachedApi";
+import { getCached, invalidateCache, prefetchCached, readCached, writeCached } from "../services/cachedApi";
 import "../styles/forms.css";
 import "../styles/applicantProfile.css";
 import "../styles/applicantContract.css";
@@ -9,17 +9,24 @@ import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import ApplicantPipelineList from "../components/applicant/ApplicantPipelineList";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import ApplicantProfileModalStack from "../components/applicant-profile/ApplicantProfileModalStack";
+import ApplicantFormModal from "../components/applicant-form/ApplicantFormModal";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
 import useApplicantPaymentState from "../hooks/useApplicantPaymentState";
 import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
+import { getStoredUser } from "../utils/auth";
+import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 
 function ApplicantProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const [applicant, setApplicant] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [user, setUser] = useState(null);
+  const initialWorkflowBundle = readCached(`/applicants/${id}/workflow-bundle`, {
+    params: { includeDetails: "false" }
+  });
+  const initialSidebarProfile = readCached(getApplicantSidebarCacheKey(id)) || null;
+  const [applicant, setApplicant] = useState(initialWorkflowBundle?.applicant || null);
+  const [loading, setLoading] = useState(!initialWorkflowBundle);
+  const [user, setUser] = useState(() => getStoredUser());
   const [documents, setDocuments] = useState({});
   const [contract, setContract] = useState(null);
   const [embassyAppointment, setEmbassyAppointment] = useState(null);
@@ -43,23 +50,15 @@ function ApplicantProfile() {
   const [resolvedCountryName, setResolvedCountryName] = useState("");
   const [showCompleteProcessModal, setShowCompleteProcessModal] = useState(false);
   const [showApplicantDetailsModal, setShowApplicantDetailsModal] = useState(false);
+  const [showReadOnlyProfileModal, setShowReadOnlyProfileModal] = useState(false);
+  const [readOnlyProfileData, setReadOnlyProfileData] = useState(null);
   const [showDispatchHistoryModal, setShowDispatchHistoryModal] = useState(false);
   const [approvingStage, setApprovingStage] = useState(false);
+  const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 15000;
 
-  const loadApplicant = useCallback(async () => {
-    try {
-      const data = await getCached(`/applicants/${id}`, { ttlMs: 15000 });
-      setApplicant(data);
-    } catch (err) {
-      console.error(err);
-      setApplicant(null);
-    } finally {
-      setLoading(false);
-    }
-  }, [id]);
-
   const loadUser = useCallback(async () => {
+    if (user) return;
     try {
       const data = await getCached("/auth/me", { ttlMs: 120000 });
       setUser(data);
@@ -67,7 +66,7 @@ function ApplicantProfile() {
       console.error(err);
       setUser(null);
     }
-  }, []);
+  }, [user]);
 
   const loadProfileWorkflowData = useCallback(
     async ({ force = false } = {}) => {
@@ -105,49 +104,12 @@ function ApplicantProfile() {
   }, [loadProfileWorkflowData, loadUser]);
 
   useEffect(() => {
-    const agencyId = applicant?.agencyId;
-    const alreadyHasName = Boolean(applicant?.agencyName || applicant?.agency?.name);
-    if (user?.role !== "SUPER_USER") return;
-    if (!agencyId || alreadyHasName) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const agenciesData = await getCached("/agencies", { ttlMs: 60000 });
-        const found = (agenciesData || []).find((agency) => agency.id === agencyId);
-        if (!cancelled) setResolvedAgencyName(found?.name || "");
-      } catch (err) {
-        console.error(err);
-        if (!cancelled) setResolvedAgencyName("");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [applicant?.agencyId, applicant?.agencyName, applicant?.agency?.name, user?.role]);
+    setResolvedAgencyName(applicant?.agencyName || applicant?.agency?.name || "");
+  }, [applicant?.agencyName, applicant?.agency?.name]);
 
   useEffect(() => {
-    const countryId = applicant?.countryId;
-    const alreadyHasName = Boolean(applicant?.countryName || applicant?.country);
-    if (!countryId || alreadyHasName) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        const countriesData = await getCached("/countries", { ttlMs: 120000 });
-        const found = (countriesData || []).find((country) => country.id === countryId);
-        if (!cancelled) setResolvedCountryName(found?.name || "");
-      } catch (err) {
-        console.error(err);
-        if (!cancelled) setResolvedCountryName("");
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [applicant?.countryId, applicant?.countryName, applicant?.country]);
+    setResolvedCountryName(applicant?.countryName || applicant?.country || "");
+  }, [applicant?.countryName, applicant?.country]);
 
   const openEditProfile = (context = "default") => {
     navigate(`/applicants/${id}/edit${context === "stage1" ? "?context=stage1" : ""}`);
@@ -188,6 +150,22 @@ function ApplicantProfile() {
   } = useApplicantPaymentState({
     applicant
   });
+
+  useEffect(() => {
+    if (!applicant) return;
+
+    const sidebarCache = buildApplicantSidebarCache({
+      applicant,
+      pendingAmount: pending,
+      countryName: resolvedCountryName,
+      agencyName: resolvedAgencyName
+    });
+
+    if (!sidebarCache) return;
+
+    setSidebarPendingOverride(sidebarCache.pendingAmount);
+    writeCached(getApplicantSidebarCacheKey(id), sidebarCache, { ttlMs: profileCacheTtlMs });
+  }, [applicant, id, pending, profileCacheTtlMs, resolvedAgencyName, resolvedCountryName]);
 
   const {
     applicantStage,
@@ -293,6 +271,7 @@ function ApplicantProfile() {
 
 
   const handleShowDocuments = () => {
+    prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 15000 });
     navigate(`/applicants/${id}/documents`);
   };
 
@@ -301,7 +280,13 @@ function ApplicantProfile() {
   };
 
   const handleShowProfileDetails = () => {
-    setShowApplicantDetailsModal(true);
+    setShowReadOnlyProfileModal(true);
+    setReadOnlyProfileData(applicant || null);
+    getCached(`/applicants/${id}`, { ttlMs: 10000 })
+      .then((data) => setReadOnlyProfileData(data || applicant || null))
+      .catch((error) => {
+        console.error(error);
+      });
   };
 
   const handleShowDispatchDetails = () => {
@@ -372,11 +357,18 @@ function ApplicantProfile() {
           <aside className="applicantProfileSidebar">
             <ApplicantSummaryCard
               applicant={applicant}
-              pendingAmount={pending}
-              pendingDisplayValue={isTotalAmountMissing ? "Enter Total Amount" : formattedPendingAmount}
+              pendingAmount={sidebarPendingOverride ?? pending}
+              pendingDisplayValue={
+                isTotalAmountMissing
+                  ? "Enter Total Amount"
+                  : `INR ${Number(sidebarPendingOverride ?? pending).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              }
               canEdit={false}
               onEdit={() => openEditProfile("default")}
-              onPendingClick={!isEmployer ? () => navigate(`/applicants/${id}/payments`) : undefined}
+              onPendingClick={!isEmployer ? () => {
+                prefetchCached(`/applicants/${id}/payments-page`, { ttlMs: 15000 });
+                navigate(`/applicants/${id}/payments`);
+              } : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
               showAgency={user?.role === "SUPER_USER"}
@@ -492,6 +484,15 @@ function ApplicantProfile() {
             loadProfileWorkflowData({ force: true });
           }}
         />
+
+        {showReadOnlyProfileModal ? (
+          <ApplicantFormModal
+            user={user}
+            editData={readOnlyProfileData || applicant}
+            readOnly
+            onClose={() => setShowReadOnlyProfileModal(false)}
+          />
+        ) : null}
 
         {showCompleteProcessModal ? (
           <div className="contractModalOverlay">

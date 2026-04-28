@@ -65,11 +65,14 @@ async function buildPaymentSummary(applicantId, applicantData = {}) {
 }
 
 async function getLatestDocStatus(applicantId, docType) {
-  const latestSnap = await db
-    .collection("applicants")
-    .doc(applicantId)
-    .collection("documents")
-    .doc(docType)
+  const docSnap = await db.collection("applicants").doc(applicantId).collection("documents").doc(docType).get();
+  if (!docSnap.exists) return "";
+
+  const docData = docSnap.data() || {};
+  const latestStatus = String(docData?.latestVersion?.status || docData?.latestStatus || "").toUpperCase();
+  if (latestStatus) return latestStatus;
+
+  const latestSnap = await docSnap.ref
     .collection("versions")
     .orderBy("uploadedAt", "desc")
     .limit(1)
@@ -94,14 +97,27 @@ async function buildDocSummary(applicantId, applicantData = {}) {
     };
   }
 
+  const docRefs = requiredDocTypes.map((docType) =>
+    db.collection("applicants").doc(applicantId).collection("documents").doc(docType)
+  );
+  const docSnaps = docRefs.length ? await db.getAll(...docRefs) : [];
+
   let approvedCount = 0;
   let pendingCount = 0;
   let rejectedCount = 0;
   let deferredCount = 0;
   let uploadedCount = 0;
 
-  for (const docType of requiredDocTypes) {
-    const status = await getLatestDocStatus(applicantId, docType);
+  const fallbackStatuses = await Promise.all(
+    docSnaps.map(async (docSnap, index) => {
+      const docData = docSnap.exists ? docSnap.data() || {} : {};
+      const cachedStatus = String(docData?.latestVersion?.status || docData?.latestStatus || "").toUpperCase();
+      if (cachedStatus || !docSnap.exists) return cachedStatus;
+      return getLatestDocStatus(applicantId, requiredDocTypes[index]);
+    })
+  );
+
+  for (const status of fallbackStatuses) {
     if (!status) continue;
     uploadedCount += 1;
     if (status === "APPROVED") approvedCount += 1;

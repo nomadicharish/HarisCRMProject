@@ -2,6 +2,8 @@ const { db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { normalizeCompanyDocuments } = require("../../utils/normalizers");
 const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
+const { buildPaymentSummaryResponse } = require("./paymentUseCases");
+const { getLatestDocumentsMap } = require("./documentFlowUseCases");
 const {
   getApplicantBannerStatusText,
   getApplicantStageLabel,
@@ -17,16 +19,12 @@ async function getApplicantByIdUseCase(req) {
   if (!doc.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = doc.data() || {};
-  await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
+  const applicantData = await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
 
-  const refreshedApplicantSnap = await db.collection("applicants").doc(applicantId).get();
-  const applicantData = refreshedApplicantSnap.exists ? refreshedApplicantSnap.data() : applicant;
-
-  const [companyDoc, countryDoc, agencyDoc, applicantPaymentsSnap] = await Promise.all([
+  const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
     applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
     applicantData.countryId ? db.collection("countries").doc(applicantData.countryId).get() : Promise.resolve(null),
-    applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null),
-    db.collection("applicants").doc(applicantId).collection("payments").where("type", "==", "APPLICANT").get()
+    applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null)
   ]);
 
   const companyName = companyDoc?.exists ? companyDoc.data()?.name || "" : "";
@@ -34,14 +32,13 @@ async function getApplicantByIdUseCase(req) {
   const countryName = countryDoc?.exists ? countryDoc.data()?.name || "" : "";
   const agencyName = agencyDoc?.exists ? agencyDoc.data()?.name || "" : "";
 
-  let applicantPaid = 0;
-  applicantPaymentsSnap.forEach((paymentDoc) => {
-    const amount = Number(paymentDoc.data()?.amount);
-    if (Number.isFinite(amount)) applicantPaid += amount;
-  });
-
-  const storedPaidAmount = Number(applicantData.amountPaid ?? applicantData.paidAmount ?? 0) || 0;
-  applicantPaid = Math.max(applicantPaid, storedPaidAmount);
+  const applicantPaid = roundCurrency(
+    applicantData?.paymentSummary?.applicant?.paid ??
+      applicantData?.paymentsSummary?.applicant?.paid ??
+      applicantData?.amountPaid ??
+      applicantData?.paidAmount ??
+      0
+  );
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
 
   const stageLabel = getApplicantStageLabel(applicantData?.stage, applicantData?.approvalStatus);
@@ -76,10 +73,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = applicantSnap.data() || {};
-  await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
-
-  const refreshedApplicantSnap = await applicantRef.get();
-  const applicantData = refreshedApplicantSnap.exists ? refreshedApplicantSnap.data() : applicant;
+  const applicantData = await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
     applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
@@ -377,8 +371,48 @@ async function getApplicantDocumentsContextUseCase(req) {
   };
 }
 
+async function getApplicantPaymentsPageUseCase(req) {
+  const applicantId = req.params.applicantId || req.params.id;
+  const applicantReq = {
+    ...req,
+    params: {
+      ...req.params,
+      id: applicantId
+    }
+  };
+  const [applicant, paymentSummary] = await Promise.all([
+    getApplicantByIdUseCase(applicantReq),
+    (async () => {
+      const applicantSnap = await db.collection("applicants").doc(applicantId).get();
+      if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
+      return buildPaymentSummaryResponse(applicantId, applicantSnap.data() || {});
+    })()
+  ]);
+
+  return {
+    applicant,
+    paymentSummary
+  };
+}
+
+async function getApplicantDocumentsPageUseCase(req) {
+  const applicantId = req.params.id;
+  const [context, documents] = await Promise.all([
+    getApplicantDocumentsContextUseCase(req),
+    getLatestDocumentsMap(applicantId)
+  ]);
+
+  return {
+    applicant: context.applicant,
+    documentConfigs: context.documentConfigs,
+    documents
+  };
+}
+
 module.exports = {
   getApplicantByIdUseCase,
+  getApplicantDocumentsPageUseCase,
   getApplicantDocumentsContextUseCase,
+  getApplicantPaymentsPageUseCase,
   getApplicantWorkflowBundleUseCase
 };

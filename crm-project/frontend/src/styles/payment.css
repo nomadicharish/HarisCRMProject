@@ -199,6 +199,12 @@
   white-space:nowrap;
 }
 
+.paymentStripAction:hover{
+  background:#ffffff;
+  color:#111827;
+  border-color:#d0d7e2;
+}
+
 .paymentHistoryCard{
   background:transparent;
 }

@@ -68,7 +68,6 @@ function ApplicantDetailsView({ applicant, showPaymentDetails = true }) {
         <Field label="Full Name" value={fullName} />
         <Field label="Date of Birth" value={pd.dob ? String(pd.dob).slice(0, 10) : applicant?.dob} />
         <Field label="Age" value={pd.age ?? applicant?.age} />
-        <Field label="Marital Status" value={pd.maritalStatus ?? applicant?.maritalStatus} />
         <Field label="Contact number" value={formatPhoneWithSeparator(pd.phone ?? applicant?.phone)} />
         <Field label="WhatsApp number" value={formatPhoneWithSeparator(pd.whatsappNumber ?? pd.whatsapp ?? applicant?.whatsappNumber)} />
         <Field label="Address" value={pd.address ?? applicant?.address} />

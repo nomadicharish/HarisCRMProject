@@ -10,6 +10,7 @@ import ApplicantFormStepOne from "./ApplicantFormStepOne";
 import ApplicantFormStepTwo from "./ApplicantFormStepTwo";
 import { actions, btnPrimary, btnSecondary, modal, overlay, stepText } from "./formStyles";
 import BlockingLoader from "../common/BlockingLoader";
+import DashboardTopbar from "../common/DashboardTopbar";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../../utils/numberFormat";
 import {
   EMPTY_FORM,
@@ -49,7 +50,8 @@ function ApplicantFormModal({
   user: userProp = null,
   onApproveStage,
   autoApproveAfterSave = false,
-  asPage = false
+  asPage = false,
+  readOnly = false
 }) {
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -70,8 +72,10 @@ function ApplicantFormModal({
     if (!form.firstName) newErrors.firstName = "First name is required";
     if (!form.lastName) newErrors.lastName = "Surname is required";
     if (!form.dob) newErrors.dob = "Date of birth is required";
+    if (!form.placeOfBirth) newErrors.placeOfBirth = "Place of birth is required";
+    if (!form.passportNumber) newErrors.passportNumber = "Passport number is required";
     if (!form.address) newErrors.address = "Address is required";
-    if (!form.maritalStatus) newErrors.maritalStatus = "Select marital status";
+    if (!form.education) newErrors.education = "Select education";
 
     const ageError = validateAge(form.age);
     if (ageError) newErrors.age = ageError;
@@ -221,7 +225,10 @@ function ApplicantFormModal({
       email: editData.email || editData.personalDetails?.email || "",
       dob: parsedDob || "",
       age: parsedDob ? calculateAge(parsedDob) : editData.age || editData.personalDetails?.age || "",
+      education: editData.education || editData.personalDetails?.education || "",
       address: editData.address || editData.personalDetails?.address || "",
+      placeOfBirth: editData.placeOfBirth || editData.personalDetails?.placeOfBirth || "",
+      passportNumber: editData.passportNumber || editData.personalDetails?.passportNumber || "",
       phone: (() => {
         const rawPhone = editData.personalDetails?.phone || editData.phone || "";
         const parsedPhone = parsePhoneNumberFromString(rawPhone);
@@ -267,7 +274,6 @@ function ApplicantFormModal({
           String(parsedWhatsapp?.nationalNumber || rawWhatsapp).replace(/[^\d]/g, "")
         );
       })(),
-      maritalStatus: editData.maritalStatus || editData.personalDetails?.maritalStatus || "",
       countryId: resolvedCountryId,
       companyId: resolvedCompanyId,
       agencyId: editData.agencyId || "",
@@ -306,12 +312,14 @@ function ApplicantFormModal({
       const payload = {
         firstName: form.firstName,
         lastName: form.lastName,
+        education: form.education,
         personalDetails: {
           firstName: form.firstName,
           lastName: form.lastName,
           email: String(form.email || "").trim().toLowerCase(),
           dob: form.dob,
           age: form.age,
+          education: form.education,
           phone: `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN")}${String(form.phone || "").replace(/[^\d]/g, "")}`,
           whatsappNumber: form.whatsappNumber
             ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
@@ -319,8 +327,9 @@ function ApplicantFormModal({
           whatsapp: form.whatsappNumber
             ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
             : "",
-          maritalStatus: form.maritalStatus,
-          address: form.address
+          address: form.address,
+          placeOfBirth: form.placeOfBirth,
+          passportNumber: form.passportNumber
         },
         whatsappNumber: form.whatsappNumber
           ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
@@ -404,6 +413,7 @@ function ApplicantFormModal({
     else navigate(-1);
   };
   const handlePageSubmit = () => {
+    if (readOnly) return;
     const validStep1 = validateStep1();
     const validStep2 = validateStep2();
     if (!validStep1 || !validStep2) return;
@@ -413,6 +423,7 @@ function ApplicantFormModal({
   if (asPage) {
     return (
       <div className="page-container">
+        <DashboardTopbar user={user} />
         <div className="page-content">
           <div
             style={{
@@ -431,7 +442,7 @@ function ApplicantFormModal({
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#101828" }}>
-                  {editData ? "Edit Applicant" : "Add Applicant"}
+                  {editData ? "Applicant Details" : "Add Applicant Details"}
                 </h2>
                 <div style={{ ...stepText, marginBottom: 0, marginTop: 4 }}>Update the applicant details below</div>
               </div>
@@ -463,7 +474,7 @@ function ApplicantFormModal({
                 marginTop: 18,
                 border: "1px solid #e6eaf2",
                 borderRadius: 12,
-                overflow: "hidden",
+                overflow: "visible",
                 background: "#ffffff"
               }}
             >
@@ -492,7 +503,7 @@ function ApplicantFormModal({
                     strokeLinecap="round"
                   />
                 </svg>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Personal Information</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Personal Information</div>
               </div>
               <div style={{ padding: 16 }}>
                 <ApplicantFormStepOne
@@ -505,6 +516,7 @@ function ApplicantFormModal({
                   calculateAge={calculateAge}
                   onNext={() => {}}
                   showActions={false}
+                  readOnly={readOnly}
                 />
               </div>
             </div>
@@ -514,7 +526,7 @@ function ApplicantFormModal({
                 marginTop: 14,
                 border: "1px solid #e6eaf2",
                 borderRadius: 12,
-                overflow: "hidden",
+                overflow: "visible",
                 background: "#ffffff"
               }}
             >
@@ -543,7 +555,7 @@ function ApplicantFormModal({
                     strokeLinecap="round"
                   />
                 </svg>
-                <div style={{ fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Application Details</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Application Details</div>
               </div>
               <div style={{ padding: 16 }}>
                 <ApplicantFormStepTwo
@@ -563,26 +575,29 @@ function ApplicantFormModal({
                   autoApproveAfterSave={autoApproveAfterSave}
                   showActions={false}
                   totalInrNeeded={totalInrNeeded}
+                  readOnly={readOnly}
                 />
               </div>
             </div>
 
-            <div style={actions}>
-              <button style={btnSecondary} onClick={pageCancelHandler}>
-                Cancel
-              </button>
-              <button
-                style={{
-                  ...btnPrimary,
-                  opacity: loading ? 0.7 : 1,
-                  cursor: loading ? "not-allowed" : "pointer"
-                }}
-                disabled={loading}
-                onClick={handlePageSubmit}
-              >
-                {pageSubmitLabel}
-              </button>
-            </div>
+            {!readOnly ? (
+              <div style={actions}>
+                <button style={btnSecondary} onClick={pageCancelHandler} disabled={loading}>
+                  Cancel
+                </button>
+                <button
+                  style={{
+                    ...btnPrimary,
+                    opacity: loading ? 0.7 : 1,
+                    cursor: loading ? "not-allowed" : "pointer"
+                  }}
+                  disabled={loading}
+                  onClick={handlePageSubmit}
+                >
+                  {pageSubmitLabel}
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -591,49 +606,177 @@ function ApplicantFormModal({
 
   return (
     <div style={overlay}>
-      <div style={{ ...modal, position: "relative" }}>
+      <div
+        style={{
+          ...modal,
+          maxWidth: "980px",
+          margin: "0 auto",
+          position: "relative",
+          borderRadius: 14,
+          padding: 24,
+          boxShadow: "0 16px 44px rgba(15,23,42,0.12)"
+        }}
+      >
         <BlockingLoader open={loading} label={editData ? "Updating profile..." : "Creating profile..."} />
-        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "10px" }}>
-          <h3 style={{ margin: 0 }}>{editData ? "Edit Applicant" : "Add Applicant"}</h3>
-          <button onClick={onClose} style={{ border: "none", background: "none", fontSize: "18px" }}>
-            x
+        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#101828" }}>
+              {editData ? "Applicant Details" : "Add Applicant Details"}
+            </h2>
+            <div style={{ ...stepText, marginBottom: 0, marginTop: 4 }}>Update the applicant details below</div>
+          </div>
+          <button
+            type="button"
+            onClick={pageCancelHandler}
+            aria-label="Close"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              border: "1px solid rgba(148,163,184,0.35)",
+              background: "#ffffff",
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 20,
+              lineHeight: 1,
+              color: "#344054",
+              cursor: "pointer"
+            }}
+          >
+            ×
           </button>
         </div>
 
-        <div style={stepText}>Step {step} of 2</div>
-
-        {step === 1 ? (
-          <ApplicantFormStepOne
-            form={form}
-            errors={errors}
-            dob={dob}
-            setDob={setDob}
-            setForm={setForm}
-            handleChange={handleChange}
-            calculateAge={calculateAge}
-            onNext={() => {
-              if (validateStep1()) setStep(2);
+        <div
+          style={{
+            marginTop: 18,
+            border: "1px solid #e6eaf2",
+            borderRadius: 12,
+            overflow: "visible",
+            background: "#ffffff"
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "14px 16px",
+              borderLeft: "4px solid #0052CC",
+              borderBottom: "1px solid #eef2f7",
+              background: "#fbfdff"
             }}
-          />
-        ) : (
-          <ApplicantFormStepTwo
-            user={user}
-            form={form}
-            errors={errors}
-            countryOptions={countryOptions}
-            companyOptions={companyOptions}
-            agencyOptions={agencyOptions}
-            handleCountryChange={handleCountryChange}
-            handleCompanyChange={handleCompanyChange}
-            handleChange={handleChange}
-            setStep={setStep}
-            handleSubmit={handleSubmit}
-            loading={loading}
-            editData={editData}
-            autoApproveAfterSave={autoApproveAfterSave}
-            totalInrNeeded={totalInrNeeded}
-          />
-        )}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1"
+                stroke="#0052CC"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
+                stroke="#0052CC"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Personal Information</div>
+          </div>
+          <div style={{ padding: 16 }}>
+            <ApplicantFormStepOne
+              form={form}
+              errors={errors}
+              dob={dob}
+              setDob={setDob}
+              setForm={setForm}
+              handleChange={handleChange}
+              calculateAge={calculateAge}
+              onNext={() => {}}
+              showActions={false}
+              readOnly={readOnly}
+            />
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 14,
+            border: "1px solid #e6eaf2",
+            borderRadius: 12,
+            overflow: "visible",
+            background: "#ffffff"
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              padding: "14px 16px",
+              borderLeft: "4px solid #0052CC",
+              borderBottom: "1px solid #eef2f7",
+              background: "#fbfdff"
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path
+                d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14"
+                stroke="#0052CC"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+              <path
+                d="M9 9h6M9 12h6M9 15h6"
+                stroke="#0052CC"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+              />
+            </svg>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Application Details</div>
+          </div>
+          <div style={{ padding: 16 }}>
+            <ApplicantFormStepTwo
+              user={user}
+              form={form}
+              errors={errors}
+              countryOptions={countryOptions}
+              companyOptions={companyOptions}
+              agencyOptions={agencyOptions}
+              handleCountryChange={handleCountryChange}
+              handleCompanyChange={handleCompanyChange}
+              handleChange={handleChange}
+              setStep={setStep}
+              handleSubmit={handleSubmit}
+              loading={loading}
+              editData={editData}
+              autoApproveAfterSave={autoApproveAfterSave}
+              showActions={false}
+              totalInrNeeded={totalInrNeeded}
+              readOnly={readOnly}
+            />
+          </div>
+        </div>
+
+        {!readOnly ? (
+          <div style={actions}>
+            <button style={btnSecondary} onClick={pageCancelHandler} disabled={loading}>
+              Cancel
+            </button>
+            <button
+              style={{
+                ...btnPrimary,
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? "not-allowed" : "pointer"
+              }}
+              disabled={loading}
+              onClick={handlePageSubmit}
+            >
+              {pageSubmitLabel}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

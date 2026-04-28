@@ -5,6 +5,71 @@ const { getAuthenticatedUserFromReq } = require("../../services/applicantDomainS
 const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 
+function normalizeDateValue(value) {
+  if (!value) return null;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value;
+  if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+async function readLatestVersionRecord(docSnap) {
+  if (!docSnap?.exists) return null;
+  const docData = docSnap.data() || {};
+
+  if (docData?.latestVersion?.id || docData?.latestVersion?.status || docData?.latestVersion?.fileUrl) {
+    return {
+      id: docData.latestVersion.id || "latest",
+      ...docData.latestVersion,
+      uploadedAt: normalizeDateValue(docData.latestVersion.uploadedAt),
+      reviewedAt: normalizeDateValue(docData.latestVersion.reviewedAt),
+      createdAt: normalizeDateValue(docData.latestVersion.createdAt)
+    };
+  }
+
+  const latestSnap = await docSnap.ref.collection("versions").orderBy("uploadedAt", "desc").limit(1).get();
+  if (!latestSnap.empty) {
+    const latestDoc = latestSnap.docs[0];
+    return {
+      id: latestDoc.id,
+      ...latestDoc.data(),
+      uploadedAt: normalizeDateValue(latestDoc.data()?.uploadedAt),
+      reviewedAt: normalizeDateValue(latestDoc.data()?.reviewedAt),
+      createdAt: normalizeDateValue(latestDoc.data()?.createdAt)
+    };
+  }
+
+  if (docData?.fileUrl) {
+    return {
+      id: "legacy-root",
+      fileUrl: docData.fileUrl,
+      status: String(docData.status || "PENDING").toUpperCase(),
+      uploadedAt: normalizeDateValue(docData.uploadedAt),
+      uploadedBy: docData.uploadedBy || "",
+      uploadedByRole: docData.uploadedByRole || "",
+      rejectedReason: docData.rejectedReason || "",
+      fileName: docData.fileName || ""
+    };
+  }
+
+  return null;
+}
+
+async function getLatestDocumentsMap(applicantId) {
+  const snapshot = await db.collection("applicants").doc(applicantId).collection("documents").get();
+  const entries = await Promise.all(
+    snapshot.docs.map(async (docSnap) => [docSnap.id, await readLatestVersionRecord(docSnap)])
+  );
+
+  return Object.fromEntries(
+    entries
+      .filter(([, latestVersion]) => Boolean(latestVersion))
+      .map(([docType, latestVersion]) => [docType, [latestVersion]])
+  );
+}
+
 async function uploadDocumentByTypeUseCase(req) {
   const { applicantId, docType } = req.params;
   const file = req.file;
@@ -28,16 +93,30 @@ async function uploadDocumentByTypeUseCase(req) {
   const docRef = db.collection("applicants").doc(applicantId).collection("documents").doc(docType);
   const existingDoc = await docRef.get();
   const previousFileUrl = existingDoc.exists ? existingDoc.data()?.fileUrl : "";
-  await docRef.update({
+  const uploadedAt = new Date();
+  await docRef.set({
     uploaded: true,
     fileUrl,
+    fileName: file.originalname || "",
+    status: "PENDING",
     uploadedBy: userId,
-    uploadedAt: admin.firestore.FieldValue.serverTimestamp(),
+    uploadedAt,
     deferred: false,
     deferredAt: null,
     deferredBy: null,
-    deferReason: null
-  });
+    deferReason: null,
+    latestStatus: "PENDING",
+    latestVersion: {
+      id: "legacy-root",
+      fileUrl,
+      status: "PENDING",
+      uploadedAt,
+      uploadedBy: userId,
+      fileName: file.originalname || "",
+      contentType: file.mimetype || "",
+      sizeBytes: Number(file.size || 0)
+    }
+  }, { merge: true });
 
   await deleteStorageFileIfExists(bucket, previousFileUrl);
 
@@ -122,15 +201,29 @@ async function uploadDocumentGenericUseCase(req) {
     .get();
   const previousVersionFileUrl = latestVersionSnap.empty ? "" : latestVersionSnap.docs[0].data()?.fileUrl || "";
 
-  await docRef.set({ documentType, updatedAt: new Date() }, { merge: true });
-  await docRef.collection("versions").add({
+  const versionRef = docRef.collection("versions").doc();
+  const versionPayload = {
     fileUrl,
     status: "PENDING",
     rejectedReason: "",
     uploadedAt: new Date(),
     uploadedBy: req.user.uid,
-    uploadedByRole: req.user.role
-  });
+    uploadedByRole: req.user.role,
+    fileName: req.file.originalname || "",
+    contentType: req.file.mimetype || "",
+    sizeBytes: Number(req.file.size || 0)
+  };
+
+  await versionRef.set(versionPayload);
+  await docRef.set({
+    documentType,
+    updatedAt: new Date(),
+    latestStatus: "PENDING",
+    latestVersion: {
+      id: versionRef.id,
+      ...versionPayload
+    }
+  }, { merge: true });
 
   await deleteStorageFileIfExists(bucket, previousVersionFileUrl);
 
@@ -140,36 +233,60 @@ async function uploadDocumentGenericUseCase(req) {
 
 async function getDocumentsUseCase(req) {
   const latestOnly = String(req.query?.latest || "").toLowerCase() === "true";
+  if (latestOnly) {
+    return getLatestDocumentsMap(req.params.id);
+  }
+
   const snapshot = await db.collection("applicants").doc(req.params.id).collection("documents").get();
   const result = {};
-
-  for (const doc of snapshot.docs) {
-    let query = doc.ref.collection("versions").orderBy("uploadedAt", "desc");
-    if (latestOnly) query = query.limit(1);
-    const versionsSnap = await query.get();
-    result[doc.id] = versionsSnap.docs.map((v) => ({
-      id: v.id,
-      ...v.data()
-    }));
-  }
+  const versionEntries = await Promise.all(
+    snapshot.docs.map(async (doc) => {
+      const versionsSnap = await doc.ref.collection("versions").orderBy("uploadedAt", "desc").get();
+      return [
+        doc.id,
+        versionsSnap.docs.map((v) => ({
+          id: v.id,
+          ...v.data()
+        }))
+      ];
+    })
+  );
+  versionEntries.forEach(([docId, versions]) => {
+    result[docId] = versions;
+  });
   return result;
 }
 
 async function rejectDocumentUseCase(req) {
   const { id, docType, versionId } = req.params;
   const { reason } = req.body;
-  await db
+  const versionRef = db
     .collection("applicants")
     .doc(id)
     .collection("documents")
     .doc(docType)
     .collection("versions")
-    .doc(versionId)
-    .update({
+    .doc(versionId);
+  const versionSnap = await versionRef.get();
+  const previousVersionData = versionSnap.exists ? versionSnap.data() || {} : {};
+  const reviewedAt = new Date();
+  await versionRef.update({
       status: "REJECTED",
       rejectedReason: reason,
-      reviewedAt: new Date()
-    });
+      reviewedAt
+  });
+
+  await db.collection("applicants").doc(id).collection("documents").doc(docType).set({
+    latestStatus: "REJECTED",
+    latestVersion: {
+      id: versionId,
+      ...previousVersionData,
+      status: "REJECTED",
+      rejectedReason: reason,
+      reviewedAt
+    },
+    updatedAt: reviewedAt
+  }, { merge: true });
 
   await refreshApplicantSummaries(id);
   return { message: "Rejected" };
@@ -181,18 +298,34 @@ async function approveDocumentUseCase(req) {
     throw new AppError("Only Super User can approve documents", 403);
   }
 
-  await db
+  const versionRef = db
     .collection("applicants")
     .doc(id)
     .collection("documents")
     .doc(docType)
     .collection("versions")
-    .doc(versionId)
-    .update({
+    .doc(versionId);
+  const versionSnap = await versionRef.get();
+  const previousVersionData = versionSnap.exists ? versionSnap.data() || {} : {};
+  const reviewedAt = new Date();
+  await versionRef.update({
       status: "APPROVED",
-      reviewedAt: new Date(),
+      reviewedAt,
       reviewedBy: req.user.uid
-    });
+  });
+
+  await db.collection("applicants").doc(id).collection("documents").doc(docType).set({
+    latestStatus: "APPROVED",
+    latestVersion: {
+      id: versionId,
+      ...previousVersionData,
+      status: "APPROVED",
+      reviewedAt,
+      reviewedBy: req.user.uid,
+      rejectedReason: ""
+    },
+    updatedAt: reviewedAt
+  }, { merge: true });
 
   const applicantRef = db.collection("applicants").doc(id);
   const applicantSnap = await applicantRef.get();
@@ -205,6 +338,7 @@ async function approveDocumentUseCase(req) {
 module.exports = {
   approveDocumentUseCase,
   deferDocumentUseCase,
+  getLatestDocumentsMap,
   getDocumentsUseCase,
   markDocumentSeenUseCase,
   rejectDocumentUseCase,

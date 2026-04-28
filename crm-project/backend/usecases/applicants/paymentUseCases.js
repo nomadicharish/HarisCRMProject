@@ -73,16 +73,8 @@ async function addPaymentUseCase(req) {
   return { message: "Payment added successfully" };
 }
 
-async function getPaymentSummaryUseCase(req) {
-  const { applicantId } = req.params;
+async function buildPaymentSummaryResponse(applicantId, applicant) {
   const applicantRef = db.collection("applicants").doc(applicantId);
-  const applicantSnap = await applicantRef.get();
-
-  if (!applicantSnap.exists) {
-    throw new AppError("Applicant not found", 404);
-  }
-
-  const applicant = applicantSnap.data();
   const paymentsSnap = await applicantRef.collection("payments").get();
 
   let applicantPaid = 0;
@@ -162,7 +154,20 @@ async function getPaymentSummaryUseCase(req) {
   };
 }
 
+async function getPaymentSummaryUseCase(req) {
+  const { applicantId } = req.params;
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantSnap = await applicantRef.get();
+
+  if (!applicantSnap.exists) {
+    throw new AppError("Applicant not found", 404);
+  }
+
+  return buildPaymentSummaryResponse(applicantId, applicantSnap.data() || {});
+}
+
 module.exports = {
   addPaymentUseCase,
+  buildPaymentSummaryResponse,
   getPaymentSummaryUseCase
 };
