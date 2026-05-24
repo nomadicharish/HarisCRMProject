@@ -1,6 +1,6 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
-const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
+const { updatePaymentSummaryAfterPayment } = require("../../services/applicantSummaryService");
 const {
   getAuthenticatedUserFromReq,
   getTodayEurToInrRate,
@@ -68,7 +68,7 @@ async function addPaymentUseCase(req) {
   };
 
   await db.collection("applicants").doc(applicantId).collection("payments").add(payment);
-  await refreshApplicantSummaries(applicantId);
+  await updatePaymentSummaryAfterPayment(applicantId, payment);
 
   return { message: "Payment added successfully" };
 }

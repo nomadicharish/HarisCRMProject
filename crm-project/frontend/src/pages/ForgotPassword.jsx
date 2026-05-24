@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import API from "../services/api";
 import { auth } from "../firebase";
 import "../styles/auth.css";
 import { validateEmail } from "../utils/auth";
@@ -59,7 +58,6 @@ function ForgotPassword() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      await API.post("/auth/check-email", { email: normalizedEmail });
       await sendPasswordResetEmail(auth, normalizedEmail, {
         url: `${window.location.origin}/change-password`
       });

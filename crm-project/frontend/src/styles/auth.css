@@ -55,7 +55,7 @@
   position:relative;
   z-index:1;
   width:60%;
-  max-width:520px;
+  max-width:420px;
   background:#fff;
   border:1px solid #d9e3f3;
   border-radius:20px;
@@ -67,7 +67,7 @@
 }
 
 .authTopBar{
-  padding:26px 48px 0;
+  padding:16px 24px 0;
   background:transparent;
   color:#38507a;
   text-align:center;
@@ -75,9 +75,8 @@
 
 .authTitle{
   margin:0;
-  font-size:22px;
+  font-size:18px;
   font-weight:700;
-  line-height:1.2;
 }
 
 .authTitleStrong{
@@ -98,7 +97,7 @@
 }
 
 .authBody{
-  padding:26px 28px 26px;
+  padding:16px 24px 16px;
 }
 
 .authForm{
@@ -114,8 +113,8 @@
 }
 
 .authLabel{
-  font-size:16px;
-  font-weight:700;
+  font-size:14px;
+  font-weight:600;
   color:#4c5f7f;
 }
 
@@ -228,7 +227,7 @@
   border:1px solid #0052cc;
   background:#0052cc;
   color:#fff;
-  font-size:16px;
+  font-size:14px;
   font-weight:700;
   font-family:Inter, sans-serif;
 }
@@ -253,7 +252,7 @@
   border:1px solid #d8dfeb;
   background:#fff;
   color:#334155;
-  font-size:16px;
+  font-size:14px;
   font-weight:500;
 }
 
@@ -285,8 +284,8 @@
   background:transparent;
   padding:0;
   color:#1660da;
-  font-size:16px;
-  font-weight:700;
+  font-size:14px;
+  font-weight:600;
   cursor:pointer;
   min-height:auto;
 }
@@ -304,7 +303,7 @@
 .authHeroIcon{
   width:54px;
   height:54px;
-  margin:0 auto 26px;
+  margin:0 auto 16px;
   border-radius:50%;
   background:#eaf1ff;
   color:#3b82f6;
@@ -359,3 +358,16 @@
 
 .authInlineIcon{width:18px;height:18px;display:inline-block;vertical-align:text-bottom;}
 
+@media (min-width: 481px) and (max-width: 1024px){
+  .authCard{
+    width:100%;
+    max-width:520px;
+  }
+}
+
+@media (max-width: 480px){
+  .authCard{
+    width:100%;
+    max-width:100%;
+  }
+}

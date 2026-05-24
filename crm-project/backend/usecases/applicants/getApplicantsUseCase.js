@@ -29,6 +29,70 @@ function sortByCreatedAtDesc(items = []) {
   });
 }
 
+function hasMultipleMultiValueFilters(...filters) {
+  return filters.filter((items) => items.length > 1).length > 1;
+}
+
+function canUseFirestorePaginatedPath({
+  paginated,
+  searchQuery,
+  typeFilters,
+  countryFilters,
+  companyFilters,
+  agencyFilters,
+  userRole,
+  userId,
+  agencyId
+}) {
+  if (!paginated) return false;
+  if (searchQuery || typeFilters.length) return false;
+  if (agencyId && agencyId !== userId && userRole === "AGENCY") return false;
+  if (hasMultipleMultiValueFilters(countryFilters, companyFilters, agencyFilters)) return false;
+  return [countryFilters, companyFilters, agencyFilters].every((items) => items.length <= 10);
+}
+
+function applyListFilter(query, field, values) {
+  if (!values.length) return query;
+  if (values.length === 1) return query.where(field, "==", values[0]);
+  return query.where(field, "in", values);
+}
+
+async function countQueryResults(query) {
+  if (typeof query.count !== "function") return null;
+  const aggregateSnap = await query.count().get();
+  return Number(aggregateSnap.data()?.count || 0);
+}
+
+async function resolveEmployerCompanyId(userId) {
+  const userDoc = await db.collection("users").doc(userId).get();
+  const employerId = userDoc.exists ? userDoc.data()?.employerId : null;
+  if (!employerId) throw new AppError("Employer profile not linked", 400);
+
+  const employerDoc = await db.collection("employers").doc(employerId).get();
+  const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
+  if (!companyId) throw new AppError("Employer company not linked", 400);
+  return companyId;
+}
+
+async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId }) {
+  let query = db.collection("applicants").select(...APPLICANT_LIST_SELECT_FIELDS);
+
+  if (userRole === "AGENCY") {
+    return query.where("agencyId", "==", agencyId || userId);
+  }
+
+  if (userRole === "EMPLOYER") {
+    const companyId = await resolveEmployerCompanyId(userId);
+    return query.where("companyId", "==", companyId);
+  }
+
+  if (["SUPER_USER", "ACCOUNTANT"].includes(userRole)) {
+    return query;
+  }
+
+  throw new AppError("Unauthorized", 403);
+}
+
 async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId }) {
   let docs = [];
   let query = db.collection("applicants").select(...APPLICANT_LIST_SELECT_FIELDS);
@@ -47,14 +111,7 @@ async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId }) {
       docs = primarySnap.docs;
     }
   } else if (userRole === "EMPLOYER") {
-    const userDoc = await db.collection("users").doc(userId).get();
-    const employerId = userDoc.exists ? userDoc.data()?.employerId : null;
-    if (!employerId) throw new AppError("Employer profile not linked", 400);
-
-    const employerDoc = await db.collection("employers").doc(employerId).get();
-    const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
-    if (!companyId) throw new AppError("Employer company not linked", 400);
-
+    const companyId = await resolveEmployerCompanyId(userId);
     query = query.where("companyId", "==", companyId);
     docs = (await query.get()).docs;
   } else if (["SUPER_USER", "ACCOUNTANT"].includes(userRole)) {
@@ -243,9 +300,9 @@ function mapApplicant({
       companyId: data?.companyId || "",
       countryId: data?.countryId || "",
       agencyId: data?.agencyId || "",
-      companyName: data?.companyId ? companyIdToName[data.companyId] : "",
-      countryName: data?.countryId ? countryIdToName[data.countryId] : "",
-      agencyName: data?.agencyId ? agencyIdToName[data.agencyId] : "",
+      companyName: data?.companyName || (data?.companyId ? companyIdToName[data.companyId] : ""),
+      countryName: data?.countryName || (data?.countryId ? countryIdToName[data.countryId] : ""),
+      agencyName: data?.agencyName || (data?.agencyId ? agencyIdToName[data.agencyId] : ""),
       attentionRequired,
       workflowStatus,
       stageLabel,
@@ -262,9 +319,9 @@ function mapApplicant({
     ...data,
     firstName,
     lastName,
-    companyName: data?.companyId ? companyIdToName[data.companyId] : "",
-    countryName: data?.countryId ? countryIdToName[data.countryId] : "",
-    agencyName: data?.agencyId ? agencyIdToName[data.agencyId] : "",
+    companyName: data?.companyName || (data?.companyId ? companyIdToName[data.companyId] : ""),
+    countryName: data?.countryName || (data?.countryId ? countryIdToName[data.countryId] : ""),
+    agencyName: data?.agencyName || (data?.agencyId ? agencyIdToName[data.agencyId] : ""),
     attentionRequired,
     workflowStatus,
     stageLabel,
@@ -272,6 +329,58 @@ function mapApplicant({
     statusText,
     exchangeRate: eurToInrRate,
     payment
+  };
+}
+
+async function getApplicantsFirestorePage({
+  userRole,
+  userId,
+  agencyId,
+  liteMode,
+  page,
+  limit,
+  requestedFieldSet,
+  countryFilters,
+  companyFilters,
+  agencyFilters
+}) {
+  let query = await buildRoleScopedApplicantQuery({ userRole, userId, agencyId });
+  query = applyListFilter(query, "countryId", countryFilters);
+  query = applyListFilter(query, "companyId", companyFilters);
+  query = applyListFilter(query, "agencyId", agencyFilters);
+
+  const safeLimit = Math.max(1, Math.min(100, limit));
+  const safePage = Math.max(1, page);
+  const total = await countQueryResults(query);
+  const offset = (safePage - 1) * safeLimit;
+  const snap = await query.orderBy("createdAt", "desc").offset(offset).limit(safeLimit).get();
+  const docs = snap.docs;
+  const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
+  const eurToInrRate = await getTodayEurToInrRate();
+  const mapped = docs.map((doc) =>
+    mapApplicant({
+      doc,
+      userRole,
+      liteMode,
+      eurToInrRate,
+      companyIdToName,
+      countryIdToName,
+      agencyIdToName,
+      companyIdToPayment
+    })
+  );
+  const items = requestedFieldSet ? mapped.map((item) => projectApplicantFields(item, requestedFieldSet)) : mapped;
+  const resolvedTotal = total ?? offset + items.length;
+  const totalPages = Math.max(1, Math.ceil(resolvedTotal / safeLimit));
+
+  return {
+    items,
+    pagination: {
+      page: Math.min(safePage, totalPages),
+      limit: safeLimit,
+      total: resolvedTotal,
+      totalPages
+    }
   };
 }
 
@@ -349,6 +458,31 @@ async function getApplicantsUseCase(req) {
 
   if (!userId) {
     throw new AppError("Unauthorized", 401);
+  }
+
+  if (canUseFirestorePaginatedPath({
+    paginated,
+    searchQuery,
+    typeFilters,
+    countryFilters,
+    companyFilters,
+    agencyFilters,
+    userRole,
+    userId,
+    agencyId
+  })) {
+    return getApplicantsFirestorePage({
+      userRole,
+      userId,
+      agencyId,
+      liteMode,
+      page,
+      limit,
+      requestedFieldSet,
+      countryFilters,
+      companyFilters,
+      agencyFilters
+    });
   }
 
   const docs = await resolveRoleScopedApplicantDocs({ userRole, userId, agencyId });

@@ -55,7 +55,7 @@ function ApplicantProfile() {
   const [showDispatchHistoryModal, setShowDispatchHistoryModal] = useState(false);
   const [approvingStage, setApprovingStage] = useState(false);
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
-  const profileCacheTtlMs = 15000;
+  const profileCacheTtlMs = 120000;
 
   const loadUser = useCallback(async () => {
     if (user) return;
@@ -145,7 +145,6 @@ function ApplicantProfile() {
 
   const {
     pending,
-    formattedPendingAmount,
     isTotalAmountMissing
   } = useApplicantPaymentState({
     applicant
@@ -184,8 +183,6 @@ function ApplicantProfile() {
     canAddResidencePermit,
     canShowDispatchHeaderButton,
     shouldShowDocumentAction,
-    hasTravelDetails,
-    hasInterviewTicket,
     hasVisaTravel,
     headerActionLabel,
     canHeaderAction,
@@ -271,7 +268,7 @@ function ApplicantProfile() {
 
 
   const handleShowDocuments = () => {
-    prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 15000 });
+    prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 120000 });
     navigate(`/applicants/${id}/documents`);
   };
 
@@ -282,7 +279,7 @@ function ApplicantProfile() {
   const handleShowProfileDetails = () => {
     setShowReadOnlyProfileModal(true);
     setReadOnlyProfileData(applicant || null);
-    getCached(`/applicants/${id}`, { ttlMs: 10000 })
+    getCached(`/applicants/${id}`, { ttlMs: 120000 })
       .then((data) => setReadOnlyProfileData(data || applicant || null))
       .catch((error) => {
         console.error(error);
@@ -350,7 +347,7 @@ function ApplicantProfile() {
     : undefined;
 
   return (
-    <div className="page-container">
+    <div className="page-container dashboardPageContainer">
       <DashboardTopbar user={user} />
       <div className="page-content applicantProfilePage">
         <div className="applicantProfileLayout">
@@ -366,7 +363,7 @@ function ApplicantProfile() {
               canEdit={false}
               onEdit={() => openEditProfile("default")}
               onPendingClick={!isEmployer ? () => {
-                prefetchCached(`/applicants/${id}/payments-page`, { ttlMs: 15000 });
+                  prefetchCached(`/applicants/${id}/payments-page`, { ttlMs: 120000 });
                 navigate(`/applicants/${id}/payments`);
               } : undefined}
               agencyName={resolvedAgencyName}

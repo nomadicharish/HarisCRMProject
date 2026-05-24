@@ -1,6 +1,8 @@
 import React from "react";
 import DatePicker from "react-datepicker";
 import PhoneInput from "react-phone-input-2";
+import "react-datepicker/dist/react-datepicker.css";
+import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode } from "libphonenumber-js";
 import {
   THEME,
@@ -58,11 +60,6 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder, error }
         <path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
       </svg>
     }
-    trailingIcon={
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    }
   >
     <input
       ref={ref}
@@ -74,7 +71,6 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder, error }
         ...input,
         width: "100%",
         paddingLeft: "44px",
-        paddingRight: "44px",
         border: error ? "1px solid red" : input.border,
         cursor: "pointer"
       }}

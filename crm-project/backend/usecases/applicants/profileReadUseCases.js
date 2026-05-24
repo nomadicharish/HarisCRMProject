@@ -23,14 +23,14 @@ async function getApplicantByIdUseCase(req) {
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
     applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
-    applicantData.countryId ? db.collection("countries").doc(applicantData.countryId).get() : Promise.resolve(null),
-    applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null)
+    !applicantData.countryName && applicantData.countryId ? db.collection("countries").doc(applicantData.countryId).get() : Promise.resolve(null),
+    !applicantData.agencyName && applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null)
   ]);
 
-  const companyName = companyDoc?.exists ? companyDoc.data()?.name || "" : "";
+  const companyName = applicantData.companyName || (companyDoc?.exists ? companyDoc.data()?.name || "" : "");
   const companyDocuments = companyDoc?.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
-  const countryName = countryDoc?.exists ? countryDoc.data()?.name || "" : "";
-  const agencyName = agencyDoc?.exists ? agencyDoc.data()?.name || "" : "";
+  const countryName = applicantData.countryName || (countryDoc?.exists ? countryDoc.data()?.name || "" : "");
+  const agencyName = applicantData.agencyName || (agencyDoc?.exists ? agencyDoc.data()?.name || "" : "");
 
   const applicantPaid = roundCurrency(
     applicantData?.paymentSummary?.applicant?.paid ??
@@ -76,14 +76,14 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const applicantData = await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
-    applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
-    applicantData.countryId ? db.collection("countries").doc(applicantData.countryId).get() : Promise.resolve(null),
-    applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null)
+    !applicantData.companyName && applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
+    !applicantData.countryName && applicantData.countryId ? db.collection("countries").doc(applicantData.countryId).get() : Promise.resolve(null),
+    !applicantData.agencyName && applicantData.agencyId ? db.collection("agencies").doc(applicantData.agencyId).get() : Promise.resolve(null)
   ]);
 
-  const companyName = companyDoc?.exists ? companyDoc.data()?.name || "" : "";
-  const countryName = countryDoc?.exists ? countryDoc.data()?.name || "" : "";
-  const agencyName = agencyDoc?.exists ? agencyDoc.data()?.name || "" : "";
+  const companyName = applicantData.companyName || (companyDoc?.exists ? companyDoc.data()?.name || "" : "");
+  const countryName = applicantData.countryName || (countryDoc?.exists ? countryDoc.data()?.name || "" : "");
+  const agencyName = applicantData.agencyName || (agencyDoc?.exists ? agencyDoc.data()?.name || "" : "");
 
   const eurToInrRate = await getTodayEurToInrRate();
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
@@ -234,15 +234,6 @@ async function getApplicantWorkflowBundleUseCase(req) {
   });
   const applicantBannerStatus = String(computedStatusText || "");
   const statusText = applicantBannerStatus;
-  if (applicantBannerStatus !== String(applicantData?.applicantBannerStatus || "")) {
-    await applicantRef.set(
-      {
-        applicantBannerStatus,
-        updatedAt: new Date()
-      },
-      { merge: true }
-    );
-  }
 
   const workflowFlags = {
     isDocumentsApproved: Boolean(hasCompletedDocumentStage),
@@ -380,14 +371,8 @@ async function getApplicantPaymentsPageUseCase(req) {
       id: applicantId
     }
   };
-  const [applicant, paymentSummary] = await Promise.all([
-    getApplicantByIdUseCase(applicantReq),
-    (async () => {
-      const applicantSnap = await db.collection("applicants").doc(applicantId).get();
-      if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
-      return buildPaymentSummaryResponse(applicantId, applicantSnap.data() || {});
-    })()
-  ]);
+  const applicant = await getApplicantByIdUseCase(applicantReq);
+  const paymentSummary = await buildPaymentSummaryResponse(applicantId, applicant);
 
   return {
     applicant,

@@ -1,13 +1,9 @@
-import React, { useEffect, useState } from "react";
-import "react-datepicker/dist/react-datepicker.css";
-import "react-phone-input-2/lib/style.css";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import { getCached } from "../../services/cachedApi";
 import "../../styles/applicantsDashboard.css";
-import ApplicantFormStepOne from "./ApplicantFormStepOne";
-import ApplicantFormStepTwo from "./ApplicantFormStepTwo";
 import { actions, btnPrimary, btnSecondary, modal, overlay, stepText } from "./formStyles";
 import BlockingLoader from "../common/BlockingLoader";
 import DashboardTopbar from "../common/DashboardTopbar";
@@ -25,11 +21,14 @@ import {
   validateTotalAmount
 } from "./formUtils";
 
+const ApplicantFormStepOne = lazy(() => import("./ApplicantFormStepOne"));
+const ApplicantFormStepTwo = lazy(() => import("./ApplicantFormStepTwo"));
 const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
 
 const sanitizeAmountInput = formatIndianNumberInput;
 const parseAmountInput = parseIndianNumberInput;
 const DEFAULT_EXCHANGE_RATE = 90;
+const STEP_FALLBACK = <div className="routeSkeleton">Loading form...</div>;
 
 function normalizeListResponse(response) {
   if (Array.isArray(response)) return response;
@@ -61,7 +60,7 @@ function ApplicantFormModal({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const [dob, setDob] = useState(null);
-  const [step, setStep] = useState(1);
+  const [, setStep] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
   const [exchangeRate, setExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
 
@@ -506,18 +505,20 @@ function ApplicantFormModal({
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Personal Information</div>
               </div>
               <div style={{ padding: 16 }}>
-                <ApplicantFormStepOne
-                  form={form}
-                  errors={errors}
-                  dob={dob}
-                  setDob={setDob}
-                  setForm={setForm}
-                  handleChange={handleChange}
-                  calculateAge={calculateAge}
-                  onNext={() => {}}
-                  showActions={false}
-                  readOnly={readOnly}
-                />
+                <Suspense fallback={STEP_FALLBACK}>
+                  <ApplicantFormStepOne
+                    form={form}
+                    errors={errors}
+                    dob={dob}
+                    setDob={setDob}
+                    setForm={setForm}
+                    handleChange={handleChange}
+                    calculateAge={calculateAge}
+                    onNext={() => {}}
+                    showActions={false}
+                    readOnly={readOnly}
+                  />
+                </Suspense>
               </div>
             </div>
 
@@ -558,25 +559,27 @@ function ApplicantFormModal({
                 <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Application Details</div>
               </div>
               <div style={{ padding: 16 }}>
-                <ApplicantFormStepTwo
-                  user={user}
-                  form={form}
-                  errors={errors}
-                  countryOptions={countryOptions}
-                  companyOptions={companyOptions}
-                  agencyOptions={agencyOptions}
-                  handleCountryChange={handleCountryChange}
-                  handleCompanyChange={handleCompanyChange}
-                  handleChange={handleChange}
-                  setStep={setStep}
-                  handleSubmit={handleSubmit}
-                  loading={loading}
-                  editData={editData}
-                  autoApproveAfterSave={autoApproveAfterSave}
-                  showActions={false}
-                  totalInrNeeded={totalInrNeeded}
-                  readOnly={readOnly}
-                />
+                <Suspense fallback={STEP_FALLBACK}>
+                  <ApplicantFormStepTwo
+                    user={user}
+                    form={form}
+                    errors={errors}
+                    countryOptions={countryOptions}
+                    companyOptions={companyOptions}
+                    agencyOptions={agencyOptions}
+                    handleCountryChange={handleCountryChange}
+                    handleCompanyChange={handleCompanyChange}
+                    handleChange={handleChange}
+                    setStep={setStep}
+                    handleSubmit={handleSubmit}
+                    loading={loading}
+                    editData={editData}
+                    autoApproveAfterSave={autoApproveAfterSave}
+                    showActions={false}
+                    totalInrNeeded={totalInrNeeded}
+                    readOnly={readOnly}
+                  />
+                </Suspense>
               </div>
             </div>
 
@@ -685,18 +688,20 @@ function ApplicantFormModal({
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Personal Information</div>
           </div>
           <div style={{ padding: 16 }}>
-            <ApplicantFormStepOne
-              form={form}
-              errors={errors}
-              dob={dob}
-              setDob={setDob}
-              setForm={setForm}
-              handleChange={handleChange}
-              calculateAge={calculateAge}
-              onNext={() => {}}
-              showActions={false}
-              readOnly={readOnly}
-            />
+            <Suspense fallback={STEP_FALLBACK}>
+              <ApplicantFormStepOne
+                form={form}
+                errors={errors}
+                dob={dob}
+                setDob={setDob}
+                setForm={setForm}
+                handleChange={handleChange}
+                calculateAge={calculateAge}
+                onNext={() => {}}
+                showActions={false}
+                readOnly={readOnly}
+              />
+            </Suspense>
           </div>
         </div>
 
@@ -737,25 +742,27 @@ function ApplicantFormModal({
             <div style={{ fontSize: 14, fontWeight: 700, color: "#0052CC" }}>Application Details</div>
           </div>
           <div style={{ padding: 16 }}>
-            <ApplicantFormStepTwo
-              user={user}
-              form={form}
-              errors={errors}
-              countryOptions={countryOptions}
-              companyOptions={companyOptions}
-              agencyOptions={agencyOptions}
-              handleCountryChange={handleCountryChange}
-              handleCompanyChange={handleCompanyChange}
-              handleChange={handleChange}
-              setStep={setStep}
-              handleSubmit={handleSubmit}
-              loading={loading}
-              editData={editData}
-              autoApproveAfterSave={autoApproveAfterSave}
-              showActions={false}
-              totalInrNeeded={totalInrNeeded}
-              readOnly={readOnly}
-            />
+            <Suspense fallback={STEP_FALLBACK}>
+              <ApplicantFormStepTwo
+                user={user}
+                form={form}
+                errors={errors}
+                countryOptions={countryOptions}
+                companyOptions={companyOptions}
+                agencyOptions={agencyOptions}
+                handleCountryChange={handleCountryChange}
+                handleCompanyChange={handleCompanyChange}
+                handleChange={handleChange}
+                setStep={setStep}
+                handleSubmit={handleSubmit}
+                loading={loading}
+                editData={editData}
+                autoApproveAfterSave={autoApproveAfterSave}
+                showActions={false}
+                totalInrNeeded={totalInrNeeded}
+                readOnly={readOnly}
+              />
+            </Suspense>
           </div>
         </div>
 

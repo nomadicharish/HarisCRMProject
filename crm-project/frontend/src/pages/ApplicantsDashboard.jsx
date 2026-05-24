@@ -1,8 +1,6 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import CountryManagerModal from "../components/dashboard/CountryManagerModal";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import EntityFormModal from "../components/dashboard/EntityFormModal";
 import ApplicantsTable from "../components/dashboard/ApplicantsTable";
 import CompaniesTable from "../components/dashboard/CompaniesTable";
 import EmployersTable from "../components/dashboard/EmployersTable";
@@ -15,10 +13,16 @@ import API from "../services/api";
 import { getStoredUser } from "../utils/auth";
 import "../styles/applicantsDashboard.css";
 
+const CountryManagerModal = lazy(() => import("../components/dashboard/CountryManagerModal"));
+const EntityFormModal = lazy(() => import("../components/dashboard/EntityFormModal"));
+
 const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
+const COMPANY_LOOKUP_FIELDS = "id,name,countryId,companyPaymentPerApplicant,employerIds,createdAt";
+const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
+const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
 const pendingNumberFormatter = new Intl.NumberFormat("en-IN", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0
@@ -41,10 +45,6 @@ function formatPendingAmount(value) {
 function formatEuroAmount(value) {
   const amount = Number(value || 0);
   return amount > 0 ? `EUR ${euroNumberFormatter.format(amount)}` : "-";
-}
-
-function normalizeText(value) {
-  return String(value || "").trim().toLowerCase();
 }
 
 function getMultiParam(searchParams, key) {
@@ -97,10 +97,22 @@ function normalizeListResponse(response) {
   return [];
 }
 
+function incrementCount(map, key, amount = 1) {
+  if (!key) return;
+  map.set(key, (map.get(key) || 0) + amount);
+}
+
+function countBy(items, keyResolver) {
+  const counts = new Map();
+  items.forEach((item) => {
+    incrementCount(counts, keyResolver(item));
+  });
+  return counts;
+}
+
 function ApplicantsDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const searchParamsKey = searchParams.toString();
   const [user, setUser] = useState(() => getStoredUser());
   const [applicants, setApplicants] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -134,10 +146,10 @@ function ApplicantsDashboard() {
 
   const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : "applicants";
   const searchText = searchParams.get("q") || "";
-  const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParamsKey]);
-  const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParamsKey]);
-  const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParamsKey]);
-  const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParamsKey]);
+  const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParams]);
+  const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParams]);
+  const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParams]);
+  const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParams]);
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
 
   useEffect(() => {
@@ -238,6 +250,7 @@ function ApplicantsDashboard() {
             q: searchText || "",
             countryId: countryIds[0] || "",
             company: companyIds.join(","),
+            fields: COMPANY_LOOKUP_FIELDS,
             sortBy: "createdAt",
             sortOrder: "desc"
           },
@@ -255,12 +268,21 @@ function ApplicantsDashboard() {
           total: Number(companiesData?.pagination?.total || normalizedCompanies.length),
           totalPages: Number(companiesData?.pagination?.totalPages || 1)
         });
-        const employersData = await getCached("/employers", { params: { paginated: "false" }, ttlMs: 60000 });
+        const employersData = await getCached("/employers", {
+          params: { paginated: "false", fields: EMPLOYER_LOOKUP_FIELDS },
+          ttlMs: 60000
+        });
         setEmployers(Array.isArray(employersData) ? employersData : []);
       } else if (activeTab === "employers") {
         const [companiesData, employersData] = await Promise.all([
-          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
-          getCached("/employers", { params: entityParams, ttlMs: 30000 })
+          getCached("/companies", {
+            params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
+            ttlMs: 60000
+          }),
+          getCached("/employers", {
+            params: { ...entityParams, fields: EMPLOYER_LOOKUP_FIELDS },
+            ttlMs: 30000
+          })
         ]);
         setCompanies(normalizeListResponse(companiesData));
         const normalizedEmployers = Array.isArray(employersData)
@@ -277,8 +299,14 @@ function ApplicantsDashboard() {
         });
       } else if (activeTab === "agencies") {
         const [companiesData, agenciesData] = await Promise.all([
-          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
-          getCached("/agencies", { params: entityParams, ttlMs: 30000 })
+          getCached("/companies", {
+            params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
+            ttlMs: 60000
+          }),
+          getCached("/agencies", {
+            params: { ...entityParams, fields: AGENCY_LOOKUP_FIELDS },
+            ttlMs: 30000
+          })
         ]);
         setCompanies(normalizeListResponse(companiesData));
         const normalizedAgencies = Array.isArray(agenciesData)
@@ -295,8 +323,16 @@ function ApplicantsDashboard() {
         });
       } else {
         const [companiesData, agenciesData] = await Promise.all([
-          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
-          isSuperUser ? getCached("/agencies", { params: { paginated: "false" }, ttlMs: 30000 }) : Promise.resolve([])
+          getCached("/companies", {
+            params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
+            ttlMs: 60000
+          }),
+          isSuperUser
+            ? getCached("/agencies", {
+                params: { paginated: "false", fields: AGENCY_LOOKUP_FIELDS },
+                ttlMs: 30000
+              })
+            : Promise.resolve([])
         ]);
         setCompanies(normalizeListResponse(companiesData));
         setAgencies(normalizeListResponse(agenciesData));
@@ -344,6 +380,62 @@ function ApplicantsDashboard() {
     if (!countryIds.length) return companies;
     return companies.filter((company) => countryIds.includes(company.countryId));
   }, [companies, countryIds]);
+
+  const applicantWorkflowCounts = useMemo(
+    () => countBy(applicants, (applicant) => applicant.workflowStatus),
+    [applicants]
+  );
+  const applicantCountryCounts = useMemo(
+    () => countBy(applicants, (applicant) => applicant.countryId),
+    [applicants]
+  );
+  const applicantCompanyCounts = useMemo(
+    () => countBy(applicants, (applicant) => applicant.companyId),
+    [applicants]
+  );
+  const applicantAgencyCounts = useMemo(
+    () => countBy(applicants, (applicant) => applicant.agencyId),
+    [applicants]
+  );
+  const companyCountryCounts = useMemo(
+    () => countBy(companies, (company) => company.countryId),
+    [companies]
+  );
+  const employerCountryCounts = useMemo(
+    () => countBy(employers, (employer) => employer.countryId),
+    [employers]
+  );
+  const employerCompanyCounts = useMemo(
+    () => countBy(employers, (employer) => employer.companyId),
+    [employers]
+  );
+  const visibleCompanyCountryCounts = useMemo(
+    () => countBy(visibleCompanies, (company) => company.countryId),
+    [visibleCompanies]
+  );
+  const agencyCompanyCounts = useMemo(() => {
+    const counts = new Map();
+    agencies.forEach((agency) => {
+      (agency.assignedCompanyIds || []).forEach((companyId) => incrementCount(counts, companyId));
+    });
+    return counts;
+  }, [agencies]);
+  const agencyCountryCounts = useMemo(() => {
+    const counts = new Map();
+    agencies.forEach((agency) => {
+      const countryIdsForAgency = new Set(
+        (agency.assignedCompanyIds || [])
+          .map((companyId) => companyMap[companyId]?.countryId)
+          .filter(Boolean)
+      );
+      countryIdsForAgency.forEach((countryId) => incrementCount(counts, countryId));
+    });
+    return counts;
+  }, [agencies, companyMap]);
+  const attentionRequiredCount = useMemo(
+    () => applicants.reduce((total, applicant) => total + (applicant.attentionRequired ? 1 : 0), 0),
+    [applicants]
+  );
 
   useEffect(() => {
     if (companyIds.length && companyIds.some((id) => !visibleCompanies.some((company) => company.id === id))) {
@@ -421,14 +513,14 @@ function ApplicantsDashboard() {
 
   const paginatedRows = useMemo(() => {
     return currentRows;
-  }, [activeTab, currentRows, safePage]);
+  }, [currentRows]);
 
   const applicantTypeOptions = useMemo(() => {
     const options = [
       {
         value: "in_progress",
         label: "In Progress",
-        count: applicants.filter((applicant) => applicant.workflowStatus === "in_progress").length
+        count: applicantWorkflowCounts.get("in_progress") || 0
       }
     ];
 
@@ -436,18 +528,18 @@ function ApplicantsDashboard() {
       options.push({
         value: "attention_required",
         label: "Attention required",
-        count: applicants.filter((applicant) => applicant.attentionRequired).length
+        count: attentionRequiredCount
       });
     }
 
     options.push({
       value: "completed",
       label: "Completed",
-      count: applicants.filter((applicant) => applicant.workflowStatus === "completed").length
+      count: applicantWorkflowCounts.get("completed") || 0
     });
 
     return options;
-  }, [applicants, isEmployer]);
+  }, [applicantWorkflowCounts, attentionRequiredCount, isEmployer]);
 
   const countryOptions = useMemo(() => {
     const mappedCountryIds =
@@ -461,11 +553,11 @@ function ApplicantsDashboard() {
         value: country.id,
         label: country.name,
         count: mappedCountryIds
-          ? visibleCompanies.filter((company) => company.countryId === country.id).length
-          : applicants.filter((applicant) => applicant.countryId === country.id).length
+          ? visibleCompanyCountryCounts.get(country.id) || 0
+          : applicantCountryCounts.get(country.id) || 0
       }))
       .filter((item) => item.count > 0 || !mappedCountryIds);
-  }, [applicants, countries, isAgency, isEmployer, visibleCompanies]);
+  }, [applicantCountryCounts, countries, isAgency, isEmployer, visibleCompanies, visibleCompanyCountryCounts]);
 
   const companyCountryOptions = useMemo(
     () =>
@@ -473,10 +565,10 @@ function ApplicantsDashboard() {
         .map((country) => ({
           value: country.id,
           label: country.name,
-          count: companies.filter((company) => company.countryId === country.id).length
+          count: companyCountryCounts.get(country.id) || 0
         }))
         .filter((item) => item.count > 0),
-    [companies, countries]
+    [companyCountryCounts, countries]
   );
 
   const employerCountryOptions = useMemo(
@@ -485,10 +577,10 @@ function ApplicantsDashboard() {
         .map((country) => ({
           value: country.id,
           label: country.name,
-          count: employers.filter((employer) => employer.countryId === country.id).length
+          count: employerCountryCounts.get(country.id) || 0
         }))
         .filter((item) => item.count > 0),
-    [countries, employers]
+    [countries, employerCountryCounts]
   );
 
   const agencyCountryOptions = useMemo(
@@ -497,14 +589,10 @@ function ApplicantsDashboard() {
         .map((country) => ({
           value: country.id,
           label: country.name,
-          count: agencies.filter((agency) =>
-            (agency.assignedCompanyIds || []).some(
-              (companyId) => companyMap[companyId]?.countryId === country.id
-            )
-          ).length
+          count: agencyCountryCounts.get(country.id) || 0
         }))
         .filter((item) => item.count > 0),
-    [agencies, companyMap, countries]
+    [agencyCountryCounts, countries]
   );
 
   const companyOptions = useMemo(
@@ -512,9 +600,9 @@ function ApplicantsDashboard() {
       visibleCompanies.map((company) => ({
         value: company.id,
         label: company.name,
-        count: applicants.filter((applicant) => applicant.companyId === company.id).length
+        count: applicantCompanyCounts.get(company.id) || 0
       })),
-    [applicants, visibleCompanies]
+    [applicantCompanyCounts, visibleCompanies]
   );
 
   const employerCompanyOptions = useMemo(
@@ -523,9 +611,9 @@ function ApplicantsDashboard() {
         .map((company) => ({
           value: company.id,
           label: company.name,
-          count: employers.filter((employer) => employer.companyId === company.id).length
+          count: employerCompanyCounts.get(company.id) || 0
         })),
-    [employers, visibleCompanies]
+    [employerCompanyCounts, visibleCompanies]
   );
 
   const agencyCompanyOptions = useMemo(
@@ -534,9 +622,9 @@ function ApplicantsDashboard() {
         .map((company) => ({
           value: company.id,
           label: company.name,
-          count: agencies.filter((agency) => (agency.assignedCompanyIds || []).includes(company.id)).length
+          count: agencyCompanyCounts.get(company.id) || 0
         })),
-    [agencies, visibleCompanies]
+    [agencyCompanyCounts, visibleCompanies]
   );
 
   const agencyOptions = useMemo(
@@ -544,9 +632,9 @@ function ApplicantsDashboard() {
       agencies.map((agency) => ({
         value: agency.id,
         label: agency.name,
-        count: applicants.filter((applicant) => applicant.agencyId === agency.id).length
+        count: applicantAgencyCounts.get(agency.id) || 0
       })),
-    [agencies, applicants]
+    [agencies, applicantAgencyCounts]
   );
 
   const activeFilterChips = useMemo(() => {
@@ -615,7 +703,7 @@ function ApplicantsDashboard() {
   const handleOpenApplicant = (applicantId) => {
     prefetchCached(`/applicants/${applicantId}/workflow-bundle`, {
       params: { includeDetails: "false" },
-      ttlMs: 15000
+      ttlMs: 120000
     });
     navigate(`/applicants/${applicantId}${window.location.search || ""}`);
   };
@@ -985,39 +1073,43 @@ function ApplicantsDashboard() {
       </div>
 
       {entityModalType ? (
-        <EntityFormModal
-          type={entityModalType}
-          countries={countries}
-          companies={companies}
-          employers={employers}
-          editData={entityEditData}
-          onClose={() => {
-            setEntityModalType("");
-            setEntityEditData(null);
-          }}
-          onSaved={async (change) => {
-            setEntityModalType("");
-            setEntityEditData(null);
-            invalidateCache("/companies");
-            invalidateCache("/employers");
-            invalidateCache("/agencies");
-            const applied = applyOptimisticEntityChange(change);
-            if (!applied) {
-              setRefreshKey((value) => value + 1);
-            }
-          }}
-        />
+        <Suspense fallback={null}>
+          <EntityFormModal
+            type={entityModalType}
+            countries={countries}
+            companies={companies}
+            employers={employers}
+            editData={entityEditData}
+            onClose={() => {
+              setEntityModalType("");
+              setEntityEditData(null);
+            }}
+            onSaved={async (change) => {
+              setEntityModalType("");
+              setEntityEditData(null);
+              invalidateCache("/companies");
+              invalidateCache("/employers");
+              invalidateCache("/agencies");
+              const applied = applyOptimisticEntityChange(change);
+              if (!applied) {
+                setRefreshKey((value) => value + 1);
+              }
+            }}
+          />
+        </Suspense>
       ) : null}
 
       {showCountryManager ? (
-        <CountryManagerModal
-          countries={countries}
-          onClose={() => setShowCountryManager(false)}
-          onSaved={async () => {
-            invalidateCache("/countries");
-            setRefreshKey((value) => value + 1);
-          }}
-        />
+        <Suspense fallback={null}>
+          <CountryManagerModal
+            countries={countries}
+            onClose={() => setShowCountryManager(false)}
+            onSaved={async () => {
+              invalidateCache("/countries");
+              setRefreshKey((value) => value + 1);
+            }}
+          />
+        </Suspense>
       ) : null}
     </div>
   );

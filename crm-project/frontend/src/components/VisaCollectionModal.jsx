@@ -41,20 +41,8 @@ function formatTime(value) {
   return date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-const calendarIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-    <path
-      d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
-      stroke="currentColor"
-      strokeWidth="1.7"
-      strokeLinecap="round"
-    />
-  </svg>
-);
-
 const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
   <div className="workflowDateShell">
-    <span className="workflowDateIcon workflowDateIconLeft" aria-hidden="true">{calendarIcon}</span>
     <input
       ref={ref}
       value={value || ""}
@@ -63,7 +51,6 @@ const CustomDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) 
       readOnly
       className="workflowDateInput"
     />
-    <span className="workflowDateIcon" aria-hidden="true">{calendarIcon}</span>
   </div>
 ));
 
@@ -357,75 +344,80 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
 
             {canAddTicket ? (
               <div className="workflowModalBody">
-              <div className="contractUploadPanel workflowEntryPanel workflowTicketUploadPanel">
-                <div className="workflowDetailHeader workflowDetailHeaderInline">
-                  <span className="workflowDetailHeaderIcon" aria-hidden="true">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-                      <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <span>Travel Details</span>
-                </div>
-                <div className="contractFormGrid">
-                  <div className="input-field">
-                    <label className="contractUploadLabel">Travel Date</label>
-                    <DatePicker
-                      selected={travelDate}
-                      onChange={(date) => setTravelDate(date)}
-                      portalId="root"
-                      popperPlacement="bottom-start"
-                      minDate={getTomorrow()}
-                      dateFormat="dd/MM/yyyy"
-                      showMonthDropdown
-                      showYearDropdown
-                      dropdownMode="select"
-                      customInput={<CustomDateInput placeholder="Select travel date" />}
-                    />
+                <div className="workflowDetailCard workflowTicketUploadCard">
+                  <div className="workflowDetailHeader">
+                    <span className="workflowDetailHeaderIcon" aria-hidden="true">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                    <span>Travel Details</span>
                   </div>
 
-                  <div className="input-field">
-                    <label className="contractUploadLabel" htmlFor="visa-travel-time">
-                      Travel Time
-                    </label>
-                    <input
-                      id="visa-travel-time"
-                      type="time"
-                      value={travelTime}
-                      disabled={isBusy}
-                      onClick={openTimePicker}
-                      onFocus={openTimePicker}
-                      onChange={(event) => setTravelTime(event.target.value)}
-                    />
+                  <div className="workflowDetailBody workflowTicketUploadBody">
+                    <div className="workflowTravelEntryGrid">
+                      <div className="input-field">
+                        <label className="contractUploadLabel">Travel Date</label>
+                        <DatePicker
+                          selected={travelDate}
+                          onChange={(date) => setTravelDate(date)}
+                          portalId="root"
+                          popperPlacement="bottom-start"
+                          minDate={getTomorrow()}
+                          dateFormat="dd/MM/yyyy"
+                          showMonthDropdown
+                          showYearDropdown
+                          dropdownMode="select"
+                          customInput={<CustomDateInput placeholder="Select travel date" />}
+                        />
+                      </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="visa-travel-time">
+                          Travel Time
+                        </label>
+                        <input
+                          id="visa-travel-time"
+                          type="time"
+                          value={travelTime}
+                          disabled={isBusy}
+                          onClick={openTimePicker}
+                          onFocus={openTimePicker}
+                          onChange={(event) => setTravelTime(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="visa-travel-file">
+                          Ticket (Optional)
+                        </label>
+                        <label className="workflowUploadBox" htmlFor="visa-travel-file">
+                          <input
+                            id="visa-travel-file"
+                            type="file"
+                            className="contractFileInput"
+                            disabled={isBusy}
+                            onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
+                          />
+                          <span className="workflowUploadBoxIcon" aria-hidden="true">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                              <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
+                          <span className="workflowUploadBoxText">
+                            <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 </div>
-
-                <div className="contractUploadLabel">Ticket (Optional)</div>
-                <label className="workflowUploadBox" htmlFor="visa-travel-file">
-                  <input
-                    id="visa-travel-file"
-                    type="file"
-                    className="contractFileInput"
-                    disabled={isBusy}
-                    onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
-                  />
-                  <span className="workflowUploadBoxIcon" aria-hidden="true">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </span>
-                  <span className="workflowUploadBoxText">
-                    <span className="workflowUploadBoxTitle">Choose file</span>
-                    <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
-                    <span className="workflowUploadBoxMeta">Upload png, pdf or jpeg within 2MB</span>
-                  </span>
-                </label>
 
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveTicket}>
                     {savingTicket ? "Saving..." : "Save Ticket Details"}
                   </button>
                 </div>
-              </div>
               </div>
             ) : null}
 

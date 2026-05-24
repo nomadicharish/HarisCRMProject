@@ -63,3 +63,40 @@
 .line.completed{
   background:#4CAF50;
 }
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .pipeline-container{
+    align-items:flex-start;
+    gap:12px;
+    overflow-x:auto;
+    padding-bottom:6px;
+  }
+
+  .pipeline-step{
+    min-width:92px;
+  }
+}
+
+@media (max-width: 480px){
+  .pipeline-container{
+    align-items:flex-start;
+    flex-direction:column;
+    gap:14px;
+  }
+
+  .pipeline-step{
+    width:100%;
+    align-items:flex-start;
+    flex-direction:row;
+    gap:10px;
+  }
+
+  .label{
+    margin-top:0;
+    text-align:left;
+  }
+
+  .line{
+    display:none;
+  }
+}

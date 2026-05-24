@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ProtectedRoute from "./components/ProtectedRoute";
+import { getStoredToken } from "./utils/auth";
 
 const ApplicantDispatchWorkspace = lazy(() => import("./pages/ApplicantDispatchWorkspace"));
 const ApplicantDocumentsWorkspace = lazy(() => import("./pages/ApplicantDocumentsWorkspace"));
@@ -22,8 +23,10 @@ function App() {
   useEffect(() => {
     const preload = () => {
       import("./pages/Login");
-      import("./pages/ApplicantsDashboard");
-      import("./pages/ApplicantProfile");
+      if (getStoredToken()) {
+        import("./pages/ApplicantsDashboard");
+        import("./pages/ApplicantProfile");
+      }
     };
 
     if (typeof window !== "undefined" && "requestIdleCallback" in window) {

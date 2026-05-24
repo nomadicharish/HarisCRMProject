@@ -131,7 +131,7 @@
 
 .paymentInfoStrip{
   min-height:54px;
-  background:#fff;
+  background:#eef5ff;
   border:1px solid #e8edf5;
   border-radius:10px;
   padding:10px 12px;
@@ -450,7 +450,7 @@
 }
 
 .paymentInfoAmount{
-  font-size:20px;
+  font-size:18px;
   font-weight:600;
   color:#111827;
 }
@@ -504,8 +504,131 @@
   max-width:1440px;
 }
 
+.paymentInfoStrip{
+  min-height:0;
+  border:1px solid #e6edf5;
+  border-radius:18px;
+  background:#eef5ff;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+  overflow:hidden;
+  padding:0;
+}
+
+.paymentInfoStripLeft{
+  flex:1 1 auto;
+  min-width:0;
+  background:#eef5ff;
+  color:#0f172a;
+  padding:18px 22px;
+  gap:10px;
+}
+
+.paymentInfoIcon{
+  width:42px;
+  height:42px;
+  background:#2f6fed;
+  color:#ffffff;
+}
+
+.paymentSummaryLabel{
+  color:var(--ui-blue);
+  font-size:14px;
+  font-weight:600;
+}
+
+.paymentInfoMeta{
+  color:var(--ui-text-soft);
+}
+
+.paymentStripAction{
+  margin:18px 22px 18px auto;
+  flex:0 0 auto;
+}
+
+.paymentHistoryTitle{
+  margin:0 0 10px;
+  font-size:18px;
+  font-weight:600;
+  color:var(--ui-text-strong);
+}
+
 @media (max-width: 900px){
   .paymentLayout{
     grid-template-columns:1fr;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .paymentPage{
+    max-width:100%;
+  }
+
+  .paymentLayout{
+    grid-template-columns:1fr;
+  }
+
+  .paymentInfoStrip{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+
+  .paymentHistoryTableWrap{
+    overflow-x:auto;
+  }
+}
+
+@media (max-width: 480px){
+  .paymentPage{
+    max-width:100%;
+  }
+
+  .paymentLayout{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+
+  .paymentInfoStrip,
+  .paymentInfoStripLeft,
+  .paymentInfoLine{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .paymentInfoStrip{
+    min-height:0;
+    padding:0;
+  }
+
+  .paymentInfoStripLeft{
+    width:100%;
+    padding:16px;
+  }
+
+  .paymentStripAction{
+    margin:0 16px 16px;
+  }
+
+  .paymentInfoLine{
+    gap:2px;
+    white-space:normal;
+  }
+
+  .paymentStripAction,
+  .paymentBackLink{
+    width:100%;
+    justify-content:center;
+  }
+
+  .paymentHistoryCard{
+    padding:16px;
+  }
+
+  .paymentHistoryTableWrap{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .paymentHistoryTable{
+    min-width:560px;
   }
 }

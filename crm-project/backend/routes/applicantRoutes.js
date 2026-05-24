@@ -25,7 +25,6 @@ const {
   idDocTypeParamsSchema,
   idParamsSchema,
   interviewBodySchema,
-  interviewOrStageParamsSchema,
   rejectDocumentSchema,
   residencePermitBodySchema,
   travelBodySchema,
@@ -33,10 +32,6 @@ const {
   uploadDocumentBodySchema,
   visaTravelBodySchema
 } = require("../validators/applicantSchemas");
-const {
-  addDispatch,
-  getDispatches
-} = applicantController;
 const uploadDoc = require("../middleware/upload");
 
 router.use(verifyToken);

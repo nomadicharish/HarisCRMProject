@@ -40,6 +40,7 @@ function ApplicantPayments() {
   const { id } = useParams();
   const navigate = useNavigate();
   const initialPaymentPage = readCached(`/applicants/${id}/payments-page`) || null;
+  const paymentPageCacheTtlMs = 120000;
   const initialSidebarProfile = readCached(getApplicantSidebarCacheKey(id)) || null;
   const [user, setUser] = useState(() => getStoredUser());
   const [applicant, setApplicant] = useState(initialSidebarProfile?.applicant || initialPaymentPage?.applicant || null);
@@ -59,7 +60,7 @@ function ApplicantPayments() {
     try {
       setLoading(true);
       const [paymentPageRes, userRes] = await Promise.allSettled([
-        getCached(`/applicants/${id}/payments-page`, { ttlMs: 15000 }),
+        getCached(`/applicants/${id}/payments-page`, { ttlMs: paymentPageCacheTtlMs }),
         user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 })
       ]);
 
@@ -84,7 +85,7 @@ function ApplicantPayments() {
 
       if (nextSidebarProfile) {
         setSidebarProfile(nextSidebarProfile);
-        writeCached(getApplicantSidebarCacheKey(id), nextSidebarProfile, { ttlMs: 15000 });
+        writeCached(getApplicantSidebarCacheKey(id), nextSidebarProfile, { ttlMs: paymentPageCacheTtlMs });
       }
     } catch (error) {
       console.error(error);
@@ -92,7 +93,7 @@ function ApplicantPayments() {
     } finally {
       setLoading(false);
     }
-  }, [id, user]);
+  }, [id, paymentPageCacheTtlMs, user]);
 
   useEffect(() => {
     loadData();
@@ -184,7 +185,7 @@ function ApplicantPayments() {
           pendingAmount: nextPendingInr
         };
       },
-      { ttlMs: 15000 }
+      { ttlMs: paymentPageCacheTtlMs }
     );
 
     try {
@@ -226,7 +227,7 @@ function ApplicantPayments() {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container dashboardPageContainer">
       <DashboardTopbar user={user} />
       <div className="page-content paymentPage paymentLayout">
         <aside className="paymentSidebar">
@@ -254,7 +255,6 @@ function ApplicantPayments() {
                 </svg>
               </div>
               <div className="paymentInfoText">
-                <div className="paymentSummaryLabel">Payment Summary</div>
                 <div className="paymentInfoLine">
                   <span className="paymentInfoAmount">{formatCurrency(applicantPayment.paidInr)}</span>
                   <span className="paymentInfoDivider">/</span>

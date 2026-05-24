@@ -96,6 +96,7 @@
   color:#6b7c99;
   font-size:15px;
   text-align:left;
+  border-radius:0 !important;
 }
 
 .settingsNavItemActive{
@@ -333,6 +334,82 @@
 
   .settingsProfileHead{
     flex-direction:column;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .settingsPage{
+    padding:20px;
+  }
+
+  .settingsShell{
+    width:100%;
+    max-width:100%;
+    margin:20px auto 0;
+  }
+
+  .settingsShellBody{
+    grid-template-columns:1fr;
+  }
+
+  .settingsSidebar{
+    border-right:none;
+    border-bottom:1px solid #e4e9f3;
+  }
+
+  .settingsBlock,
+  .settingsFieldGroup{
+    max-width:100%;
+  }
+}
+
+@media (max-width: 480px){
+  .settingsPage{
+    padding:0 12px 20px;
+  }
+
+  .settingsTopbar{
+    height:auto;
+    min-height:56px;
+    padding:10px 12px;
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .settingsShell{
+    width:100%;
+    max-width:100%;
+    margin:14px auto 0;
+  }
+
+  .settingsShellHeader,
+  .settingsContent{
+    padding:16px;
+  }
+
+  .settingsShellBody{
+    grid-template-columns:1fr;
+  }
+
+  .settingsSidebar{
+    border-right:none;
+    border-bottom:1px solid #e4e9f3;
+  }
+
+  .settingsProfileHead,
+  .settingsInlineActions{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .settingsBlock,
+  .settingsFieldGroup{
+    max-width:100%;
+  }
+
+  .settingsPrimaryBtn,
+  .settingsMutedBtn{
+    width:100%;
   }
 }
 

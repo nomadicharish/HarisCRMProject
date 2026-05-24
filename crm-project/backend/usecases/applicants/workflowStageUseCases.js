@@ -1,7 +1,10 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
-const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
-const { getAuthenticatedUserFromReq } = require("../../services/applicantDomainService");
+const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
+const {
+  buildApplicantListDerivedFields,
+  getAuthenticatedUserFromReq
+} = require("../../services/applicantDomainService");
 const {
   AUTO_STAGE_IDS,
   MANUAL_STAGE_IDS,
@@ -40,7 +43,7 @@ async function addAppointmentUseCase(req) {
     },
     { merge: true }
   );
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Appointment added successfully" };
 }
 
@@ -66,7 +69,7 @@ async function approveAppointmentUseCase(req) {
     },
     { merge: true }
   );
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
 
   let newStage = null;
   if (type === "EMBASSY_APPOINTMENT") newStage = 6;
@@ -144,9 +147,12 @@ async function approveAndMoveStageUseCase(req) {
     updatePayload.approvedAt = new Date();
     updatePayload.approvedBy = req.user.uid;
   }
+  Object.assign(updatePayload, buildApplicantListDerivedFields({
+    ...applicant,
+    ...updatePayload
+  }));
 
   await docRef.update(updatePayload);
-  await refreshApplicantSummaries(applicantId);
   await addStageLog({
     applicantId,
     fromStage: currentStage,

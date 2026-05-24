@@ -149,3 +149,48 @@
 .dispatchModalFooterBtn{
   min-width:128px;
 }
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .dispatchHistoryModalCard{
+    width:100%;
+    max-width:100%;
+  }
+
+  .dispatchSectionCompact{
+    padding:20px;
+  }
+}
+
+@media (max-width: 480px){
+  .dispatchTopBar,
+  .dispatchHistoryHeader,
+  .dispatchModalHero,
+  .dispatchModalFooter,
+  .dispatchFormActions{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .dispatchHistoryModalCard{
+    width:100%;
+    max-width:100%;
+  }
+
+  .dispatchSectionCompact,
+  .dispatchModalHero{
+    padding:16px;
+  }
+
+  .dispatchModalFooter{
+    padding:0 16px 16px;
+  }
+
+  .dispatchTrackingLink{
+    max-width:100%;
+  }
+
+  .dispatchModalFooterBtn,
+  .dispatchFormActions > *{
+    width:100%;
+  }
+}

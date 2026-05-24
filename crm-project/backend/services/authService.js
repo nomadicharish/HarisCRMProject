@@ -88,7 +88,35 @@ async function checkEmailExists(email) {
     .limit(1)
     .get();
 
-  const userData = snapshot.empty ? null : snapshot.docs[0].data();
+  let userDoc = snapshot.empty ? null : snapshot.docs[0];
+
+  if (!userDoc) {
+    try {
+      const authUser = await admin.auth().getUserByEmail(normalizedEmail);
+      const fallbackDoc = await db.collection("users").doc(authUser.uid).get();
+      if (fallbackDoc.exists) {
+        userDoc = fallbackDoc;
+      }
+    } catch (error) {
+      if (error?.code !== "auth/user-not-found") {
+        throw error;
+      }
+    }
+  }
+
+  if (!userDoc) {
+    const legacySnapshot = await db.collection("users").get();
+    for (const doc of legacySnapshot.docs) {
+      const data = doc.data() || {};
+      const storedEmail = await readEncryptedUserEmail(data);
+      if (normalizeEmailValue(storedEmail) === normalizedEmail) {
+        userDoc = doc;
+        break;
+      }
+    }
+  }
+
+  const userData = userDoc ? userDoc.data() : null;
 
   if (!userData) {
     throw new AppError("Email is not registered in the system", 404);
@@ -96,6 +124,16 @@ async function checkEmailExists(email) {
 
   if (userData?.active === false) {
     throw new AppError("User account is inactive", 400);
+  }
+
+  if (!userData.normalizedEmail) {
+    await userDoc.ref.set(
+      {
+        normalizedEmail,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
   }
 
   return { exists: true };

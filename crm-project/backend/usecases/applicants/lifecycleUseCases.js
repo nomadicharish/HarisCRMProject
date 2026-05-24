@@ -1,7 +1,12 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
-const { resolveApplicantTotalEur, toNumber } = require("../../services/applicantDomainService");
+const {
+  buildApplicantListDerivedFields,
+  resolveApplicantReferenceFields,
+  resolveApplicantTotalEur,
+  toNumber
+} = require("../../services/applicantDomainService");
 const { approveAndMoveStageUseCase } = require("./workflowStageUseCases");
 
 async function approveApplicantUseCase(req) {
@@ -21,6 +26,11 @@ async function approveApplicantUseCase(req) {
   await ref.update({
     approvalStatus: "approved",
     applicantBannerStatus: "Document upload pending",
+    ...buildApplicantListDerivedFields({
+      ...data,
+      approvalStatus: "approved",
+      applicantBannerStatus: "Document upload pending"
+    }),
     approvedBy: userId,
     approvedAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -48,6 +58,11 @@ async function completeApplicantUseCase(req) {
   await docRef.update({
     stage: 12,
     applicantBannerStatus: "Candidate Arrived and Process Completed",
+    ...buildApplicantListDerivedFields({
+      ...data,
+      stage: 12,
+      applicantBannerStatus: "Candidate Arrived and Process Completed"
+    }),
     completedAt: new Date(),
     completedBy: req.user.uid,
     stageUpdatedAt: new Date()
@@ -66,13 +81,22 @@ async function updateApplicantUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const incomingTotal = toNumber(req.body?.totalApplicantPayment ?? req.body?.totalAmount);
+  const mergedApplicant = { ...applicantSnap.data(), ...req.body };
   const resolvedTotal =
     incomingTotal > 0
       ? incomingTotal
-      : await resolveApplicantTotalEur({ ...applicantSnap.data(), ...req.body });
+      : await resolveApplicantTotalEur(mergedApplicant);
+  const referenceFields = await resolveApplicantReferenceFields(mergedApplicant);
 
   await applicantRef.update({
     ...req.body,
+    ...referenceFields,
+    ...buildApplicantListDerivedFields({
+      ...mergedApplicant,
+      ...referenceFields,
+      totalApplicantPayment: resolvedTotal,
+      totalAmount: resolvedTotal
+    }),
     totalApplicantPayment: resolvedTotal,
     totalAmount: resolvedTotal,
     updatedAt: new Date()
@@ -81,6 +105,7 @@ async function updateApplicantUseCase(req) {
   await refreshApplicantSummaries(id, {
     ...applicantSnap.data(),
     ...req.body,
+    ...referenceFields,
     totalApplicantPayment: resolvedTotal,
     totalAmount: resolvedTotal
   });

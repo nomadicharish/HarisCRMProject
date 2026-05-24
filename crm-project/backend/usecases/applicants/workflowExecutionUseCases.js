@@ -1,7 +1,7 @@
 const { db, admin } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { normalizeDate } = require("../../services/applicantDomainService");
-const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
+const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { addStageLog, autoAdvanceStage } = require("../../services/applicantWorkflowStageService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 
@@ -114,7 +114,7 @@ async function uploadContractUseCase(req) {
     }
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return {
     message: "Contract uploaded successfully",
     fileUrl,
@@ -163,7 +163,7 @@ async function approveContractUseCase(req) {
     });
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Contract approved successfully" };
 }
 
@@ -229,7 +229,7 @@ async function addEmbassyInterviewUseCase(req) {
     });
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Embassy interview added" };
 }
 
@@ -250,7 +250,7 @@ async function approveEmbassyInterviewUseCase(req) {
     stageUpdatedAt: new Date()
   });
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Interview approved & stage moved" };
 }
 

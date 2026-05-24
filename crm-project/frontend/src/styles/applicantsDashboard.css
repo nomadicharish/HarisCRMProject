@@ -1387,7 +1387,7 @@
 }
 
 .dashboardBrand{
-  font-size:20px;
+  font-size:18px;
   font-weight:600;
   color:var(--ui-text-strong);
 }
@@ -1527,4 +1527,191 @@
 
 .dashboardNameCell{
   gap:8px;
+}
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .dashboardPage{
+    padding-top:0;
+  }
+
+  .dashboardTopbar{
+    position:sticky;
+    height:auto;
+    min-height:64px;
+    padding:12px 18px;
+    align-items:center;
+    flex-wrap:wrap;
+  }
+
+  .dashboardBrand{
+    flex:1 1 auto;
+  }
+
+  .dashboardTabs{
+    order:3;
+    width:100%;
+    justify-content:flex-start;
+    gap:18px;
+    overflow-x:auto;
+    padding-bottom:4px;
+  }
+
+  .dashboardContent{
+    grid-template-columns:1fr;
+    max-width:100%;
+    padding:16px;
+  }
+
+  .dashboardSidebar,
+  .dashboardMain,
+  .dashboardFilterCard{
+    width:100%;
+  }
+
+  .dashboardFilterCard{
+    min-height:auto;
+  }
+
+  .dashboardResultsHeader{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+
+  .dashboardTableCard,
+  .dashboardVirtualTable{
+    overflow-x:auto;
+  }
+
+  .dashboardTable,
+  .dashboardVirtualHeader,
+  .dashboardVirtualRow{
+    min-width:720px;
+  }
+
+  .dashboardEntityModal,
+  .dashboardCountryModal,
+  .dashboardConfirmModal{
+    width:min(100%, 760px);
+  }
+}
+
+@media (max-width: 480px){
+  .dashboardPage{
+    padding-top:0;
+  }
+
+  .dashboardTopbar{
+    position:sticky;
+    height:auto;
+    min-height:0;
+    padding:10px 12px;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    gap:10px;
+  }
+
+  .dashboardBrand{
+    width:100%;
+    font-size:16px;
+    white-space:normal;
+  }
+
+  .dashboardTopbarRight{
+    width:100%;
+    flex-direction:column;
+    align-items:stretch;
+    gap:10px;
+  }
+
+  .dashboardActionGroup{
+    width:100%;
+    justify-content:flex-start;
+  }
+
+  .dashboardActionGroup > *,
+  .dashboardPrimaryBtn,
+  .dashboardSecondaryBtn{
+    width:100%;
+    justify-content:center;
+  }
+
+  .dashboardTabs{
+    order:3;
+    width:100%;
+    justify-content:flex-start;
+    gap:14px;
+    overflow-x:auto;
+    padding-bottom:6px;
+  }
+
+  .dashboardTab{
+    flex:0 0 auto;
+  }
+
+  .dashboardContent{
+    grid-template-columns:1fr;
+    max-width:100%;
+    padding:12px;
+    gap:12px;
+  }
+
+  .dashboardSidebar,
+  .dashboardMain,
+  .dashboardFilterCard{
+    width:100%;
+  }
+
+  .dashboardFilterCard{
+    min-height:auto;
+    padding:14px;
+    border-radius:14px;
+  }
+
+  .dashboardResultsHeader,
+  .dashboardPagination,
+  .dashboardCountryAddRow,
+  .dashboardCountryRowEditing{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .dashboardResultsCount{
+    font-size:14px;
+  }
+
+  .dashboardTableCard,
+  .dashboardVirtualTable{
+    overflow-x:auto;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .dashboardTable,
+  .dashboardVirtualHeader,
+  .dashboardVirtualRow{
+    min-width:680px;
+  }
+
+  .dashboardEntityModal,
+  .dashboardCountryModal,
+  .dashboardConfirmModal{
+    width:100%;
+    max-width:100%;
+  }
+
+  .dashboardModalHeader,
+  .dashboardConfirmActions{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .dashboardPhoneSplitWrap{
+    grid-template-columns:1fr;
+  }
+
+  .dashboardProfilePanel{
+    top:10px;
+    right:10px;
+    left:10px;
+    width:auto;
+  }
 }

@@ -50,8 +50,9 @@ const handleBlur = (event, hasError) => {
 
 const input = {
   width: "100%",
-  padding: "6px",
-  minHeight: "36px",
+  height: "44px",
+  minHeight: "44px",
+  padding: "0 10px",
   borderRadius: 0,
   border: `1px solid ${THEME.border}`,
   background: "#FAFBFC",
@@ -191,20 +192,40 @@ function CompanyFormPage() {
   const customSelectStyles = {
     control: (base, state) => ({
       ...base,
-      padding: "2px",
+      padding: 0,
       borderRadius: 0,
       border: `1px solid ${
         state.selectProps.hasError ? THEME.error : state.isFocused ? THEME.primary : THEME.border
       }`,
       boxShadow: "none",
-      minHeight: "36px",
+      minHeight: "44px",
+      height: "44px",
       "&:hover": {
         border: `1px solid ${state.selectProps.hasError ? THEME.error : THEME.primary}`
       }
     }),
     valueContainer: (base) => ({
       ...base,
-      padding: "0 10px"
+      height: "42px",
+      padding: "0 10px",
+      flexWrap: "nowrap",
+      overflow: "hidden"
+    }),
+    placeholder: (base) => ({
+      ...base,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis"
+    }),
+    singleValue: (base) => ({
+      ...base,
+      whiteSpace: "nowrap",
+      overflow: "hidden",
+      textOverflow: "ellipsis"
+    }),
+    indicatorsContainer: (base) => ({
+      ...base,
+      height: "42px"
     }),
     menu: (base) => ({
       ...base,
@@ -219,12 +240,23 @@ function CompanyFormPage() {
     }),
     input: (base) => ({
       ...base,
+      margin: 0,
+      padding: 0,
+      minHeight: 0,
       boxShadow: "none",
       border: "none"
     }),
     multiValue: (base) => ({
       ...base,
-      borderRadius: 0
+      borderRadius: 0,
+      maxWidth: "130px",
+      flex: "0 0 auto"
+    }),
+    multiValueLabel: (base) => ({
+      ...base,
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
     })
   };
 
@@ -399,7 +431,7 @@ function CompanyFormPage() {
   }
 
   return (
-    <div className="page-container">
+    <div className="page-container companyFormPage">
       <BlockingLoader open={saving} label={isEdit ? "Updating company..." : "Saving company..."} />
       <DashboardTopbar user={currentUser} />
       <div className="page-content" style={{ maxWidth: "980px" }}>
@@ -423,8 +455,9 @@ function CompanyFormPage() {
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
             <div style={{ gridColumn: "1 / -1" }}>
-              <label style={label}>Company Name</label>
+              <label style={label} htmlFor="company-name">Company Name</label>
               <input
+                id="company-name"
                 style={{ ...input, border: errors.name ? `1px solid ${THEME.error}` : input.border }}
                 value={form.name}
                 onFocus={handleFocus}
@@ -467,8 +500,9 @@ function CompanyFormPage() {
             </div>
 
             <div>
-              <label style={label}>Total Amount (€)</label>
+              <label style={label} htmlFor="company-total-amount">Total Amount (EUR)</label>
               <input
+                id="company-total-amount"
                 style={{
                   ...input,
                   border: errors.companyPaymentPerApplicant ? `1px solid ${THEME.error}` : input.border
@@ -508,9 +542,10 @@ function CompanyFormPage() {
                   }}
                 >
                   <div>
-                    <label style={label}>Document Name</label>
+                    <label style={label} htmlFor={`document-name-${document.rowKey}`}>Document Name</label>
                     <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
                       <input
+                        id={`document-name-${document.rowKey}`}
                         style={{
                           ...input,
                           flex: "1 1 220px",
@@ -546,15 +581,22 @@ function CompanyFormPage() {
 
                   <div>
                     <label style={label}>Document to fill</label>
-                    <label className="docsFileCard" style={{ marginBottom: "8px" }}>
+                    <label className="docsFileBox docsFileBoxUpload companyTemplateUpload">
                       <input
                         type="file"
                         className="docsFileInput"
                         onChange={(event) => updateDocument(document.rowKey, "file", event.target.files?.[0] || null)}
                       />
-                      <span className="docsFileCardTitle">
-                        {document.file?.name || document.templateFileName || "Upload document"}
-                      </span>
+                      <div className="docsFileBoxLeft">
+                        <div>
+                          <div className="docsFileName">
+                            {document.file?.name || document.templateFileName || "Choose file"}
+                          </div>
+                          <div className="docsFileMeta">
+                            {document.file || document.templateFileName ? "Template document selected" : "No file chosen"}
+                          </div>
+                        </div>
+                      </div>
                     </label>
 
                     {document.templateFileUrl ? (

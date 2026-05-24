@@ -3,19 +3,10 @@ import { useNavigate } from "react-router-dom";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import PageLoader from "../components/common/PageLoader";
+import { getCached, readCached, writeCached } from "../services/cachedApi";
 import { getStoredUser } from "../utils/auth";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
-
-function BrandMark() {
-  return (
-    <svg className="settingsBrandIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 7.2V10c0 5.4-3.6 9.8-8 11-4.4-1.2-8-5.6-8-11V7.2L12 3Z" fill="currentColor" />
-      <path d="M12 3v18" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-      <path d="M6 9h12" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-    </svg>
-  );
-}
 
 function getInitials(name) {
   const parts = String(name || "")
@@ -31,15 +22,16 @@ function getInitials(name) {
 function Settings() {
   const navigate = useNavigate();
   const storedUser = getStoredUser();
-  const [loading, setLoading] = useState(true);
+  const cachedSettings = readCached("/auth/settings");
+  const [loading, setLoading] = useState(!cachedSettings);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [form, setForm] = useState({
-    name: "",
-    email: "",
-    contactNumber: "",
-    passwordMasked: "********"
+    name: cachedSettings?.name || "",
+    email: cachedSettings?.email || "",
+    contactNumber: cachedSettings?.contactNumber || "",
+    passwordMasked: cachedSettings?.passwordMasked || "********"
   });
 
   useEffect(() => {
@@ -47,9 +39,8 @@ function Settings() {
 
     async function loadSettings() {
       try {
-        const response = await API.get("/auth/settings");
+        const userData = await getCached("/auth/settings", { ttlMs: 120000 });
         if (!active) return;
-        const userData = response.data || {};
         setForm({
           name: userData?.name || "",
           email: userData?.email || "",
@@ -84,6 +75,14 @@ function Settings() {
       setError("");
       setSuccessMessage("");
       await API.patch("/auth/settings", { contactNumber: form.contactNumber.trim() });
+      writeCached(
+        "/auth/settings",
+        {
+          ...form,
+          contactNumber: form.contactNumber.trim()
+        },
+        { ttlMs: 120000 }
+      );
       setSuccessMessage("Settings updated successfully.");
     } catch (saveError) {
       setError(saveError?.response?.data?.message || "Unable to update settings");
@@ -106,14 +105,6 @@ function Settings() {
             <button type="button" className="settingsNavItem settingsNavItemActive">
               <span className="settingsNavIcon" />
               <span>General</span>
-            </button>
-            <button type="button" className="settingsNavItem" disabled>
-              <span className="settingsNavIcon" />
-              <span>Notifications</span>
-            </button>
-            <button type="button" className="settingsNavItem" disabled>
-              <span className="settingsNavIcon" />
-              <span>Account</span>
             </button>
           </aside>
 

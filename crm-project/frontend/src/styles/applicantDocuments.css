@@ -57,6 +57,12 @@
   gap:12px;
 }
 
+.docsTopBarText{
+  min-width:0;
+  flex:1 1 auto;
+  text-align:left;
+}
+
 .docsTopBarIcon{
   width:34px;
   height:34px;
@@ -825,24 +831,25 @@
   min-height:64px;
   padding:0;
   border:1px solid #dfe7f3;
-  border-radius:14px;
+  border-radius:18px;
   background:#ffffff;
   box-shadow:0 12px 32px rgba(15, 23, 42, 0.06);
+  overflow:hidden;
 }
 
 .docsTopBarContent{
-  background:#ffffff;
-  color:#1d4ed8;
-  padding:14px 28px;
-  gap:18px;
+  background:#eef5ff;
+  color:#0f172a;
+  padding:18px 22px;
+  gap:10px;
   justify-content:flex-start;
 }
 
 .docsTopBarIcon{
-  width:52px;
-  height:52px;
-  background:#eaf1ff;
-  color:#2563eb;
+  width:42px;
+  height:42px;
+  background:#2f6fed;
+  color:#ffffff;
 }
 
 .docsTopBarTitle,
@@ -850,13 +857,13 @@
 .docsTopBar-successSoft .docsTopBarTitle,
 .docsTopBar-neutral .docsTopBarTitle{
   color:#2563eb;
-  font-size:17px;
-  font-weight:700;
+  font-size:14px;
+  font-weight:600;
   text-align:left;
 }
 
 .docsTopBarSubtitle{
-  color:#6b7a99;
+  color:var(--ui-text-soft);
   font-size:13px;
   font-weight:400;
   text-align:left;
@@ -871,6 +878,7 @@
   color:#ffffff;
   font-size:14px;
   font-weight:700;
+  margin-left:auto;
 }
 
 .docsTopBarButton:hover:not(:disabled){
@@ -968,30 +976,29 @@
   border-radius:999px;
   font-size:12px;
   font-weight:700;
+  background:transparent !important;
+  border:none !important;
+  padding-left:0;
+  padding-right:0;
 }
 
 .docsStatusBadge.is-selected{
-  background:#eaf1ff;
   color:#1767ea;
 }
 
 .docsStatusBadge.is-warning{
-  background:#fff4df;
   color:#f59e0b;
 }
 
 .docsStatusBadge.is-danger{
-  background:#ffe6e6;
   color:#ef4444;
 }
 
 .docsStatusBadge.is-success{
-  background:#e7f8ee;
   color:#16a34a;
 }
 
 .docsStatusBadge.is-pending{
-  background:#f4f6fb;
   color:#64748b;
 }
 
@@ -1029,4 +1036,115 @@
   background-position:center;
   background-size:contain;
   flex:0 0 auto;
+}
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .docsWorkspacePage{
+    max-width:100%;
+  }
+
+  .docsWorkspacePage .applicantProfileLayout{
+    grid-template-columns:1fr;
+  }
+
+  .docsTopBarContent,
+  .docsHeaderRow{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+
+  .docsTopBarButton{
+    min-width:0;
+  }
+
+  .docsRow{
+    grid-template-columns:1fr;
+    gap:14px;
+  }
+
+  .docsStatusCell{
+    align-items:flex-start;
+    text-align:left;
+  }
+}
+
+@media (max-width: 480px){
+  .docsWorkspacePage{
+    max-width:100%;
+  }
+
+  .docsWorkspacePage .applicantProfileLayout{
+    grid-template-columns:1fr;
+  }
+
+  .docsTopBarContent,
+  .docsHeaderRow,
+  .docsAccordionHead,
+  .docsReviewRow,
+  .docsReviewActions,
+  .docModalActions{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .docsTopBarContent{
+    padding:14px 16px;
+  }
+
+  .docsTopBarIcon{
+    width:42px;
+    height:42px;
+  }
+
+  .docsTopBarButton,
+  .docsViewBtn{
+    width:100%;
+    min-width:0;
+    justify-content:center;
+  }
+
+  .docsAccordionHead,
+  .docsAccordionBody{
+    padding-left:16px;
+    padding-right:16px;
+  }
+
+  .docsAccordionRight{
+    align-items:flex-start;
+    flex-wrap:wrap;
+  }
+
+  .docsFileCard{
+    width:100%;
+  }
+
+  .docsRow{
+    grid-template-columns:1fr;
+    gap:12px;
+    padding:14px 16px;
+  }
+
+  .docsDocCell,
+  .docsFileBox,
+  .docsFileBoxLeft{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .docsFileBox{
+    padding:14px;
+  }
+
+  .docsStatusCell{
+    align-items:flex-start;
+    text-align:left;
+  }
+
+  .docModalOverlay{
+    padding:12px;
+  }
+
+  .docModalCard{
+    max-width:100%;
+  }
 }

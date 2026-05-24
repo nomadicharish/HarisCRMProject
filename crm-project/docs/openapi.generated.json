@@ -939,6 +939,30 @@
         ]
       }
     },
+    "/api/applicants/:applicantId/payments-page": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :applicantId payments-page",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/applicants/:applicantId/payments/summary": {
       "get": {
         "tags": [
@@ -1243,6 +1267,54 @@
         ]
       }
     },
+    "/api/applicants/:id/documents-context": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :id documents-context",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/:id/documents-page": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :id documents-page",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/applicants/:id/documents/:docType/:versionId/approve": {
       "patch": {
         "tags": [
@@ -1343,6 +1415,30 @@
           "Applicants"
         ],
         "summary": "POST applicants :id embassy-appointment",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/:id/embassy-workflow": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :id embassy-workflow",
         "responses": {
           "200": {
             "description": "Success"
@@ -1481,6 +1577,30 @@
           "Applicants"
         ],
         "summary": "POST applicants :id interview-ticket",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/:id/interview-workflow": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :id interview-workflow",
         "responses": {
           "200": {
             "description": "Success"
@@ -1855,6 +1975,17 @@
                       }
                     ]
                   },
+                  "education": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      }
+                    ]
+                  },
                   "countryId": {
                     "type": "string",
                     "minLength": 1
@@ -1874,6 +2005,19 @@
                       }
                     ]
                   },
+                  "email": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "const": ""
+                      },
+                      {
+                        "type": "string",
+                        "format": "email",
+                        "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      }
+                    ]
+                  },
                   "totalAmount": {
                     "type": "number"
                   },
@@ -1882,6 +2026,17 @@
                   },
                   "paidAmount": {
                     "type": "number"
+                  },
+                  "whatsappNumber": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      }
+                    ]
                   },
                   "currency": {
                     "anyOf": [
@@ -1926,6 +2081,19 @@
                           }
                         ]
                       },
+                      "email": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "const": ""
+                          },
+                          {
+                            "type": "string",
+                            "format": "email",
+                            "pattern": "^(?!\\.)(?!.*\\.\\.)([A-Za-z0-9_'+\\-\\.]*)[A-Za-z0-9_+-]@([A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                          }
+                        ]
+                      },
                       "dob": {
                         "anyOf": [
                           {
@@ -1951,6 +2119,28 @@
                           }
                         ]
                       },
+                      "placeOfBirth": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "const": ""
+                          }
+                        ]
+                      },
+                      "passportNumber": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "const": ""
+                          }
+                        ]
+                      },
                       "address": {
                         "anyOf": [
                           {
@@ -1973,7 +2163,29 @@
                           }
                         ]
                       },
-                      "maritalStatus": {
+                      "whatsappNumber": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "const": ""
+                          }
+                        ]
+                      },
+                      "whatsapp": {
+                        "anyOf": [
+                          {
+                            "type": "string"
+                          },
+                          {
+                            "type": "string",
+                            "const": ""
+                          }
+                        ]
+                      },
+                      "education": {
                         "anyOf": [
                           {
                             "type": "string"
@@ -1998,6 +2210,30 @@
             }
           }
         }
+      }
+    },
+    "/api/applicants/exchange-rate": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants exchange-rate",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
       }
     },
     "/api/auth/change-password": {

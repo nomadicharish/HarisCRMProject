@@ -60,27 +60,6 @@ function StatusIcon({ tone = "success" }) {
   );
 }
 
-function normalizeTimestamp(value) {
-  if (!value) return null;
-  if (typeof value?.toDate === "function") return value.toDate().getTime();
-  if (typeof value?.toMillis === "function") return value.toMillis();
-  if (typeof value === "object" && value._seconds) return value._seconds * 1000;
-  const parsed = new Date(value).getTime();
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function formatStatusTimestamp(value) {
-  const normalized = normalizeTimestamp(value);
-  if (!normalized) return "";
-  return new Date(normalized).toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit"
-  });
-}
-
 function getTopBarState({
   canReview,
   rejectedRequired,
@@ -211,7 +190,9 @@ function ApplicantDocumentsWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
   const initialDocumentsPage = readCached(`/applicants/${id}/documents-page`) || null;
+  const documentsPageCacheTtlMs = 120000;
   const initialSidebarProfile = readCached(getApplicantSidebarCacheKey(id)) || null;
+  const initialSidebarPendingAmount = initialSidebarProfile?.pendingAmount || 0;
   const [applicant, setApplicant] = useState(initialDocumentsPage?.applicant || null);
   const [documentConfigs, setDocumentConfigs] = useState(initialDocumentsPage?.documentConfigs || []);
   const [documents, setDocuments] = useState(initialDocumentsPage?.documents || {});
@@ -228,7 +209,7 @@ function ApplicantDocumentsWorkspace() {
     async function load() {
       try {
         const [documentsPageRes, userRes] = await Promise.all([
-          getCached(`/applicants/${id}/documents-page`, { ttlMs: 15000 }),
+          getCached(`/applicants/${id}/documents-page`, { ttlMs: documentsPageCacheTtlMs }),
           user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 })
         ]);
 
@@ -242,14 +223,14 @@ function ApplicantDocumentsWorkspace() {
           readCached(getApplicantSidebarCacheKey(id)) ||
           buildApplicantSidebarCache({
             applicant: documentsPageRes?.applicant || null,
-            pendingAmount: initialSidebarProfile?.pendingAmount || 0,
+            pendingAmount: initialSidebarPendingAmount,
             countryName: documentsPageRes?.applicant?.countryName || documentsPageRes?.applicant?.country || "",
             agencyName: documentsPageRes?.applicant?.agencyName || documentsPageRes?.applicant?.agency?.name || ""
           });
 
         if (nextSidebarProfile) {
           setSidebarProfile(nextSidebarProfile);
-          writeCached(getApplicantSidebarCacheKey(id), nextSidebarProfile, { ttlMs: 15000 });
+          writeCached(getApplicantSidebarCacheKey(id), nextSidebarProfile, { ttlMs: documentsPageCacheTtlMs });
         }
       } catch (error) {
         console.error(error);
@@ -262,7 +243,7 @@ function ApplicantDocumentsWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [id, user]);
+  }, [documentsPageCacheTtlMs, id, initialSidebarPendingAmount, user]);
 
   if (loading) {
     return <PageLoader label="Loading documents..." />;
@@ -419,7 +400,7 @@ function ApplicantDocumentsWorkspace() {
   };
 
   return (
-    <div className="page-container">
+    <div className="page-container dashboardPageContainer">
       <BlockingLoader open={saving} label="Saving document updates..." />
       <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
@@ -449,7 +430,7 @@ function ApplicantDocumentsWorkspace() {
                     <path d="M14 2v6h6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </div>
-                <div style={{ minWidth: 0 }}>
+                <div className="docsTopBarText">
                   <div className="docsTopBarTitle">{topBar.title}</div>
                   {!allRequiredApproved ? (
                     <div className="docsTopBarSubtitle">Request the admin for review &amp; approval to go to next phase.</div>
@@ -488,9 +469,6 @@ function ApplicantDocumentsWorkspace() {
             const fileName = getDocumentFileName(doc.key, latest, selectedFile);
             const displayFileName = canAgentUpload && isRejected && !selectedFile ? "" : fileName;
             const hasSelectedFile = Boolean(selectedFile);
-            const statusTimestamp = hasSelectedFile
-              ? formatStatusTimestamp(selectedFileEntry?.selectedAt)
-              : formatStatusTimestamp(latest?.uploadedAt);
             const statusLabel = hasSelectedFile
               ? "Selected"
               : isApproved

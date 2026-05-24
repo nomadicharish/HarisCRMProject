@@ -39,7 +39,6 @@
 
 .input-field label{
   font-size:13px;
-  margin-bottom:6px;
   color:#6B778C;
 }
 
@@ -78,6 +77,34 @@
 
 .submit-btn:hover{
   background:#0041a3;
+}
+
+.companyFormPage input:not([type="checkbox"]):not([type="radio"]):not([type="file"]){
+  height:44px;
+  min-height:44px;
+}
+
+.companyFormPage .dashboardSelect input{
+  height:auto !important;
+  min-height:0 !important;
+}
+
+.companyFormPage .companyTemplateUpload{
+  width:100%;
+  min-height:72px;
+  margin-bottom:8px;
+}
+
+.companyFormPage .companyTemplateUpload .docsFileBoxLeft{
+  min-width:0;
+  width:100%;
+}
+
+.companyFormPage .companyTemplateUpload .docsFileName,
+.companyFormPage .companyTemplateUpload .docsFileMeta{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 @media (max-width: 768px){
@@ -160,3 +187,74 @@
   border-radius:12px;
 }
 
+.dashboardPageContainer{
+  display:block;
+  padding:92px 20px 28px;
+}
+
+.dashboardPageContainer > .page-content{
+  margin-left:auto;
+  margin-right:auto;
+}
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .page-container{
+    padding:18px;
+    padding-top:calc(64px + 18px);
+  }
+
+  .page-content{
+    max-width:100%;
+  }
+
+  .dashboardPageContainer{
+    padding:0 16px 24px;
+  }
+
+  .dashboardPageContainer > .page-content{
+    margin-top:16px;
+  }
+
+  .form-grid,
+  .applicantFormTripleRow,
+  .applicantFormThreeRow,
+  .applicantFormContactRow{
+    grid-template-columns:1fr;
+  }
+}
+
+@media (max-width: 480px){
+  .page-container{
+    padding:12px;
+    padding-top:calc(56px + 12px);
+  }
+
+  .page-content{
+    max-width:100%;
+  }
+
+  .dashboardPageContainer{
+    padding:0 12px 20px;
+  }
+
+  .dashboardPageContainer > .page-content{
+    margin-top:12px;
+  }
+
+  .card{
+    padding:16px;
+    border-radius:14px;
+  }
+
+  .form-grid,
+  .applicantFormTripleRow,
+  .applicantFormThreeRow,
+  .applicantFormContactRow{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+
+  .submit-btn{
+    width:100%;
+  }
+}

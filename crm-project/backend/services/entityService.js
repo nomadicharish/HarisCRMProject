@@ -42,6 +42,53 @@ function parseProjectionFields(value) {
   return new Set(["id", ...requested]);
 }
 
+function parseBooleanQuery(value, fallback = false) {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (typeof value === "boolean") return value;
+  const normalized = String(value).trim().toLowerCase();
+  if (["1", "true", "yes"].includes(normalized)) return true;
+  if (["0", "false", "no"].includes(normalized)) return false;
+  return fallback;
+}
+
+async function countQueryResults(query) {
+  if (typeof query.count !== "function") return null;
+  const aggregateSnap = await query.count().get();
+  return Number(aggregateSnap.data()?.count || 0);
+}
+
+function applyEntityFilter(query, field, values) {
+  if (!values.length) return query;
+  if (values.length === 1) return query.where(field, "==", values[0]);
+  if (values.length <= 10) return query.where(field, "in", values);
+  return query;
+}
+
+async function runFirestorePage(query, queryParams = {}) {
+  const page = Math.max(1, Number(queryParams?.page || 1));
+  const limit = Math.max(1, Math.min(100, Number(queryParams?.limit || 25)));
+  const sortBy = queryParams?.sortBy || "createdAt";
+  const sortOrder = queryParams?.sortOrder === "asc" ? "asc" : "desc";
+  const total = await countQueryResults(query);
+  const snapshot = await query
+    .orderBy(sortBy === "name" ? "name" : "createdAt", sortOrder)
+    .offset((page - 1) * limit)
+    .limit(limit)
+    .get();
+  const items = mapSnapshot(snapshot);
+  const resolvedTotal = total ?? (page - 1) * limit + items.length;
+
+  return {
+    items,
+    pagination: {
+      page,
+      limit,
+      total: resolvedTotal,
+      totalPages: Math.max(1, Math.ceil(resolvedTotal / limit))
+    }
+  };
+}
+
 function projectEntityFields(item, fieldSet) {
   if (!fieldSet || !item || typeof item !== "object") return item;
   return Object.fromEntries(Object.entries(item).filter(([key]) => fieldSet.has(key)));
@@ -60,6 +107,17 @@ function applyProjectionToListResult(result, fieldSet) {
   };
 }
 
+function includesProtectedContactFields(fieldSet) {
+  if (!fieldSet) return true;
+  return fieldSet.has("email") || fieldSet.has("contactNumber");
+}
+
+async function hydrateEntityListIfNeeded(items, fieldSet, search = "") {
+  const needsContactFields = includesProtectedContactFields(fieldSet);
+  if (!needsContactFields && !search) return items;
+  return Promise.all(items.map(hydrateEntityContactFields));
+}
+
 function toComparableDate(value) {
   if (!value) return 0;
   if (typeof value?.toMillis === "function") return value.toMillis();
@@ -69,7 +127,7 @@ function toComparableDate(value) {
 }
 
 function sortAndPaginate(items, query = {}) {
-  const paginated = Boolean(query?.paginated);
+  const paginated = parseBooleanQuery(query?.paginated, false);
   const page = Math.max(1, Number(query?.page || 1));
   const limit = Math.max(1, Math.min(100, Number(query?.limit || 25)));
   const sortBy = query?.sortBy || "createdAt";
@@ -520,12 +578,36 @@ async function listCountries() {
 
 async function listAgencies({ role, query = {} }) {
   if (role !== "SUPER_USER") return [];
-  const snapshot = await db.collection("agencies").get();
-  let items = await Promise.all(mapSnapshot(snapshot).map(hydrateEntityContactFields));
-
+  const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
   const companyFilters = parseCsv(query?.company);
+
+  if (parseBooleanQuery(query?.paginated, false) && !search && !countryFilters.length) {
+    let agencyQuery = db.collection("agencies");
+    if (companyFilters.length === 1) {
+      agencyQuery = agencyQuery.where("assignedCompanyIds", "array-contains", companyFilters[0]);
+    } else if (companyFilters.length > 1 && companyFilters.length <= 10) {
+      agencyQuery = agencyQuery.where("assignedCompanyIds", "array-contains-any", companyFilters);
+    } else if (companyFilters.length > 10) {
+      agencyQuery = null;
+    }
+
+    if (agencyQuery) {
+      const result = await runFirestorePage(agencyQuery, query);
+      if (includesProtectedContactFields(projection)) {
+        result.items = await hydrateEntityListIfNeeded(result.items || [], projection);
+      }
+      return applyProjectionToListResult(result, projection);
+    }
+  }
+
+  const snapshot = await db.collection("agencies").get();
+  let items = mapSnapshot(snapshot);
+
+  if (search) {
+    items = await hydrateEntityListIfNeeded(items, projection, search);
+  }
 
   if (search) {
     items = items.filter((agency) =>
@@ -558,18 +640,50 @@ async function listAgencies({ role, query = {} }) {
     );
   }
 
-  const projection = parseProjectionFields(query?.fields);
-  return applyProjectionToListResult(sortAndPaginate(items, query), projection);
+  const result = sortAndPaginate(items, query);
+  if (!search && includesProtectedContactFields(projection)) {
+    if (Array.isArray(result)) {
+      return applyProjectionToListResult(await hydrateEntityListIfNeeded(result, projection), projection);
+    }
+    return applyProjectionToListResult({
+      ...result,
+      items: await hydrateEntityListIfNeeded(result.items || [], projection)
+    }, projection);
+  }
+  return applyProjectionToListResult(result, projection);
 }
 
 async function listEmployers({ role, query = {} }) {
   if (role !== "SUPER_USER") return [];
-  const snapshot = await db.collection("employers").get();
-  let items = await Promise.all(mapSnapshot(snapshot).map(hydrateEntityContactFields));
-
+  const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
   const companyFilters = parseCsv(query?.company);
+
+  if (parseBooleanQuery(query?.paginated, false) && !search && countryFilters.length <= 10 && companyFilters.length <= 10) {
+    let employerQuery = db.collection("employers");
+    if (countryFilters.length > 1 && companyFilters.length > 1) {
+      employerQuery = null;
+    } else {
+      employerQuery = applyEntityFilter(employerQuery, "countryId", countryFilters);
+      employerQuery = applyEntityFilter(employerQuery, "companyId", companyFilters);
+    }
+
+    if (employerQuery) {
+      const result = await runFirestorePage(employerQuery, query);
+      if (includesProtectedContactFields(projection)) {
+        result.items = await hydrateEntityListIfNeeded(result.items || [], projection);
+      }
+      return applyProjectionToListResult(result, projection);
+    }
+  }
+
+  const snapshot = await db.collection("employers").get();
+  let items = mapSnapshot(snapshot);
+
+  if (search) {
+    items = await hydrateEntityListIfNeeded(items, projection, search);
+  }
 
   if (search) {
     items = items.filter((employer) =>
@@ -587,8 +701,17 @@ async function listEmployers({ role, query = {} }) {
     items = items.filter((employer) => companyFilters.includes(employer?.companyId || ""));
   }
 
-  const projection = parseProjectionFields(query?.fields);
-  return applyProjectionToListResult(sortAndPaginate(items, query), projection);
+  const result = sortAndPaginate(items, query);
+  if (!search && includesProtectedContactFields(projection)) {
+    if (Array.isArray(result)) {
+      return applyProjectionToListResult(await hydrateEntityListIfNeeded(result, projection), projection);
+    }
+    return applyProjectionToListResult({
+      ...result,
+      items: await hydrateEntityListIfNeeded(result.items || [], projection)
+    }, projection);
+  }
+  return applyProjectionToListResult(result, projection);
 }
 
 async function listCompanies({ user, query: queryParams = {} }) {
@@ -602,6 +725,11 @@ async function listCompanies({ user, query: queryParams = {} }) {
     let companyQuery = db.collection("companies");
     if (countryId) {
       companyQuery = companyQuery.where("countryId", "==", countryId);
+    }
+
+    if (parseBooleanQuery(queryParams?.paginated, false) && !search && !companyFilters.length) {
+      const projection = parseProjectionFields(queryParams?.fields);
+      return applyProjectionToListResult(await runFirestorePage(companyQuery, queryParams), projection);
     }
 
     let items = mapSnapshot(await companyQuery.get());

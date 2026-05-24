@@ -1,6 +1,6 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
-const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
+const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { getAuthenticatedUserFromReq } = require("../../services/applicantDomainService");
 const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
@@ -120,7 +120,7 @@ async function uploadDocumentByTypeUseCase(req) {
 
   await deleteStorageFileIfExists(bucket, previousFileUrl);
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Document uploaded successfully", fileUrl };
 }
 
@@ -174,7 +174,7 @@ async function deferDocumentUseCase(req) {
       });
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Document deferred" };
 }
 
@@ -227,13 +227,13 @@ async function uploadDocumentGenericUseCase(req) {
 
   await deleteStorageFileIfExists(bucket, previousVersionFileUrl);
 
-  await refreshApplicantSummaries(id);
+  await refreshApplicantDocumentSummary(id);
   return { message: "Uploaded successfully" };
 }
 
 async function getDocumentsUseCase(req) {
-  const latestOnly = String(req.query?.latest || "").toLowerCase() === "true";
-  if (latestOnly) {
+  const includeHistory = ["1", "true", "yes"].includes(String(req.query?.history || req.query?.full || "").toLowerCase());
+  if (!includeHistory) {
     return getLatestDocumentsMap(req.params.id);
   }
 
@@ -288,7 +288,7 @@ async function rejectDocumentUseCase(req) {
     updatedAt: reviewedAt
   }, { merge: true });
 
-  await refreshApplicantSummaries(id);
+  await refreshApplicantDocumentSummary(id);
   return { message: "Rejected" };
 }
 
@@ -331,7 +331,7 @@ async function approveDocumentUseCase(req) {
   const applicantSnap = await applicantRef.get();
   const applicant = applicantSnap.exists ? applicantSnap.data() : null;
   await syncApplicantDocumentStage(id, applicant, req.user.uid, req.user.role);
-  await refreshApplicantSummaries(id);
+  await refreshApplicantDocumentSummary(id);
   return { message: "Document approved" };
 }
 

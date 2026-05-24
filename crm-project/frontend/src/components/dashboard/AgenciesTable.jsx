@@ -1,18 +1,12 @@
 import React from "react";
-import { parsePhoneNumberFromString } from "libphonenumber-js";
 import VirtualizedRows from "./VirtualizedRows";
 
 function formatContactNumber(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return "-";
-
-  try {
-    const phoneNumber = parsePhoneNumberFromString(raw.startsWith("+") ? raw : `+${raw}`);
-    if (!phoneNumber) return raw;
-    return `+${phoneNumber.countryCallingCode}-${phoneNumber.nationalNumber}`;
-  } catch {
-    return raw;
-  }
+  const digits = String(value || "").replace(/[^\d]/g, "");
+  if (!digits) return "-";
+  if (digits.length === 10) return `+91-${digits}`;
+  if (digits.length > 10) return `+${digits.slice(0, digits.length - 10)}-${digits.slice(-10)}`;
+  return String(value || "").trim() || "-";
 }
 
 function AgenciesTable({ rows = [], companyMap = {}, countryMap = {}, onOpenAgency }) {

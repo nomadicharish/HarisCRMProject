@@ -1,7 +1,7 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { normalizeDate } = require("../../services/applicantDomainService");
-const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
+const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { addStageLog } = require("../../services/applicantWorkflowStageService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 
@@ -74,7 +74,7 @@ async function addEmbassyAppointmentUseCase(req) {
     });
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Embassy appointment added" };
 }
 
@@ -142,7 +142,7 @@ async function addTravelDetailsUseCase(req) {
     await deleteStorageFileIfExists(bucket, previousTravelFileUrl);
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Travel details saved" };
 }
 
@@ -194,7 +194,7 @@ async function uploadBiometricSlipUseCase(req) {
     stageUpdatedAt: new Date()
   });
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Biometric slip uploaded & stage completed" };
 }
 
@@ -287,7 +287,7 @@ async function addVisaCollectionUseCase(req) {
     });
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Visa collection saved" };
 }
 
@@ -304,7 +304,7 @@ async function approveVisaCollectionUseCase(req) {
     stageUpdatedAt: new Date()
   });
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Visa collection approved" };
 }
 
@@ -373,7 +373,7 @@ async function addVisaTravelUseCase(req) {
     await deleteStorageFileIfExists(bucket, previousVisaTravelFileUrl);
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Visa travel details saved" };
 }
 
@@ -441,7 +441,7 @@ async function uploadResidencePermitUseCase(req) {
     });
   }
 
-  await refreshApplicantSummaries(applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
   return { message: "Uploaded successfully" };
 }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
@@ -7,16 +7,6 @@ import { auth } from "../firebase";
 import { getStoredUser, updateStoredUser, validatePassword } from "../utils/auth";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
-
-function BrandMark() {
-  return (
-    <svg className="settingsBrandIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 7.2V10c0 5.4-3.6 9.8-8 11-4.4-1.2-8-5.6-8-11V7.2L12 3Z" fill="currentColor" />
-      <path d="M12 3v18" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-      <path d="M6 9h12" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-    </svg>
-  );
-}
 
 function EyeIcon({ open }) {
   return open ? (
@@ -33,21 +23,9 @@ function EyeIcon({ open }) {
   );
 }
 
-function getInitials(name) {
-  const parts = String(name || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (!parts.length) return "U";
-  return parts.map((part) => part[0]).join("").toUpperCase();
-}
-
 function SettingsChangePassword() {
   const navigate = useNavigate();
   const storedUser = getStoredUser();
-  const initials = useMemo(() => getInitials(storedUser?.name), [storedUser?.name]);
   const [form, setForm] = useState({
     oldPassword: "",
     newPassword: "",
@@ -135,14 +113,6 @@ function SettingsChangePassword() {
               <span className="settingsNavIcon" />
               <span>General</span>
             </button>
-            <button type="button" className="settingsNavItem" disabled>
-              <span className="settingsNavIcon" />
-              <span>Notifications</span>
-            </button>
-            <button type="button" className="settingsNavItem" disabled>
-              <span className="settingsNavIcon" />
-              <span>Account</span>
-            </button>
           </aside>
 
           <section className="settingsContent">
@@ -225,8 +195,8 @@ function SettingsChangePassword() {
                 <button type="submit" className="settingsPrimaryBtn" disabled={loading}>
                   {loading ? "Saving..." : "Save changes"}
                 </button>
-                <button type="button" className="settingsMutedBtn" onClick={() => navigate("/settings")}>
-                  Skip
+                <button type="button" className="settingsMutedBtn" onClick={() => navigate(-1)}>
+                  Back
                 </button>
               </div>
             </form>

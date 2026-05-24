@@ -1,4 +1,5 @@
 const { admin, db } = require("../config/firebase");
+const { buildApplicantListDerivedFields } = require("./applicantDomainService");
 const { normalizeCompanyDocuments } = require("../utils/normalizers");
 
 function toNumber(value) {
@@ -190,6 +191,13 @@ async function refreshApplicantSummaries(applicantId, applicantData = null) {
       docSummary,
       documentSummary: docSummary,
       approvalFlags,
+      ...buildApplicantListDerivedFields({
+        ...resolvedApplicant,
+        paymentSummary,
+        docSummary,
+        documentSummary: docSummary,
+        approvalFlags
+      }),
       hasPendingAppointmentApproval: approvalFlags.hasPendingAppointmentApproval,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     },
@@ -199,6 +207,105 @@ async function refreshApplicantSummaries(applicantId, applicantData = null) {
   return { paymentSummary, docSummary, approvalFlags };
 }
 
+async function updatePaymentSummaryAfterPayment(applicantId, payment = {}, applicantData = null) {
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  let resolvedApplicant = applicantData;
+
+  if (!resolvedApplicant) {
+    const applicantSnap = await applicantRef.get();
+    if (!applicantSnap.exists) return null;
+    resolvedApplicant = applicantSnap.data() || {};
+  }
+
+  const current = resolvedApplicant.paymentSummary || {};
+  const applicantSummary = current.applicant || {};
+  const employerSummary = current.employer || {};
+  const amount = roundCurrency(payment.amount);
+  const totalApplicant = roundCurrency(
+    applicantSummary.total ??
+    resolvedApplicant.totalApplicantPayment ??
+    resolvedApplicant.totalAmount ??
+    resolvedApplicant.totalPayment ??
+    0
+  );
+  const totalEmployer = roundCurrency(
+    employerSummary.total ??
+    resolvedApplicant.totalEmployerPayment ??
+    0
+  );
+
+  const nextApplicantPaid = payment.type === "APPLICANT"
+    ? roundCurrency((applicantSummary.paid || 0) + amount)
+    : roundCurrency(applicantSummary.paid || 0);
+  const nextEmployerPaid = payment.type === "EMPLOYER"
+    ? roundCurrency((employerSummary.paid || 0) + amount)
+    : roundCurrency(employerSummary.paid || 0);
+  const nextApplicantInstallments = payment.type === "APPLICANT"
+    ? Number(applicantSummary.installmentCount || 0) + 1
+    : Number(applicantSummary.installmentCount || 0);
+
+  const paymentSummary = {
+    applicant: {
+      total: totalApplicant,
+      paid: nextApplicantPaid,
+      pending: Math.max(0, roundCurrency(totalApplicant - nextApplicantPaid)),
+      installmentCount: nextApplicantInstallments,
+      remainingInstallments: Math.max(0, 4 - nextApplicantInstallments)
+    },
+    employer: {
+      total: totalEmployer,
+      paid: nextEmployerPaid,
+      pending: Math.max(0, roundCurrency(totalEmployer - nextEmployerPaid))
+    },
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  };
+
+  await applicantRef.set(
+    {
+      paymentSummary,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return paymentSummary;
+}
+
+async function refreshApplicantDocumentSummary(applicantId, applicantData = null) {
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  let resolvedApplicant = applicantData;
+
+  if (!resolvedApplicant) {
+    const applicantSnap = await applicantRef.get();
+    if (!applicantSnap.exists) return null;
+    resolvedApplicant = applicantSnap.data() || {};
+  }
+
+  const docSummary = await buildDocSummary(applicantId, resolvedApplicant);
+  const approvalFlags = buildApprovalFlags(resolvedApplicant, docSummary);
+
+  await applicantRef.set(
+    {
+      docSummary,
+      documentSummary: docSummary,
+      approvalFlags,
+      ...buildApplicantListDerivedFields({
+        ...resolvedApplicant,
+        docSummary,
+        documentSummary: docSummary,
+        approvalFlags
+      }),
+      hasPendingAppointmentApproval: approvalFlags.hasPendingAppointmentApproval,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return { docSummary, approvalFlags };
+}
+
 module.exports = {
-  refreshApplicantSummaries
+  refreshApplicantSummaries,
+  refreshApplicantDocumentSummary,
+  updatePaymentSummaryAfterPayment
 };

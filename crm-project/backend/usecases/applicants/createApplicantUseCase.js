@@ -1,7 +1,12 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
-const { getAuthenticatedUserFromReq, toNumber } = require("../../services/applicantDomainService");
+const {
+  buildApplicantListDerivedFields,
+  getAuthenticatedUserFromReq,
+  resolveApplicantReferenceFields,
+  toNumber
+} = require("../../services/applicantDomainService");
 
 async function createApplicantUseCase(req) {
   const { userRole, userId } = getAuthenticatedUserFromReq(req);
@@ -52,6 +57,12 @@ async function createApplicantUseCase(req) {
   const normalizedAmountPaid = toNumber(amountPaid);
   const approvalStatus = userRole === "AGENCY" ? "pending" : "approved";
 
+  const referenceFields = await resolveApplicantReferenceFields({
+    countryId,
+    companyId,
+    agencyId: assignedAgencyId
+  });
+
   const applicant = {
     personalDetails: {
       firstName,
@@ -76,6 +87,7 @@ async function createApplicantUseCase(req) {
     countryId,
     companyId,
     agencyId: assignedAgencyId,
+    ...referenceFields,
     createdBy: userId,
     approvalStatus,
     applicantBannerStatus: approvalStatus === "approved" ? "Document upload pending" : "Candidate created. Pending for Admin approval",
@@ -86,6 +98,7 @@ async function createApplicantUseCase(req) {
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   };
+  Object.assign(applicant, buildApplicantListDerivedFields(applicant));
 
   const docRef = await db.collection("applicants").add(applicant);
   const applicantId = docRef.id;

@@ -200,39 +200,73 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
 
             {canUpload && (!resolvedResidencePermit?.frontUrl || !resolvedResidencePermit?.backUrl) ? (
               <div className="workflowModalBody">
-              <div className="contractUploadPanel">
-                <div className="contractFormGrid">
-                  {!resolvedResidencePermit?.frontUrl ? (
-                    <div className="input-field">
-                      <label className="contractFileCard" htmlFor="residence-front-file">
-                        <input
-                          id="residence-front-file"
-                          type="file"
-                          className="contractFileInput"
-                          disabled={saving}
-                          onChange={(event) => setFrontFile(event.target.files?.[0] || null)}
-                        />
-                        <span className="contractFileCardTitle">{frontFile ? frontFile.name : "Front side"}</span>
-                      </label>
-                    </div>
-                  ) : null}
+                <div className="workflowDetailCard workflowTicketUploadCard">
+                  <div className="workflowDetailHeader">
+                    <span className="workflowDetailHeaderIcon" aria-hidden="true">
+                      <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                        <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                    <span>Upload Residence Permit</span>
+                  </div>
 
-                  {!resolvedResidencePermit?.backUrl ? (
-                    <div className="input-field">
-                      <label className="contractFileCard" htmlFor="residence-back-file">
-                        <input
-                          id="residence-back-file"
-                          type="file"
-                          className="contractFileInput"
-                          disabled={saving}
-                          onChange={(event) => setBackFile(event.target.files?.[0] || null)}
-                        />
-                        <span className="contractFileCardTitle">{backFile ? backFile.name : "Back side"}</span>
-                      </label>
+                  <div className="workflowDetailBody workflowTicketUploadBody">
+                    <div className="residencePermitUploadGrid">
+                      {!resolvedResidencePermit?.frontUrl ? (
+                        <div className="input-field">
+                          <label className="contractUploadLabel" htmlFor="residence-front-file">
+                            Front Side
+                          </label>
+                          <label className="workflowUploadBox" htmlFor="residence-front-file">
+                            <input
+                              id="residence-front-file"
+                              type="file"
+                              className="contractFileInput"
+                              disabled={saving}
+                              onChange={(event) => setFrontFile(event.target.files?.[0] || null)}
+                            />
+                            <span className="workflowUploadBoxIcon" aria-hidden="true">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </span>
+                            <span className="workflowUploadBoxText">
+                              <span className="workflowUploadBoxTitle">Choose file</span>
+                              <span className="workflowUploadBoxName">{frontFile ? frontFile.name : "No file chosen"}</span>
+                            </span>
+                          </label>
+                        </div>
+                      ) : null}
+
+                      {!resolvedResidencePermit?.backUrl ? (
+                        <div className="input-field">
+                          <label className="contractUploadLabel" htmlFor="residence-back-file">
+                            Back Side
+                          </label>
+                          <label className="workflowUploadBox" htmlFor="residence-back-file">
+                            <input
+                              id="residence-back-file"
+                              type="file"
+                              className="contractFileInput"
+                              disabled={saving}
+                              onChange={(event) => setBackFile(event.target.files?.[0] || null)}
+                            />
+                            <span className="workflowUploadBoxIcon" aria-hidden="true">
+                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                                <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            </span>
+                            <span className="workflowUploadBoxText">
+                              <span className="workflowUploadBoxTitle">Choose file</span>
+                              <span className="workflowUploadBoxName">{backFile ? backFile.name : "No file chosen"}</span>
+                            </span>
+                          </label>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </div>
                 </div>
-              </div>
               </div>
             ) : null}
 

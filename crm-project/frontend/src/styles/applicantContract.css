@@ -573,9 +573,39 @@
   padding-top:10px;
 }
 
+.workflowTicketUploadCard{
+  margin-top:0;
+}
+
+.workflowTicketUploadBody{
+  padding:18px 24px 20px;
+}
+
+.workflowTravelEntryGrid{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr) minmax(260px, 1.1fr);
+  gap:16px;
+  align-items:end;
+}
+
+.workflowTravelEntryGrid .workflowUploadBox{
+  width:100%;
+}
+
+.residencePermitUploadGrid{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:16px;
+  align-items:end;
+}
+
+.residencePermitUploadGrid .workflowUploadBox{
+  width:100%;
+}
+
 .workflowUploadBox{
   width:50%;
-  min-height:64px;
+  min-height:49px;
   border:1.5px dashed #c8d5ea;
   border-radius:14px;
   background:#ffffff;
@@ -605,12 +635,12 @@
 
 .workflowUploadBoxTitle{
   font-size:15px;
-  font-weight:700;
+  font-weight:600;
   color:#111827;
 }
 
 .workflowUploadBoxName{
-  font-size:15px;
+  font-size:14px;
   color:#667085;
 }
 
@@ -686,6 +716,113 @@
     flex-direction:column;
     align-items:flex-start;
     gap:8px;
+  }
+
+  .workflowDetailRowValue{
+    text-align:left;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 1024px){
+  .contractModalOverlay{
+    align-items:flex-start;
+    padding:18px;
+  }
+
+  .contractModalCard,
+  .workflowModalCard,
+  .workflowEntryModalCard{
+    width:100%;
+    max-width:100%;
+  }
+
+  .contractFormGrid{
+    grid-template-columns:1fr;
+  }
+
+  .workflowUploadBox{
+    width:100%;
+  }
+}
+
+@media (max-width: 480px){
+  .contractModalOverlay{
+    align-items:flex-start;
+    padding:10px;
+  }
+
+  .contractModalCard,
+  .workflowModalCard,
+  .workflowEntryModalCard{
+    width:100%;
+    max-width:100%;
+    max-height:none;
+    padding:16px;
+  }
+
+  .workflowModalCard,
+  .workflowEntryModalCard{
+    padding:0;
+  }
+
+  .workflowModalHero,
+  .workflowModalBody,
+  .workflowModalFooter,
+  .workflowActionRow{
+    padding-left:16px;
+    padding-right:16px;
+  }
+
+  .workflowModalHero,
+  .workflowModalFooter,
+  .workflowActionRow,
+  .contractActionRow,
+  .contractInfoRow,
+  .workflowDetailRow,
+  .workflowUploadBox{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .workflowModalHeroIcon,
+  .workflowDetailInlineIcon{
+    width:44px;
+    height:44px;
+  }
+
+  .contractFormGrid{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+
+  .contractFileCard,
+  .workflowUploadBox,
+  .workflowFileActionBtn,
+  .workflowDetailAction,
+  .dashboardPrimaryBtn,
+  .dashboardPaginationBtn{
+    width:100%;
+    justify-content:center;
+  }
+
+  .workflowUploadBox{
+    min-height:0;
+    padding:16px;
+    gap:12px;
+  }
+
+  .workflowTravelEntryGrid{
+    grid-template-columns:1fr;
+  }
+
+  .residencePermitUploadGrid{
+    grid-template-columns:1fr;
+  }
+
+  .workflowDetailHeader,
+  .workflowDetailBody{
+    padding-left:14px;
+    padding-right:14px;
   }
 
   .workflowDetailRowValue{

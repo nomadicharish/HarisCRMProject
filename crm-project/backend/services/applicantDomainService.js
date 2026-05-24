@@ -21,6 +21,12 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "countryId",
   "companyId",
   "agencyId",
+  "countryName",
+  "companyName",
+  "agencyName",
+  "companyPaymentPerApplicant",
+  "searchText",
+  "workflowStatus",
   "approvalStatus",
   "applicantBannerStatus",
   "stage",
@@ -115,6 +121,59 @@ function projectApplicantFields(applicant, fieldSet) {
   return Object.fromEntries(Object.entries(applicant).filter(([key]) => fieldSet.has(key)));
 }
 
+function buildApplicantListDerivedFields(applicant = {}) {
+  const firstName =
+    applicant?.personalDetails?.firstName ||
+    applicant?.firstName ||
+    (applicant?.fullName ? String(applicant.fullName).split(" ")[0] : "") ||
+    "";
+  const lastName =
+    applicant?.personalDetails?.lastName ||
+    applicant?.lastName ||
+    (applicant?.fullName ? String(applicant.fullName).split(" ").slice(1).join(" ") : "") ||
+    "";
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+  const docSummary = applicant?.docSummary || applicant?.documentSummary || {};
+  const approvalFlags = applicant?.approvalFlags || {};
+  const hasPendingDocumentApproval = Number(docSummary.pendingCount || 0) > 0;
+  const hasPendingPipelineApproval =
+    Boolean(approvalFlags?.hasPendingPipelineApproval) ||
+    String(applicant?.approvalStatus || "").toLowerCase() !== "approved" ||
+    String(applicant?.contract?.status || "").toUpperCase() === "PENDING" ||
+    String(applicant?.visaCollection?.status || "").toUpperCase() === "PENDING" ||
+    Boolean(applicant?.hasPendingAppointmentApproval);
+  const hasPendingEmbassyInterviewApproval =
+    Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
+    String(applicant?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
+    (Boolean(applicant?.embassyInterview?.dateTime) && !Boolean(applicant?.embassyInterview?.approved));
+  const attentionRequired = Boolean(
+    hasPendingDocumentApproval ||
+    hasPendingPipelineApproval ||
+    hasPendingEmbassyInterviewApproval
+  );
+  const workflowStatus =
+    Number(applicant?.stage || 1) >= 12
+      ? "completed"
+      : attentionRequired
+      ? "attention_required"
+      : "in_progress";
+
+  return {
+    firstName,
+    lastName,
+    fullName,
+    attentionRequired,
+    workflowStatus,
+    searchText: normalizeTextForSearch([
+      fullName,
+      applicant?.email || applicant?.personalDetails?.email || "",
+      applicant?.companyName || "",
+      applicant?.countryName || "",
+      applicant?.agencyName || ""
+    ].filter(Boolean).join(" "))
+  };
+}
+
 async function resolveApplicantTotalEur(applicant = {}) {
   const directTotal = roundCurrency(
     applicant?.totalApplicantPayment ?? applicant?.totalAmount ?? applicant?.totalPayment ?? 0
@@ -131,6 +190,23 @@ async function resolveApplicantTotalEur(applicant = {}) {
   } catch {
     return 0;
   }
+}
+
+async function resolveApplicantReferenceFields(applicant = {}) {
+  const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
+    applicant.companyId ? db.collection("companies").doc(applicant.companyId).get() : Promise.resolve(null),
+    applicant.countryId ? db.collection("countries").doc(applicant.countryId).get() : Promise.resolve(null),
+    applicant.agencyId ? db.collection("agencies").doc(applicant.agencyId).get() : Promise.resolve(null)
+  ]);
+
+  return {
+    companyName: companyDoc?.exists ? companyDoc.data()?.name || "" : "",
+    countryName: countryDoc?.exists ? countryDoc.data()?.name || "" : "",
+    agencyName: agencyDoc?.exists ? agencyDoc.data()?.name || "" : "",
+    companyPaymentPerApplicant: companyDoc?.exists
+      ? roundCurrency(companyDoc.data()?.companyPaymentPerApplicant ?? 0)
+      : 0
+  };
 }
 
 function getApplicantStageLabel(stage, approvalStatus) {
@@ -261,7 +337,9 @@ module.exports = {
   normalizeTextForSearch,
   parseBooleanQuery,
   parseProjectionFields,
+  buildApplicantListDerivedFields,
   projectApplicantFields,
+  resolveApplicantReferenceFields,
   resolveApplicantTotalEur,
   roundCurrency,
   toNumber

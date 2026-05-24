@@ -4,8 +4,13 @@ import { clearSession } from "../utils/auth";
 import { SESSION_DURATION_MS } from "../utils/auth";
 
 const API = axios.create({
-  baseURL: "http://localhost:3000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
 });
+
+const TOKEN_REUSE_MS = 55 * 1000;
+let cachedAuthToken = "";
+let cachedAuthUid = "";
+let cachedAuthTokenUntil = 0;
 
 function isAuthTokenError(error) {
   const status = error?.response?.status;
@@ -16,6 +21,21 @@ function isAuthTokenError(error) {
     message.includes("token verification failed") ||
     message.includes("token expired")
   );
+}
+
+async function getRequestToken(currentUser) {
+  if (!currentUser) return localStorage.getItem("token");
+
+  const now = Date.now();
+  if (cachedAuthToken && cachedAuthUid === currentUser.uid && cachedAuthTokenUntil > now) {
+    return cachedAuthToken;
+  }
+
+  const token = await currentUser.getIdToken();
+  cachedAuthToken = token;
+  cachedAuthUid = currentUser.uid;
+  cachedAuthTokenUntil = now + TOKEN_REUSE_MS;
+  return token;
 }
 
 // Attach Firebase token automatically
@@ -30,7 +50,7 @@ API.interceptors.request.use(async (config) => {
   }
 
   const currentUser = auth.currentUser;
-  let token = currentUser ? await currentUser.getIdToken() : localStorage.getItem("token");
+  let token = await getRequestToken(currentUser);
 
   if (currentUser && !token) {
     token = await currentUser.getIdToken(true);
@@ -53,6 +73,9 @@ API.interceptors.response.use(
       if (currentUser) {
         try {
           const freshToken = await currentUser.getIdToken(true);
+          cachedAuthToken = freshToken;
+          cachedAuthUid = currentUser.uid;
+          cachedAuthTokenUntil = Date.now() + TOKEN_REUSE_MS;
           localStorage.setItem("token", freshToken);
           localStorage.setItem("session_expires_at", String(Date.now() + SESSION_DURATION_MS));
           originalRequest._retry = true;
