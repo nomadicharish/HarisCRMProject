@@ -57,6 +57,11 @@ function applyListFilter(query, field, values) {
   return query.where(field, "in", values);
 }
 
+function isMissingFirestoreIndexError(error) {
+  const message = String(error?.message || "");
+  return error?.code === 9 && message.includes("requires an index");
+}
+
 async function countQueryResults(query) {
   if (typeof query.count !== "function") return null;
   const aggregateSnap = await query.count().get();
@@ -460,7 +465,7 @@ async function getApplicantsUseCase(req) {
     throw new AppError("Unauthorized", 401);
   }
 
-  if (canUseFirestorePaginatedPath({
+  const canUseFirestorePage = canUseFirestorePaginatedPath({
     paginated,
     searchQuery,
     typeFilters,
@@ -470,19 +475,27 @@ async function getApplicantsUseCase(req) {
     userRole,
     userId,
     agencyId
-  })) {
-    return getApplicantsFirestorePage({
-      userRole,
-      userId,
-      agencyId,
-      liteMode,
-      page,
-      limit,
-      requestedFieldSet,
-      countryFilters,
-      companyFilters,
-      agencyFilters
-    });
+  });
+
+  if (canUseFirestorePage) {
+    try {
+      return await getApplicantsFirestorePage({
+        userRole,
+        userId,
+        agencyId,
+        liteMode,
+        page,
+        limit,
+        requestedFieldSet,
+        countryFilters,
+        companyFilters,
+        agencyFilters
+      });
+    } catch (error) {
+      if (!isMissingFirestoreIndexError(error)) {
+        throw error;
+      }
+    }
   }
 
   const docs = await resolveRoleScopedApplicantDocs({ userRole, userId, agencyId });

@@ -29,10 +29,19 @@ const {
 const { db } = require("./config/firebase");
 const { instrumentFirestore } = require("./utils/instrumentFirestore");
 
+function parseTrustProxy(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized || normalized === "false") return false;
+  if (normalized === "true") return 1;
+
+  const parsed = Number(normalized);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : false;
+}
+
 const app = express();
 instrumentFirestore(db);
 
-app.set("trust proxy", process.env.TRUST_PROXY === "true");
+app.set("trust proxy", parseTrustProxy(process.env.TRUST_PROXY));
 app.disable("x-powered-by");
 app.use(createHelmetMiddleware());
 app.use(cors(buildCorsOptions()));
@@ -47,6 +56,10 @@ app.use(writeAuditTrail);
 
 app.get("/", (req, res) => {
   res.send("CRM Backend is running");
+});
+
+app.get("/api/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 app.get("/api/super-user-only", verifyToken, allowRoles("SUPER_USER"), (req, res) => {
