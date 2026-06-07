@@ -8,11 +8,35 @@ function ApplicantsTable({
   formatPendingAmount
 }) {
   const getWorkflowMeta = (applicant) => {
-    const statusText = applicant.applicantBannerStatus || applicant.statusText || applicant.stageLabel || "Candidate Created";
+    const statusText = applicant.statusText || applicant.applicantBannerStatus || applicant.stageLabel || "Candidate Created";
     const parts = String(statusText).split(".").map((item) => item.trim()).filter(Boolean);
     return {
       title: parts[0] || statusText,
       subtitle: parts.slice(1).join(". ") || ""
+    };
+  };
+  const getWorkflowPill = (applicant) => {
+    if (
+      applicant.workflowStatus === "completed" ||
+      applicant.stageStatus === "completed" ||
+      Number(applicant.stage || 0) === 12
+    ) {
+      return {
+        label: "Completed",
+        className: "dashboardStatusPillSuccess"
+      };
+    }
+
+    if (applicant.workflowStatus === "attention_required" || applicant.attentionRequired) {
+      return {
+        label: "Attention Required",
+        className: "dashboardStatusPillWarning"
+      };
+    }
+
+    return {
+      label: "In Progress",
+      className: "dashboardStatusPillInfo"
     };
   };
   const gridTemplateColumns = isEmployer ? "2fr 2fr 2fr" : "2fr 2fr 1.5fr 1.5fr";
@@ -57,11 +81,8 @@ function ApplicantsTable({
               [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
               "Applicant";
             const workflow = getWorkflowMeta(applicant);
+            const workflowPill = getWorkflowPill(applicant);
             const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
-            const workflowCompleted =
-              applicant.workflowStatus === "completed" ||
-              applicant.stageStatus === "completed" ||
-              Number(applicant.stage || 0) === 12;
 
             return (
               <tr
@@ -77,8 +98,8 @@ function ApplicantsTable({
                 </td>
                 <td>
                   <div className="dashboardStatusCell">
-                    <span className={`dashboardStatusPill ${workflowCompleted ? "dashboardStatusPillSuccess" : "dashboardStatusPillInfo"}`}>
-                      {workflowCompleted ? "Completed" : "In Progress"}
+                    <span className={`dashboardStatusPill ${workflowPill.className}`}>
+                      {workflowPill.label}
                     </span>
                     <span className="dashboardStatusMetaTitle">{workflow.title}</span>
                     {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
@@ -121,11 +142,8 @@ function ApplicantsTable({
             [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
             "Applicant";
           const workflow = getWorkflowMeta(applicant);
+          const workflowPill = getWorkflowPill(applicant);
           const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
-          const workflowCompleted =
-            applicant.workflowStatus === "completed" ||
-            applicant.stageStatus === "completed" ||
-            Number(applicant.stage || 0) === 12;
           return (
             <div
               className="dashboardVirtualRow"
@@ -139,8 +157,8 @@ function ApplicantsTable({
                 {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
               </div>
               <div className="dashboardStatusCell">
-                <span className={`dashboardStatusPill ${workflowCompleted ? "dashboardStatusPillSuccess" : "dashboardStatusPillInfo"}`}>
-                  {workflowCompleted ? "Completed" : "In Progress"}
+                <span className={`dashboardStatusPill ${workflowPill.className}`}>
+                  {workflowPill.label}
                 </span>
                 <span className="dashboardStatusMetaTitle">{workflow.title}</span>
                 {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}

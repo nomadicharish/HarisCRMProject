@@ -1217,6 +1217,11 @@
   color:#16a34a;
 }
 
+.dashboardStatusPillWarning{
+  background:#fff4e8;
+  color:#f97316;
+}
+
 .dashboardPaymentPillPending{
   background:#fff4e8;
   color:#f97316;
@@ -1350,6 +1355,11 @@
   color:var(--ui-green);
 }
 
+.dashboardStatusPillWarning{
+  background:var(--ui-orange-soft);
+  color:var(--ui-orange);
+}
+
 .dashboardPaymentPillPending{
   background:var(--ui-orange-soft);
   color:var(--ui-orange);
@@ -1481,6 +1491,12 @@
   background:#dcfce7;
   color:var(--ui-green);
   border:1px solid #bbf7d0;
+}
+
+.dashboardStatusPillWarning{
+  background:#fff7ed;
+  color:var(--ui-orange);
+  border:1px solid #fed7aa;
 }
 
 .dashboardPaymentPillPending{
