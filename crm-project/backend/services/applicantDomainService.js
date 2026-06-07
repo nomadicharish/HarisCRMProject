@@ -1,13 +1,7 @@
 const { db } = require("../config/firebase");
-const { logger } = require("../lib/logger");
 const { AppError } = require("../lib/AppError");
 
-const DEFAULT_EUR_TO_INR_RATE = 90;
-const FX_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-let fxRateCache = {
-  value: DEFAULT_EUR_TO_INR_RATE,
-  fetchedAt: 0
-};
+const SUPPORTED_PAYMENT_CURRENCIES = new Set(["INR", "EUR", "USD"]);
 
 const APPLICANT_LIST_SELECT_FIELDS = [
   "firstName",
@@ -98,6 +92,12 @@ function normalizePaymentMode(value) {
   return "";
 }
 
+function normalizePaymentCurrency(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (normalized === "EURO") return "EUR";
+  return SUPPORTED_PAYMENT_CURRENCIES.has(normalized) ? normalized : "INR";
+}
+
 function parseBooleanQuery(value, fallback = false) {
   if (value === undefined || value === null || value === "") return fallback;
   if (typeof value === "boolean") return value;
@@ -178,18 +178,21 @@ async function resolveApplicantTotalEur(applicant = {}) {
   const directTotal = roundCurrency(
     applicant?.totalApplicantPayment ?? applicant?.totalAmount ?? applicant?.totalPayment ?? 0
   );
-  if (directTotal > 0) return directTotal;
+  return directTotal;
+}
 
-  const companyId = applicant?.companyId;
-  if (!companyId) return 0;
+async function resolveApplicantTotalAmount(applicant = {}) {
+  return resolveApplicantTotalEur(applicant);
+}
 
-  try {
-    const companyDoc = await db.collection("companies").doc(companyId).get();
-    if (!companyDoc.exists) return 0;
-    return roundCurrency(companyDoc.data()?.companyPaymentPerApplicant ?? 0);
-  } catch {
-    return 0;
-  }
+function resolveApplicantPaymentCurrency(applicant = {}) {
+  return normalizePaymentCurrency(
+    applicant?.paymentCurrency ||
+      applicant?.currency ||
+      applicant?.payment?.currency ||
+      applicant?.paymentSummary?.applicant?.currency ||
+      applicant?.paymentsSummary?.applicant?.currency
+  );
 }
 
 async function resolveApplicantReferenceFields(applicant = {}) {
@@ -291,48 +294,13 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   return "Document upload pending";
 }
 
-async function getTodayEurToInrRate() {
-  try {
-    const now = Date.now();
-    if (fxRateCache.fetchedAt && now - fxRateCache.fetchedAt < FX_CACHE_TTL_MS) {
-      return fxRateCache.value;
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const response = await fetch("https://api.frankfurter.app/latest?from=EUR&to=INR", {
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      throw new Error(`Exchange rate request failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rate = toNumber(data?.rates?.INR);
-    const resolvedRate = rate > 0 ? rate : DEFAULT_EUR_TO_INR_RATE;
-    fxRateCache = {
-      value: resolvedRate,
-      fetchedAt: now
-    };
-    return resolvedRate;
-  } catch (error) {
-    logger.warn("Exchange rate fetch error", {
-      message: error?.message || String(error || "")
-    });
-    if (fxRateCache.fetchedAt) return fxRateCache.value;
-    return DEFAULT_EUR_TO_INR_RATE;
-  }
-}
-
 module.exports = {
   APPLICANT_LIST_SELECT_FIELDS,
   getApplicantBannerStatusText,
   getApplicantStageLabel,
   getAuthenticatedUserFromReq,
-  getTodayEurToInrRate,
   normalizeDate,
+  normalizePaymentCurrency,
   normalizePaymentMode,
   normalizeTextForSearch,
   parseBooleanQuery,
@@ -340,6 +308,8 @@ module.exports = {
   buildApplicantListDerivedFields,
   projectApplicantFields,
   resolveApplicantReferenceFields,
+  resolveApplicantPaymentCurrency,
+  resolveApplicantTotalAmount,
   resolveApplicantTotalEur,
   roundCurrency,
   toNumber

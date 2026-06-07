@@ -3,6 +3,7 @@ const { AppError } = require("../lib/AppError");
 const { decryptText, encryptText } = require("../utils/crypto");
 const {
   normalizeCompanyDocuments,
+  normalizeCompanyJobSpecifications,
   normalizeEmailValue,
   normalizeIdList,
   normalizePhoneValue
@@ -312,6 +313,7 @@ async function addCompany(payload) {
     whatsappNumber: payload.whatsappNumber || "",
     employerIds: normalizedEmployerIds,
     documentsNeeded: normalizeCompanyDocuments(payload.documentsNeeded),
+    jobSpecifications: normalizeCompanyJobSpecifications(payload.jobSpecifications),
     createdAt: new Date()
   });
 
@@ -339,6 +341,7 @@ async function updateCompany(id, payload) {
       whatsappNumber: payload.whatsappNumber || "",
       employerIds: normalizedEmployerIds,
       documentsNeeded: normalizeCompanyDocuments(payload.documentsNeeded),
+      jobSpecifications: normalizeCompanyJobSpecifications(payload.jobSpecifications),
       updatedAt: new Date()
     },
     { merge: true }

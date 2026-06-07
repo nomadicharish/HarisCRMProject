@@ -13,6 +13,7 @@ import {
   input,
   label
 } from "./formStyles";
+import { CURRENCY_OPTIONS, getCurrencySymbol } from "../../utils/currency";
 
 function FieldIcon({ children }) {
   return (
@@ -69,7 +70,6 @@ function ApplicantFormStepTwo({
   editData,
   autoApproveAfterSave,
   showActions = true,
-  totalInrNeeded = "0",
   readOnly = false
 }) {
   const customSelectStyles = getSelectStyles();
@@ -85,9 +85,7 @@ function ApplicantFormStepTwo({
       <path d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
-  const euroIcon = <span style={{ fontSize: 16, fontWeight: 700 }}>€</span>;
-  const inrIcon = <span style={{ fontSize: 18, fontWeight: 700 }}>&#8377;</span>;
-
+  const currencyIcon = <span style={{ fontSize: 18, fontWeight: 700 }}>{getCurrencySymbol(form.paymentCurrency)}</span>;
   return (
     <>
       <div style={grid}>
@@ -146,8 +144,8 @@ function ApplicantFormStepTwo({
 
         {user?.role === "SUPER_USER" && (
           <div>
-            <label style={label}>Total Amount (EUR)</label>
-            <InputShell icon={euroIcon}>
+            <label style={label}>Total Amount</label>
+            <InputShell icon={currencyIcon}>
               <input
                 style={{ ...input, paddingLeft: "54px", border: errors.totalAmount ? `1px solid ${THEME.error}` : input.border }}
                 value={form.totalAmount || ""}
@@ -162,33 +160,41 @@ function ApplicantFormStepTwo({
           </div>
         )}
 
-        <div>
-          <label style={label}>Initial Paid Amount (INR)</label>
-          <InputShell icon={inrIcon}>
-            <input
-              style={{ ...input, paddingLeft: "44px", border: errors.paidAmount ? `1px solid ${THEME.error}` : input.border }}
-              value={form.paidAmount || ""}
-              onFocus={handleFocus}
-              placeholder="Initial Paid Amount"
-              onBlur={(event) => handleBlur(event, errors.paidAmount)}
-              onChange={(event) => handleChange("paidAmount", event.target.value)}
-              disabled={readOnly}
-            />
-          </InputShell>
-          {errors.paidAmount && <div style={errorText}>{errors.paidAmount}</div>}
-        </div>
+        {user?.role === "SUPER_USER" && (
+          <div>
+            <label style={label}>Currency</label>
+            <SelectShell icon={currencyIcon}>
+              <Select
+                styles={customSelectStyles}
+                options={CURRENCY_OPTIONS}
+                placeholder="Select currency..."
+                value={CURRENCY_OPTIONS.find((currency) => currency.value === form.paymentCurrency)}
+                onChange={(selected) => handleChange("paymentCurrency", selected?.value || "INR")}
+                menuPortalTarget={menuPortalTarget}
+                menuPosition="fixed"
+                isDisabled={readOnly}
+              />
+            </SelectShell>
+          </div>
+        )}
 
-        <div> 
-          <label style={label}>Total Amount to Pay (INR)</label>
-          <InputShell icon={inrIcon} muted>
-            <input
-              style={{ ...input, paddingLeft: "44px", background: "#f8fafc", color: "#374151", fontWeight: 600 }}
-              value={totalInrNeeded || "0"}
-              readOnly
-              tabIndex={-1}
-            />
-          </InputShell>
-        </div>
+        {user?.role === "SUPER_USER" && (
+          <div>
+            <label style={label}>Initial Paid Amount</label>
+            <InputShell icon={currencyIcon}>
+              <input
+                style={{ ...input, paddingLeft: "44px", border: errors.paidAmount ? `1px solid ${THEME.error}` : input.border }}
+                value={form.paidAmount || ""}
+                onFocus={handleFocus}
+                placeholder="Initial Paid Amount"
+                onBlur={(event) => handleBlur(event, errors.paidAmount)}
+                onChange={(event) => handleChange("paidAmount", event.target.value)}
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.paidAmount && <div style={errorText}>{errors.paidAmount}</div>}
+          </div>
+        )}
       </div>
 
       {showActions ? (

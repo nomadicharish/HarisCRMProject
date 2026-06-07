@@ -1,9 +1,14 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
-const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
+const {
+  refreshApplicantDocumentSummary,
+  refreshApplicantSummaries
+} = require("../../services/applicantSummaryService");
 const {
   buildApplicantListDerivedFields,
-  getAuthenticatedUserFromReq
+  getAuthenticatedUserFromReq,
+  normalizePaymentCurrency,
+  roundCurrency
 } = require("../../services/applicantDomainService");
 const {
   AUTO_STAGE_IDS,
@@ -143,9 +148,22 @@ async function approveAndMoveStageUseCase(req) {
   };
 
   if (currentStage === 1) {
+    const requestedTotal = roundCurrency(req.body?.totalApplicantPayment ?? req.body?.totalAmount);
+    const resolvedTotal = requestedTotal > 0
+      ? requestedTotal
+      : roundCurrency(applicant.totalApplicantPayment ?? applicant.totalAmount ?? 0);
+    if (resolvedTotal <= 0) {
+      throw new AppError("Total amount is required to approve applicant", 400);
+    }
     updatePayload.approvalStatus = "approved";
     updatePayload.approvedAt = new Date();
     updatePayload.approvedBy = req.user.uid;
+    updatePayload.totalApplicantPayment = resolvedTotal;
+    updatePayload.totalAmount = resolvedTotal;
+    updatePayload.paymentCurrency = normalizePaymentCurrency(
+      req.body?.paymentCurrency || req.body?.currency || applicant.paymentCurrency || applicant.currency
+    );
+    updatePayload.currency = updatePayload.paymentCurrency;
   }
   Object.assign(updatePayload, buildApplicantListDerivedFields({
     ...applicant,
@@ -159,6 +177,10 @@ async function approveAndMoveStageUseCase(req) {
     toStage: nextStage,
     role: req.user.role,
     action: "MANUAL_STAGE_APPROVAL"
+  });
+  await refreshApplicantSummaries(applicantId, {
+    ...applicant,
+    ...updatePayload
   });
 
   const finalApplicant = await docRef.get();

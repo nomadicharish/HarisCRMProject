@@ -18,6 +18,7 @@ const EMPTY_FORM = {
   companyId: "",
   countryId: "",
   agencyId: "",
+  paymentCurrency: "INR",
   totalAmount: "",
   paidAmount: ""
 };
@@ -34,6 +35,7 @@ const toDisplayValue = (...values) => {
 const getApplicantTotalAmount = (editData) =>
   toDisplayValue(
     editData?.payment?.total,
+    editData?.paymentSummary?.applicant?.total,
     editData?.paymentsSummary?.applicant?.total,
     editData?.totalApplicantPayment,
     editData?.totalAmount,
@@ -117,7 +119,7 @@ const validateTotalAmount = (totalAmount, userRole) => {
 };
 
 const validatePaidAmount = (paidAmount) => {
-  if (!paidAmount) return "Initial paid amount is required";
+  if (!paidAmount) return null;
   const value = Number(String(paidAmount).replace(/,/g, ""));
   if (Number.isNaN(value)) return "Paid amount must be a valid number";
   if (value < 0) return "Paid amount cannot be negative";

@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -16,7 +17,7 @@ function formatDate(value) {
   });
 }
 
-function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
+function ContractSection({ applicantId, user, applicant, open, onClose, onUpdated }) {
   const [contract, setContract] = useState(null);
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -27,6 +28,8 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
     !contract?.fileUrl &&
     contract?.status !== "APPROVED";
   const canApprove = user?.role === "SUPER_USER" && contract?.status === "PENDING";
+  const pendingAmount = applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0;
+  const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
 
   const loadContract = useCallback(async () => {
     try {
@@ -201,6 +204,15 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
             ) : null}
 
             {canApprove ? (
+              <>
+              <div className="workflowModalBody">
+                <div className="contractInfoCard">
+                  <div className="contractInfoRow">
+                    <span>Pending Amount</span>
+                    <strong>{formatCurrencyAmount(pendingAmount, paymentCurrency, true)}</strong>
+                  </div>
+                </div>
+              </div>
               <div className="workflowModalFooter">
                 <button
                   type="button"
@@ -211,6 +223,7 @@ function ContractSection({ applicantId, user, open, onClose, onUpdated }) {
                   {saving ? "Saving..." : "Approve Contract"}
                 </button>
               </div>
+              </>
             ) : null}
             {!canApprove ? (
               <div className="workflowModalFooter">

@@ -1,5 +1,5 @@
 const { admin, db } = require("../config/firebase");
-const { buildApplicantListDerivedFields } = require("./applicantDomainService");
+const { buildApplicantListDerivedFields, resolveApplicantPaymentCurrency } = require("./applicantDomainService");
 const { normalizeCompanyDocuments } = require("../utils/normalizers");
 
 function toNumber(value) {
@@ -46,15 +46,20 @@ async function buildPaymentSummary(applicantId, applicantData = {}) {
   const totalApplicant = roundCurrency(
     applicantData.totalApplicantPayment ?? applicantData.totalAmount ?? applicantData.totalPayment ?? 0
   );
+  const applicantCurrency = resolveApplicantPaymentCurrency(applicantData);
   const totalEmployer = roundCurrency(applicantData.totalEmployerPayment ?? 0);
 
   return {
     applicant: {
       total: totalApplicant,
+      totalInr: totalApplicant,
       paid: roundCurrency(applicantPaid),
+      paidInr: roundCurrency(applicantPaid),
       pending: Math.max(0, roundCurrency(totalApplicant - applicantPaid)),
+      pendingInr: Math.max(0, roundCurrency(totalApplicant - applicantPaid)),
+      currency: applicantCurrency,
       installmentCount: applicantInstallments,
-      remainingInstallments: Math.max(0, 4 - applicantInstallments)
+      remainingInstallments: Math.max(0, 5 - applicantInstallments)
     },
     employer: {
       total: totalEmployer,
@@ -228,6 +233,7 @@ async function updatePaymentSummaryAfterPayment(applicantId, payment = {}, appli
     resolvedApplicant.totalPayment ??
     0
   );
+  const applicantCurrency = resolveApplicantPaymentCurrency(resolvedApplicant);
   const totalEmployer = roundCurrency(
     employerSummary.total ??
     resolvedApplicant.totalEmployerPayment ??
@@ -247,10 +253,14 @@ async function updatePaymentSummaryAfterPayment(applicantId, payment = {}, appli
   const paymentSummary = {
     applicant: {
       total: totalApplicant,
+      totalInr: totalApplicant,
       paid: nextApplicantPaid,
+      paidInr: nextApplicantPaid,
       pending: Math.max(0, roundCurrency(totalApplicant - nextApplicantPaid)),
+      pendingInr: Math.max(0, roundCurrency(totalApplicant - nextApplicantPaid)),
+      currency: applicantCurrency,
       installmentCount: nextApplicantInstallments,
-      remainingInstallments: Math.max(0, 4 - nextApplicantInstallments)
+      remainingInstallments: Math.max(0, 5 - nextApplicantInstallments)
     },
     employer: {
       total: totalEmployer,

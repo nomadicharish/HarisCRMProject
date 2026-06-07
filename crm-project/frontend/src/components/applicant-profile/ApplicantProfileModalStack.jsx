@@ -47,6 +47,7 @@ function ApplicantProfileModalStack({
       <ContractSection
         applicantId={id}
         user={user}
+        applicant={applicant}
         open={showContractModal}
         onClose={() => setShowContractModal(false)}
         onUpdated={refreshWorkflowData}
@@ -73,6 +74,7 @@ function ApplicantProfileModalStack({
       <EmbassyInterviewModal
         applicantId={id}
         user={user}
+        applicant={applicant}
         interviewBiometric={interviewBiometric || applicant?.interviewBiometric || null}
         open={showEmbassyInterviewModal}
         onClose={() => setShowEmbassyInterviewModal(false)}
@@ -91,6 +93,7 @@ function ApplicantProfileModalStack({
       <VisaCollectionModal
         applicantId={id}
         user={user}
+        applicant={applicant}
         residencePermit={residencePermit || applicant?.residencePermit || null}
         open={showVisaCollectionModal}
         onClose={() => setShowVisaCollectionModal(false)}

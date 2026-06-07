@@ -3,8 +3,9 @@ const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
 const {
   buildApplicantListDerivedFields,
+  normalizePaymentCurrency,
   resolveApplicantReferenceFields,
-  resolveApplicantTotalEur,
+  resolveApplicantTotalAmount,
   toNumber
 } = require("../../services/applicantDomainService");
 const { approveAndMoveStageUseCase } = require("./workflowStageUseCases");
@@ -81,11 +82,12 @@ async function updateApplicantUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const incomingTotal = toNumber(req.body?.totalApplicantPayment ?? req.body?.totalAmount);
-  const mergedApplicant = { ...applicantSnap.data(), ...req.body };
-  const resolvedTotal =
-    incomingTotal > 0
-      ? incomingTotal
-      : await resolveApplicantTotalEur(mergedApplicant);
+  const existingApplicant = applicantSnap.data() || {};
+  const incomingCurrency = normalizePaymentCurrency(
+    req.body?.paymentCurrency || req.body?.currency || existingApplicant.paymentCurrency || existingApplicant.currency
+  );
+  const mergedApplicant = { ...existingApplicant, ...req.body };
+  const resolvedTotal = incomingTotal > 0 ? incomingTotal : await resolveApplicantTotalAmount(mergedApplicant);
   const referenceFields = await resolveApplicantReferenceFields(mergedApplicant);
 
   await applicantRef.update({
@@ -94,20 +96,26 @@ async function updateApplicantUseCase(req) {
     ...buildApplicantListDerivedFields({
       ...mergedApplicant,
       ...referenceFields,
+      paymentCurrency: incomingCurrency,
+      currency: incomingCurrency,
       totalApplicantPayment: resolvedTotal,
       totalAmount: resolvedTotal
     }),
     totalApplicantPayment: resolvedTotal,
     totalAmount: resolvedTotal,
+    paymentCurrency: incomingCurrency,
+    currency: incomingCurrency,
     updatedAt: new Date()
   });
 
   await refreshApplicantSummaries(id, {
-    ...applicantSnap.data(),
+    ...existingApplicant,
     ...req.body,
     ...referenceFields,
     totalApplicantPayment: resolvedTotal,
-    totalAmount: resolvedTotal
+    totalAmount: resolvedTotal,
+    paymentCurrency: incomingCurrency,
+    currency: incomingCurrency
   });
 
   return { message: "Applicant updated successfully" };

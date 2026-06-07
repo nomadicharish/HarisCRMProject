@@ -6,7 +6,6 @@ import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
 import API from "../services/api";
-import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import "../styles/forms.css";
 import "../styles/applicantDocuments.css";
 import "../styles/applicantsDashboard.css";
@@ -76,8 +75,21 @@ const errorText = {
   marginTop: "3px"
 };
 
-const formatAmountInput = formatIndianNumberInput;
-const parseAmountInput = parseIndianNumberInput;
+const createJobSpecificationId = (value, fallbackIndex = 0) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalized || `job_specification_${fallbackIndex + 1}`;
+};
+
+const createJobSpecificationRow = (value = {}, index = 0) => ({
+  rowKey: String(value.rowKey || value.id || `job_specification_row_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`),
+  id: String(value.id || createJobSpecificationId(value.name, index)),
+  name: String(value.name || value.label || "")
+});
 
 function TrashIcon() {
   return (
@@ -110,8 +122,8 @@ function CompanyFormPage() {
     name: "",
     countryId: "",
     employerIds: [],
-    companyPaymentPerApplicant: "",
-    documentsNeeded: []
+    documentsNeeded: [],
+    jobSpecifications: []
   });
 
   useEffect(() => {
@@ -150,9 +162,11 @@ function CompanyFormPage() {
             name: selected.name || "",
             countryId: selected.countryId || "",
             employerIds: Array.isArray(selected.employerIds) ? selected.employerIds : [],
-            companyPaymentPerApplicant: formatAmountInput(selected.companyPaymentPerApplicant ?? ""),
             documentsNeeded: Array.isArray(selected.documentsNeeded)
               ? selected.documentsNeeded.map((document, index) => createDocumentRow(document, index))
+              : [],
+            jobSpecifications: Array.isArray(selected.jobSpecifications)
+              ? selected.jobSpecifications.map((specification, index) => createJobSpecificationRow(specification, index))
               : []
           });
         }
@@ -263,9 +277,6 @@ function CompanyFormPage() {
   const updateField = (key, value) => {
     setForm((prev) => {
       const next = { ...prev, [key]: value };
-      if (key === "companyPaymentPerApplicant") {
-        next.companyPaymentPerApplicant = formatAmountInput(value);
-      }
       if (key === "countryId") {
         next.employerIds = prev.employerIds.filter((employerId) =>
           employers.some((employer) => employer.id === employerId && employer.countryId === value)
@@ -309,6 +320,37 @@ function CompanyFormPage() {
     }));
   };
 
+  const updateJobSpecification = (rowKey, key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      jobSpecifications: prev.jobSpecifications.map((specification, index) => {
+        if (specification.rowKey !== rowKey) return specification;
+        const next = { ...specification, [key]: value };
+        if (key === "name") {
+          next.id = createJobSpecificationId(value, index);
+        }
+        return next;
+      })
+    }));
+  };
+
+  const addJobSpecificationRow = () => {
+    setForm((prev) => ({
+      ...prev,
+      jobSpecifications: [
+        ...prev.jobSpecifications,
+        createJobSpecificationRow({}, prev.jobSpecifications.length)
+      ]
+    }));
+  };
+
+  const removeJobSpecificationRow = (rowKey) => {
+    setForm((prev) => ({
+      ...prev,
+      jobSpecifications: prev.jobSpecifications.filter((specification) => specification.rowKey !== rowKey)
+    }));
+  };
+
   const clearTemplateFile = (rowKey) => {
     setForm((prev) => ({
       ...prev,
@@ -331,18 +373,13 @@ function CompanyFormPage() {
 
     if (!form.name.trim()) nextErrors.name = "Company name is required";
     if (!form.countryId) nextErrors.countryId = "Select country";
-    if (form.companyPaymentPerApplicant === "") {
-      nextErrors.companyPaymentPerApplicant = "Total amount is required";
-    } else if (
-      Number.isNaN(parseAmountInput(form.companyPaymentPerApplicant)) ||
-      parseAmountInput(form.companyPaymentPerApplicant) < 0
-    ) {
-      nextErrors.companyPaymentPerApplicant = "Total amount must be a valid number";
-    }
-
     const invalidDocument = form.documentsNeeded.find((document) => !String(document.name || "").trim());
     if (invalidDocument) {
       nextErrors.documentsNeeded = "Document name is required";
+    }
+    const invalidJobSpecification = form.jobSpecifications.find((specification) => !String(specification.name || "").trim());
+    if (invalidJobSpecification) {
+      nextErrors.jobSpecifications = "Job specification name is required";
     }
 
     setErrors(nextErrors);
@@ -377,13 +414,17 @@ function CompanyFormPage() {
         templateFileName: document.clearTemplate ? "" : document.templateFileName || "",
         templateFileUrl: document.clearTemplate ? "" : document.templateFileUrl || ""
       }));
+      const jobSpecifications = form.jobSpecifications.map((specification, index) => ({
+        id: createJobSpecificationId(specification.name, index),
+        name: String(specification.name || "").trim()
+      }));
 
       const payload = {
         name: form.name.trim(),
         countryId: form.countryId,
         employerIds: form.employerIds,
-        companyPaymentPerApplicant: parseAmountInput(form.companyPaymentPerApplicant),
-        documentsNeeded
+        documentsNeeded,
+        jobSpecifications
       };
 
       let companyId = id;
@@ -499,25 +540,6 @@ function CompanyFormPage() {
               </div>
             </div>
 
-            <div>
-              <label style={label} htmlFor="company-total-amount">Total Amount (EUR)</label>
-              <input
-                id="company-total-amount"
-                style={{
-                  ...input,
-                  border: errors.companyPaymentPerApplicant ? `1px solid ${THEME.error}` : input.border
-                }}
-                value={form.companyPaymentPerApplicant}
-                onFocus={handleFocus}
-                onBlur={(event) => handleBlur(event, errors.companyPaymentPerApplicant)}
-                onChange={(event) => updateField("companyPaymentPerApplicant", event.target.value)}
-                placeholder="Total Amount"
-              />
-              {errors.companyPaymentPerApplicant ? (
-                <div style={errorText}>{errors.companyPaymentPerApplicant}</div>
-              ) : null}
-            </div>
-
           </div>
 
           <div style={{ marginTop: "24px" }}>
@@ -623,6 +645,54 @@ function CompanyFormPage() {
 
             <button type="button" className="dashboardPrimaryBtn" onClick={addDocumentRow}>
               Add Document
+            </button>
+          </div>
+
+          <div style={{ marginTop: "24px" }}>
+            <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "10px" }}>Job Specifications</div>
+
+            {form.jobSpecifications.map((specification) => (
+              <div
+                key={specification.rowKey}
+                style={{
+                  border: "1px solid #dbe3ef",
+                  padding: "14px",
+                  marginBottom: "12px",
+                  background: "#fff"
+                }}
+              >
+                <label style={label} htmlFor={`job-specification-name-${specification.rowKey}`}>
+                  Job Specification Name
+                </label>
+                <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                  <input
+                    id={`job-specification-name-${specification.rowKey}`}
+                    style={{
+                      ...input,
+                      flex: "1 1 220px",
+                      border: errors.jobSpecifications ? `1px solid ${THEME.error}` : input.border
+                    }}
+                    value={specification.name}
+                    onFocus={handleFocus}
+                    onBlur={(event) => handleBlur(event, errors.jobSpecifications)}
+                    onChange={(event) => updateJobSpecification(specification.rowKey, "name", event.target.value)}
+                    placeholder="Job Specification Name"
+                  />
+                  <button
+                    type="button"
+                    className="dashboardInlineLinkBtn"
+                    onClick={() => removeJobSpecificationRow(specification.rowKey)}
+                  >
+                    Remove job specification
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {errors.jobSpecifications ? <div style={errorText}>{errors.jobSpecifications}</div> : null}
+
+            <button type="button" className="dashboardPrimaryBtn" onClick={addJobSpecificationRow}>
+              Add Job Specification
             </button>
           </div>
 

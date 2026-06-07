@@ -8,6 +8,7 @@ import { actions, btnPrimary, btnSecondary, modal, overlay, stepText } from "./f
 import BlockingLoader from "../common/BlockingLoader";
 import DashboardTopbar from "../common/DashboardTopbar";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../../utils/numberFormat";
+import { normalizeCurrency } from "../../utils/currency";
 import {
   EMPTY_FORM,
   calculateAge,
@@ -27,19 +28,12 @@ const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCas
 
 const sanitizeAmountInput = formatIndianNumberInput;
 const parseAmountInput = parseIndianNumberInput;
-const DEFAULT_EXCHANGE_RATE = 90;
 const STEP_FALLBACK = <div className="routeSkeleton">Loading form...</div>;
 
 function normalizeListResponse(response) {
   if (Array.isArray(response)) return response;
   if (Array.isArray(response?.items)) return response.items;
   return [];
-}
-
-function roundTo2(value) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return 0;
-  return Math.round((parsed + Number.EPSILON) * 100) / 100;
 }
 
 function ApplicantFormModal({
@@ -62,7 +56,6 @@ function ApplicantFormModal({
   const [dob, setDob] = useState(null);
   const [, setStep] = useState(1);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [exchangeRate, setExchangeRate] = useState(DEFAULT_EXCHANGE_RATE);
 
   const navigate = useNavigate();
 
@@ -97,8 +90,10 @@ function ApplicantFormModal({
 
     const totalAmountError = validateTotalAmount(form.totalAmount, user?.role);
     if (totalAmountError) newErrors.totalAmount = totalAmountError;
-    const paidAmountError = validatePaidAmount(form.paidAmount);
-    if (paidAmountError) newErrors.paidAmount = paidAmountError;
+    if (user?.role === "SUPER_USER") {
+      const paidAmountError = validatePaidAmount(form.paidAmount);
+      if (paidAmountError) newErrors.paidAmount = paidAmountError;
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -132,15 +127,9 @@ function ApplicantFormModal({
   };
 
   const handleCompanyChange = (value) => {
-    const selectedCompany = companies.find((company) => company.id === value);
     setForm((prev) => ({
       ...prev,
-      companyId: value,
-      totalAmount: selectedCompany
-        ? user?.role === "SUPER_USER"
-          ? sanitizeAmountInput(selectedCompany.companyPaymentPerApplicant ?? "")
-          : sanitizeAmountInput(prev.totalAmount || selectedCompany.companyPaymentPerApplicant || "")
-        : prev.totalAmount
+      companyId: value
     }));
   };
 
@@ -173,21 +162,8 @@ function ApplicantFormModal({
       }
     }
 
-    async function loadExchangeRate() {
-      try {
-        const data = await getCached("/applicants/exchange-rate", { ttlMs: 12 * 60 * 60 * 1000 });
-        const nextRate = Number(data?.rate);
-        if (Number.isFinite(nextRate) && nextRate > 0) {
-          setExchangeRate(nextRate);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-
     loadDropdowns();
     loadUser();
-    loadExchangeRate();
   }, [userProp]);
 
   useEffect(() => {
@@ -210,7 +186,6 @@ function ApplicantFormModal({
         : null;
     const resolvedCountryId = editData.countryId || "";
     const resolvedCompanyId = editData.companyId || "";
-    const selectedCompany = companies.find((company) => company.id === resolvedCompanyId);
     const resolvedTotalAmount = getApplicantTotalAmount(editData);
     const hasResolvedTotalAmount =
       resolvedTotalAmount !== null &&
@@ -276,28 +251,21 @@ function ApplicantFormModal({
       countryId: resolvedCountryId,
       companyId: resolvedCompanyId,
       agencyId: editData.agencyId || "",
+      paymentCurrency: normalizeCurrency(
+        editData.paymentCurrency ||
+          editData.currency ||
+          editData?.payment?.currency ||
+          editData?.paymentSummary?.applicant?.currency
+      ),
       totalAmount:
         hasResolvedTotalAmount
           ? sanitizeAmountInput(resolvedTotalAmount)
-          : user?.role === "SUPER_USER"
-          ? sanitizeAmountInput(selectedCompany?.companyPaymentPerApplicant ?? "")
           : "",
       paidAmount: sanitizeAmountInput(getApplicantPaidAmount(editData))
     });
 
     setDob(parsedDob);
     setStep(1);
-    const editExchangeRate = Number(
-      editData?.payment?.exchangeRate ||
-        editData?.paymentsSummary?.exchangeRate ||
-        editData?.paymentSummary?.exchangeRate ||
-        editData?.exchangeRate ||
-        0
-    );
-    if (Number.isFinite(editExchangeRate) && editExchangeRate > 0) {
-      setExchangeRate(editExchangeRate);
-    }
-
     if (resolvedCountryId) {
       setFilteredCompanies(companies.filter((company) => company.countryId === resolvedCountryId));
     }
@@ -339,8 +307,10 @@ function ApplicantFormModal({
         agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,
         totalApplicantPayment: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
         totalAmount: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
-        amountPaid: form.paidAmount ? parseAmountInput(form.paidAmount) : 0,
-        paidAmount: form.paidAmount ? parseAmountInput(form.paidAmount) : 0
+        paymentCurrency: normalizeCurrency(form.paymentCurrency),
+        currency: normalizeCurrency(form.paymentCurrency),
+        amountPaid: user?.role === "SUPER_USER" && form.paidAmount ? parseAmountInput(form.paidAmount) : 0,
+        paidAmount: user?.role === "SUPER_USER" && form.paidAmount ? parseAmountInput(form.paidAmount) : 0
       };
       const selectedCompany = companies.find((company) => company.id === form.companyId);
       const savedPayload = {
@@ -387,17 +357,6 @@ function ApplicantFormModal({
   const countryOptions = countries.map((country) => ({ value: country.id, label: country.name }));
   const companyOptions = filteredCompanies.map((company) => ({ value: company.id, label: company.name }));
   const agencyOptions = agencies.map((agency) => ({ value: agency.id, label: agency.name }));
-  const selectedCompany = companies.find((company) => company.id === form.companyId);
-  const totalInrNeeded = (() => {
-    const totalEur = (() => {
-      const parsed = parseAmountInput(form.totalAmount);
-      if (Number.isFinite(parsed) && parsed > 0) return parsed;
-      const companyAmount = Number(selectedCompany?.companyPaymentPerApplicant || 0);
-      return Number.isFinite(companyAmount) && companyAmount > 0 ? companyAmount : 0;
-    })();
-    if (!Number.isFinite(totalEur) || totalEur <= 0) return "0";
-    return sanitizeAmountInput(roundTo2(totalEur * exchangeRate));
-  })();
   const pageSubmitLabel = loading
     ? editData
       ? "Updating..."
@@ -576,7 +535,6 @@ function ApplicantFormModal({
                     editData={editData}
                     autoApproveAfterSave={autoApproveAfterSave}
                     showActions={false}
-                    totalInrNeeded={totalInrNeeded}
                     readOnly={readOnly}
                   />
                 </Suspense>
@@ -759,7 +717,6 @@ function ApplicantFormModal({
                 editData={editData}
                 autoApproveAfterSave={autoApproveAfterSave}
                 showActions={false}
-                totalInrNeeded={totalInrNeeded}
                 readOnly={readOnly}
               />
             </Suspense>

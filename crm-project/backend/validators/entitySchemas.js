@@ -15,6 +15,12 @@ const companyDocumentSchema = z.object({
   templateFileUrl: optionalTrimmedString
 });
 
+const companyJobSpecificationSchema = z.object({
+  id: optionalTrimmedString,
+  label: optionalTrimmedString,
+  name: optionalTrimmedString
+});
+
 const idParamSchema = z.object({
   id: trimmedString.min(1, "Id is required")
 });
@@ -26,11 +32,12 @@ const countryPayloadSchema = z.object({
 const companyPayloadSchema = z.object({
   name: trimmedString.min(1, "Company name is required"),
   countryId: trimmedString.min(1, "Country is required"),
-  companyPaymentPerApplicant: numericAmountField,
+  companyPaymentPerApplicant: numericAmountField.optional().default(0),
   employerIds: z.array(trimmedString).optional().default([]),
   contactNumber: optionalTrimmedString,
   whatsappNumber: optionalTrimmedString,
-  documentsNeeded: z.array(companyDocumentSchema).optional().default([])
+  documentsNeeded: z.array(companyDocumentSchema).optional().default([]),
+  jobSpecifications: z.array(companyJobSpecificationSchema).optional().default([])
 });
 
 const employerPayloadSchema = z.object({

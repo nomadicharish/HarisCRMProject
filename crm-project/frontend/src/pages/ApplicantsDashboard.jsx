@@ -11,6 +11,7 @@ import PageLoader from "../components/common/PageLoader";
 import { getCached, hasFreshCache, invalidateCache, prefetchCached } from "../services/cachedApi";
 import API from "../services/api";
 import { getStoredUser } from "../utils/auth";
+import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import "../styles/applicantsDashboard.css";
 
 const CountryManagerModal = lazy(() => import("../components/dashboard/CountryManagerModal"));
@@ -20,17 +21,9 @@ const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
-const COMPANY_LOOKUP_FIELDS = "id,name,countryId,companyPaymentPerApplicant,employerIds,createdAt";
+const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,createdAt,jobSpecifications,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
-const pendingNumberFormatter = new Intl.NumberFormat("en-IN", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0
-});
-const euroNumberFormatter = new Intl.NumberFormat("en-IN", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0
-});
 const TAB_CONFIG = {
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
   companies: { label: "Companies", actionLabel: "Add Company" },
@@ -38,13 +31,8 @@ const TAB_CONFIG = {
   agencies: { label: "Agencies", actionLabel: "Add Agency" }
 };
 
-function formatPendingAmount(value) {
-  return `\u20b9${pendingNumberFormatter.format(Number(value || 0))}`;
-}
-
-function formatEuroAmount(value) {
-  const amount = Number(value || 0);
-  return amount > 0 ? `EUR ${euroNumberFormatter.format(amount)}` : "-";
+function formatApplicantPendingAmount(value, currency) {
+  return formatCurrencyAmount(value, normalizeCurrency(currency));
 }
 
 function getMultiParam(searchParams, key) {
@@ -1010,7 +998,7 @@ function ApplicantsDashboard() {
                     rows={paginatedRows}
                     isEmployer={isEmployer}
                     onOpenApplicant={handleOpenApplicant}
-                    formatPendingAmount={formatPendingAmount}
+                    formatPendingAmount={formatApplicantPendingAmount}
                   />
                 ) : null}
 
@@ -1019,7 +1007,6 @@ function ApplicantsDashboard() {
                     rows={paginatedRows}
                     isSuperUser={isSuperUser}
                     rightIconSrc={RIGHT_ICON_SRC}
-                    formatEuroAmount={formatEuroAmount}
                     onOpenCompanyEdit={(id) => navigate(`/companies/${id}/edit`)}
                     onOpenApplicantsForCompany={handleOpenApplicantsForCompany}
                   />

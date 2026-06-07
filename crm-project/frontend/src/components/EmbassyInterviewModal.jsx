@@ -4,6 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -92,7 +93,7 @@ function DetailRow({ label, value, action }) {
   );
 }
 
-function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, onClose, onUpdated }) {
+function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometric, open, onClose, onUpdated }) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
   };
@@ -117,6 +118,8 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
     !interview?.approved &&
     String(interview?.status || "").toUpperCase() !== "APPROVED";
   const canApprove = user?.role === "SUPER_USER" && interview && !interview.approved && !hasInterviewBiometric;
+  const pendingAmount = applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0;
+  const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
   const canAddTicket = user?.role === "AGENCY" && interview && !interviewTicket && !hasInterviewBiometric;
   const isBusy = savingInterview || savingTicket;
 
@@ -385,6 +388,17 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                   ) : null}
                 </div>
               </div>
+              </div>
+            ) : null}
+
+            {canApprove ? (
+              <div className="workflowModalBody">
+                <div className="contractInfoCard">
+                  <div className="contractInfoRow">
+                    <span>Pending Amount</span>
+                    <strong>{formatCurrencyAmount(pendingAmount, paymentCurrency, true)}</strong>
+                  </div>
+                </div>
               </div>
             ) : null}
 

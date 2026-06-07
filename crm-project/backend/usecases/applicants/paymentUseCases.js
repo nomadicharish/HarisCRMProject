@@ -3,9 +3,10 @@ const { AppError } = require("../../lib/AppError");
 const { updatePaymentSummaryAfterPayment } = require("../../services/applicantSummaryService");
 const {
   getAuthenticatedUserFromReq,
-  getTodayEurToInrRate,
   normalizeDate,
+  normalizePaymentCurrency,
   normalizePaymentMode,
+  resolveApplicantPaymentCurrency,
   resolveApplicantTotalEur,
   roundCurrency
 } = require("../../services/applicantDomainService");
@@ -30,22 +31,28 @@ async function addPaymentUseCase(req) {
   }
 
   if (
-    (type === "APPLICANT" && !["AGENCY", "SUPER_USER"].includes(userRole)) ||
+    (type === "APPLICANT" && userRole !== "SUPER_USER") ||
     (type === "EMPLOYER" && !["SUPER_USER", "ACCOUNTANT"].includes(userRole))
   ) {
     throw new AppError("Not allowed to add this payment", 403);
   }
 
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantSnap = await applicantRef.get();
+  if (!applicantSnap.exists) {
+    throw new AppError("Applicant not found", 404);
+  }
+  const applicantData = applicantSnap.data() || {};
+  const applicantCurrency = resolveApplicantPaymentCurrency(applicantData);
+
   if (type === "APPLICANT") {
-    const paymentsSnap = await db
-      .collection("applicants")
-      .doc(applicantId)
+    const paymentsSnap = await applicantRef
       .collection("payments")
       .where("type", "==", "APPLICANT")
       .get();
 
-    if (paymentsSnap.size >= 4) {
-      throw new AppError("Maximum 4 installments allowed", 400);
+    if (paymentsSnap.size >= 5) {
+      throw new AppError("Maximum 5 installments allowed", 400);
     }
   }
 
@@ -57,7 +64,7 @@ async function addPaymentUseCase(req) {
   const payment = {
     type,
     amount: normalizedAmount,
-    currency: type === "APPLICANT" ? "INR" : currency || "INR",
+    currency: type === "APPLICANT" ? applicantCurrency : normalizePaymentCurrency(currency),
     paymentMode: normalizedPaymentMode,
     note: note || "",
     paidBy: userRole,
@@ -67,8 +74,8 @@ async function addPaymentUseCase(req) {
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   };
 
-  await db.collection("applicants").doc(applicantId).collection("payments").add(payment);
-  await updatePaymentSummaryAfterPayment(applicantId, payment);
+  await applicantRef.collection("payments").add(payment);
+  await updatePaymentSummaryAfterPayment(applicantId, payment, applicantData);
 
   return { message: "Payment added successfully" };
 }
@@ -107,7 +114,7 @@ async function buildPaymentSummaryResponse(applicantId, applicant) {
         id: "legacy-initial-payment",
         type: "APPLICANT",
         amount: legacyBalance,
-        currency: "INR",
+        currency: resolveApplicantPaymentCurrency(applicant),
         paymentMode: "",
         note: history.some((item) => item.type === "APPLICANT")
           ? "Mapped from applicant profile"
@@ -123,26 +130,25 @@ async function buildPaymentSummaryResponse(applicantId, applicant) {
   }
 
   history.sort((a, b) => (b.paidDate || 0) - (a.paidDate || 0));
-  const eurToInrRate = await getTodayEurToInrRate();
   const applicantTotalEur = await resolveApplicantTotalEur(applicant);
-  const applicantTotalInr = roundCurrency(applicantTotalEur * eurToInrRate);
-  const applicantPendingInr = Math.max(0, roundCurrency(applicantTotalInr - applicantPaid));
+  const applicantCurrency = resolveApplicantPaymentCurrency(applicant);
+  const applicantTotal = roundCurrency(applicantTotalEur);
+  const applicantPending = Math.max(0, roundCurrency(applicantTotal - applicantPaid));
   const applicantInstallments = history.filter((item) => item.type === "APPLICANT");
 
   return {
     applicant: {
-      total: applicantTotalEur,
-      totalEur: applicantTotalEur,
-      totalInr: applicantTotalInr,
+      total: applicantTotal,
+      totalEur: applicantTotal,
+      totalInr: applicantTotal,
       paid: roundCurrency(applicantPaid),
       paidInr: roundCurrency(applicantPaid),
-      pending: applicantPendingInr,
-      pendingInr: applicantPendingInr,
-      exchangeRate: roundCurrency(eurToInrRate),
-      currency: "INR",
-      sourceCurrency: "EUR",
+      pending: applicantPending,
+      pendingInr: applicantPending,
+      currency: applicantCurrency,
+      sourceCurrency: applicantCurrency,
       installmentCount: applicantInstallments.length,
-      remainingInstallments: Math.max(0, 4 - applicantInstallments.length),
+      remainingInstallments: Math.max(0, 5 - applicantInstallments.length),
       history: applicantInstallments
     },
     employer: {

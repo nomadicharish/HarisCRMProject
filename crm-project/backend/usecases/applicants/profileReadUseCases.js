@@ -7,8 +7,8 @@ const { getLatestDocumentsMap } = require("./documentFlowUseCases");
 const {
   getApplicantBannerStatusText,
   getApplicantStageLabel,
-  getTodayEurToInrRate,
   normalizeDate,
+  resolveApplicantPaymentCurrency,
   resolveApplicantTotalEur,
   roundCurrency
 } = require("../../services/applicantDomainService");
@@ -40,6 +40,7 @@ async function getApplicantByIdUseCase(req) {
       0
   );
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
+  const paymentCurrency = resolveApplicantPaymentCurrency(applicantData);
 
   const stageLabel = getApplicantStageLabel(applicantData?.stage, applicantData?.approvalStatus);
   const applicantBannerStatus = String(applicantData?.applicantBannerStatus || stageLabel || "Candidate Created");
@@ -53,6 +54,8 @@ async function getApplicantByIdUseCase(req) {
     countryName,
     totalApplicantPayment,
     totalAmount: totalApplicantPayment,
+    paymentCurrency,
+    currency: paymentCurrency,
     stageLabel,
     applicantBannerStatus,
     statusText: applicantBannerStatus,
@@ -60,8 +63,13 @@ async function getApplicantByIdUseCase(req) {
     paidAmount: applicantPaid,
     payment: {
       total: totalApplicantPayment,
+      totalInr: totalApplicantPayment,
       paid: applicantPaid,
-      pending: Math.max(0, totalApplicantPayment - applicantPaid)
+      paidInr: applicantPaid,
+      pending: Math.max(0, totalApplicantPayment - applicantPaid),
+      pendingInr: Math.max(0, totalApplicantPayment - applicantPaid),
+      currency: paymentCurrency,
+      sourceCurrency: paymentCurrency
     }
   };
 }
@@ -85,8 +93,8 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const countryName = applicantData.countryName || (countryDoc?.exists ? countryDoc.data()?.name || "" : "");
   const agencyName = applicantData.agencyName || (agencyDoc?.exists ? agencyDoc.data()?.name || "" : "");
 
-  const eurToInrRate = await getTodayEurToInrRate();
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
+  const paymentCurrency = resolveApplicantPaymentCurrency(applicantData);
   const paidFromSummary = roundCurrency(
     applicantData?.paymentSummary?.applicant?.paid ??
       applicantData?.paymentsSummary?.applicant?.paid ??
@@ -284,9 +292,9 @@ async function getApplicantWorkflowBundleUseCase(req) {
 
   const normalizedDocSummary = applicantData?.docSummary || applicantData?.documentSummary || {};
 
-  const totalInr = roundCurrency(totalApplicantPayment * eurToInrRate);
-  const paidInr = roundCurrency(applicantPaid);
-  const pendingInr = Math.max(0, roundCurrency(totalInr - paidInr));
+  const total = roundCurrency(totalApplicantPayment);
+  const paid = roundCurrency(applicantPaid);
+  const pending = Math.max(0, roundCurrency(total - paid));
 
   const response = {
     applicant: {
@@ -298,27 +306,28 @@ async function getApplicantWorkflowBundleUseCase(req) {
       countryName,
       totalApplicantPayment,
       totalAmount: totalApplicantPayment,
+      paymentCurrency,
+      currency: paymentCurrency,
       stageLabel,
       applicantBannerStatus,
       currentStatus: applicantBannerStatus,
       statusText,
       workflowFlags,
-      amountPaid: roundCurrency(applicantPaid),
-      paidAmount: roundCurrency(applicantPaid),
+      amountPaid: paid,
+      paidAmount: paid,
       payment: {
-        total: totalApplicantPayment,
-        totalEur: totalApplicantPayment,
-        totalInr,
-        paid: paidInr,
-        paidInr,
-        pending: pendingInr,
-        pendingInr,
-        exchangeRate: roundCurrency(eurToInrRate),
-        currency: "INR",
-        sourceCurrency: "EUR"
+        total,
+        totalEur: total,
+        totalInr: total,
+        paid,
+        paidInr: paid,
+        pending,
+        pendingInr: pending,
+        currency: paymentCurrency,
+        sourceCurrency: paymentCurrency
       }
     },
-    exchangeRate: roundCurrency(eurToInrRate)
+    currency: paymentCurrency
   };
 
   if (includeDetails) {

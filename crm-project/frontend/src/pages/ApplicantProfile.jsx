@@ -14,6 +14,7 @@ import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
 import useApplicantPaymentState from "../hooks/useApplicantPaymentState";
 import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
+import { formatCurrencyAmount } from "../utils/currency";
 import { getStoredUser } from "../utils/auth";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 
@@ -145,6 +146,8 @@ function ApplicantProfile() {
 
   const {
     pending,
+    currency,
+    formattedPendingAmount,
     isTotalAmountMissing
   } = useApplicantPaymentState({
     applicant
@@ -358,7 +361,9 @@ function ApplicantProfile() {
               pendingDisplayValue={
                 isTotalAmountMissing
                   ? "Enter Total Amount"
-                  : `INR ${Number(sidebarPendingOverride ?? pending).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                  : sidebarPendingOverride !== null && sidebarPendingOverride !== undefined
+                  ? formatCurrencyAmount(sidebarPendingOverride, currency, true)
+                  : formattedPendingAmount
               }
               canEdit={false}
               onEdit={() => openEditProfile("default")}

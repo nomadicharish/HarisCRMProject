@@ -9,18 +9,12 @@ import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getCached, invalidateCache, readCached, updateCached, writeCached } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import { getStoredUser } from "../utils/auth";
+import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
 import "../styles/applicantsDashboard.css";
-
-function formatCurrency(value, withDecimals = false, currencySymbol = "\u20b9") {
-  return `${currencySymbol}${Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: withDecimals ? 2 : 0,
-    maximumFractionDigits: withDecimals ? 2 : 0
-  })}`;
-}
 
 function formatDate(value) {
   if (!value) return "-";
@@ -78,7 +72,10 @@ function ApplicantPayments() {
 
       const nextSidebarProfile = buildApplicantSidebarCache({
         applicant: nextApplicant,
-        pendingAmount: paymentPageRes.value?.paymentSummary?.applicant?.pendingInr || 0,
+        pendingAmount:
+          paymentPageRes.value?.paymentSummary?.applicant?.pendingInr ??
+          paymentPageRes.value?.paymentSummary?.applicant?.pending ??
+          0,
         countryName: nextApplicant?.countryName || nextApplicant?.country || "",
         agencyName: nextApplicant?.agencyName || nextApplicant?.agency?.name || ""
       });
@@ -100,6 +97,12 @@ function ApplicantPayments() {
   }, [loadData]);
 
   const applicantPayment = paymentSummary?.applicant || {};
+  const paymentCurrency = normalizeCurrency(applicantPayment.currency || applicant?.paymentCurrency || applicant?.currency);
+  const formatPaymentCurrency = (value, withDecimals = false) =>
+    formatCurrencyAmount(value, paymentCurrency, withDecimals);
+  const pendingAmount = applicantPayment.pendingInr ?? applicantPayment.pending ?? 0;
+  const totalAmount = applicantPayment.totalInr ?? applicantPayment.total ?? 0;
+  const paidAmount = applicantPayment.paidInr ?? applicantPayment.paid ?? 0;
   const paymentHistory = useMemo(() => {
     if (Array.isArray(paymentSummary?.applicant?.history)) {
       return paymentSummary.applicant.history;
@@ -107,9 +110,9 @@ function ApplicantPayments() {
     return (paymentSummary?.history || []).filter((payment) => payment.type === "APPLICANT");
   }, [paymentSummary]);
   const canAddPayment =
-    ["SUPER_USER", "AGENCY"].includes(user?.role) &&
+    user?.role === "SUPER_USER" &&
     applicantPayment.remainingInstallments > 0 &&
-    Number(applicantPayment.pendingInr || 0) > 0;
+    Number(pendingAmount || 0) > 0;
   const installmentCount = applicantPayment.installmentCount || 0;
 
   const handleInputChange = (key, value) => {
@@ -139,14 +142,14 @@ function ApplicantPayments() {
       id: `temp-${Date.now()}`,
       type: "APPLICANT",
       amount,
-      currency: "INR",
+      currency: paymentCurrency,
       paidDate: optimisticDate,
       paymentMode: form.paymentMode,
       note: form.note
     };
 
-    const nextPaidInr = Number(applicantPayment.paidInr || 0) + amount;
-    const nextPendingInr = Math.max(0, Number(applicantPayment.pendingInr || 0) - amount);
+    const nextPaidInr = Number(paidAmount || 0) + amount;
+    const nextPendingInr = Math.max(0, Number(pendingAmount || 0) - amount);
     const nextInstallmentCount = Number(applicantPayment.installmentCount || 0) + 1;
     const nextRemainingInstallments = Math.max(0, Number(applicantPayment.remainingInstallments || 0) - 1);
 
@@ -193,7 +196,7 @@ function ApplicantPayments() {
       await API.post(`/applicants/${id}/payments`, {
         type: "APPLICANT",
         amount,
-        currency: "INR",
+        currency: paymentCurrency,
         paidDate: form.paidDate,
         paymentMode: form.paymentMode,
         note: form.note
@@ -233,8 +236,8 @@ function ApplicantPayments() {
         <aside className="paymentSidebar">
           <ApplicantSummaryCard
             applicant={sidebarProfile?.applicant || applicant}
-            pendingAmount={sidebarProfile?.pendingAmount ?? applicantPayment.pendingInr}
-            pendingDisplayValue={formatCurrency(sidebarProfile?.pendingAmount ?? applicantPayment.pendingInr)}
+            pendingAmount={sidebarProfile?.pendingAmount ?? pendingAmount}
+            pendingDisplayValue={formatPaymentCurrency(sidebarProfile?.pendingAmount ?? pendingAmount)}
             onPendingClick={() => navigate(`/applicants/${id}/payments`)}
             agencyName={sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || ""}
             countryName={sidebarProfile?.countryName || applicant?.countryName || applicant?.country || ""}
@@ -256,15 +259,15 @@ function ApplicantPayments() {
               </div>
               <div className="paymentInfoText">
                 <div className="paymentInfoLine">
-                  <span className="paymentInfoAmount">{formatCurrency(applicantPayment.paidInr)}</span>
+                  <span className="paymentInfoAmount">{formatPaymentCurrency(paidAmount)}</span>
                   <span className="paymentInfoDivider">/</span>
-                  <span className="paymentInfoAmount">{formatCurrency(applicantPayment.totalInr)}</span>
+                  <span className="paymentInfoAmount">{formatPaymentCurrency(totalAmount)}</span>
                   <span className="paymentInfoSuffix">
                     paid in {installmentCount} {installmentCount === 1 ? "installment" : "installments"}
                   </span>
                 </div>
                 <span className="paymentInfoMeta">
-                  Remaining amount {formatCurrency(applicantPayment.pendingInr)}
+                  Remaining amount {formatPaymentCurrency(pendingAmount)}
                 </span>
               </div>
             </div>
@@ -297,7 +300,7 @@ function ApplicantPayments() {
                   ) : (
                     paymentHistory.map((payment) => (
                       <tr key={payment.id}>
-                        <td>{formatCurrency(payment.amount)}</td>
+                        <td>{formatCurrencyAmount(payment.amount, payment.currency || paymentCurrency)}</td>
                         <td>{formatDate(payment.paidDate)}</td>
                         <td>{payment.paymentMode || "-"}</td>
                         <td>{payment.note || "-"}</td>
@@ -321,7 +324,7 @@ function ApplicantPayments() {
                 <div>
                   <h3 className="dashboardModalTitle">Add Payment Details</h3>
                   <div className="paymentModalSubtitle">
-                    Pending Amount: {formatCurrency(applicantPayment.pendingInr, true)}
+                    Pending Amount: {formatPaymentCurrency(pendingAmount, true)}
                   </div>
                 </div>
                 <button type="button" className="dashboardModalCloseBtn" onClick={() => setShowAddPaymentModal(false)}>
@@ -332,7 +335,7 @@ function ApplicantPayments() {
               <div className="contractFormGrid">
                 <div className="input-field">
                   <label className="contractUploadLabel" htmlFor="payment-amount">
-                    Paid Amount (In INR)
+                    Paid Amount
                   </label>
                   <input
                     id="payment-amount"

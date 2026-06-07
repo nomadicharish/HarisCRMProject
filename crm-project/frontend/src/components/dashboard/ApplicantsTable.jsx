@@ -57,7 +57,8 @@ function ApplicantsTable({
               [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
               "Applicant";
             const workflow = getWorkflowMeta(applicant);
-            const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
+            const pendingAmount = applicant.payment?.pendingInr ?? applicant.payment?.pending ?? 0;
+            const paymentPending = Number(pendingAmount || 0) > 0;
             const workflowCompleted =
               applicant.workflowStatus === "completed" ||
               applicant.stageStatus === "completed" ||
@@ -91,7 +92,11 @@ function ApplicantsTable({
                       <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
                         {paymentPending ? "Pending" : "Completed"}
                       </span>
-                      {paymentPending ? <span className="dashboardPaymentAmount">{formatPendingAmount(applicant.payment.pendingInr)}</span> : null}
+                      {paymentPending ? (
+                        <span className="dashboardPaymentAmount">
+                          {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                 ) : null}
@@ -121,7 +126,8 @@ function ApplicantsTable({
             [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
             "Applicant";
           const workflow = getWorkflowMeta(applicant);
-          const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
+          const pendingAmount = applicant.payment?.pendingInr ?? applicant.payment?.pending ?? 0;
+          const paymentPending = Number(pendingAmount || 0) > 0;
           const workflowCompleted =
             applicant.workflowStatus === "completed" ||
             applicant.stageStatus === "completed" ||
@@ -151,7 +157,11 @@ function ApplicantsTable({
                   <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
                     {paymentPending ? "Pending" : "Completed"}
                   </span>
-                  {paymentPending ? <span className="dashboardPaymentAmount">{formatPendingAmount(applicant.payment.pendingInr)}</span> : null}
+                  {paymentPending ? (
+                    <span className="dashboardPaymentAmount">
+                      {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
+                    </span>
+                  ) : null}
                 </div>
               ) : null}
             </div>

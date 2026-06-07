@@ -4,6 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -79,7 +80,7 @@ function DetailRow({ label, value, action }) {
   );
 }
 
-function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose, onUpdated }) {
+function VisaCollectionModal({ applicantId, user, applicant, residencePermit, open, onClose, onUpdated }) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
   };
@@ -100,6 +101,8 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
     !hasResidencePermit &&
     visaCollection?.status !== "APPROVED";
   const canApprove = user?.role === "SUPER_USER" && visaCollection?.status === "PENDING" && !hasResidencePermit;
+  const pendingAmount = applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0;
+  const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
   const canAddTicket = user?.role === "AGENCY" && visaCollection?.status === "APPROVED" && !visaTravel && !hasResidencePermit;
   const isBusy = savingCollection || savingTicket;
 
@@ -285,6 +288,17 @@ function VisaCollectionModal({ applicantId, user, residencePermit, open, onClose
                       ) : null}
                     </DetailCard>
                   ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {canApprove ? (
+              <div className="workflowModalBody">
+                <div className="contractInfoCard">
+                  <div className="contractInfoRow">
+                    <span>Pending Amount</span>
+                    <strong>{formatCurrencyAmount(pendingAmount, paymentCurrency, true)}</strong>
+                  </div>
                 </div>
               </div>
             ) : null}

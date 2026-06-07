@@ -54,6 +54,7 @@ const createApplicantSchema = z.object({
   paidAmount: z.coerce.number().optional(),
   whatsappNumber: optionalTrimmedString,
   currency: optionalTrimmedString,
+  paymentCurrency: optionalTrimmedString,
   totalApplicantPayment: z.coerce.number().optional(),
   totalEmployerPayment: z.coerce.number().optional(),
   personalDetails: z.object({

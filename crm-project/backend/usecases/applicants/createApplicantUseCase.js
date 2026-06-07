@@ -5,6 +5,7 @@ const {
   buildApplicantListDerivedFields,
   getAuthenticatedUserFromReq,
   resolveApplicantReferenceFields,
+  normalizePaymentCurrency,
   toNumber
 } = require("../../services/applicantDomainService");
 
@@ -46,15 +47,11 @@ async function createApplicantUseCase(req) {
     totalEmployerPayment
   } = req.body;
 
-  const companySnap = await db.collection("companies").doc(companyId).get();
-  const companyPaymentPerApplicant = companySnap.exists
-    ? toNumber(companySnap.data()?.companyPaymentPerApplicant)
-    : 0;
-
   const requestedTotal = toNumber(totalApplicantPayment ?? totalAmount);
-  const normalizedTotalApplicantPayment = requestedTotal > 0 ? requestedTotal : companyPaymentPerApplicant;
-  const normalizedTotalEmployerPayment = toNumber(totalEmployerPayment ?? companyPaymentPerApplicant);
+  const normalizedTotalApplicantPayment = requestedTotal > 0 ? requestedTotal : 0;
+  const normalizedTotalEmployerPayment = toNumber(totalEmployerPayment);
   const normalizedAmountPaid = toNumber(amountPaid);
+  const paymentCurrency = normalizePaymentCurrency(req.body.paymentCurrency || currency);
   const approvalStatus = userRole === "AGENCY" ? "pending" : "approved";
 
   const referenceFields = await resolveApplicantReferenceFields({
@@ -94,6 +91,9 @@ async function createApplicantUseCase(req) {
     stage: 1,
     stageStatus: "ongoing",
     totalApplicantPayment: normalizedTotalApplicantPayment,
+    totalAmount: normalizedTotalApplicantPayment,
+    paymentCurrency,
+    currency: paymentCurrency,
     totalEmployerPayment: normalizedTotalEmployerPayment,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -103,11 +103,11 @@ async function createApplicantUseCase(req) {
   const docRef = await db.collection("applicants").add(applicant);
   const applicantId = docRef.id;
 
-  if (normalizedAmountPaid > 0) {
+  if (userRole === "SUPER_USER" && normalizedAmountPaid > 0) {
     const initialPayment = {
       type: "APPLICANT",
       amount: normalizedAmountPaid,
-      currency: currency || "INR",
+      currency: paymentCurrency,
       note: "Initial payment",
       paidBy: userRole,
       paidTo: "SUPER_USER",

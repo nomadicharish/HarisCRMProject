@@ -46,10 +46,43 @@ function normalizeCompanyDocuments(value) {
   }, []);
 }
 
+function buildCompanyJobSpecificationId(value, fallbackIndex = 0) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalized || `job_specification_${fallbackIndex + 1}`;
+}
+
+function normalizeCompanyJobSpecifications(value) {
+  if (!Array.isArray(value)) return [];
+
+  return value.reduce((specifications, item, index) => {
+    if (!item || typeof item !== "object") return specifications;
+
+    const name = String(item.name || item.label || "").trim();
+    const id = String(item.id || buildCompanyJobSpecificationId(name, index)).trim();
+
+    if (!name || !id) return specifications;
+
+    specifications.push({
+      id,
+      name,
+      updatedAt: new Date()
+    });
+
+    return specifications;
+  }, []);
+}
+
 module.exports = {
   normalizeIdList,
   normalizeEmailValue,
   normalizePhoneValue,
   buildCompanyDocumentId,
-  normalizeCompanyDocuments
+  normalizeCompanyDocuments,
+  buildCompanyJobSpecificationId,
+  normalizeCompanyJobSpecifications
 };

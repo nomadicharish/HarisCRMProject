@@ -5,11 +5,11 @@ const {
   getApplicantBannerStatusText,
   getApplicantStageLabel,
   getAuthenticatedUserFromReq,
-  getTodayEurToInrRate,
   normalizeTextForSearch,
   parseBooleanQuery,
   parseProjectionFields,
   projectApplicantFields,
+  resolveApplicantPaymentCurrency,
   roundCurrency,
   toNumber
 } = require("../../services/applicantDomainService");
@@ -175,7 +175,6 @@ function mapApplicant({
   doc,
   userRole,
   liteMode,
-  eurToInrRate,
   companyIdToName,
   countryIdToName,
   agencyIdToName,
@@ -205,10 +204,11 @@ function mapApplicant({
     data?.totalPayment ??
     0
   );
-  const totalEur = storedTotalEur > 0 ? storedTotalEur : roundCurrency(companyIdToPayment[data?.companyId] ?? 0);
+  const totalEur = storedTotalEur;
   const paidInr = roundCurrency(paymentSummary?.applicant?.paid ?? applicantPaid);
-  const totalInr = roundCurrency(totalEur * eurToInrRate);
+  const totalInr = roundCurrency(totalEur);
   const pendingInr = Math.max(0, roundCurrency(totalInr - paidInr));
+  const paymentCurrency = resolveApplicantPaymentCurrency(data);
 
   const approvedRequired = Number(docSummary.approvedCount || 0) > 0 && Number(docSummary.pendingCount || 0) === 0;
   const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
@@ -285,7 +285,9 @@ function mapApplicant({
     paid: paidInr,
     paidInr,
     pending: pendingInr,
-    pendingInr
+    pendingInr,
+    currency: paymentCurrency,
+    sourceCurrency: paymentCurrency
   };
 
   if (liteMode) {
@@ -327,7 +329,6 @@ function mapApplicant({
     stageLabel,
     applicantBannerStatus,
     statusText,
-    exchangeRate: eurToInrRate,
     payment
   };
 }
@@ -356,13 +357,11 @@ async function getApplicantsFirestorePage({
   const snap = await query.orderBy("createdAt", "desc").offset(offset).limit(safeLimit).get();
   const docs = snap.docs;
   const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
-  const eurToInrRate = await getTodayEurToInrRate();
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
       userRole,
       liteMode,
-      eurToInrRate,
       companyIdToName,
       countryIdToName,
       agencyIdToName,
@@ -487,14 +486,11 @@ async function getApplicantsUseCase(req) {
 
   const docs = await resolveRoleScopedApplicantDocs({ userRole, userId, agencyId });
   const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
-  const eurToInrRate = await getTodayEurToInrRate();
-
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
       userRole,
       liteMode,
-      eurToInrRate,
       companyIdToName,
       countryIdToName,
       agencyIdToName,
