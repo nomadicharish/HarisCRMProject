@@ -80,8 +80,8 @@
 }
 
 .companyFormPage input:not([type="checkbox"]):not([type="radio"]):not([type="file"]){
-  height:44px;
-  min-height:44px;
+  height:46px;
+  min-height:46px;
 }
 
 .companyFormPage .dashboardSelect input{
@@ -163,6 +163,33 @@
 
 .applicantFormPhoneSplitWrap{
   align-items:stretch;
+}
+
+.applicantFormAmountCurrencyRow{
+  display:grid;
+  grid-template-columns:116px minmax(0, 1fr);
+  min-height:44px;
+  border:1px solid #DFE1E6;
+  border-radius:12px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.applicantFormAmountCurrencyRow:focus-within{
+  border-color:#0052CC;
+  box-shadow:0 0 0 3px rgba(0, 82, 204, 0.12);
+}
+
+.applicantFormAmountCurrencyRowError{
+  border-color:red;
+}
+
+.applicantFormAmountCurrencyRow input:focus{
+  box-shadow:none !important;
+}
+
+.applicantFormCurrencySelect{
+  min-width:0;
 }
 
 @media (max-width: 860px){
@@ -252,6 +279,10 @@
   .applicantFormContactRow{
     grid-template-columns:1fr;
     gap:12px;
+  }
+
+  .applicantFormAmountCurrencyRow{
+    grid-template-columns:104px minmax(0, 1fr);
   }
 
   .submit-btn{

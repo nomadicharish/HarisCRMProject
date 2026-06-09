@@ -107,6 +107,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
   const [travelDate, setTravelDate] = useState(null);
   const [travelTime, setTravelTime] = useState("");
   const [travelFile, setTravelFile] = useState(null);
+  const [interviewDocumentFile, setInterviewDocumentFile] = useState(null);
   const [biometricFromApi, setBiometricFromApi] = useState(null);
 
   const resolvedInterviewBiometric = biometricFromApi || interviewBiometric || null;
@@ -160,6 +161,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
     if (open && applicantId) {
       loadData();
       setTravelFile(null);
+      setInterviewDocumentFile(null);
     }
   }, [open, applicantId, loadData]);
 
@@ -180,9 +182,10 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
 
     try {
       setSavingInterview(true);
-      await API.post(`/applicants/${applicantId}/interview`, {
-        dateTime: `${formattedDate}T${trimmedTime}`
-      });
+      const formData = new FormData();
+      formData.append("dateTime", `${formattedDate}T${trimmedTime}`);
+      if (interviewDocumentFile) formData.append("file", interviewDocumentFile);
+      await API.post(`/applicants/${applicantId}/interview`, formData);
 
       if (typeof onUpdated === "function") {
         await onUpdated();
@@ -292,6 +295,16 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                       label="Interview Date & Time"
                       value={`${formatDate(interview.dateTime)} ${formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}`}
                     />
+                    {interview.documentUrl ? (
+                      <DetailRow
+                        label="Document"
+                        action={(
+                          <a href={interview.documentUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                            View document
+                          </a>
+                        )}
+                      />
+                    ) : null}
                   </DetailCard>
 
                   {interviewTicket ? (
@@ -376,6 +389,23 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                     />
                   </div>
                 </div>
+
+                <div className="contractUploadLabel">Document (Optional)</div>
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="embassy-interview-document">
+                  <input
+                    id="embassy-interview-document"
+                    type="file"
+                    className="contractFileInput"
+                    disabled={isBusy}
+                    onChange={(event) => setInterviewDocumentFile(event.target.files?.[0] || null)}
+                  />
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <path d="M7 3h8l4 4v14H7zM15 3v4h4M10 13h4M10 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxName">{interviewDocumentFile?.name || "Choose document"}</span>
+                </label>
 
                 <div className="contractActionRow">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveInterview}>

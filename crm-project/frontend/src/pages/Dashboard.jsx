@@ -211,7 +211,7 @@ function Dashboard() {
         <h3>Pipeline Status</h3>
 
         <div style={pipelineContainer}>
-          {Array.from({ length: 11 }, (_, i) => i + 1).map(stage => (
+          {Array.from({ length: 13 }, (_, i) => i + 1).map(stage => (
             <div key={stage} style={pipelineCard}>
               <p>Stage {stage}</p>
               <h3>{data.stageCounts[stage] || 0}</h3>

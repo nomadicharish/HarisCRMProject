@@ -1,4 +1,5 @@
 import React from "react";
+import { getCurrencySymbol, normalizeCurrency } from "../../utils/currency";
 
 function getInitials(name) {
   if (!name) return "?";
@@ -49,6 +50,7 @@ function ApplicantSummaryCard({
   const email = applicant?.email || applicant?.personalDetails?.email || "-";
   const address = applicant?.address || applicant?.personalDetails?.address || "-";
   const employer = applicant?.companyName || "-";
+  const jobPosition = applicant?.jobPositionName || "";
   const country = countryNameOverride || applicant?.countryName || applicant?.country || "";
   const employerDisplay = country ? `${employer}, ${country}` : employer;
   const agency =
@@ -60,6 +62,8 @@ function ApplicantSummaryCard({
 
   const PendingContainer = onPendingClick ? "button" : "div";
   const pendingValue = pendingDisplayValue || `INR ${pendingAmount ?? 0}`;
+  const pendingCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
+  const pendingCurrencySymbol = pendingValue === "-" ? "-" : getCurrencySymbol(pendingCurrency);
   const InfoIcon = ({ type }) => {
     if (type === "phone") {
       return (
@@ -129,6 +133,18 @@ function ApplicantSummaryCard({
         </div>
       </div>
 
+      {jobPosition ? (
+        <div className="sideSection sideSectionCard">
+          <div className="sideLabelRow">
+            <div className="sideSectionIcon"><InfoIcon type="company" /></div>
+            <div className="sideSectionMeta">
+              <div className="sideLabel">Job Position</div>
+              <div className="sideValue">{jobPosition}</div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <div className="sideSection sideSectionCard">
         <div className="sideLabelRow">
           <div className="sideSectionIcon"><InfoIcon type="email" /></div>
@@ -175,7 +191,7 @@ function ApplicantSummaryCard({
         <div className="sideSection sideSectionCard">
           <div className="sideLabelRow">
             <div className="sideSectionIcon" aria-hidden="true">
-              <span className="pendingCurrencyGlyph">&#8377;</span>
+              <span className="pendingCurrencyGlyph">{pendingCurrencySymbol}</span>
             </div>
             <div className="sideSectionMeta">
               <div className="sideLabel">Pending Amount</div>
@@ -191,7 +207,7 @@ function ApplicantSummaryCard({
           {...(onPendingClick ? { type: "button", onClick: onPendingClick } : {})}
         >
           <div className="pendingIcon" aria-hidden="true">
-            <span className="pendingCurrencyGlyph">&#8377;</span>
+            <span className="pendingCurrencyGlyph">{pendingCurrencySymbol}</span>
           </div>
           <div className="pendingText">
             <div className="pendingLabel">Pending Amount</div>

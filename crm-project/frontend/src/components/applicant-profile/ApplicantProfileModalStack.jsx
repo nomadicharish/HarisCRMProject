@@ -1,6 +1,7 @@
 import React, { Suspense, lazy } from "react";
 
 const ContractSection = lazy(() => import("../ContractSection"));
+const SignedContractModal = lazy(() => import("../SignedContractModal"));
 const EmbassyAppointment = lazy(() => import("../EmbassyAppointment"));
 const BiometricSlipModal = lazy(() => import("../BiometricSlipModal"));
 const EmbassyInterviewModal = lazy(() => import("../EmbassyInterviewModal"));
@@ -22,6 +23,8 @@ function ApplicantProfileModalStack({
   resolvedCountryName,
   showContractModal,
   setShowContractModal,
+  showSignedContractModal,
+  setShowSignedContractModal,
   showEmbassyAppointmentModal,
   setShowEmbassyAppointmentModal,
   showBiometricSlipModal,
@@ -38,9 +41,7 @@ function ApplicantProfileModalStack({
   setShowApplicantDetailsModal,
   showDispatchHistoryModal,
   setShowDispatchHistoryModal,
-  refreshWorkflowData,
-  approveStage,
-  onSaved
+  refreshWorkflowData
 }) {
   return (
     <Suspense fallback={null}>
@@ -50,6 +51,15 @@ function ApplicantProfileModalStack({
         applicant={applicant}
         open={showContractModal}
         onClose={() => setShowContractModal(false)}
+        onUpdated={refreshWorkflowData}
+      />
+
+      <SignedContractModal
+        applicantId={id}
+        user={user}
+        fallbackSignedContract={applicant?.signedContract || null}
+        open={showSignedContractModal}
+        onClose={() => setShowSignedContractModal(false)}
         onUpdated={refreshWorkflowData}
       />
 

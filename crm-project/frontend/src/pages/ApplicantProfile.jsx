@@ -40,6 +40,7 @@ function ApplicantProfile() {
   const [residencePermit, setResidencePermit] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showContractModal, setShowContractModal] = useState(false);
+  const [showSignedContractModal, setShowSignedContractModal] = useState(false);
   const [showEmbassyAppointmentModal, setShowEmbassyAppointmentModal] = useState(false);
   const [showBiometricSlipModal, setShowBiometricSlipModal] = useState(false);
   const [showEmbassyInterviewModal, setShowEmbassyInterviewModal] = useState(false);
@@ -120,6 +121,10 @@ function ApplicantProfile() {
     setShowContractModal(true);
   };
 
+  const openSignedContractSection = () => {
+    setShowSignedContractModal(true);
+  };
+
   const openEmbassyAppointmentSection = () => {
     setShowEmbassyAppointmentModal(true);
   };
@@ -175,6 +180,7 @@ function ApplicantProfile() {
     isEmployer,
     canAccessDispatch,
     canIssueContract,
+    canUploadSignedContract,
     canInitiateEmbassyAppointment,
     canAddTicket,
     canAddBiometricSlip,
@@ -186,13 +192,15 @@ function ApplicantProfile() {
     canAddResidencePermit,
     canShowDispatchHeaderButton,
     shouldShowDocumentAction,
-    hasVisaTravel,
     headerActionLabel,
     canHeaderAction,
     documentRowSubtitle,
     dispatchRowTitle,
     contractRowTitle,
     contractRowStatus,
+    signedContractRowTitle,
+    signedContractRowSubtitle,
+    signedContractRowStatus,
     embassyAppointmentRowTitle,
     embassyAppointmentCompletedRowTitle,
     embassyAppointmentCompletedRowSubtitle,
@@ -216,6 +224,7 @@ function ApplicantProfile() {
     applicant,
     documents,
     contract,
+    signedContract: applicant?.signedContract || null,
     embassyAppointment,
     biometricSlip,
     embassyInterview,
@@ -234,7 +243,7 @@ function ApplicantProfile() {
       if (!prev) return prev;
       return {
         ...prev,
-        stage: 12,
+        stage: 13,
         completedAt: optimisticNow
       };
     });
@@ -269,6 +278,8 @@ function ApplicantProfile() {
   if (loading) return <PageLoader label="Loading applicant profile..." />;
   if (!applicant) return <div style={{ padding: "40px" }}>Applicant not found</div>;
 
+  const isCandidateApprovalPending =
+    Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
 
   const handleShowDocuments = () => {
     prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 120000 });
@@ -321,7 +332,9 @@ function ApplicantProfile() {
 
   const headerActionHandler = canIssueContract
     ? openContractSection
-    : applicantStage === 11 && user?.role === "SUPER_USER"
+    : canUploadSignedContract
+    ? openSignedContractSection
+    : applicantStage === 12 && user?.role === "SUPER_USER"
     ? () => setShowCompleteProcessModal(true)
     : canAddResidencePermit
     ? openResidencePermitSection
@@ -359,7 +372,9 @@ function ApplicantProfile() {
               applicant={applicant}
               pendingAmount={sidebarPendingOverride ?? pending}
               pendingDisplayValue={
-                isTotalAmountMissing
+                isCandidateApprovalPending
+                  ? "-"
+                  : isTotalAmountMissing
                   ? "Enter Total Amount"
                   : sidebarPendingOverride !== null && sidebarPendingOverride !== undefined
                   ? formatCurrencyAmount(sidebarPendingOverride, currency, true)
@@ -367,7 +382,7 @@ function ApplicantProfile() {
               }
               canEdit={false}
               onEdit={() => openEditProfile("default")}
-              onPendingClick={!isEmployer ? () => {
+              onPendingClick={!isEmployer && !isCandidateApprovalPending ? () => {
                   prefetchCached(`/applicants/${id}/payments-page`, { ttlMs: 120000 });
                 navigate(`/applicants/${id}/payments`);
               } : undefined}
@@ -381,7 +396,7 @@ function ApplicantProfile() {
           <main className="applicantProfileMain">
             <ApplicantPipelineList
               currentStep={applicantStage}
-              totalSteps={11}
+              totalSteps={13}
               onUploadDocuments={handleShowDocuments}
               onHeaderAction={headerActionHandler}
               headerActionLabel={headerActionLabel}
@@ -392,6 +407,9 @@ function ApplicantProfile() {
               dispatchRowTitle={dispatchRowTitle}
               contractRowTitle={contractRowTitle}
               contractRowStatus={contractRowStatus}
+              signedContractRowTitle={signedContractRowTitle}
+              signedContractRowSubtitle={signedContractRowSubtitle}
+              signedContractRowStatus={signedContractRowStatus}
               embassyAppointmentRowTitle={embassyAppointmentRowTitle}
               embassyAppointmentCompletedRowTitle={embassyAppointmentCompletedRowTitle}
               embassyAppointmentCompletedRowSubtitle={embassyAppointmentCompletedRowSubtitle}
@@ -420,30 +438,30 @@ function ApplicantProfile() {
                   : undefined
               }
               onContractAction={applicantStage >= 4 ? openContractSection : undefined}
-              onEmbassyAppointmentAction={applicantStage >= 5 ? openEmbassyAppointmentSection : undefined}
+              onSignedContractAction={applicantStage >= 5 ? openSignedContractSection : undefined}
+              onEmbassyAppointmentAction={applicantStage >= 6 ? openEmbassyAppointmentSection : undefined}
               onBiometricSlipAction={
-                applicantStage >= 6
+                applicantStage >= 7
                   ? openEmbassyAppointmentSection
                   : undefined
               }
-              onEmbassyInterviewAction={applicantStage >= 7 ? openEmbassyInterviewSection : undefined}
+              onEmbassyInterviewAction={applicantStage >= 8 ? openEmbassyInterviewSection : undefined}
               onInterviewCompletionAction={
-                applicantStage >= 8
+                applicantStage >= 9
                   ? openEmbassyInterviewSection
                   : undefined
               }
-              onVisaCollectionAction={applicantStage >= 9 ? openVisaCollectionSection : undefined}
+              onVisaCollectionAction={applicantStage >= 10 ? openVisaCollectionSection : undefined}
               onVisaCompletionAction={
-                applicantStage >= 10
-                  ? hasVisaTravel
-                    ? openResidencePermitSection
-                    : openVisaCollectionSection
+                applicantStage >= 11
+                  ? openVisaCollectionSection
                   : undefined
               }
+              onApplicantTravelAction={applicantStage >= 11 ? openVisaCollectionSection : undefined}
               onCandidateArrivalAction={undefined}
             />
 
-            {Number(applicant.stage) === 12 ? <p className="successText">{candidateArrivalRowTitle}</p> : null}
+            {Number(applicant.stage) === 13 ? <p className="successText">{candidateArrivalRowTitle}</p> : null}
           </main>
         </div>
 
@@ -463,6 +481,8 @@ function ApplicantProfile() {
           setEditContext={setEditContext}
           showContractModal={showContractModal}
           setShowContractModal={setShowContractModal}
+          showSignedContractModal={showSignedContractModal}
+          setShowSignedContractModal={setShowSignedContractModal}
           showEmbassyAppointmentModal={showEmbassyAppointmentModal}
           setShowEmbassyAppointmentModal={setShowEmbassyAppointmentModal}
           showBiometricSlipModal={showBiometricSlipModal}

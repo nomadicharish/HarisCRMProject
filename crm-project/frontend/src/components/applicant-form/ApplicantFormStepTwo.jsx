@@ -8,12 +8,10 @@ import {
   errorText,
   getSelectStyles,
   grid,
-  handleBlur,
-  handleFocus,
   input,
   label
 } from "./formStyles";
-import { CURRENCY_OPTIONS, getCurrencySymbol } from "../../utils/currency";
+import { CURRENCY_OPTIONS } from "../../utils/currency";
 
 function FieldIcon({ children }) {
   return (
@@ -45,21 +43,13 @@ function SelectShell({ children, icon }) {
   );
 }
 
-function InputShell({ children, icon, muted = false }) {
-  return (
-    <div style={{ position: "relative", width: "100%" }}>
-      {icon ? <FieldIcon>{icon}</FieldIcon> : null}
-      <div className={muted ? "applicantFormFieldShell applicantFormFieldShellMuted" : "applicantFormFieldShell"}>{children}</div>
-    </div>
-  );
-}
-
 function ApplicantFormStepTwo({
   user,
   form,
   errors,
   countryOptions,
   companyOptions,
+  jobPositionOptions = [],
   agencyOptions,
   handleCountryChange,
   handleCompanyChange,
@@ -74,6 +64,22 @@ function ApplicantFormStepTwo({
 }) {
   const customSelectStyles = getSelectStyles();
   const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
+  const showSuperUserPaymentFields = user?.role === "SUPER_USER" && Boolean(editData);
+  const amountCurrencySelectStyles = {
+    ...customSelectStyles,
+    control: (base, state) => ({
+      ...customSelectStyles.control(base, state),
+      border: "none",
+      borderRight: `1px solid ${THEME.border}`,
+      borderRadius: "12px 0 0 12px",
+      background: "#f8fafc",
+      minWidth: 116
+    }),
+    valueContainer: (base) => ({
+      ...customSelectStyles.valueContainer(base),
+      padding: "0 10px"
+    })
+  };
   const globeIcon = (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
@@ -85,7 +91,12 @@ function ApplicantFormStepTwo({
       <path d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   );
-  const currencyIcon = <span style={{ fontSize: 18, fontWeight: 700 }}>{getCurrencySymbol(form.paymentCurrency)}</span>;
+  const briefcaseIcon = (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M10 6V5a2 2 0 0 1 2-2h0a2 2 0 0 1 2 2v1M4 7h16v12H4z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M4 12h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
   return (
     <>
       <div style={grid}>
@@ -123,7 +134,24 @@ function ApplicantFormStepTwo({
           {errors.companyId && <div style={errorText}>{errors.companyId}</div>}
         </div>
 
-        {user?.role === "SUPER_USER" && (
+        <div>
+          <label style={label}>Job Position</label>
+          <SelectShell icon={briefcaseIcon}>
+            <Select
+              styles={customSelectStyles}
+              options={jobPositionOptions}
+              placeholder={form.companyId ? "Select job position..." : "Select company first"}
+              isDisabled={readOnly || !form.companyId}
+              value={jobPositionOptions.find((position) => position.value === form.jobPositionId)}
+              onChange={(selected) => handleChange("jobPositionId", selected?.value || "")}
+              menuPortalTarget={menuPortalTarget}
+              menuPosition="fixed"
+            />
+          </SelectShell>
+          {errors.jobPositionId && <div style={errorText}>{errors.jobPositionId}</div>}
+        </div>
+
+        {showSuperUserPaymentFields && (
           <div>
             <label style={label}>Agency</label>
             <SelectShell icon={buildingIcon}>
@@ -142,59 +170,39 @@ function ApplicantFormStepTwo({
           </div>
         )}
 
-        {user?.role === "SUPER_USER" && (
+        {showSuperUserPaymentFields && (
           <div>
             <label style={label}>Total Amount</label>
-            <InputShell icon={currencyIcon}>
+            <div className={errors.totalAmount ? "applicantFormAmountCurrencyRow applicantFormAmountCurrencyRowError" : "applicantFormAmountCurrencyRow"}>
+              <div className="applicantFormCurrencySelect">
+                <Select
+                  styles={amountCurrencySelectStyles}
+                  options={CURRENCY_OPTIONS}
+                  placeholder="Currency"
+                  value={CURRENCY_OPTIONS.find((currency) => currency.value === form.paymentCurrency)}
+                  onChange={(selected) => handleChange("paymentCurrency", selected?.value || "INR")}
+                  menuPortalTarget={menuPortalTarget}
+                  menuPosition="fixed"
+                  isDisabled={readOnly}
+                />
+              </div>
               <input
-                style={{ ...input, paddingLeft: "54px", border: errors.totalAmount ? `1px solid ${THEME.error}` : input.border }}
+                style={{
+                  ...input,
+                  border: "none",
+                  borderRadius: "0 12px 12px 0",
+                  minHeight: "44px"
+                }}
                 value={form.totalAmount || ""}
-                onFocus={handleFocus}
                 placeholder="Total Amount"
-                onBlur={(event) => handleBlur(event, errors.totalAmount)}
                 onChange={(event) => handleChange("totalAmount", event.target.value)}
                 disabled={readOnly}
               />
-            </InputShell>
+            </div>
             {errors.totalAmount && <div style={errorText}>{errors.totalAmount}</div>}
           </div>
         )}
 
-        {user?.role === "SUPER_USER" && (
-          <div>
-            <label style={label}>Currency</label>
-            <SelectShell icon={currencyIcon}>
-              <Select
-                styles={customSelectStyles}
-                options={CURRENCY_OPTIONS}
-                placeholder="Select currency..."
-                value={CURRENCY_OPTIONS.find((currency) => currency.value === form.paymentCurrency)}
-                onChange={(selected) => handleChange("paymentCurrency", selected?.value || "INR")}
-                menuPortalTarget={menuPortalTarget}
-                menuPosition="fixed"
-                isDisabled={readOnly}
-              />
-            </SelectShell>
-          </div>
-        )}
-
-        {user?.role === "SUPER_USER" && (
-          <div>
-            <label style={label}>Initial Paid Amount</label>
-            <InputShell icon={currencyIcon}>
-              <input
-                style={{ ...input, paddingLeft: "44px", border: errors.paidAmount ? `1px solid ${THEME.error}` : input.border }}
-                value={form.paidAmount || ""}
-                onFocus={handleFocus}
-                placeholder="Initial Paid Amount"
-                onBlur={(event) => handleBlur(event, errors.paidAmount)}
-                onChange={(event) => handleChange("paidAmount", event.target.value)}
-                disabled={readOnly}
-              />
-            </InputShell>
-            {errors.paidAmount && <div style={errorText}>{errors.paidAmount}</div>}
-          </div>
-        )}
       </div>
 
       {showActions ? (

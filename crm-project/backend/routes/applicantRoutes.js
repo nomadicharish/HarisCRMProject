@@ -55,6 +55,7 @@ router.patch("/:applicantId/documents/:docType/defer", validate(applicantDocPara
 // Add Payment
 router.post(
   "/:applicantId/payments",
+  upload.single("file"),
   validate(applicantIdParamsSchema, "params"),
   validate(addPaymentSchema),
   asyncHandler(applicantController.addPayment)
@@ -162,7 +163,10 @@ router.get("/:id/dispatch", readCache(15), validate(idParamsSchema, "params"), a
 // Upload Contract
 router.post(
   "/:id/contract",
-  uploadDoc.single("file"),
+  uploadDoc.fields([
+    { name: "file", maxCount: 1 },
+    { name: "additionalDocuments", maxCount: 3 }
+  ]),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.uploadContract)
 );
@@ -200,6 +204,22 @@ router.get(
 // Get Contract
 router.get("/:id/contract", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getContract));
 
+// Upload Signed Contract
+router.post(
+  "/:id/signed-contract",
+  uploadDoc.single("file"),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.uploadSignedContract)
+);
+
+// Get Signed Contract
+router.get(
+  "/:id/signed-contract",
+  readCache(15),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getSignedContract)
+);
+
 // Add Travel Details
 router.post(
   "/:id/travel",
@@ -234,7 +254,13 @@ router.get(
 );
 
 // Add Embassy Interview
-router.post("/:id/interview", validate(idParamsSchema, "params"), validate(interviewBodySchema), asyncHandler(applicantController.addEmbassyInterview));
+router.post(
+  "/:id/interview",
+  upload.single("file"),
+  validate(idParamsSchema, "params"),
+  validate(interviewBodySchema),
+  asyncHandler(applicantController.addEmbassyInterview)
+);
 
 // Get Embassy Interview
 router.get("/:id/interview", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getEmbassyInterview));
@@ -284,6 +310,7 @@ router.get(
 // Add Visa Collection
 router.post(
   "/:id/visa-collection",
+  upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(dateTimeBodySchema),
   asyncHandler(applicantController.addVisaCollection)
@@ -307,7 +334,10 @@ router.get(
 // Add Visa Travel Details
 router.post(
   "/:id/visa-travel",
-  upload.single("file"),
+  upload.fields([
+    { name: "file", maxCount: 1 },
+    { name: "busTicket", maxCount: 1 }
+  ]),
   validate(idParamsSchema, "params"),
   validate(visaTravelBodySchema),
   asyncHandler(applicantController.addVisaTravel)

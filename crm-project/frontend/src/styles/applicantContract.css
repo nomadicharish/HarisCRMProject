@@ -583,7 +583,7 @@
 
 .workflowTravelEntryGrid{
   display:grid;
-  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr) minmax(260px, 1.1fr);
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:16px;
   align-items:end;
 }
@@ -615,6 +615,24 @@
   padding:0 28px;
   cursor:pointer;
   box-sizing:border-box;
+}
+
+.workflowUploadBoxFull{
+  width:100%;
+}
+
+.workflowAdditionalUploadGroup{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  margin-top:18px;
+}
+
+.workflowAdditionalDocLinks{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
 }
 
 .workflowUploadBoxIcon{
@@ -720,6 +738,10 @@
 
   .workflowDetailRowValue{
     text-align:left;
+  }
+
+  .workflowAdditionalDocLinks{
+    justify-content:flex-start;
   }
 }
 

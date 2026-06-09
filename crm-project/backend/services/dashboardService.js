@@ -64,7 +64,7 @@ async function getDashboard({ user, query }) {
 
     if (stage === 2) summary.alerts.pendingDocs += 1;
     if ([4, 5, 7, 9].includes(stage)) summary.alerts.pendingApproval += 1;
-    if (stage >= 12) summary.completed += 1;
+    if (stage >= 13) summary.completed += 1;
     else summary.ongoing += 1;
 
     summary.payments.totalCollected += paid;

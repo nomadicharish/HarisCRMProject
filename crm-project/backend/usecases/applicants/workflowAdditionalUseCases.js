@@ -60,15 +60,15 @@ async function addEmbassyAppointmentUseCase(req) {
   const doc = await docRef.get();
   const applicant = doc.data() || {};
   const currentStage = Number(applicant.stage || 1);
-  if (currentStage === 5) {
+  if (currentStage === 6) {
     await docRef.update({
-      stage: 6,
+      stage: 7,
       stageUpdatedAt: createdAt
     });
     await addStageLog({
       applicantId,
-      fromStage: 5,
-      toStage: 6,
+      fromStage: 6,
+      toStage: 7,
       role: req.user.role,
       action: "EMBASSY_APPOINTMENT_SAVED"
     });
@@ -118,8 +118,8 @@ async function addTravelDetailsUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const currentStage = Number(applicantSnap.data()?.stage || 1);
-  if (currentStage < 6) {
-    throw new AppError("Cannot add travel details before stage 6. Complete current stage first.", 400);
+  if (currentStage < 7) {
+    throw new AppError("Cannot add travel details before embassy appointment completion stage", 400);
   }
 
   const previousTravelFileUrl = applicantSnap.data()?.travelDetails?.fileUrl || "";
@@ -174,7 +174,7 @@ async function uploadBiometricSlipUseCase(req) {
   const docSnap = await docRef.get();
   if (!docSnap.exists) throw new AppError("Applicant not found", 404);
   const currentStage = Number(docSnap.data()?.stage || 1);
-  if (currentStage < 6) throw new AppError("Cannot add biometric slip before ticket upload stage", 400);
+  if (currentStage < 7) throw new AppError("Cannot add biometric slip before ticket upload stage", 400);
 
   const previousBiometricUrl = docSnap.data()?.biometricSlip?.fileUrl || "";
   await docRef.set(
@@ -190,7 +190,7 @@ async function uploadBiometricSlipUseCase(req) {
   );
   await deleteStorageFileIfExists(bucket, previousBiometricUrl);
   await docRef.update({
-    stage: 7,
+    stage: 8,
     stageUpdatedAt: new Date()
   });
 
@@ -261,14 +261,29 @@ async function addVisaCollectionUseCase(req) {
   const docSnap = await docRef.get();
   if (!docSnap.exists) throw new AppError("Applicant not found", 404);
   const currentStage = Number(docSnap.data()?.stage || 1);
-  if (currentStage < 9) throw new AppError("Cannot add visa collection before visa collection stage", 400);
+  if (currentStage < 10) throw new AppError("Cannot add visa collection before visa collection stage", 400);
 
   const status = req.user.role === "SUPER_USER" ? "APPROVED" : "PENDING";
+  let documentUrl = "";
+  let bucket = null;
+  if (req.file) {
+    bucket = admin.storage().bucket();
+    const fileName = `visa-collection-documents/${applicantId}_${Date.now()}`;
+    const fileUpload = bucket.file(fileName);
+    await fileUpload.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype }
+    });
+    await fileUpload.makePublic();
+    documentUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  }
+  const previousDocumentUrl = docSnap.data()?.visaCollection?.documentUrl || "";
+
   await docRef.set(
     {
       visaCollection: {
         date,
         time,
+        documentUrl,
         status,
         createdBy: req.user.uid,
         createdByRole: req.user.role,
@@ -280,9 +295,13 @@ async function addVisaCollectionUseCase(req) {
     { merge: true }
   );
 
+  if (documentUrl && bucket) {
+    await deleteStorageFileIfExists(bucket, previousDocumentUrl);
+  }
+
   if (status === "APPROVED") {
     await docRef.update({
-      stage: 10,
+      stage: 11,
       stageUpdatedAt: new Date()
     });
   }
@@ -300,7 +319,7 @@ async function approveVisaCollectionUseCase(req) {
     "visaCollection.status": "APPROVED",
     "visaCollection.approvedBy": req.user.uid,
     "visaCollection.approvedAt": new Date(),
-    stage: 10,
+    stage: 11,
     stageUpdatedAt: new Date()
   });
 
@@ -327,40 +346,59 @@ async function getVisaCollectionUseCase(req) {
 
 async function addVisaTravelUseCase(req) {
   const applicantId = req.params.id;
-  const { date, time, ticketNumber } = req.body;
+  const { date, time, ticketNumber, flightNumber, arrivalPlace } = req.body;
 
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency can add travel details", 403);
-  if (!date || !time) throw new AppError("Date & Time required", 400);
+  if (!date || !time || !flightNumber || !arrivalPlace) {
+    throw new AppError("Arrival date, arrival time, flight number and arrival place are required", 400);
+  }
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
   const currentStage = Number(applicantSnap.data()?.stage || 1);
-  if (currentStage < 10) {
-    throw new AppError("Cannot add visa travel before visa collection completion stage", 400);
+  if (currentStage < 11) {
+    throw new AppError("Cannot add applicant travel details before visa collection completion stage", 400);
   }
 
   let fileUrl = "";
+  let busTicketUrl = "";
   let bucket = null;
-  if (req.file) {
+  const travelTicketFile = req.file || (Array.isArray(req.files?.file) ? req.files.file[0] : null);
+  if (travelTicketFile) {
     bucket = admin.storage().bucket();
     const fileName = `visa-travel/${applicantId}_${Date.now()}`;
     const fileUpload = bucket.file(fileName);
-    await fileUpload.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype }
+    await fileUpload.save(travelTicketFile.buffer, {
+      metadata: { contentType: travelTicketFile.mimetype }
     });
     await fileUpload.makePublic();
     fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
   }
+  const busTicketFile = Array.isArray(req.files?.busTicket) ? req.files.busTicket[0] : null;
+  if (busTicketFile) {
+    bucket = bucket || admin.storage().bucket();
+    const busFileName = `visa-travel/bus/${applicantId}_${Date.now()}`;
+    const busFileUpload = bucket.file(busFileName);
+    await busFileUpload.save(busTicketFile.buffer, {
+      metadata: { contentType: busTicketFile.mimetype }
+    });
+    await busFileUpload.makePublic();
+    busTicketUrl = `https://storage.googleapis.com/${bucket.name}/${busFileName}`;
+  }
 
   const previousVisaTravelFileUrl = applicantSnap.data()?.visaTravel?.fileUrl || "";
+  const previousBusTicketUrl = applicantSnap.data()?.visaTravel?.busTicketUrl || "";
   await applicantRef.set(
     {
       visaTravel: {
         date,
         time,
         ticketNumber: ticketNumber || "",
+        flightNumber,
+        arrivalPlace,
         fileUrl,
+        busTicketUrl,
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role,
         createdAt: new Date()
@@ -371,6 +409,16 @@ async function addVisaTravelUseCase(req) {
 
   if (fileUrl && bucket) {
     await deleteStorageFileIfExists(bucket, previousVisaTravelFileUrl);
+  }
+  if (busTicketUrl && bucket) {
+    await deleteStorageFileIfExists(bucket, previousBusTicketUrl);
+  }
+
+  if (currentStage === 11) {
+    await applicantRef.update({
+      stage: 12,
+      stageUpdatedAt: new Date()
+    });
   }
 
   await refreshApplicantDocumentSummary(applicantId);
@@ -412,7 +460,7 @@ async function uploadResidencePermitUseCase(req) {
   if (!doc.exists) throw new AppError("Applicant not found", 404);
   const applicantData = doc.data() || {};
   const currentStage = Number(applicantData.stage || 1);
-  if (currentStage < 10) {
+  if (currentStage < 12) {
     throw new AppError("Cannot upload residence permit before visa collection completion stage", 400);
   }
   if (!applicantData.visaTravel?.date || !applicantData.visaTravel?.time) {
@@ -436,7 +484,7 @@ async function uploadResidencePermitUseCase(req) {
   const data = updatedDoc.data()?.residencePermit;
   if (data?.frontUrl && data?.backUrl) {
     await docRef.update({
-      stage: 11,
+      stage: 12,
       stageUpdatedAt: new Date()
     });
   }

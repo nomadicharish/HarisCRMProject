@@ -6,13 +6,15 @@ const stages = [
   { id: 2, name: "Upload Documents" },
   { id: 3, name: "Dispatch Documents" },
   { id: 4, name: "Issue of the Contract" },
-  { id: 5, name: "Embassy Appointment Initiated" },
-  { id: 6, name: "Embassy Appointment Completed" },
-  { id: 7, name: "Embassy Interview Initiated" },
-  { id: 8, name: "Embassy Interview Completed" },
-  { id: 9, name: "Visa Collection Initiated" },
-  { id: 10, name: "Visa Collection Completed" },
-  { id: 11, name: "Candidate Arrived" }
+  { id: 5, name: "Upload Signed Contract" },
+  { id: 6, name: "Embassy Appointment Initiated" },
+  { id: 7, name: "Embassy Appointment Completed" },
+  { id: 8, name: "Embassy Interview Initiated" },
+  { id: 9, name: "Embassy Interview Completed" },
+  { id: 10, name: "Visa Collection Initiated" },
+  { id: 11, name: "Visa Collection Completed" },
+  { id: 12, name: "Applicant Travel Details" },
+  { id: 13, name: "Candidate Arrived" }
 ];
 
 function PipelineTracker({ currentStage }) {

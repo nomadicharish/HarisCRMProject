@@ -272,7 +272,7 @@ function mapApplicant({
   const statusText = applicantBannerStatus;
 
   const workflowStatus =
-    Number(data?.stage || 1) >= 12
+    Number(data?.stage || 1) >= 13
       ? "completed"
       : attentionRequired
       ? "attention_required"

@@ -1,5 +1,6 @@
 const { db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
+const { normalizeCompanyJobPositions } = require("../utils/normalizers");
 
 const SUPPORTED_PAYMENT_CURRENCIES = new Set(["INR", "EUR", "USD"]);
 
@@ -14,9 +15,11 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "education",
   "countryId",
   "companyId",
+  "jobPositionId",
   "agencyId",
   "countryName",
   "companyName",
+  "jobPositionName",
   "agencyName",
   "companyPaymentPerApplicant",
   "searchText",
@@ -152,7 +155,7 @@ function buildApplicantListDerivedFields(applicant = {}) {
     hasPendingEmbassyInterviewApproval
   );
   const workflowStatus =
-    Number(applicant?.stage || 1) >= 12
+    Number(applicant?.stage || 1) >= 13
       ? "completed"
       : attentionRequired
       ? "attention_required"
@@ -168,6 +171,7 @@ function buildApplicantListDerivedFields(applicant = {}) {
       fullName,
       applicant?.email || applicant?.personalDetails?.email || "",
       applicant?.companyName || "",
+      applicant?.jobPositionName || "",
       applicant?.countryName || "",
       applicant?.agencyName || ""
     ].filter(Boolean).join(" "))
@@ -202,8 +206,14 @@ async function resolveApplicantReferenceFields(applicant = {}) {
     applicant.agencyId ? db.collection("agencies").doc(applicant.agencyId).get() : Promise.resolve(null)
   ]);
 
+  const companyData = companyDoc?.exists ? companyDoc.data() || {} : {};
+  const jobPositions = normalizeCompanyJobPositions(companyData?.jobPositions, companyData?.documentsNeeded);
+  const jobPositionId = String(applicant?.jobPositionId || "").trim();
+  const matchedJobPosition = jobPositions.find((position) => position.id === jobPositionId);
+
   return {
     companyName: companyDoc?.exists ? companyDoc.data()?.name || "" : "",
+    jobPositionName: matchedJobPosition?.title || applicant?.jobPositionName || "",
     countryName: countryDoc?.exists ? countryDoc.data()?.name || "" : "",
     agencyName: agencyDoc?.exists ? agencyDoc.data()?.name || "" : "",
     companyPaymentPerApplicant: companyDoc?.exists
@@ -219,13 +229,14 @@ function getApplicantStageLabel(stage, approvalStatus) {
   if (normalizedStage === 2) return "Upload Documents";
   if (normalizedStage === 3) return "Dispatch Documents";
   if (normalizedStage === 4) return "Issue of the Contract";
-  if (normalizedStage === 5) return "Embassy Appointment Initiated";
-  if (normalizedStage === 6) return "Embassy Appointment Completed";
-  if (normalizedStage === 7) return "Initiate Embassy Interview";
-  if (normalizedStage === 8) return "Embassy Interview Completed";
-  if (normalizedStage === 9) return "Visa Collection Initiated";
-  if (normalizedStage === 10) return "Visa Collection Completed";
-  if (normalizedStage === 11) return "Arrival of Candidate";
+  if (normalizedStage === 5) return "Upload Signed Contract";
+  if (normalizedStage === 6) return "Embassy Appointment Initiated";
+  if (normalizedStage === 7) return "Embassy Appointment Completed";
+  if (normalizedStage === 8) return "Initiate Embassy Interview";
+  if (normalizedStage === 9) return "Embassy Interview Completed";
+  if (normalizedStage === 10) return "Visa Collection Initiated";
+  if (normalizedStage === 11) return "Visa Collection Completed";
+  if (normalizedStage === 12) return "Applicant Travel Details";
   return "Candidate Arrived and Process Completed";
 }
 
@@ -253,33 +264,32 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   if (isPendingSuperUserApproval) return "Candidate created. Pending for Admin approval";
   if (applicantStage === 1 && approvalStatus === "approved") return "Document upload pending";
   if (applicantStage === 1) return "Complete the candidate profile for approval";
-  if (applicantStage >= 12) return "Candidate Arrived and Process Completed";
-  if (applicantStage === 11) return "Candidate arrival pending";
+  if (applicantStage >= 13) return "Candidate Arrived and Process Completed";
+  if (applicantStage === 12) return hasVisaTravel ? "Candidate arrival pending" : "Applicant travel details pending";
+  if (applicantStage === 11) return "Applicant travel details pending";
   if (applicantStage === 10) {
-    return hasVisaTravel ? "Pending Residence Permit upload" : "Visa Collection Initiated. Travel Ticket upload pending.";
+    if (hasPendingVisaCollectionApproval) return "Visa collection Initiated. Pending admin approval";
+    return "Visa Collection Initiated.";
   }
   if (applicantStage === 9) {
-    if (hasPendingVisaCollectionApproval) return "Visa collection Initiated. Pending admin approval";
-    return "Visa Collection Initiated. Travel Ticket upload pending.";
-  }
-  if (applicantStage === 8) {
     if (hasInterviewBiometric) return "Pending visa collection";
     if (hasInterviewTicket) return "Embassy Interview Initiated. Biometric slip upload pending.";
     return "Embassy Interview Initiated. Travel ticket upload pending.";
   }
-  if (applicantStage === 7) {
+  if (applicantStage === 8) {
     if (hasPendingEmbassyInterviewApproval) return "Embassy interview Initiated. Pending admin approval";
     return "Embassy Interview initiation pending";
   }
-  if (applicantStage === 6) {
+  if (applicantStage === 7) {
     if (hasBiometricSlip) return "Embassy Interview Initiation pending";
     if (hasTravelDetails) return "Embassy Appointment Initiated. Biometric slip upload pending.";
     return "Embassy Appointment Initiated. Travel ticket upload pending.";
   }
-  if (applicantStage >= 5) {
+  if (applicantStage === 6) {
     if (!hasEmbassyAppointment) return "Pending Embassy Appointment Initiation.";
     return "Pending embassy appointment.";
   }
+  if (applicantStage === 5) return "Signed contract upload pending.";
   if (applicantStage === 4) {
     if (String(applicant?.contract?.status || "").toUpperCase() === "PENDING") {
       return "Contract issued. Pending admin approval.";

@@ -94,6 +94,10 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
   const [travelDate, setTravelDate] = useState(null);
   const [travelTime, setTravelTime] = useState("");
   const [travelFile, setTravelFile] = useState(null);
+  const [collectionDocumentFile, setCollectionDocumentFile] = useState(null);
+  const [flightNumber, setFlightNumber] = useState("");
+  const [arrivalPlace, setArrivalPlace] = useState("");
+  const [busTicketFile, setBusTicketFile] = useState(null);
 
   const hasResidencePermit = Boolean(residencePermit?.frontUrl && residencePermit?.backUrl);
   const canEditCollection =
@@ -103,7 +107,12 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
   const canApprove = user?.role === "SUPER_USER" && visaCollection?.status === "PENDING" && !hasResidencePermit;
   const pendingAmount = applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0;
   const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
-  const canAddTicket = user?.role === "AGENCY" && visaCollection?.status === "APPROVED" && !visaTravel && !hasResidencePermit;
+  const canAddTicket =
+    user?.role === "AGENCY" &&
+    Number(applicant?.stage || 1) >= 11 &&
+    visaCollection?.status === "APPROVED" &&
+    !visaTravel &&
+    !hasResidencePermit;
   const isBusy = savingCollection || savingTicket;
 
   const loadData = useCallback(async () => {
@@ -123,6 +132,8 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
       setCollectionTime(collectionData?.time || "");
       setTravelDate(travelData?.date ? new Date(travelData.date) : null);
       setTravelTime(travelData?.time || "");
+      setFlightNumber(travelData?.flightNumber || "");
+      setArrivalPlace(travelData?.arrivalPlace || "");
     } catch (error) {
       console.error(error);
       setVisaCollection(null);
@@ -131,6 +142,8 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
       setCollectionTime("");
       setTravelDate(null);
       setTravelTime("");
+      setFlightNumber("");
+      setArrivalPlace("");
     } finally {
       setLoading(false);
     }
@@ -140,12 +153,14 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
     if (open && applicantId) {
       loadData();
       setTravelFile(null);
+      setCollectionDocumentFile(null);
+      setBusTicketFile(null);
     }
   }, [open, applicantId, loadData]);
 
   const title = useMemo(() => {
     if (!visaCollection) return "Add Visa Collection Details";
-    if (!visaTravel && user?.role === "AGENCY" && !hasResidencePermit) return "Ticket Upload";
+    if (!visaTravel && user?.role === "AGENCY" && !hasResidencePermit) return "Applicant Travel Details";
     return "Visa Collection Details";
   }, [visaCollection, visaTravel, user?.role, hasResidencePermit]);
 
@@ -160,10 +175,11 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
 
     try {
       setSavingCollection(true);
-      await API.post(`/applicants/${applicantId}/visa-collection`, {
-        date: formattedDate,
-        time: trimmedTime
-      });
+      const formData = new FormData();
+      formData.append("date", formattedDate);
+      formData.append("time", trimmedTime);
+      if (collectionDocumentFile) formData.append("file", collectionDocumentFile);
+      await API.post(`/applicants/${applicantId}/visa-collection`, formData);
       if (typeof onUpdated === "function") await onUpdated();
       if (typeof onClose === "function") onClose();
     } catch (error) {
@@ -192,8 +208,8 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
     const formattedDate = formatDateForInput(travelDate);
     const trimmedTime = typeof travelTime === "string" ? travelTime.trim() : "";
 
-    if (!formattedDate || !trimmedTime) {
-      toast.error("Travel date and time are required");
+    if (!formattedDate || !trimmedTime || !flightNumber.trim() || !arrivalPlace.trim()) {
+      toast.error("Arrival date, arrival time, flight number and arrival place are required");
       return;
     }
 
@@ -203,7 +219,10 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
       formData.append("date", formattedDate);
       formData.append("time", trimmedTime);
       formData.append("ticketNumber", "");
+      formData.append("flightNumber", flightNumber.trim());
+      formData.append("arrivalPlace", arrivalPlace.trim());
       if (travelFile) formData.append("file", travelFile);
+      if (busTicketFile) formData.append("busTicket", busTicketFile);
       await API.post(`/applicants/${applicantId}/visa-travel`, formData);
       if (typeof onUpdated === "function") await onUpdated();
       if (typeof onClose === "function") onClose();
@@ -259,19 +278,31 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
                   >
                     <DetailRow label="Visa Collection Date" value={formatDate(visaCollection.date)} />
                     <DetailRow label="Visa Collection Time" value={formatTime(visaCollection.time)} />
+                    {visaCollection.documentUrl ? (
+                      <DetailRow
+                        label="Document"
+                        action={(
+                          <a href={visaCollection.documentUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
+                            View
+                          </a>
+                        )}
+                      />
+                    ) : null}
                   </DetailCard>
 
                   {visaTravel ? (
                     <DetailCard
-                      title="Travel Details"
+                      title="Applicant Travel Details"
                       icon={(
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
                           <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       )}
                     >
-                      <DetailRow label="Travel Date" value={formatDate(visaTravel.date)} />
-                      <DetailRow label="Travel Time" value={formatTime(visaTravel.time)} />
+                      <DetailRow label="Arrival Date" value={formatDate(visaTravel.date)} />
+                      <DetailRow label="Arrival Time" value={formatTime(visaTravel.time)} />
+                      <DetailRow label="Flight Number" value={visaTravel.flightNumber || "-"} />
+                      <DetailRow label="Arrival Place" value={visaTravel.arrivalPlace || "-"} />
                       {visaTravel.fileUrl ? (
                         <DetailRow
                           label="Ticket"
@@ -281,6 +312,16 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
                                 <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                                 <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
                               </svg>
+                              View
+                            </a>
+                          )}
+                        />
+                      ) : null}
+                      {visaTravel.busTicketUrl ? (
+                        <DetailRow
+                          label="Bus Ticket"
+                          action={(
+                            <a href={visaTravel.busTicketUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
                               View
                             </a>
                           )}
@@ -339,6 +380,23 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
                   </div>
                 </div>
 
+                <div className="contractUploadLabel">Document (Optional)</div>
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="visa-collection-document">
+                  <input
+                    id="visa-collection-document"
+                    type="file"
+                    className="contractFileInput"
+                    disabled={isBusy}
+                    onChange={(event) => setCollectionDocumentFile(event.target.files?.[0] || null)}
+                  />
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <path d="M7 3h8l4 4v14H7zM15 3v4h4M10 13h4M10 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxName">{collectionDocumentFile?.name || "Choose document"}</span>
+                </label>
+
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
                   <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={onClose}>
                     Cancel
@@ -365,13 +423,13 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
                         <path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </span>
-                    <span>Travel Details</span>
+                    <span>Applicant Travel Details</span>
                   </div>
 
                   <div className="workflowDetailBody workflowTicketUploadBody">
                     <div className="workflowTravelEntryGrid">
                       <div className="input-field">
-                        <label className="contractUploadLabel">Travel Date</label>
+                        <label className="contractUploadLabel">Arrival Date</label>
                         <DatePicker
                           selected={travelDate}
                           onChange={(date) => setTravelDate(date)}
@@ -382,13 +440,13 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
                           showMonthDropdown
                           showYearDropdown
                           dropdownMode="select"
-                          customInput={<CustomDateInput placeholder="Select travel date" />}
+                          customInput={<CustomDateInput placeholder="Select arrival date" />}
                         />
                       </div>
 
                       <div className="input-field">
                         <label className="contractUploadLabel" htmlFor="visa-travel-time">
-                          Travel Time
+                          Arrival Time
                         </label>
                         <input
                           id="visa-travel-time"
@@ -402,8 +460,34 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
                       </div>
 
                       <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="flight-number">
+                          Flight Number
+                        </label>
+                        <input
+                          id="flight-number"
+                          value={flightNumber}
+                          disabled={isBusy}
+                          placeholder="Enter flight number"
+                          onChange={(event) => setFlightNumber(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="arrival-place">
+                          Arrival Place
+                        </label>
+                        <input
+                          id="arrival-place"
+                          value={arrivalPlace}
+                          disabled={isBusy}
+                          placeholder="Enter arrival place"
+                          onChange={(event) => setArrivalPlace(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="input-field">
                         <label className="contractUploadLabel" htmlFor="visa-travel-file">
-                          Ticket (Optional)
+                          Travel Ticket
                         </label>
                         <label className="workflowUploadBox" htmlFor="visa-travel-file">
                           <input
@@ -423,13 +507,36 @@ function VisaCollectionModal({ applicantId, user, applicant, residencePermit, op
                           </span>
                         </label>
                       </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="visa-bus-ticket-file">
+                          Bus Ticket (Optional)
+                        </label>
+                        <label className="workflowUploadBox" htmlFor="visa-bus-ticket-file">
+                          <input
+                            id="visa-bus-ticket-file"
+                            type="file"
+                            className="contractFileInput"
+                            disabled={isBusy}
+                            onChange={(event) => setBusTicketFile(event.target.files?.[0] || null)}
+                          />
+                          <span className="workflowUploadBoxIcon" aria-hidden="true">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                              <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </span>
+                          <span className="workflowUploadBoxText">
+                            <span className="workflowUploadBoxName">{busTicketFile ? busTicketFile.name : "No file chosen"}</span>
+                          </span>
+                        </label>
+                      </div>
                     </div>
                   </div>
                 </div>
 
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveTicket}>
-                    {savingTicket ? "Saving..." : "Save Ticket Details"}
+                    {savingTicket ? "Saving..." : "Save Applicant Travel Details"}
                   </button>
                 </div>
               </div>

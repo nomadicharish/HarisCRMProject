@@ -20,6 +20,7 @@ function formatDate(value) {
 function ContractSection({ applicantId, user, applicant, open, onClose, onUpdated }) {
   const [contract, setContract] = useState(null);
   const [file, setFile] = useState(null);
+  const [additionalFiles, setAdditionalFiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -65,8 +66,12 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
       setSaving(true);
       const formData = new FormData();
       formData.append("file", file);
+      additionalFiles.slice(0, 3).forEach((additionalFile) => {
+        formData.append("additionalDocuments", additionalFile);
+      });
       await API.post(`/applicants/${applicantId}/contract`, formData);
       setFile(null);
+      setAdditionalFiles([]);
       if (typeof onUpdated === "function") {
         await onUpdated();
       }
@@ -147,6 +152,25 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
                       View
                     </a>
                   </div>
+                  {Array.isArray(contract.additionalDocuments) && contract.additionalDocuments.length ? (
+                    <div className="workflowDetailRow">
+                      <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                        <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                            <path d="M7 3h8l4 4v14H7zM15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </span>
+                        Additional Documents
+                      </span>
+                      <span className="workflowDetailRowValue workflowAdditionalDocLinks">
+                        {contract.additionalDocuments.map((document, index) => (
+                          <a key={document.fileUrl || index} href={document.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                            {document.name || `Document ${index + 1}`}
+                          </a>
+                        ))}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="workflowDetailRow">
                     <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
                       <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
@@ -188,6 +212,34 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
                   />
                   <span className="contractFileCardTitle">{file?.name || "Upload contract"}</span>
                 </label>
+
+                <div className="workflowAdditionalUploadGroup">
+                  <div className="contractUploadLabel">Additional Documents</div>
+                  {[0, 1, 2].map((index) => (
+                    <label className="workflowUploadBox workflowUploadBoxFull" htmlFor={`contract-additional-${index}`} key={index}>
+                      <input
+                        id={`contract-additional-${index}`}
+                        type="file"
+                        className="contractFileInput"
+                        disabled={saving}
+                        onChange={(event) => {
+                          const nextFile = event.target.files?.[0] || null;
+                          setAdditionalFiles((prev) => {
+                            const next = [...prev];
+                            if (nextFile) next[index] = nextFile;
+                            return next.filter(Boolean);
+                          });
+                        }}
+                      />
+                      <span className="workflowUploadBoxIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M7 3h8l4 4v14H7zM15 3v4h4M10 13h4M10 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      <span className="workflowUploadBoxName">{additionalFiles[index]?.name || `Choose document ${index + 1}`}</span>
+                    </label>
+                  ))}
+                </div>
 
                 <div className="contractActionRow">
                   <button

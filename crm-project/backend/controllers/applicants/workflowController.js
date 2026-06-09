@@ -21,9 +21,11 @@ const {
   getEmbassyInterviewUseCase,
   getInterviewWorkflowUseCase,
   getInterviewBiometricUseCase,
+  getSignedContractUseCase,
   getInterviewTicketUseCase,
   uploadContractUseCase,
-  uploadInterviewBiometricUseCase
+  uploadInterviewBiometricUseCase,
+  uploadSignedContractUseCase
 } = require("../../usecases/applicants/workflowExecutionUseCases");
 const {
   addEmbassyAppointmentUseCase,
@@ -157,6 +159,24 @@ async function getContract(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Contract Error", error);
+  }
+}
+
+async function uploadSignedContract(req, res) {
+  try {
+    const payload = await uploadSignedContractUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Upload Signed Contract Error", error);
+  }
+}
+
+async function getSignedContract(req, res) {
+  try {
+    const payload = await getSignedContractUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Signed Contract Error", error);
   }
 }
 
@@ -372,6 +392,8 @@ module.exports = {
   uploadContract,
   approveContract,
   getContract,
+  uploadSignedContract,
+  getSignedContract,
   addEmbassyAppointment,
   getEmbassyAppointment,
   addTravelDetails,

@@ -317,11 +317,34 @@ function ApplicantFormStepOne({
                 <option value="Professional Degree">Professional Degree</option>
                 <option value="Doctorate (Ph.D.)">Doctorate (Ph.D.)</option>
                 <option value="No Formal Education">No Formal Education</option>
+                <option value="Others">Others</option>
               </select>
             </InputShell>
             {errors.education && <div style={errorText}>{errors.education}</div>}
           </div>
         </div>
+
+        {form.education === "Others" ? (
+          <div>
+            <label style={label}>Enter education</label>
+            <InputShell icon={educationIcon} error={Boolean(errors.customEducation)}>
+              <input
+                style={{
+                  ...input,
+                  paddingLeft: "44px",
+                  border: errors.customEducation ? `1px solid ${THEME.error}` : input.border
+                }}
+                value={form.customEducation || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.customEducation)}
+                onChange={(event) => handleChange("customEducation", event.target.value)}
+                placeholder="Enter education"
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.customEducation && <div style={errorText}>{errors.customEducation}</div>}
+          </div>
+        ) : null}
 
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={label}>Address as in passport</label>

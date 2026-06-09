@@ -47,7 +47,8 @@ function ApplicantPayments() {
     amount: "",
     paidDate: new Date().toISOString().slice(0, 10),
     paymentMode: "Check",
-    note: ""
+    note: "",
+    document: null
   });
 
   const loadData = useCallback(async () => {
@@ -145,7 +146,8 @@ function ApplicantPayments() {
       currency: paymentCurrency,
       paidDate: optimisticDate,
       paymentMode: form.paymentMode,
-      note: form.note
+      note: form.note,
+      documentFileName: form.document?.name || ""
     };
 
     const nextPaidInr = Number(paidAmount || 0) + amount;
@@ -193,14 +195,28 @@ function ApplicantPayments() {
 
     try {
       setSaving(true);
-      await API.post(`/applicants/${id}/payments`, {
-        type: "APPLICANT",
-        amount,
-        currency: paymentCurrency,
-        paidDate: form.paidDate,
-        paymentMode: form.paymentMode,
-        note: form.note
-      });
+      if (form.document) {
+        const body = new FormData();
+        body.append("type", "APPLICANT");
+        body.append("amount", String(amount));
+        body.append("currency", paymentCurrency);
+        body.append("paidDate", form.paidDate);
+        body.append("paymentMode", form.paymentMode);
+        body.append("note", form.note || "");
+        body.append("file", form.document);
+        await API.post(`/applicants/${id}/payments`, body, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+      } else {
+        await API.post(`/applicants/${id}/payments`, {
+          type: "APPLICANT",
+          amount,
+          currency: paymentCurrency,
+          paidDate: form.paidDate,
+          paymentMode: form.paymentMode,
+          note: form.note
+        });
+      }
 
       setShowAddPaymentModal(false);
       invalidateCache(`/applicants/${id}`);
@@ -212,7 +228,8 @@ function ApplicantPayments() {
         amount: "",
         paidDate: new Date().toISOString().slice(0, 10),
         paymentMode: "Check",
-        note: ""
+        note: "",
+        document: null
       });
       loadData();
     } catch (error) {
@@ -289,13 +306,14 @@ function ApplicantPayments() {
                     <th>Amount</th>
                     <th>Date Paid</th>
                     <th>Payment Mode</th>
+                    <th>Document</th>
                     <th>Comments</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paymentHistory.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="paymentEmptyState">No payment history available yet.</td>
+                      <td colSpan="5" className="paymentEmptyState">No payment history available yet.</td>
                     </tr>
                   ) : (
                     paymentHistory.map((payment) => (
@@ -303,6 +321,15 @@ function ApplicantPayments() {
                         <td>{formatCurrencyAmount(payment.amount, payment.currency || paymentCurrency)}</td>
                         <td>{formatDate(payment.paidDate)}</td>
                         <td>{payment.paymentMode || "-"}</td>
+                        <td>
+                          {payment.documentUrl ? (
+                            <a href={payment.documentUrl} target="_blank" rel="noreferrer" className="paymentDocumentLink">
+                              {payment.documentFileName || "View document"}
+                            </a>
+                          ) : (
+                            payment.documentFileName || "-"
+                          )}
+                        </td>
                         <td>{payment.note || "-"}</td>
                       </tr>
                     ))
@@ -386,6 +413,20 @@ function ApplicantPayments() {
                     onChange={(event) => handleInputChange("note", event.target.value)}
                     placeholder="Add note"
                   />
+                </div>
+
+                <div className="input-field">
+                  <label className="contractUploadLabel" htmlFor="payment-document">
+                    Add Document(Optional)
+                  </label>
+                  <label className="paymentDocumentUpload" htmlFor="payment-document">
+                    <input
+                      id="payment-document"
+                      type="file"
+                      onChange={(event) => handleInputChange("document", event.target.files?.[0] || null)}
+                    />
+                    <span>{form.document?.name || "Choose document"}</span>
+                  </label>
                 </div>
               </div>
 

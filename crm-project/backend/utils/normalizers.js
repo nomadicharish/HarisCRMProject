@@ -46,6 +46,17 @@ function normalizeCompanyDocuments(value) {
   }, []);
 }
 
+const DEFAULT_COMPANY_POSITION_DOCUMENTS = [
+  { id: "passport", name: "Passport", required: true },
+  { id: "passport_size_photo", name: "Passport Size photo", required: true },
+  { id: "10th_education_certificate", name: "10th Education Certificate", required: true },
+  { id: "12th_education_certificate", name: "12th Education Certificate", required: true },
+  { id: "work_wear_measurement", name: "Work Wear measurement", required: true },
+  { id: "international_driving_permit_optional", name: "International Driving Permit", required: false },
+  { id: "birth_certificate", name: "Birth Certificate", required: true },
+  { id: "medical_certificate", name: "Medical Certificate", required: true }
+];
+
 function buildCompanyJobSpecificationId(value, fallbackIndex = 0) {
   const normalized = String(value || "")
     .trim()
@@ -77,12 +88,76 @@ function normalizeCompanyJobSpecifications(value) {
   }, []);
 }
 
+function buildCompanyJobPositionId(value, fallbackIndex = 0) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  return normalized || `job_position_${fallbackIndex + 1}`;
+}
+
+function createDefaultCompanyPositionDocuments() {
+  return DEFAULT_COMPANY_POSITION_DOCUMENTS.map((document) => ({
+    ...document,
+    updatedAt: new Date()
+  }));
+}
+
+function normalizeCompanyJobPositions(value, fallbackDocuments = []) {
+  if (!Array.isArray(value)) return [];
+
+  const normalizedFallbackDocuments = normalizeCompanyDocuments(fallbackDocuments);
+
+  return value.reduce((positions, item, index) => {
+    if (!item || typeof item !== "object") return positions;
+
+    const title = String(item.title || item.name || item.label || "").trim();
+    const id = String(item.id || buildCompanyJobPositionId(title, index)).trim();
+
+    if (!title || !id) return positions;
+
+    const documents = normalizeCompanyDocuments(item.documents || item.documentsNeeded);
+
+    positions.push({
+      id,
+      title,
+      name: title,
+      documents: documents.length
+        ? documents
+        : normalizedFallbackDocuments.length
+          ? normalizedFallbackDocuments
+          : createDefaultCompanyPositionDocuments(),
+      updatedAt: new Date()
+    });
+
+    return positions;
+  }, []);
+}
+
+function getCompanyDocumentsForApplicant(company = {}, applicant = {}) {
+  const jobPositions = normalizeCompanyJobPositions(company?.jobPositions, company?.documentsNeeded);
+  const jobPositionId = String(applicant?.jobPositionId || "").trim();
+  const matchedPosition = jobPositions.find((position) => position.id === jobPositionId);
+
+  if (matchedPosition) return matchedPosition.documents;
+  if (jobPositions.length === 1) return jobPositions[0].documents;
+
+  return normalizeCompanyDocuments(company?.documentsNeeded);
+}
+
 module.exports = {
+  DEFAULT_COMPANY_POSITION_DOCUMENTS,
   normalizeIdList,
   normalizeEmailValue,
   normalizePhoneValue,
   buildCompanyDocumentId,
   normalizeCompanyDocuments,
   buildCompanyJobSpecificationId,
-  normalizeCompanyJobSpecifications
+  normalizeCompanyJobSpecifications,
+  buildCompanyJobPositionId,
+  createDefaultCompanyPositionDocuments,
+  getCompanyDocumentsForApplicant,
+  normalizeCompanyJobPositions
 };

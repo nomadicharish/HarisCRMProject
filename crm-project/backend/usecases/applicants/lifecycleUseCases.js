@@ -54,14 +54,14 @@ async function completeApplicantUseCase(req) {
   if (!doc.exists) throw new AppError("Applicant not found", 404);
 
   const data = doc.data() || {};
-  if (Number(data.stage || 0) < 10) throw new AppError("Process not ready for completion", 400);
+  if (Number(data.stage || 0) < 12) throw new AppError("Process not ready for completion", 400);
 
   await docRef.update({
-    stage: 12,
+    stage: 13,
     applicantBannerStatus: "Candidate Arrived and Process Completed",
     ...buildApplicantListDerivedFields({
       ...data,
-      stage: 12,
+      stage: 13,
       applicantBannerStatus: "Candidate Arrived and Process Completed"
     }),
     completedAt: new Date(),

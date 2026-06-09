@@ -6,6 +6,434 @@
   padding-top:64px;
 }
 
+.companyFormPage{
+  background:#f5f7fb;
+  display:block;
+  padding:88px 18px 42px;
+}
+
+.companyFormShell{
+  max-width:1250px;
+  margin:0 auto;
+  padding:0;
+}
+
+.companyFormCard{
+  background:#fff;
+  border:1px solid #e4e9f2;
+  border-radius:8px;
+  box-shadow:0 18px 45px rgba(15,23,42,.1);
+  overflow:hidden;
+}
+
+.companyFormHeader,
+.companyPositionsHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:24px 26px;
+}
+
+.companyFormHeader{
+  justify-content:flex-start;
+  padding-bottom:12px;
+}
+
+.companyFormHeader h1,
+.companySectionTitle h2{
+  margin:0;
+  color:#101828;
+  font-size:20px;
+  font-weight:800;
+}
+
+.companySectionTitle{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.companySectionTitle p{
+  margin:4px 0 0;
+  color:#475467;
+  font-size:13px;
+}
+
+.companyFormIcon{
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#dbeafe;
+  color:#0b55d9;
+  font-size:12px;
+  font-weight:800;
+}
+
+.companyFormGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:20px 28px;
+  padding:0 26px 24px;
+}
+
+.companyFormGrid label,
+.companyPositionTop label{
+  display:block;
+  margin-bottom:8px;
+  color:#1d2939;
+  font-size:13px;
+  font-weight:800;
+}
+
+.companyFormGrid label span,
+.companyPositionTop label span{
+  color:#e11d48;
+}
+
+.companyFormInput{
+  width:100%;
+  min-height:46px;
+  border:1px solid #cfd8e6;
+  border-radius:6px;
+  padding:0 14px;
+  color:#101828;
+  font-size:14px;
+  font-weight:600;
+  outline:none;
+  background:#fff;
+}
+
+.companyFormInput:focus{
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+}
+
+.companyFormInputError{
+  border-color:#ef4444;
+}
+
+.companyFormError{
+  margin-top:6px;
+  color:#dc2626;
+  font-size:12px;
+  font-weight:700;
+}
+
+.companyFormWideError{
+  margin:0 26px 8px;
+}
+
+.companyPositionsHeader{
+  border-top:1px solid #e4e9f2;
+  background:#fbfdff;
+}
+
+.companyPaymentDetailsHeader{
+  padding-bottom:14px;
+}
+
+.companyPaymentGrid{
+  padding-bottom:26px;
+}
+
+.companyOutlineButton,
+.companyPrimaryButton,
+.companyCancelButton{
+  min-height:42px;
+  border-radius:6px;
+  padding:0 16px;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyOutlineButton{
+  border:1px solid #2563eb;
+  background:#fff;
+  color:#0b55d9;
+}
+
+.companySmallButton{
+  min-height:36px;
+  font-size:13px;
+}
+
+.companyPositionsList{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:0 26px 26px;
+}
+
+.companyPositionPanel{
+  border:1px solid #d9e2ee;
+  border-radius:8px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.companyPositionTop{
+  display:grid;
+  grid-template-columns:28px 72px minmax(240px,420px) minmax(120px,1fr);
+  align-items:center;
+  gap:14px;
+  padding:14px;
+}
+
+.companyPositionTop label{
+  margin:0;
+}
+
+.companyPositionNumber{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#0b55d9;
+  color:#fff;
+  font-size:13px;
+  font-weight:900;
+}
+
+.companyDeleteIcon{
+  border:0;
+  background:transparent;
+  color:#1d2939;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyDeleteIcon,
+.companyRemoveButton{
+  color:#dc2626;
+}
+
+.companyDeleteIcon{
+  justify-self:end;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:34px;
+  padding:0 6px;
+}
+
+.companyDocumentsBlock{
+  padding:10px 28px 24px;
+}
+
+.companyDocumentsHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.companyDocumentsHeader h3{
+  margin:0;
+  color:#101828;
+  font-size:14px;
+  font-weight:800;
+}
+
+.companyDocumentsTable{
+  border:1px solid #d9e2ee;
+  border-radius:6px;
+  overflow:hidden;
+}
+
+.companyDocumentsRow{
+  display:grid;
+  grid-template-columns:minmax(180px,1.3fr) 160px minmax(220px,1fr) 130px;
+  gap:16px;
+  align-items:center;
+  padding:10px 14px;
+  border-top:1px solid #e4e9f2;
+}
+
+.companyDocumentsRow:first-child{
+  border-top:0;
+}
+
+.companyDocumentsHead{
+  min-height:36px;
+  background:#f8fafc;
+  color:#344054;
+  font-size:12px;
+  font-weight:900;
+}
+
+.companyRequiredToggle{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  color:#344054;
+  font-size:14px;
+  font-weight:700;
+}
+
+.companyRequiredToggle input{
+  width:16px;
+  height:16px;
+  accent-color:#0b55d9;
+}
+
+.companyFileDrop{
+  min-height:46px;
+  border:1px dashed #bfcee2;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 12px;
+  color:#475467;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  overflow:hidden;
+}
+
+.companyFileDrop input{
+  display:none;
+}
+
+.companyFileDrop span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+
+.companyRemoveButton{
+  border:0;
+  background:transparent;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:6px;
+}
+
+.companyFormActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  padding:24px 26px;
+  border-top:1px solid #e4e9f2;
+}
+
+.companySectionFooter{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:14px;
+}
+
+.companyPositionsFooter{
+  padding:0 26px 24px;
+  margin-top:0;
+}
+
+.companyCancelButton{
+  border:1px solid #cfd8e6;
+  background:#fff;
+  color:#101828;
+}
+
+.companyPrimaryButton{
+  border:1px solid #0b55d9;
+  background:#0b55d9;
+  color:#fff;
+}
+
+@media (max-width:900px){
+  .companyFormGrid,
+  .companyDocumentsRow,
+  .companyPositionTop{
+    grid-template-columns:1fr;
+  }
+
+  .companyPositionsHeader,
+  .companyDocumentsHeader,
+  .companyFormActions{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .companyDeleteIcon,
+  .companySectionFooter{
+    justify-self:stretch;
+    justify-content:flex-end;
+  }
+
+  .companyDocumentsHead{
+    display:none;
+  }
+
+  .companyDocumentsRow{
+    gap:10px;
+  }
+}
+
+@media (max-width:480px){
+  .companyFormPage{
+    padding:0 12px 24px;
+  }
+
+  .companyFormShell{
+    padding-top:14px;
+  }
+
+  .companyFormHeader,
+  .companyPositionsHeader,
+  .companyFormGrid,
+  .companyPositionsList,
+  .companyFormActions,
+  .companyPositionsFooter{
+    padding-left:14px;
+    padding-right:14px;
+  }
+
+  .companyFormHeader{
+    align-items:flex-start;
+  }
+
+  .companySectionTitle{
+    align-items:flex-start;
+  }
+
+  .companyDocumentsBlock{
+    padding:10px 14px 18px;
+  }
+
+  .companyFormHeader h1,
+  .companySectionTitle h2{
+    font-size:18px;
+  }
+
+  .companyOutlineButton,
+  .companyPrimaryButton,
+  .companyCancelButton{
+    width:100%;
+  }
+
+  .companyDeleteIcon{
+    width:auto;
+    margin-left:auto;
+  }
+
+  .companyRemoveButton{
+    min-height:36px;
+  }
+}
+
 .dashboardTopbar{
   height:64px;
   background:#ffffff;

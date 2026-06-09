@@ -90,7 +90,12 @@ async function uploadDocumentTemplate(req, res) {
     throw new AppError("Template file is required", 400);
   }
 
-  const data = await entityService.uploadCompanyDocumentTemplate(req.params.id, req.body.documentId, req.file);
+  const data = await entityService.uploadCompanyDocumentTemplate(
+    req.params.id,
+    req.body.documentId,
+    req.file,
+    req.body.jobPositionId
+  );
   return res.json(data);
 }
 

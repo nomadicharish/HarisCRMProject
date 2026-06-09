@@ -1,6 +1,6 @@
 const { admin, db } = require("../config/firebase");
 const { buildApplicantListDerivedFields, resolveApplicantPaymentCurrency } = require("./applicantDomainService");
-const { normalizeCompanyDocuments } = require("../utils/normalizers");
+const { getCompanyDocumentsForApplicant } = require("../utils/normalizers");
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -11,11 +11,11 @@ function roundCurrency(value) {
   return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
 }
 
-async function getCompanyRequiredDocTypes(companyId) {
-  if (!companyId) return [];
-  const companyDoc = await db.collection("companies").doc(companyId).get();
+async function getCompanyRequiredDocTypes(applicantData = {}) {
+  if (!applicantData?.companyId) return [];
+  const companyDoc = await db.collection("companies").doc(applicantData.companyId).get();
   if (!companyDoc.exists) return [];
-  return normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded)
+  return getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicantData)
     .filter((item) => item.required)
     .map((item) => item.id)
     .filter(Boolean);
@@ -89,7 +89,7 @@ async function getLatestDocStatus(applicantId, docType) {
 }
 
 async function buildDocSummary(applicantId, applicantData = {}) {
-  const requiredDocTypes = await getCompanyRequiredDocTypes(applicantData.companyId);
+  const requiredDocTypes = await getCompanyRequiredDocTypes(applicantData);
   if (!requiredDocTypes.length) {
     return {
       totalCount: 0,

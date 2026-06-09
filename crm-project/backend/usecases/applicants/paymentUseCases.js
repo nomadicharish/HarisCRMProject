@@ -11,6 +11,14 @@ const {
   roundCurrency
 } = require("../../services/applicantDomainService");
 
+function sanitizeFileName(value = "document") {
+  return String(value || "document")
+    .trim()
+    .replace(/[^a-zA-Z0-9._-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 120) || "document";
+}
+
 async function addPaymentUseCase(req) {
   const { applicantId } = req.params;
   const { type, amount, currency, note, paidDate, paymentMode } = req.body;
@@ -61,6 +69,21 @@ async function addPaymentUseCase(req) {
     throw new AppError("Invalid paid date", 400);
   }
 
+  let documentUrl = "";
+  let documentFileName = "";
+  if (req.file) {
+    const bucket = admin.storage().bucket();
+    documentFileName = sanitizeFileName(req.file.originalname);
+    const fileName = `payments/${applicantId}/${Date.now()}_${documentFileName}`;
+    const fileUpload = bucket.file(fileName);
+
+    await fileUpload.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype }
+    });
+    await fileUpload.makePublic();
+    documentUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  }
+
   const payment = {
     type,
     amount: normalizedAmount,
@@ -71,6 +94,8 @@ async function addPaymentUseCase(req) {
     paidTo: type === "APPLICANT" ? "SUPER_USER" : "EMPLOYER",
     paidDate: parsedPaidDate,
     createdBy: userId,
+    documentUrl,
+    documentFileName,
     createdAt: admin.firestore.FieldValue.serverTimestamp()
   };
 

@@ -21,6 +21,7 @@ function useApplicantWorkflowLabels({
   applicant,
   documents,
   contract,
+  signedContract,
   embassyAppointment,
   biometricSlip,
   embassyInterview,
@@ -28,7 +29,6 @@ function useApplicantWorkflowLabels({
   interviewBiometric,
   visaCollection,
   visaTravel,
-  residencePermit,
   user
 }) {
   return useMemo(() => {
@@ -62,8 +62,12 @@ function useApplicantWorkflowLabels({
     const isContractCompleted = Boolean(
       workflowFlags.isContractIssued ?? (applicantStage >= 5 && contract?.status === "APPROVED")
     );
+    const hasSignedContract = Boolean(
+      workflowFlags.isSignedContractUploaded ?? (signedContract?.fileUrl || applicant?.signedContract?.fileUrl)
+    );
+    const canUploadSignedContract = applicantStage === 5 && user?.role === "AGENCY" && !hasSignedContract;
     const canInitiateEmbassyAppointment =
-      applicantStage === 5 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+      applicantStage === 6 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
     const hasTravelDetails = Boolean(
       workflowFlags.isTravelTicketUploaded ??
       (applicant?.travelDetails?.travelDate || applicant?.travelDetails?.time || applicant?.travelDetails?.fileUrl)
@@ -71,13 +75,13 @@ function useApplicantWorkflowLabels({
     const hasBiometricSlip = Boolean(
       workflowFlags.isBiometricCompleted ?? (applicant?.biometricSlip?.fileUrl || biometricSlip?.fileUrl)
     );
-    const canAddTicket = applicantStage === 6 && user?.role === "AGENCY" && !hasTravelDetails;
-    const canAddBiometricSlip = applicantStage === 6 && user?.role === "AGENCY" && hasTravelDetails && !hasBiometricSlip;
-    const canAddEmbassyInterview = applicantStage === 7 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+    const canAddTicket = applicantStage === 7 && user?.role === "AGENCY" && !hasTravelDetails;
+    const canAddBiometricSlip = applicantStage === 7 && user?.role === "AGENCY" && hasTravelDetails && !hasBiometricSlip;
+    const canAddEmbassyInterview = applicantStage === 8 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
     const hasPendingEmbassyInterviewApproval = Boolean(
       workflowFlags.isEmbassyInterviewPendingApproval ??
       (String(embassyInterview?.status || "").toUpperCase() === "PENDING" ||
-      (Boolean(embassyInterview?.dateTime) && !Boolean(embassyInterview?.approved))
+      (Boolean(embassyInterview?.dateTime) && !embassyInterview?.approved)
       )
     );
     const hasInterviewTicket = Boolean(
@@ -86,24 +90,19 @@ function useApplicantWorkflowLabels({
     const hasInterviewBiometric = Boolean(
       workflowFlags.isInterviewBiometricCompleted ?? (interviewBiometric?.fileUrl || applicant?.interviewBiometric?.fileUrl)
     );
-    const canAddInterviewTicket = applicantStage === 8 && user?.role === "AGENCY" && !hasInterviewTicket;
+    const canAddInterviewTicket = applicantStage === 9 && user?.role === "AGENCY" && !hasInterviewTicket;
     const canAddInterviewBiometric =
-      applicantStage === 8 && user?.role === "AGENCY" && hasInterviewTicket && !hasInterviewBiometric;
+      applicantStage === 9 && user?.role === "AGENCY" && hasInterviewTicket && !hasInterviewBiometric;
     const hasVisaTravel = Boolean(
       workflowFlags.isVisaTravelUploaded ?? (visaTravel?.date || visaTravel?.time || visaTravel?.fileUrl)
     );
-    const hasResidencePermit = Boolean(
-      workflowFlags.isResidencePermitUploaded ??
-      ((residencePermit?.frontUrl || applicant?.residencePermit?.frontUrl) &&
-        (residencePermit?.backUrl || applicant?.residencePermit?.backUrl))
-    );
-    const canAddVisaCollection = applicantStage === 9 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+    const canAddVisaCollection = applicantStage === 10 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
     const hasPendingVisaCollectionApproval = Boolean(
       workflowFlags.isVisaCollectionPendingApproval ??
       String(visaCollection?.status || "").toUpperCase() === "PENDING"
     );
-    const canAddVisaTravel = applicantStage === 10 && user?.role === "AGENCY" && !hasVisaTravel;
-    const canAddResidencePermit = applicantStage === 10 && user?.role === "AGENCY" && hasVisaTravel && !hasResidencePermit;
+    const canAddVisaTravel = applicantStage === 11 && user?.role === "AGENCY" && !hasVisaTravel;
+    const canAddResidencePermit = false;
     const hasDocuments = hasAnyDocumentsPayload;
     const shouldShowDocumentAction =
       !hasCompletedDocumentStage &&
@@ -129,36 +128,36 @@ function useApplicantWorkflowLabels({
       ? "Candidate created. Pending for Admin approval"
       : applicantStage === 1
       ? "Complete the candidate profile for approval"
-      : applicantStage >= 12
+      : applicantStage >= 13
       ? "Candidate Arrived and Process Completed"
-      : applicantStage === 11
+      : applicantStage === 12
       ? "Candidate arrival pending"
+      : applicantStage === 11
+      ? "Applicant travel details pending"
       : applicantStage === 10
-      ? hasVisaTravel
-        ? "Pending Residence Permit upload"
-        : "Visa Collection Initiated. Travel Ticket upload pending."
-      : applicantStage === 9
       ? hasPendingVisaCollectionApproval
         ? "Visa collection Initiated. Pending admin approval"
-        : "Visa Collection Initiated. Travel Ticket upload pending."
-      : applicantStage === 8
+        : "Visa Collection Initiated."
+      : applicantStage === 9
       ? hasInterviewBiometric
         ? "Pending visa collection"
         : hasInterviewTicket
         ? "Pending Biometric slip"
         : "Travel ticket upload pending"
-      : applicantStage === 7
+      : applicantStage === 8
       ? hasPendingEmbassyInterviewApproval
         ? "Embassy interview Initiated. Pending admin approval"
         : "Embassy Interview initiation pending"
-      : applicantStage === 6
+      : applicantStage === 7
       ? hasBiometricSlip
         ? "Embassy Interview initiation pending"
         : hasTravelDetails
         ? "Pending Biometric slip"
         : "Ticket upload pending"
-      : applicantStage === 5
+      : applicantStage === 6
       ? "Pending embassy appointment."
+      : applicantStage === 5
+      ? "Signed contract upload pending."
       : applicantStage >= 5
       ? "Pending embassy appointment."
       : applicantStage === 4
@@ -192,72 +191,73 @@ function useApplicantWorkflowLabels({
       : applicantStage === 4
       ? "active"
       : "";
+    const signedContractRowTitle = hasSignedContract ? "Signed Contract Uploaded" : "Upload Signed Contract";
+    const signedContractRowSubtitle = applicantStage === 5 && !hasSignedContract ? "Signed contract upload pending" : "";
+    const signedContractRowStatus = hasSignedContract ? "completed" : applicantStage === 5 ? "active" : "";
     const hasEmbassyAppointmentRecord = Boolean(
       workflowFlags.isEmbassyAppointmentCreated ?? Boolean(embassyAppointment)
     );
     const embassyAppointmentRowTitle =
-      applicantStage === 5 && !hasEmbassyAppointmentRecord ? "Initiate Embassy Appointment" : "Embassy Appointment Initiated";
+      applicantStage === 6 && !hasEmbassyAppointmentRecord ? "Initiate Embassy Appointment" : "Embassy Appointment Initiated";
     const embassyAppointmentCompletedRowTitle =
-      applicantStage > 6 ? "Embassy Appointment Completed" : "Embassy Appointment";
+      applicantStage > 7 ? "Embassy Appointment Completed" : "Embassy Appointment";
     const embassyAppointmentCompletedRowSubtitle =
-      applicantStage === 6
+      applicantStage === 7
         ? hasTravelDetails
           ? hasBiometricSlip
             ? ""
             : "Pending Biometric slip"
           : "Travel ticket upload pending"
         : "";
-    const embassyAppointmentCompletedRowStatus = applicantStage === 6 ? "warning" : "";
+    const embassyAppointmentCompletedRowStatus = applicantStage === 7 ? "warning" : "";
     const hasEmbassyInterviewRecord = Boolean(
       workflowFlags.isEmbassyInterviewCreated ?? Boolean(embassyInterview?.dateTime)
     );
     const embassyInterviewRowTitle =
-      applicantStage === 7 && !hasEmbassyInterviewRecord ? "Initiate Embassy Interview" : "Embassy Interview Initiated";
+      applicantStage === 8 && !hasEmbassyInterviewRecord ? "Initiate Embassy Interview" : "Embassy Interview Initiated";
     const embassyInterviewRowSubtitle =
-      applicantStage === 7 && hasPendingEmbassyInterviewApproval
+      applicantStage === 8 && hasPendingEmbassyInterviewApproval
         ? "Embassy interview Initiated. Pending admin approval"
         : "";
     const embassyInterviewCompletedRowTitle =
-      applicantStage > 8 ? "Embassy Interview Completed" : "Complete Embassy Interview";
+      applicantStage > 9 ? "Embassy Interview Completed" : "Complete Embassy Interview";
     const embassyInterviewCompletedRowSubtitle =
-      applicantStage === 8
+      applicantStage === 9
         ? hasInterviewTicket
           ? hasInterviewBiometric
             ? ""
             : "Pending Biometric slip"
           : "Travel ticket upload pending"
         : "";
-    const embassyInterviewCompletedRowStatus = applicantStage === 8 ? "warning" : "";
+    const embassyInterviewCompletedRowStatus = applicantStage === 9 ? "warning" : "";
     const visaCollectionRowTitle =
-      applicantStage > 9 ? "Visa Collection Initiated" : "Initiate Visa Collection";
+      applicantStage > 10 ? "Visa Collection Initiated" : "Initiate Visa Collection";
     const visaCollectionRowStatus =
-      applicantStage === 9 && hasPendingVisaCollectionApproval
+      applicantStage === 10 && hasPendingVisaCollectionApproval
         ? "warning"
-        : applicantStage === 9
+        : applicantStage === 10
         ? "active"
         : "";
     const visaCollectionRowSubtitle =
-      applicantStage === 9 && hasPendingVisaCollectionApproval
+      applicantStage === 10 && hasPendingVisaCollectionApproval
         ? "Visa collection Initiated. Pending admin approval"
         : "";
     const visaCollectionCompletedRowTitle =
-      applicantStage > 10 ? "Visa Collection Completed" : "Complete Visa Collection";
+      applicantStage > 11 ? "Visa Collection Completed" : "Complete Visa Collection";
     const visaCollectionCompletedRowSubtitle =
-      applicantStage === 10
+      applicantStage === 11
         ? hasVisaTravel
-          ? hasResidencePermit
-            ? ""
-            : "Pending Residence Permit upload"
-          : "Travel ticket upload pending"
+          ? ""
+          : "Applicant travel details pending"
         : "";
-    const visaCollectionCompletedRowStatus = applicantStage === 10 ? "warning" : "";
+    const visaCollectionCompletedRowStatus = applicantStage === 11 ? "warning" : "";
     const candidateArrivalRowTitle =
-      applicantStage >= 12
+      applicantStage >= 13
         ? `Candidate Arrived and Process Completed${
             candidateArrivalCompletedDate ? ` on ${candidateArrivalCompletedDate}` : ""
           }`
         : "Arrival of Candidate";
-    const candidateArrivalRowSubtitle = applicantStage === 11 ? "Candidate arrival pending" : "";
+    const candidateArrivalRowSubtitle = applicantStage === 12 ? "Candidate arrival pending" : "";
     const hasVisaCollectionRecord = Boolean(
       workflowFlags.isVisaCollectionCreated ?? Boolean(visaCollection?.date && visaCollection?.time)
     );
@@ -267,12 +267,14 @@ function useApplicantWorkflowLabels({
           ? "Verify & Approve"
           : ""
         : "Issue Contract"
-      : applicantStage === 11 && user?.role === "SUPER_USER"
+      : canUploadSignedContract
+      ? "Upload Signed Contract"
+      : applicantStage === 12 && user?.role === "SUPER_USER"
       ? "Candidate Arrived"
       : canAddResidencePermit
       ? "Add Residence Permit"
       : canAddVisaTravel
-      ? "Add Ticket"
+      ? "Applicant Travel Details"
       : canAddVisaCollection
       ? hasPendingVisaCollectionApproval && user?.role === "SUPER_USER"
         ? "Verify & Approve"
@@ -299,14 +301,15 @@ function useApplicantWorkflowLabels({
       ? canEditDispatch
         ? "Dispatch Document"
         : "Documents Dispatched"
-      : applicantStage >= 12
+      : applicantStage >= 13
       ? ""
       : applicantStage === 1 && canApproveProfile
       ? "View & Approve Profile"
       : documentsButtonLabel;
     const canHeaderAction =
       canIssueContract ||
-      (applicantStage === 11 && user?.role === "SUPER_USER") ||
+      canUploadSignedContract ||
+      (applicantStage === 12 && user?.role === "SUPER_USER") ||
       canAddResidencePermit ||
       canAddVisaTravel ||
       canAddVisaCollection ||
@@ -325,6 +328,7 @@ function useApplicantWorkflowLabels({
       isEmployer,
       canAccessDispatch,
       canIssueContract,
+      canUploadSignedContract,
       canInitiateEmbassyAppointment,
       canAddTicket,
       canAddBiometricSlip,
@@ -345,6 +349,9 @@ function useApplicantWorkflowLabels({
       dispatchRowTitle,
       contractRowTitle,
       contractRowStatus,
+      signedContractRowTitle,
+      signedContractRowSubtitle,
+      signedContractRowStatus,
       embassyAppointmentRowTitle,
       embassyAppointmentCompletedRowTitle,
       embassyAppointmentCompletedRowSubtitle,
@@ -374,7 +381,7 @@ function useApplicantWorkflowLabels({
     embassyInterview,
     interviewBiometric,
     interviewTicket,
-    residencePermit,
+    signedContract,
     user,
     visaCollection,
     visaTravel

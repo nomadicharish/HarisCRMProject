@@ -59,6 +59,8 @@ function ApplicantsTable({
             const workflow = getWorkflowMeta(applicant);
             const pendingAmount = applicant.payment?.pendingInr ?? applicant.payment?.pending ?? 0;
             const paymentPending = Number(pendingAmount || 0) > 0;
+            const isCandidateApprovalPending =
+              Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
             const workflowCompleted =
               applicant.workflowStatus === "completed" ||
               applicant.stageStatus === "completed" ||
@@ -88,16 +90,20 @@ function ApplicantsTable({
                 <td>{applicant.companyName || "-"}</td>
                 {!isEmployer ? (
                   <td>
-                    <div className="dashboardStatusCell">
-                      <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
-                        {paymentPending ? "Pending" : "Completed"}
-                      </span>
-                      {paymentPending ? (
-                        <span className="dashboardPaymentAmount">
-                          {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
+                    {isCandidateApprovalPending ? (
+                      "-"
+                    ) : (
+                      <div className="dashboardStatusCell">
+                        <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
+                          {paymentPending ? "Pending" : "Completed"}
                         </span>
-                      ) : null}
-                    </div>
+                        {paymentPending ? (
+                          <span className="dashboardPaymentAmount">
+                            {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                   </td>
                 ) : null}
               </tr>
@@ -128,6 +134,8 @@ function ApplicantsTable({
           const workflow = getWorkflowMeta(applicant);
           const pendingAmount = applicant.payment?.pendingInr ?? applicant.payment?.pending ?? 0;
           const paymentPending = Number(pendingAmount || 0) > 0;
+          const isCandidateApprovalPending =
+            Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
           const workflowCompleted =
             applicant.workflowStatus === "completed" ||
             applicant.stageStatus === "completed" ||
@@ -154,14 +162,20 @@ function ApplicantsTable({
               <div>{applicant.companyName || "-"}</div>
               {!isEmployer ? (
                 <div className="dashboardStatusCell">
-                  <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
-                    {paymentPending ? "Pending" : "Completed"}
-                  </span>
-                  {paymentPending ? (
-                    <span className="dashboardPaymentAmount">
-                      {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
-                    </span>
-                  ) : null}
+                  {isCandidateApprovalPending ? (
+                    "-"
+                  ) : (
+                    <>
+                      <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
+                        {paymentPending ? "Pending" : "Completed"}
+                      </span>
+                      {paymentPending ? (
+                        <span className="dashboardPaymentAmount">
+                          {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               ) : null}
             </div>

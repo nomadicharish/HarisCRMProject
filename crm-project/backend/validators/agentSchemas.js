@@ -30,7 +30,7 @@ const applicantIdParamsSchema = z.object({
 });
 
 const setApplicantStageSchema = z.object({
-  stage: z.coerce.number().int().min(1).max(12)
+  stage: z.coerce.number().int().min(1).max(13)
 });
 
 const addApplicantNoteSchema = z.object({

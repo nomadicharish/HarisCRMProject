@@ -47,6 +47,8 @@ const createApplicantSchema = z.object({
   education: optionalTrimmedString,
   countryId: idSchema,
   companyId: idSchema,
+  jobPositionId: idSchema,
+  jobPositionName: optionalTrimmedString,
   agencyId: optionalTrimmedString,
   email: optionalEmailSchema,
   totalAmount: z.coerce.number().optional(),
@@ -129,6 +131,8 @@ const dateTimeBodySchema = z.object({
 const visaTravelBodySchema = z.object({
   date: trimmedString.min(1, "Date is required"),
   time: trimmedString.min(1, "Time is required"),
+  flightNumber: trimmedString.min(1, "Flight number is required"),
+  arrivalPlace: trimmedString.min(1, "Arrival place is required"),
   ticketNumber: optionalTrimmedString
 });
 

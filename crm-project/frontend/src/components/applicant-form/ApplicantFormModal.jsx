@@ -17,7 +17,6 @@ import {
   validateAge,
   validateEmail,
   validateOptionalPhone,
-  validatePaidAmount,
   validatePhone,
   validateTotalAmount
 } from "./formUtils";
@@ -29,6 +28,16 @@ const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCas
 const sanitizeAmountInput = formatIndianNumberInput;
 const parseAmountInput = parseIndianNumberInput;
 const STEP_FALLBACK = <div className="routeSkeleton">Loading form...</div>;
+const EDUCATION_OPTIONS = [
+  "High School Diploma",
+  "Vocational / Technical Certificate",
+  "Diploma",
+  "Bachelor's Degree",
+  "Master's Degree",
+  "Professional Degree",
+  "Doctorate (Ph.D.)",
+  "No Formal Education"
+];
 
 function normalizeListResponse(response) {
   if (Array.isArray(response)) return response;
@@ -68,6 +77,9 @@ function ApplicantFormModal({
     if (!form.passportNumber) newErrors.passportNumber = "Passport number is required";
     if (!form.address) newErrors.address = "Address is required";
     if (!form.education) newErrors.education = "Select education";
+    if (form.education === "Others" && !String(form.customEducation || "").trim()) {
+      newErrors.customEducation = "Enter education";
+    }
 
     const ageError = validateAge(form.age);
     if (ageError) newErrors.age = ageError;
@@ -86,15 +98,14 @@ function ApplicantFormModal({
     const newErrors = {};
     if (!form.countryId) newErrors.countryId = "Select country";
     if (!form.companyId) newErrors.companyId = "Select company";
+    if (!form.jobPositionId) newErrors.jobPositionId = "Select job position";
     if (user?.role === "SUPER_USER" && !form.agencyId) newErrors.agencyId = "Select agency";
 
-    const totalAmountError = validateTotalAmount(form.totalAmount, user?.role);
+    const totalAmountError = validateTotalAmount(
+      form.totalAmount,
+      user?.role === "SUPER_USER" && Boolean(editData) ? "SUPER_USER" : user?.role
+    );
     if (totalAmountError) newErrors.totalAmount = totalAmountError;
-    if (user?.role === "SUPER_USER") {
-      const paidAmountError = validatePaidAmount(form.paidAmount);
-      if (paidAmountError) newErrors.paidAmount = paidAmountError;
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -122,14 +133,15 @@ function ApplicantFormModal({
   };
 
   const handleCountryChange = (value) => {
-    setForm((prev) => ({ ...prev, countryId: value, companyId: "" }));
+    setForm((prev) => ({ ...prev, countryId: value, companyId: "", jobPositionId: "" }));
     setFilteredCompanies(companies.filter((company) => company.countryId === value));
   };
 
   const handleCompanyChange = (value) => {
     setForm((prev) => ({
       ...prev,
-      companyId: value
+      companyId: value,
+      jobPositionId: ""
     }));
   };
 
@@ -186,6 +198,8 @@ function ApplicantFormModal({
         : null;
     const resolvedCountryId = editData.countryId || "";
     const resolvedCompanyId = editData.companyId || "";
+    const resolvedEducation = editData.education || editData.personalDetails?.education || "";
+    const isKnownEducation = EDUCATION_OPTIONS.includes(resolvedEducation);
     const resolvedTotalAmount = getApplicantTotalAmount(editData);
     const hasResolvedTotalAmount =
       resolvedTotalAmount !== null &&
@@ -199,7 +213,8 @@ function ApplicantFormModal({
       email: editData.email || editData.personalDetails?.email || "",
       dob: parsedDob || "",
       age: parsedDob ? calculateAge(parsedDob) : editData.age || editData.personalDetails?.age || "",
-      education: editData.education || editData.personalDetails?.education || "",
+      education: resolvedEducation && !isKnownEducation ? "Others" : resolvedEducation,
+      customEducation: resolvedEducation && !isKnownEducation ? resolvedEducation : "",
       address: editData.address || editData.personalDetails?.address || "",
       placeOfBirth: editData.placeOfBirth || editData.personalDetails?.placeOfBirth || "",
       passportNumber: editData.passportNumber || editData.personalDetails?.passportNumber || "",
@@ -250,6 +265,7 @@ function ApplicantFormModal({
       })(),
       countryId: resolvedCountryId,
       companyId: resolvedCompanyId,
+      jobPositionId: editData.jobPositionId || "",
       agencyId: editData.agencyId || "",
       paymentCurrency: normalizeCurrency(
         editData.paymentCurrency ||
@@ -276,17 +292,24 @@ function ApplicantFormModal({
 
     try {
       setLoading(true);
-      const payload = {
+      const selectedCompany = companies.find((company) => company.id === form.companyId);
+      const companyJobPositions = Array.isArray(selectedCompany?.jobPositions) && selectedCompany.jobPositions.length
+        ? selectedCompany.jobPositions
+        : selectedCompany?.jobSpecifications || [];
+      const selectedJobPosition = companyJobPositions.find((position) => position.id === form.jobPositionId);
+      const resolvedEducationValue =
+        form.education === "Others" ? String(form.customEducation || "").trim() : form.education;
+      const applicantPayload = {
         firstName: form.firstName,
         lastName: form.lastName,
-        education: form.education,
+        education: resolvedEducationValue,
         personalDetails: {
           firstName: form.firstName,
           lastName: form.lastName,
           email: String(form.email || "").trim().toLowerCase(),
           dob: form.dob,
           age: form.age,
-          education: form.education,
+          education: resolvedEducationValue,
           phone: `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN")}${String(form.phone || "").replace(/[^\d]/g, "")}`,
           whatsappNumber: form.whatsappNumber
             ? `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.whatsappCountry || "IN").toUpperCase()) ? String(form.whatsappCountry || "IN").toUpperCase() : "IN")}${String(form.whatsappNumber || "").replace(/[^\d]/g, "")}`
@@ -303,42 +326,36 @@ function ApplicantFormModal({
           : "",
         email: String(form.email || "").trim().toLowerCase(),
         companyId: form.companyId,
+        jobPositionId: form.jobPositionId,
+        jobPositionName: selectedJobPosition?.title || selectedJobPosition?.name || "",
         countryId: form.countryId,
         agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,
         totalApplicantPayment: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
         totalAmount: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
         paymentCurrency: normalizeCurrency(form.paymentCurrency),
-        currency: normalizeCurrency(form.paymentCurrency),
-        amountPaid: user?.role === "SUPER_USER" && form.paidAmount ? parseAmountInput(form.paidAmount) : 0,
-        paidAmount: user?.role === "SUPER_USER" && form.paidAmount ? parseAmountInput(form.paidAmount) : 0
+        currency: normalizeCurrency(form.paymentCurrency)
       };
-      const selectedCompany = companies.find((company) => company.id === form.companyId);
       const savedPayload = {
-        ...payload,
-        companyName: selectedCompany?.name || ""
+        ...applicantPayload,
+        companyName: selectedCompany?.name || "",
+        jobPositionName: selectedJobPosition?.title || selectedJobPosition?.name || ""
       };
 
       if (editData) {
-        await API.patch(`/applicants/${editData.id}`, payload);
+        await API.patch(`/applicants/${editData.id}`, applicantPayload);
+        const shouldAutoApprove = autoApproveAfterSave && typeof onApproveStage === "function";
+        if (shouldAutoApprove) {
+          await onApproveStage();
+        }
         if (typeof onSaved === "function") {
           await onSaved({ operation: "update", id: editData.id, payload: savedPayload });
         }
       } else {
-        const response = await API.post("/applicants/create", payload);
+        const response = await API.post("/applicants/create", applicantPayload);
         if (typeof onSaved === "function") {
           await onSaved({ operation: "create", id: response?.data?.applicantId || "", payload: savedPayload });
         }
         resetForm();
-      }
-
-      const shouldAutoApprove = autoApproveAfterSave && typeof onApproveStage === "function" && Boolean(editData);
-      if (shouldAutoApprove) {
-        try {
-          await onApproveStage();
-        } catch (approveError) {
-          console.error(approveError);
-          return;
-        }
       }
 
       if (typeof onClose === "function") onClose();
@@ -357,6 +374,15 @@ function ApplicantFormModal({
   const countryOptions = countries.map((country) => ({ value: country.id, label: country.name }));
   const companyOptions = filteredCompanies.map((company) => ({ value: company.id, label: company.name }));
   const agencyOptions = agencies.map((agency) => ({ value: agency.id, label: agency.name }));
+  const selectedCompanyForPositions = companies.find((company) => company.id === form.companyId);
+  const jobPositionOptions = (
+    Array.isArray(selectedCompanyForPositions?.jobPositions) && selectedCompanyForPositions.jobPositions.length
+      ? selectedCompanyForPositions.jobPositions
+      : selectedCompanyForPositions?.jobSpecifications || []
+  ).map((position) => ({
+    value: position.id,
+    label: position.title || position.name || position.label || "Job Position"
+  }));
   const pageSubmitLabel = loading
     ? editData
       ? "Updating..."
@@ -525,6 +551,7 @@ function ApplicantFormModal({
                     errors={errors}
                     countryOptions={countryOptions}
                     companyOptions={companyOptions}
+                    jobPositionOptions={jobPositionOptions}
                     agencyOptions={agencyOptions}
                     handleCountryChange={handleCountryChange}
                     handleCompanyChange={handleCompanyChange}
@@ -707,6 +734,7 @@ function ApplicantFormModal({
                 errors={errors}
                 countryOptions={countryOptions}
                 companyOptions={companyOptions}
+                jobPositionOptions={jobPositionOptions}
                 agencyOptions={agencyOptions}
                 handleCountryChange={handleCountryChange}
                 handleCompanyChange={handleCompanyChange}

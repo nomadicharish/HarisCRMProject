@@ -15,6 +15,7 @@ import PageLoader from "../components/common/PageLoader";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getStoredUser } from "../utils/auth";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
+import { formatCurrencyAmount } from "../utils/currency";
 import "../styles/applicantProfile.css";
 
 function StatusIcon({ tone = "success" }) {
@@ -255,6 +256,13 @@ function ApplicantDocumentsWorkspace() {
 
   const canReview = user?.role === "SUPER_USER";
   const sidebarApplicant = sidebarProfile?.applicant || applicant;
+  const isCandidateApprovalPending =
+    Number(sidebarApplicant?.stage || 1) === 1 && String(sidebarApplicant?.approvalStatus || "").toLowerCase() !== "approved";
+  const sidebarPendingAmount = sidebarProfile?.pendingAmount || 0;
+  const sidebarCurrency =
+    sidebarApplicant?.paymentCurrency ||
+    sidebarApplicant?.currency ||
+    sidebarApplicant?.payment?.currency;
   const visibleDocs = getVisibleApplicantDocuments(applicant, documentConfigs);
   const reviewState = getDocumentReviewState(documents, applicant, documentConfigs);
   const dispatchStarted = Number(applicant.stage || 0) >= 3;
@@ -408,15 +416,15 @@ function ApplicantDocumentsWorkspace() {
           <aside className="applicantProfileSidebar">
             <ApplicantSummaryCard
               applicant={sidebarApplicant}
-              pendingAmount={sidebarProfile?.pendingAmount || 0}
-              pendingDisplayValue={sidebarProfile?.pendingAmount ? `INR ${Number(sidebarProfile.pendingAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
+              pendingAmount={sidebarPendingAmount}
+              pendingDisplayValue={isCandidateApprovalPending ? "-" : sidebarPendingAmount ? formatCurrencyAmount(sidebarPendingAmount, sidebarCurrency, true) : ""}
               canEdit={false}
               onEdit={() => {}}
               onPendingClick={undefined}
               agencyName={sidebarProfile?.agencyName || ""}
               countryName={sidebarProfile?.countryName || ""}
               showAgency={Boolean(sidebarProfile?.agencyName) || canReview}
-              showPendingAmount={Boolean(sidebarProfile?.pendingAmount)}
+              showPendingAmount={isCandidateApprovalPending || Boolean(sidebarPendingAmount)}
               pendingStyle="section"
             />
           </aside>

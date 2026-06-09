@@ -1,6 +1,6 @@
 const { db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
-const { normalizeCompanyDocuments } = require("../../utils/normalizers");
+const { getCompanyDocumentsForApplicant } = require("../../utils/normalizers");
 const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
 const { buildPaymentSummaryResponse } = require("./paymentUseCases");
 const { getLatestDocumentsMap } = require("./documentFlowUseCases");
@@ -28,7 +28,7 @@ async function getApplicantByIdUseCase(req) {
   ]);
 
   const companyName = applicantData.companyName || (companyDoc?.exists ? companyDoc.data()?.name || "" : "");
-  const companyDocuments = companyDoc?.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
+  const companyDocuments = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicantData) : [];
   const countryName = applicantData.countryName || (countryDoc?.exists ? countryDoc.data()?.name || "" : "");
   const agencyName = applicantData.agencyName || (agencyDoc?.exists ? agencyDoc.data()?.name || "" : "");
 
@@ -249,24 +249,25 @@ async function getApplicantWorkflowBundleUseCase(req) {
     hasPendingDocumentsApproval: Boolean(pendingRequired),
     isDispatchCompleted: Number(applicantData?.stage || 1) >= 4,
     isContractIssued: Number(applicantData?.stage || 1) >= 5 || String(applicantData?.contract?.status || "").toUpperCase() === "APPROVED",
+    isSignedContractUploaded: Number(applicantData?.stage || 1) >= 6 || Boolean(applicantData?.signedContract?.fileUrl),
     isContractPendingApproval: String(applicantData?.contract?.status || "").toUpperCase() === "PENDING",
     isEmbassyAppointmentCreated: Boolean(hasEmbassyAppointment),
     isEmbassyAppointmentApproved:
       Boolean(applicantData?.embassyAppointment?.approved) || Number(applicantData?.stage || 1) >= 6,
-    isEmbassyAppointmentCompleted: Number(applicantData?.stage || 1) >= 7,
+    isEmbassyAppointmentCompleted: Number(applicantData?.stage || 1) >= 8,
     isTravelTicketUploaded: Boolean(hasTravelDetails),
     isBiometricCompleted: Boolean(hasBiometricSlip),
     isEmbassyInterviewCreated: Boolean(applicantData?.embassyInterview?.dateTime),
     isEmbassyInterviewApproved:
       String(applicantData?.embassyInterview?.status || "").toUpperCase() === "APPROVED" ||
-      Number(applicantData?.stage || 1) >= 8,
+      Number(applicantData?.stage || 1) >= 9,
     isEmbassyInterviewPendingApproval: Boolean(hasPendingEmbassyInterviewApproval),
     isInterviewTicketUploaded: Boolean(hasInterviewTicket),
     isInterviewBiometricCompleted: Boolean(hasInterviewBiometric),
     isVisaCollectionCreated: Boolean(applicantData?.visaCollection?.date && applicantData?.visaCollection?.time),
     isVisaCollectionApproved:
       String(applicantData?.visaCollection?.status || "").toUpperCase() === "APPROVED" ||
-      Number(applicantData?.stage || 1) >= 10,
+      Number(applicantData?.stage || 1) >= 11,
     isVisaCollectionPendingApproval: Boolean(hasPendingVisaCollectionApproval),
     isVisaTravelUploaded: Boolean(hasVisaTravel),
     isResidencePermitUploaded: Boolean(hasResidencePermit)
@@ -356,7 +357,7 @@ async function getApplicantDocumentsContextUseCase(req) {
 
   const applicant = applicantSnap.data() || {};
   const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
-  const documentConfigs = companyDoc?.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
+  const documentConfigs = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicant) : [];
 
   return {
     applicant: {
@@ -365,7 +366,9 @@ async function getApplicantDocumentsContextUseCase(req) {
       approvalStatus: applicant.approvalStatus || "",
       companyId: applicant.companyId || "",
       countryId: applicant.countryId || "",
-      agencyId: applicant.agencyId || ""
+      agencyId: applicant.agencyId || "",
+      jobPositionId: applicant.jobPositionId || "",
+      jobPositionName: applicant.jobPositionName || ""
     },
     documentConfigs
   };

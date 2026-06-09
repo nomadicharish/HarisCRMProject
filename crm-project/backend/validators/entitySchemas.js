@@ -21,6 +21,15 @@ const companyJobSpecificationSchema = z.object({
   name: optionalTrimmedString
 });
 
+const companyJobPositionSchema = z.object({
+  id: optionalTrimmedString,
+  label: optionalTrimmedString,
+  name: optionalTrimmedString,
+  title: optionalTrimmedString,
+  documents: z.array(companyDocumentSchema).optional().default([]),
+  documentsNeeded: z.array(companyDocumentSchema).optional().default([])
+});
+
 const idParamSchema = z.object({
   id: trimmedString.min(1, "Id is required")
 });
@@ -34,10 +43,12 @@ const companyPayloadSchema = z.object({
   countryId: trimmedString.min(1, "Country is required"),
   companyPaymentPerApplicant: numericAmountField.optional().default(0),
   employerIds: z.array(trimmedString).optional().default([]),
+  agencyIds: z.array(trimmedString).optional().default([]),
   contactNumber: optionalTrimmedString,
   whatsappNumber: optionalTrimmedString,
   documentsNeeded: z.array(companyDocumentSchema).optional().default([]),
-  jobSpecifications: z.array(companyJobSpecificationSchema).optional().default([])
+  jobSpecifications: z.array(companyJobSpecificationSchema).optional().default([]),
+  jobPositions: z.array(companyJobPositionSchema).optional().default([])
 });
 
 const employerPayloadSchema = z.object({
@@ -107,7 +118,8 @@ const documentTemplateParamsSchema = z.object({
 });
 
 const documentTemplateBodySchema = z.object({
-  documentId: trimmedString.min(1, "Document id is required")
+  documentId: trimmedString.min(1, "Document id is required"),
+  jobPositionId: optionalTrimmedString
 });
 
 module.exports = {

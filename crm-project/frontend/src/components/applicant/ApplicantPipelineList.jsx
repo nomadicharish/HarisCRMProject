@@ -5,13 +5,15 @@ const PIPELINE_ITEMS = [
   { id: 2, key: "DOCS", title: "Upload Documents" },
   { id: 3, key: "DISPATCH", title: "Dispatch Documents" },
   { id: 4, key: "CONTRACT", title: "Issue of the Contract" },
-  { id: 5, key: "EMBASSY_APPOINTMENT_INITIATED", title: "Embassy Appointment Initiated" },
-  { id: 6, key: "EMBASSY_APPOINTMENT_COMPLETED", title: "Embassy Appointment Completed" },
-  { id: 7, key: "EMBASSY_INTERVIEW_INITIATED", title: "Initiate Embassy Interview" },
-  { id: 8, key: "EMBASSY_INTERVIEW_COMPLETED", title: "Embassy Interview Completed" },
-  { id: 9, key: "VISA_COLLECTION_INITIATED", title: "Visa Collection Initiated" },
-  { id: 10, key: "VISA_COLLECTION_COMPLETED", title: "Visa Collection Completed" },
-  { id: 11, key: "CANDIDATE_ARRIVED", title: "Candidate Arrived" }
+  { id: 5, key: "SIGNED_CONTRACT", title: "Upload Signed Contract" },
+  { id: 6, key: "EMBASSY_APPOINTMENT_INITIATED", title: "Embassy Appointment Initiated" },
+  { id: 7, key: "EMBASSY_APPOINTMENT_COMPLETED", title: "Embassy Appointment Completed" },
+  { id: 8, key: "EMBASSY_INTERVIEW_INITIATED", title: "Initiate Embassy Interview" },
+  { id: 9, key: "EMBASSY_INTERVIEW_COMPLETED", title: "Embassy Interview Completed" },
+  { id: 10, key: "VISA_COLLECTION_INITIATED", title: "Visa Collection Initiated" },
+  { id: 11, key: "VISA_COLLECTION_COMPLETED", title: "Visa Collection Completed" },
+  { id: 12, key: "APPLICANT_TRAVEL_DETAILS", title: "Applicant Travel Details" },
+  { id: 13, key: "CANDIDATE_ARRIVED", title: "Candidate Arrived" }
 ];
 
 function IconCheck() {
@@ -82,17 +84,19 @@ function StatusIcon({ status }) {
 
 function ApplicantPipelineList({
   currentStep = 1,
-  totalSteps = 11,
+  totalSteps = 13,
   onUploadDocuments,
   onCandidateAccountCreation,
   onDispatchDocuments,
   onContractAction,
+  onSignedContractAction,
   onEmbassyAppointmentAction,
   onBiometricSlipAction,
   onEmbassyInterviewAction,
   onInterviewCompletionAction,
   onVisaCollectionAction,
   onVisaCompletionAction,
+  onApplicantTravelAction,
   onCandidateArrivalAction,
   onHeaderAction,
   headerActionLabel = "",
@@ -104,6 +108,9 @@ function ApplicantPipelineList({
   contractRowTitle = "Issue of the Contract",
   contractRowSubtitle = "",
   contractRowStatus = "",
+  signedContractRowTitle = "Upload Signed Contract",
+  signedContractRowSubtitle = "",
+  signedContractRowStatus = "",
   embassyAppointmentRowTitle = "Embassy Appointment Initiated",
   embassyAppointmentCompletedRowTitle = "Embassy Appointment Completed",
   embassyAppointmentCompletedRowSubtitle = "",
@@ -162,13 +169,15 @@ function ApplicantPipelineList({
               ? documentRowStatus
               : item.id === 4 && contractRowStatus
               ? contractRowStatus
-              : item.id === 6 && embassyAppointmentCompletedRowStatus
+              : item.id === 5 && signedContractRowStatus
+              ? signedContractRowStatus
+              : item.id === 7 && embassyAppointmentCompletedRowStatus
               ? embassyAppointmentCompletedRowStatus
-              : item.id === 8 && embassyInterviewCompletedRowStatus
+              : item.id === 9 && embassyInterviewCompletedRowStatus
               ? embassyInterviewCompletedRowStatus
-              : item.id === 9 && visaCollectionRowStatus
+              : item.id === 10 && visaCollectionRowStatus
               ? visaCollectionRowStatus
-              : item.id === 10 && visaCollectionCompletedRowStatus
+              : item.id === 11 && visaCollectionCompletedRowStatus
               ? visaCollectionCompletedRowStatus
               : status;
           const rowAction =
@@ -181,18 +190,22 @@ function ApplicantPipelineList({
               : item.id === 4
               ? onContractAction
               : item.id === 5
-              ? onEmbassyAppointmentAction
+              ? onSignedContractAction
               : item.id === 6
-              ? onBiometricSlipAction
+              ? onEmbassyAppointmentAction
               : item.id === 7
-              ? onEmbassyInterviewAction
+              ? onBiometricSlipAction
               : item.id === 8
-              ? onInterviewCompletionAction
+              ? onEmbassyInterviewAction
               : item.id === 9
-              ? onVisaCollectionAction
+              ? onInterviewCompletionAction
               : item.id === 10
-              ? onVisaCompletionAction
+              ? onVisaCollectionAction
               : item.id === 11
+              ? onVisaCompletionAction
+              : item.id === 12
+              ? onApplicantTravelAction
+              : item.id === 13
               ? onCandidateArrivalAction
               : undefined;
           const canRowClick = typeof rowAction === "function";
@@ -203,17 +216,19 @@ function ApplicantPipelineList({
               ? documentRowSubtitle
               : item.id === 4
               ? contractRowSubtitle
-              : item.id === 6
-              ? embassyAppointmentCompletedRowSubtitle
+              : item.id === 5
+              ? signedContractRowSubtitle
               : item.id === 7
-              ? embassyInterviewRowSubtitle
+              ? embassyAppointmentCompletedRowSubtitle
               : item.id === 8
-              ? embassyInterviewCompletedRowSubtitle
+              ? embassyInterviewRowSubtitle
               : item.id === 9
-              ? visaCollectionRowSubtitle
+              ? embassyInterviewCompletedRowSubtitle
               : item.id === 10
-              ? visaCollectionCompletedRowSubtitle
+              ? visaCollectionRowSubtitle
               : item.id === 11
+              ? visaCollectionCompletedRowSubtitle
+              : item.id === 13
               ? candidateArrivalRowSubtitle
               : "";
           const resolvedTitle =
@@ -222,18 +237,22 @@ function ApplicantPipelineList({
               : item.id === 4
               ? contractRowTitle
               : item.id === 5
-              ? embassyAppointmentRowTitle
+              ? signedContractRowTitle
               : item.id === 6
-              ? embassyAppointmentCompletedRowTitle
+              ? embassyAppointmentRowTitle
               : item.id === 7
-              ? embassyInterviewRowTitle
+              ? embassyAppointmentCompletedRowTitle
               : item.id === 8
-              ? embassyInterviewCompletedRowTitle
+              ? embassyInterviewRowTitle
               : item.id === 9
-              ? visaCollectionRowTitle
+              ? embassyInterviewCompletedRowTitle
               : item.id === 10
-              ? visaCollectionCompletedRowTitle
+              ? visaCollectionRowTitle
               : item.id === 11
+              ? visaCollectionCompletedRowTitle
+              : item.id === 12
+              ? item.title
+              : item.id === 13
               ? candidateArrivalRowTitle
               : item.title;
           const showActiveButton =

@@ -21,7 +21,7 @@ const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
-const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,createdAt,jobSpecifications,documentsNeeded";
+const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
 const TAB_CONFIG = {
@@ -790,6 +790,7 @@ function ApplicantsDashboard() {
         const totalPayment = Number(applicant?.payment?.totalInr ?? applicant?.payment?.total ?? 0);
         const paidPayment = Number(applicant?.payment?.paidInr ?? applicant?.payment?.paid ?? 0);
         const pendingPayment = Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0);
+        const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
         return {
           candidateName: fullName,
           dateOfBirth: formatExcelDate(dob),
@@ -799,9 +800,9 @@ function ApplicantsDashboard() {
           currentStatus: applicant?.statusText || applicant?.applicantBannerStatus || applicant?.stageLabel || "-",
           company: applicant?.companyName || "-",
           country: applicant?.countryName || applicant?.country || "-",
-          totalPayment,
-          paymentDone: paidPayment,
-          pendingPayment
+          totalPayment: formatCurrencyAmount(totalPayment, paymentCurrency),
+          paymentDone: formatCurrencyAmount(paidPayment, paymentCurrency),
+          pendingPayment: formatCurrencyAmount(pendingPayment, paymentCurrency)
         };
       });
 
@@ -817,9 +818,9 @@ function ApplicantsDashboard() {
             <td>${escapeHtml(row.currentStatus)}</td>
             <td>${escapeHtml(row.company)}</td>
             <td>${escapeHtml(row.country)}</td>
-            <td>${escapeHtml(pendingNumberFormatter.format(row.totalPayment || 0))}</td>
-            <td>${escapeHtml(pendingNumberFormatter.format(row.paymentDone || 0))}</td>
-            <td>${escapeHtml(pendingNumberFormatter.format(row.pendingPayment || 0))}</td>
+            <td>${escapeHtml(row.totalPayment || "-")}</td>
+            <td>${escapeHtml(row.paymentDone || "-")}</td>
+            <td>${escapeHtml(row.pendingPayment || "-")}</td>
           </tr>`
         )
         .join("");

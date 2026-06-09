@@ -1,8 +1,9 @@
 const { admin, db } = require("../config/firebase");
+const { getCompanyDocumentsForApplicant } = require("../utils/normalizers");
 
-const MANUAL_STAGE_IDS = [1, 2, 4, 5, 7, 9, 11];
-const AUTO_STAGE_IDS = [3, 6, 8, 10];
-const MAX_STAGE = 11;
+const MANUAL_STAGE_IDS = [1, 2, 4, 5, 6, 8, 10, 12];
+const AUTO_STAGE_IDS = [3, 7, 9, 11];
+const MAX_STAGE = 13;
 
 async function addStageLog({ applicantId, fromStage, toStage, role, action }) {
   await db.collection("stageLogs").add({
@@ -15,35 +16,15 @@ async function addStageLog({ applicantId, fromStage, toStage, role, action }) {
   });
 }
 
-function normalizeCompanyDocuments(value) {
-  if (!Array.isArray(value)) return [];
-  return value.reduce((documents, item, index) => {
-    if (!item || typeof item !== "object") return documents;
-
-    const name = String(item.name || item.label || "").trim();
-    const id = String(item.id || item.docType || `document_${index + 1}`).trim();
-    if (!name || !id) return documents;
-
-    documents.push({
-      id,
-      name,
-      required: Boolean(item.required),
-      templateFileName: String(item.templateFileName || "").trim(),
-      templateFileUrl: String(item.templateFileUrl || "").trim()
-    });
-    return documents;
-  }, []);
-}
-
-async function getCompanyDocumentRequirements(companyId) {
-  if (!companyId) return [];
-  const companyDoc = await db.collection("companies").doc(companyId).get();
+async function getCompanyDocumentRequirements(applicant = {}) {
+  if (!applicant?.companyId) return [];
+  const companyDoc = await db.collection("companies").doc(applicant.companyId).get();
   if (!companyDoc.exists) return [];
-  return normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded);
+  return getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicant);
 }
 
 async function getRequiredDocumentTypes(applicant) {
-  const documents = await getCompanyDocumentRequirements(applicant?.companyId);
+  const documents = await getCompanyDocumentRequirements(applicant);
   return documents.filter((doc) => doc.required).map((doc) => doc.id);
 }
 

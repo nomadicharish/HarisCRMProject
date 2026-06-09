@@ -62,8 +62,8 @@ async function runApplicantSetStage(input = {}, actor = {}) {
   const applicantId = String(input.applicantId || "").trim();
   const stage = Number(input.stage);
   if (!applicantId) throw new AppError("applicantId is required", 400);
-  if (!Number.isInteger(stage) || stage < 1 || stage > 12) {
-    throw new AppError("stage must be an integer between 1 and 12", 400);
+  if (!Number.isInteger(stage) || stage < 1 || stage > 13) {
+    throw new AppError("stage must be an integer between 1 and 13", 400);
   }
 
   const ref = db.collection("applicants").doc(applicantId);
