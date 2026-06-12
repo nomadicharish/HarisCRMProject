@@ -36,6 +36,7 @@ function ApplicantProfile() {
   const [interviewTicket, setInterviewTicket] = useState(null);
   const [interviewBiometric, setInterviewBiometric] = useState(null);
   const [visaCollection, setVisaCollection] = useState(null);
+  const [visaCollectionTravel, setVisaCollectionTravel] = useState(null);
   const [visaTravel, setVisaTravel] = useState(null);
   const [residencePermit, setResidencePermit] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -46,6 +47,7 @@ function ApplicantProfile() {
   const [showEmbassyInterviewModal, setShowEmbassyInterviewModal] = useState(false);
   const [showInterviewBiometricModal, setShowInterviewBiometricModal] = useState(false);
   const [showVisaCollectionModal, setShowVisaCollectionModal] = useState(false);
+  const [visaCollectionModalMode, setVisaCollectionModalMode] = useState("collection");
   const [showResidencePermitModal, setShowResidencePermitModal] = useState(false);
   const [editContext, setEditContext] = useState("default");
   const [resolvedAgencyName, setResolvedAgencyName] = useState("");
@@ -88,6 +90,7 @@ function ApplicantProfile() {
         setInterviewTicket(data?.interviewTicket || null);
         setInterviewBiometric(data?.interviewBiometric || null);
         setVisaCollection(data?.visaCollection || null);
+        setVisaCollectionTravel(data?.visaCollectionTravel || null);
         setVisaTravel(data?.visaTravel || null);
         setResidencePermit(data?.residencePermit || null);
       } catch (err) {
@@ -141,7 +144,8 @@ function ApplicantProfile() {
     setShowInterviewBiometricModal(true);
   };
 
-  const openVisaCollectionSection = () => {
+  const openVisaCollectionSection = (mode = "collection") => {
+    setVisaCollectionModalMode(mode);
     setShowVisaCollectionModal(true);
   };
 
@@ -190,6 +194,7 @@ function ApplicantProfile() {
     canAddVisaCollection,
     canAddVisaTravel,
     canAddResidencePermit,
+    canAddVisaCollectionTravel,
     canShowDispatchHeaderButton,
     shouldShowDocumentAction,
     headerActionLabel,
@@ -231,6 +236,7 @@ function ApplicantProfile() {
     interviewTicket,
     interviewBiometric,
     visaCollection,
+    visaCollectionTravel,
     visaTravel,
     residencePermit,
     user
@@ -339,9 +345,11 @@ function ApplicantProfile() {
     : canAddResidencePermit
     ? openResidencePermitSection
     : canAddVisaTravel
-    ? openVisaCollectionSection
+    ? () => openVisaCollectionSection("applicantTravel")
+    : canAddVisaCollectionTravel
+    ? () => openVisaCollectionSection("collection")
     : canAddVisaCollection
-    ? openVisaCollectionSection
+    ? () => openVisaCollectionSection("collection")
     : canAddInterviewBiometric
     ? openInterviewBiometricSection
     : canAddInterviewTicket
@@ -451,13 +459,13 @@ function ApplicantProfile() {
                   ? openEmbassyInterviewSection
                   : undefined
               }
-              onVisaCollectionAction={applicantStage >= 10 ? openVisaCollectionSection : undefined}
+              onVisaCollectionAction={applicantStage >= 10 ? () => openVisaCollectionSection("collection") : undefined}
               onVisaCompletionAction={
                 applicantStage >= 11
-                  ? openVisaCollectionSection
+                  ? () => openVisaCollectionSection("collection")
                   : undefined
               }
-              onApplicantTravelAction={applicantStage >= 11 ? openVisaCollectionSection : undefined}
+              onApplicantTravelAction={applicantStage >= 12 ? () => openVisaCollectionSection("applicantTravel") : undefined}
               onCandidateArrivalAction={undefined}
             />
 
@@ -471,6 +479,7 @@ function ApplicantProfile() {
           applicant={applicant}
           biometricSlip={biometricSlip}
           interviewBiometric={interviewBiometric}
+          visaCollectionTravel={visaCollectionTravel}
           residencePermit={residencePermit}
           isEmployer={isEmployer}
           resolvedAgencyName={resolvedAgencyName}
@@ -493,6 +502,7 @@ function ApplicantProfile() {
           setShowInterviewBiometricModal={setShowInterviewBiometricModal}
           showVisaCollectionModal={showVisaCollectionModal}
           setShowVisaCollectionModal={setShowVisaCollectionModal}
+          visaCollectionModalMode={visaCollectionModalMode}
           showResidencePermitModal={showResidencePermitModal}
           setShowResidencePermitModal={setShowResidencePermitModal}
           showApplicantDetailsModal={showApplicantDetailsModal}

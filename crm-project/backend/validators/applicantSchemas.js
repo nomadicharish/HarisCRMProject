@@ -137,7 +137,7 @@ const visaTravelBodySchema = z.object({
 });
 
 const residencePermitBodySchema = z.object({
-  type: z.enum(["FRONT", "BACK"])
+  type: z.enum(["FRONT", "BACK", "TRP"]).optional().default("TRP")
 });
 
 const uploadDocumentBodySchema = z.object({

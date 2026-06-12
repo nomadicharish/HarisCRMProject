@@ -87,12 +87,6 @@
   border-top:1px solid #e7ecf4;
 }
 
-.contractUploadPanel{
-  margin-top:18px;
-  padding-top:18px;
-  border-top:1px solid #eef2f7;
-}
-
 .contractFormGrid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -605,16 +599,87 @@
 
 .workflowUploadBox{
   width:50%;
-  min-height:49px;
+  min-height:64px;
   border:1.5px dashed #c8d5ea;
   border-radius:14px;
   background:#ffffff;
   display:flex;
   align-items:center;
   gap:18px;
-  padding:0 28px;
+  padding:0 10px;
   cursor:pointer;
   box-sizing:border-box;
+}
+
+.contractUploadHeading{
+  margin-bottom:14px;
+}
+
+.contractUploadHeading h4{
+  margin:0;
+  color:#0f172a;
+  font-size:18px;
+  font-weight:800;
+}
+
+.contractUploadHeading h4 span{
+  font-size:14px;
+  font-weight:700;
+  color:#334155;
+}
+
+.contractUploadHeading p{
+  margin:8px 0 0;
+  color:#4b5f82;
+  font-size:14px;
+  line-height:1.45;
+}
+
+.contractFileCardWide{
+  width:100%;
+  min-height:64px;
+  justify-content:flex-start;
+  text-align:left;
+  gap:18px;
+  padding:0px 10px;
+  border:1px solid #d7e0ee;
+}
+
+.contractUploadTileIcon,
+.workflowUploadBoxIcon{
+  width:54px;
+  height:54px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#0052cc;
+}
+
+.contractUploadTileIcon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.contractUploadText{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+}
+
+.contractFileCardWide .contractFileCardTitle,
+.workflowUploadBoxTitle{
+  color:#0b1b4d;
+  font-size:16px;
+  font-weight:800;
+  word-break:break-word;
+}
+
+.contractFileCardMeta{
+  color:#344b75;
+  font-size:14px;
+  font-weight:500;
 }
 
 .workflowUploadBoxFull{
@@ -624,8 +689,8 @@
 .workflowAdditionalUploadGroup{
   display:flex;
   flex-direction:column;
-  gap:10px;
-  margin-top:18px;
+  gap:12px;
+  margin-top:24px;
 }
 
 .workflowAdditionalDocLinks{
@@ -636,7 +701,6 @@
 }
 
 .workflowUploadBoxIcon{
-  color:#5f7393;
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -665,7 +729,7 @@
 .workflowUploadBoxMeta{
   width:100%;
   font-size:12px;
-  color:#6b7a99;
+  color:#344b75;
 }
 
 .workflowModalFooter{

@@ -71,6 +71,7 @@
   color:#0b55d9;
   font-size:12px;
   font-weight:800;
+  flex:0 0 auto;
 }
 
 .companyFormGrid{
@@ -130,14 +131,6 @@
 .companyPositionsHeader{
   border-top:1px solid #e4e9f2;
   background:#fbfdff;
-}
-
-.companyPaymentDetailsHeader{
-  padding-bottom:14px;
-}
-
-.companyPaymentGrid{
-  padding-bottom:26px;
 }
 
 .companyOutlineButton,
@@ -299,6 +292,18 @@
   overflow:hidden;
 }
 
+.companyFileDropIcon{
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#0b55d9;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
 .companyFileDrop input{
   display:none;
 }
@@ -354,6 +359,15 @@
 }
 
 @media (max-width:900px){
+  .companyFormPage{
+    padding-left:14px;
+    padding-right:14px;
+  }
+
+  .companyFormShell{
+    max-width:100%;
+  }
+
   .companyFormGrid,
   .companyDocumentsRow,
   .companyPositionTop{
@@ -379,12 +393,17 @@
 
   .companyDocumentsRow{
     gap:10px;
+    padding:14px;
+  }
+
+  .companyFileDrop{
+    min-height:58px;
   }
 }
 
 @media (max-width:480px){
   .companyFormPage{
-    padding:0 12px 24px;
+    padding:154px 12px 24px;
   }
 
   .companyFormShell{
@@ -407,6 +426,7 @@
 
   .companySectionTitle{
     align-items:flex-start;
+    gap:10px;
   }
 
   .companyDocumentsBlock{
@@ -431,6 +451,18 @@
 
   .companyRemoveButton{
     min-height:36px;
+  }
+
+  .companyFormCard{
+    border-radius:8px;
+  }
+
+  .companyFormGrid{
+    gap:14px;
+  }
+
+  .companyFileDrop{
+    padding:10px;
   }
 }
 
@@ -1305,6 +1337,10 @@
     justify-content:flex-start;
     width:100%;
   }
+
+  .companyFormPage{
+    padding-top:154px;
+  }
 }
 
 @media (max-width: 960px){
@@ -1645,6 +1681,11 @@
   color:#16a34a;
 }
 
+.dashboardStatusPillWarning{
+  background:#fff4e8;
+  color:#f97316;
+}
+
 .dashboardPaymentPillPending{
   background:#fff4e8;
   color:#f97316;
@@ -1776,6 +1817,11 @@
 .dashboardPaymentPillSuccess{
   background:var(--ui-green-soft);
   color:var(--ui-green);
+}
+
+.dashboardStatusPillWarning{
+  background:var(--ui-orange-soft);
+  color:var(--ui-orange);
 }
 
 .dashboardPaymentPillPending{
@@ -1911,6 +1957,12 @@
   border:1px solid #bbf7d0;
 }
 
+.dashboardStatusPillWarning{
+  background:#fff7ed;
+  color:var(--ui-orange);
+  border:1px solid #fed7aa;
+}
+
 .dashboardPaymentPillPending{
   background:#fff7ed;
   color:var(--ui-orange);
@@ -1960,6 +2012,10 @@
 @media (min-width: 481px) and (max-width: 1024px){
   .dashboardPage{
     padding-top:0;
+  }
+
+  .companyFormPage{
+    padding-top:16px;
   }
 
   .dashboardTopbar{
@@ -2026,6 +2082,10 @@
 @media (max-width: 480px){
   .dashboardPage{
     padding-top:0;
+  }
+
+  .companyFormPage{
+    padding-top:12px;
   }
 
   .dashboardTopbar{

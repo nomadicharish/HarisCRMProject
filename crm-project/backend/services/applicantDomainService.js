@@ -236,7 +236,7 @@ function getApplicantStageLabel(stage, approvalStatus) {
   if (normalizedStage === 9) return "Embassy Interview Completed";
   if (normalizedStage === 10) return "Visa Collection Initiated";
   if (normalizedStage === 11) return "Visa Collection Completed";
-  if (normalizedStage === 12) return "Applicant Travel Details";
+  if (normalizedStage === 12) return "Applicant Arrival Details";
   return "Candidate Arrived and Process Completed";
 }
 
@@ -265,8 +265,8 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   if (applicantStage === 1 && approvalStatus === "approved") return "Document upload pending";
   if (applicantStage === 1) return "Complete the candidate profile for approval";
   if (applicantStage >= 13) return "Candidate Arrived and Process Completed";
-  if (applicantStage === 12) return hasVisaTravel ? "Candidate arrival pending" : "Applicant travel details pending";
-  if (applicantStage === 11) return "Applicant travel details pending";
+  if (applicantStage === 12) return hasVisaTravel ? "Candidate arrival pending" : "Applicant arrival details pending";
+  if (applicantStage === 11) return "Complete visa collection details";
   if (applicantStage === 10) {
     if (hasPendingVisaCollectionApproval) return "Visa collection Initiated. Pending admin approval";
     return "Visa Collection Initiated.";

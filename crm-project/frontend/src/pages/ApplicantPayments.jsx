@@ -27,6 +27,15 @@ function formatDate(value) {
   });
 }
 
+function UploadFileIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V8M8.5 11.5 12 8l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 16.5a4 4 0 0 0-3.8-4A5.5 5.5 0 0 0 5.7 14 3.5 3.5 0 0 0 6.5 21H18a3 3 0 0 0 2-5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 const formatAmountInput = formatIndianNumberInput;
 const parseAmountInput = parseIndianNumberInput;
 
@@ -425,6 +434,7 @@ function ApplicantPayments() {
                       type="file"
                       onChange={(event) => handleInputChange("document", event.target.files?.[0] || null)}
                     />
+                    <span className="paymentDocumentUploadIcon"><UploadFileIcon /></span>
                     <span>{form.document?.name || "Choose document"}</span>
                   </label>
                 </div>

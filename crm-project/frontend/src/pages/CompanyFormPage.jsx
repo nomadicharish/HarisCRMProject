@@ -20,6 +20,33 @@ const DEFAULT_DOCUMENTS = [
 
 const createKey = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 
+function CompanyIcon() {
+  return (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 9h2a2 2 0 0 1 2 2v10M8 7h4M8 11h4M8 15h4M3 21h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function JobIcon() {
+  return (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M4 9h16M6 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UploadFileIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V8M8.5 11.5 12 8l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 16.5a4 4 0 0 0-3.8-4A5.5 5.5 0 0 0 5.7 14 3.5 3.5 0 0 0 6.5 21H18a3 3 0 0 0 2-5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function buildId(value, fallback) {
   const normalized = String(value || "")
     .trim()
@@ -324,7 +351,7 @@ function CompanyFormPage() {
       <main className="companyFormShell">
         <section className="companyFormCard">
           <div className="companyFormHeader">
-            <span className="companyFormIcon">CO</span>
+            <span className="companyFormIcon"><CompanyIcon /></span>
             <h1>{isEdit ? "Update Company" : "Add Company"}</h1>
           </div>
 
@@ -384,35 +411,10 @@ function CompanyFormPage() {
             </div>
           </div>
 
-          <div className="companyPositionsHeader companyPaymentDetailsHeader">
-            <div className="companySectionTitle">
-              <span className="companyFormIcon">PD</span>
-              <div>
-                <h2>Payment Details</h2>
-                <p>Set the company payment amount for each applicant.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="companyFormGrid companyPaymentGrid">
-            <div>
-              <label>Company Payment Per Applicant</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.companyPaymentPerApplicant}
-                onChange={(event) => setForm((prev) => ({ ...prev, companyPaymentPerApplicant: event.target.value }))}
-                className="companyFormInput"
-                placeholder="Enter amount"
-              />
-            </div>
-          </div>
-
           <div className="companyPositionsHeader">
             <div>
               <div className="companySectionTitle">
-                <span className="companyFormIcon">JP</span>
+                <span className="companyFormIcon"><JobIcon /></span>
                 <div>
                   <h2>Job Positions</h2>
                   <p>Add one or more job positions for this company.</p>
@@ -487,10 +489,7 @@ function CompanyFormPage() {
                               });
                             }}
                           />
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M15 3v4h4M10 13h4M10 17h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                          <span className="companyFileDropIcon"><UploadFileIcon /></span>
                           <span>{document.templateFileName || "Choose document"}</span>
                         </label>
                         <button

@@ -331,6 +331,23 @@ router.get(
   asyncHandler(applicantController.getVisaCollection)
 );
 
+// Add Visa Collection Travel Details
+router.post(
+  "/:id/visa-collection-travel",
+  upload.single("file"),
+  validate(idParamsSchema, "params"),
+  validate(dateTimeBodySchema),
+  asyncHandler(applicantController.addVisaCollectionTravel)
+);
+
+// Get Visa Collection Travel Details
+router.get(
+  "/:id/visa-collection-travel",
+  readCache(15),
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.getVisaCollectionTravel)
+);
+
 // Add Visa Travel Details
 router.post(
   "/:id/visa-travel",

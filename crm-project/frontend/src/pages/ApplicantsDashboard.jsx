@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import ApplicantsTable from "../components/dashboard/ApplicantsTable";
+import ApplicantsTable, { resolveApplicantWorkflowMeta } from "../components/dashboard/ApplicantsTable";
 import CompaniesTable from "../components/dashboard/CompaniesTable";
 import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
@@ -797,7 +797,7 @@ function ApplicantsDashboard() {
           age: resolveAge(applicant),
           address: applicant?.address || applicant?.personalDetails?.address || "-",
           contactNumber: applicant?.phone || applicant?.personalDetails?.phone || "-",
-          currentStatus: applicant?.statusText || applicant?.applicantBannerStatus || applicant?.stageLabel || "-",
+          currentStatus: resolveApplicantWorkflowMeta(applicant).title || "-",
           company: applicant?.companyName || "-",
           country: applicant?.countryName || applicant?.country || "-",
           totalPayment: formatCurrencyAmount(totalPayment, paymentCurrency),

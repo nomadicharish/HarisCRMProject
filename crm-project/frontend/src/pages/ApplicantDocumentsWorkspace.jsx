@@ -61,6 +61,15 @@ function StatusIcon({ tone = "success" }) {
   );
 }
 
+function UploadFileIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V8M8.5 11.5 12 8l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 16.5a4 4 0 0 0-3.8-4A5.5 5.5 0 0 0 5.7 14 3.5 3.5 0 0 0 6.5 21H18a3 3 0 0 0 2-5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function getTopBarState({
   canReview,
   rejectedRequired,
@@ -537,6 +546,7 @@ function ApplicantDocumentsWorkspace() {
                         }
                       />
                       <div className="docsFileBoxLeft">
+                        <span className="docsUploadIcon"><UploadFileIcon /></span>
                         <div>
                           <div className="docsFileName">{displayFileName || "Choose file"}</div>
                           <div className="docsFileMeta">{displayFileName ? "Ready to send for approval" : "No file chosen"}</div>

@@ -17,6 +17,7 @@ function ApplicantProfileModalStack({
   applicant,
   biometricSlip,
   interviewBiometric,
+  visaCollectionTravel,
   residencePermit,
   isEmployer,
   resolvedAgencyName,
@@ -35,6 +36,7 @@ function ApplicantProfileModalStack({
   setShowInterviewBiometricModal,
   showVisaCollectionModal,
   setShowVisaCollectionModal,
+  visaCollectionModalMode = "collection",
   showResidencePermitModal,
   setShowResidencePermitModal,
   showApplicantDetailsModal,
@@ -104,7 +106,9 @@ function ApplicantProfileModalStack({
         applicantId={id}
         user={user}
         applicant={applicant}
+        fallbackVisaCollectionTravel={visaCollectionTravel || applicant?.visaCollectionTravel || null}
         residencePermit={residencePermit || applicant?.residencePermit || null}
+        mode={visaCollectionModalMode}
         open={showVisaCollectionModal}
         onClose={() => setShowVisaCollectionModal(false)}
         onUpdated={refreshWorkflowData}

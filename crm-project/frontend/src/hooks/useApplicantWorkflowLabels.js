@@ -28,7 +28,9 @@ function useApplicantWorkflowLabels({
   interviewTicket,
   interviewBiometric,
   visaCollection,
+  visaCollectionTravel,
   visaTravel,
+  residencePermit,
   user
 }) {
   return useMemo(() => {
@@ -96,13 +98,21 @@ function useApplicantWorkflowLabels({
     const hasVisaTravel = Boolean(
       workflowFlags.isVisaTravelUploaded ?? (visaTravel?.date || visaTravel?.time || visaTravel?.fileUrl)
     );
+    const hasVisaCollectionTravel = Boolean(
+      workflowFlags.isVisaCollectionTravelAdded ?? (visaCollectionTravel?.date || visaCollectionTravel?.time || visaCollectionTravel?.fileUrl)
+    );
+    const hasResidencePermit = Boolean(
+      workflowFlags.isResidencePermitUploaded ??
+      (residencePermit?.trpUrl || residencePermit?.fileUrl || (residencePermit?.frontUrl && residencePermit?.backUrl))
+    );
     const canAddVisaCollection = applicantStage === 10 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
     const hasPendingVisaCollectionApproval = Boolean(
       workflowFlags.isVisaCollectionPendingApproval ??
       String(visaCollection?.status || "").toUpperCase() === "PENDING"
     );
-    const canAddVisaTravel = applicantStage === 11 && user?.role === "AGENCY" && !hasVisaTravel;
-    const canAddResidencePermit = false;
+    const canAddVisaTravel = applicantStage === 12 && user?.role === "AGENCY" && !hasVisaTravel;
+    const canAddResidencePermit = applicantStage === 11 && user?.role === "AGENCY" && !hasResidencePermit;
+    const canAddVisaCollectionTravel = applicantStage === 11 && user?.role === "SUPER_USER";
     const hasDocuments = hasAnyDocumentsPayload;
     const shouldShowDocumentAction =
       !hasCompletedDocumentStage &&
@@ -131,9 +141,11 @@ function useApplicantWorkflowLabels({
       : applicantStage >= 13
       ? "Candidate Arrived and Process Completed"
       : applicantStage === 12
-      ? "Candidate arrival pending"
+      ? hasVisaTravel
+        ? "Candidate arrival pending"
+        : "Applicant arrival details pending"
       : applicantStage === 11
-      ? "Applicant travel details pending"
+      ? "Complete visa collection details"
       : applicantStage === 10
       ? hasPendingVisaCollectionApproval
         ? "Visa collection Initiated. Pending admin approval"
@@ -244,12 +256,7 @@ function useApplicantWorkflowLabels({
         : "";
     const visaCollectionCompletedRowTitle =
       applicantStage > 11 ? "Visa Collection Completed" : "Complete Visa Collection";
-    const visaCollectionCompletedRowSubtitle =
-      applicantStage === 11
-        ? hasVisaTravel
-          ? ""
-          : "Applicant travel details pending"
-        : "";
+    const visaCollectionCompletedRowSubtitle = "";
     const visaCollectionCompletedRowStatus = applicantStage === 11 ? "warning" : "";
     const candidateArrivalRowTitle =
       applicantStage >= 13
@@ -257,7 +264,12 @@ function useApplicantWorkflowLabels({
             candidateArrivalCompletedDate ? ` on ${candidateArrivalCompletedDate}` : ""
           }`
         : "Arrival of Candidate";
-    const candidateArrivalRowSubtitle = applicantStage === 12 ? "Candidate arrival pending" : "";
+    const candidateArrivalRowSubtitle =
+      applicantStage === 12
+        ? hasVisaTravel
+          ? "Candidate arrival pending"
+          : "Applicant arrival details pending"
+        : "";
     const hasVisaCollectionRecord = Boolean(
       workflowFlags.isVisaCollectionCreated ?? Boolean(visaCollection?.date && visaCollection?.time)
     );
@@ -272,9 +284,13 @@ function useApplicantWorkflowLabels({
       : applicantStage === 12 && user?.role === "SUPER_USER"
       ? "Candidate Arrived"
       : canAddResidencePermit
-      ? "Add Residence Permit"
+      ? "Upload TRP Document"
       : canAddVisaTravel
-      ? "Applicant Travel Details"
+      ? "Applicant Arrival Details"
+      : canAddVisaCollectionTravel
+      ? hasVisaCollectionTravel
+        ? "Update Travel Details"
+        : "Add Travel Details"
       : canAddVisaCollection
       ? hasPendingVisaCollectionApproval && user?.role === "SUPER_USER"
         ? "Verify & Approve"
@@ -312,6 +328,7 @@ function useApplicantWorkflowLabels({
       (applicantStage === 12 && user?.role === "SUPER_USER") ||
       canAddResidencePermit ||
       canAddVisaTravel ||
+      canAddVisaCollectionTravel ||
       canAddVisaCollection ||
       canAddInterviewBiometric ||
       canAddInterviewTicket ||
@@ -338,6 +355,7 @@ function useApplicantWorkflowLabels({
       canAddVisaCollection,
       canAddVisaTravel,
       canAddResidencePermit,
+      canAddVisaCollectionTravel,
       canShowDispatchHeaderButton,
       shouldShowDocumentAction,
       hasTravelDetails,
@@ -384,7 +402,9 @@ function useApplicantWorkflowLabels({
     signedContract,
     user,
     visaCollection,
-    visaTravel
+    visaCollectionTravel,
+    visaTravel,
+    residencePermit
   ]);
 }
 

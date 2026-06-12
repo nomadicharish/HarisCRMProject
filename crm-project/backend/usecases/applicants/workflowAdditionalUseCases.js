@@ -3,6 +3,9 @@ const { AppError } = require("../../lib/AppError");
 const { normalizeDate } = require("../../services/applicantDomainService");
 const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { addStageLog } = require("../../services/applicantWorkflowStageService");
+const { readEncryptedUserEmail } = require("../../services/accountService");
+const { sendEmail } = require("../../services/emailService");
+const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 
 async function addEmbassyAppointmentUseCase(req) {
@@ -248,6 +251,51 @@ async function getEmbassyWorkflowUseCase(req) {
   };
 }
 
+async function uploadWorkflowFile({ file, storagePath, previousUrl = "" }) {
+  if (!file) return { fileUrl: "", bucket: null };
+
+  const bucket = admin.storage().bucket();
+  const fileName = `${storagePath}_${Date.now()}`;
+  const fileUpload = bucket.file(fileName);
+  await fileUpload.save(file.buffer, {
+    metadata: { contentType: file.mimetype }
+  });
+  await fileUpload.makePublic();
+  if (previousUrl) await deleteStorageFileIfExists(bucket, previousUrl);
+  return {
+    fileUrl: `https://storage.googleapis.com/${bucket.name}/${fileName}`,
+    bucket
+  };
+}
+
+function hasVisaCollectionStageDetails(applicant = {}) {
+  const collectionTravel = applicant.visaCollectionTravel || {};
+  const permit = applicant.residencePermit || {};
+  const hasTravel = Boolean(collectionTravel.date && collectionTravel.time);
+  const hasTrp = Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl);
+  return hasTravel && hasTrp;
+}
+
+async function advanceToApplicantArrivalIfReady(applicantRef, applicantId) {
+  const snap = await applicantRef.get();
+  if (!snap.exists) return;
+  const applicant = snap.data() || {};
+  const currentStage = Number(applicant.stage || 1);
+  if (currentStage === 11 && hasVisaCollectionStageDetails(applicant)) {
+    await applicantRef.update({
+      stage: 12,
+      stageUpdatedAt: new Date()
+    });
+    await addStageLog({
+      applicantId,
+      fromStage: 11,
+      toStage: 12,
+      role: "SYSTEM",
+      action: "VISA_COLLECTION_COMPLETION_DETAILS_SAVED"
+    });
+  }
+}
+
 async function addVisaCollectionUseCase(req) {
   const applicantId = req.params.id;
   const { date, time } = req.body;
@@ -301,7 +349,7 @@ async function addVisaCollectionUseCase(req) {
 
   if (status === "APPROVED") {
     await docRef.update({
-      stage: 11,
+      stage: currentStage < 11 ? 11 : currentStage,
       stageUpdatedAt: new Date()
     });
   }
@@ -315,11 +363,14 @@ async function approveVisaCollectionUseCase(req) {
   if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
+  const docSnap = await docRef.get();
+  if (!docSnap.exists) throw new AppError("Applicant not found", 404);
+  const currentStage = Number(docSnap.data()?.stage || 1);
   await docRef.update({
     "visaCollection.status": "APPROVED",
     "visaCollection.approvedBy": req.user.uid,
     "visaCollection.approvedAt": new Date(),
-    stage: 11,
+    stage: currentStage < 11 ? 11 : currentStage,
     stageUpdatedAt: new Date()
   });
 
@@ -344,6 +395,140 @@ async function getVisaCollectionUseCase(req) {
   };
 }
 
+async function addVisaCollectionTravelUseCase(req) {
+  const applicantId = req.params.id;
+  const { date, time } = req.body;
+
+  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can add travel details", 403);
+  if (!date || !time) throw new AppError("Travel date and time are required", 400);
+
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantSnap = await applicantRef.get();
+  if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
+
+  const applicant = applicantSnap.data() || {};
+  const currentStage = Number(applicant.stage || 1);
+  const visaCollectionApproved = String(applicant?.visaCollection?.status || "").toUpperCase() === "APPROVED";
+  if (currentStage < 11 || !visaCollectionApproved) {
+    throw new AppError("Cannot add travel details before visa collection approval", 400);
+  }
+
+  const { fileUrl } = await uploadWorkflowFile({
+    file: req.file,
+    storagePath: `visa-collection-travel/${applicantId}`,
+    previousUrl: applicant?.visaCollectionTravel?.fileUrl || ""
+  });
+
+  const previous = applicant?.visaCollectionTravel || {};
+  await applicantRef.set(
+    {
+      visaCollectionTravel: {
+        date,
+        time,
+        fileUrl: fileUrl || previous.fileUrl || "",
+        uploadedBy: req.user.uid,
+        uploadedByRole: req.user.role,
+        createdAt: previous.createdAt || new Date(),
+        updatedAt: new Date()
+      }
+    },
+    { merge: true }
+  );
+
+  await advanceToApplicantArrivalIfReady(applicantRef, applicantId);
+  await refreshApplicantDocumentSummary(applicantId);
+  return { message: "Visa collection travel details saved" };
+}
+
+async function getVisaCollectionTravelUseCase(req) {
+  const doc = await db.collection("applicants").doc(req.params.id).get();
+  const travel = doc.data()?.visaCollectionTravel || null;
+  if (!travel) return null;
+  return {
+    ...travel,
+    createdAt: normalizeDate(travel.createdAt),
+    updatedAt: normalizeDate(travel.updatedAt)
+  };
+}
+
+function getApplicantDisplayName(applicant = {}) {
+  return (
+    applicant.fullName ||
+    [applicant?.personalDetails?.firstName || applicant.firstName, applicant?.personalDetails?.lastName || applicant.lastName]
+      .filter(Boolean)
+      .join(" ")
+      .trim() ||
+    "Applicant"
+  );
+}
+
+async function getTravelNotificationRecipients(applicant = {}) {
+  const recipients = new Set();
+
+  const superUserSnap = await db.collection("users").where("role", "==", "SUPER_USER").get();
+  await Promise.all(superUserSnap.docs.map(async (doc) => {
+    const email = await readEncryptedUserEmail(doc.data());
+    if (email) recipients.add(email);
+  }));
+
+  const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
+  const employerIds = companyDoc?.exists && Array.isArray(companyDoc.data()?.employerIds)
+    ? companyDoc.data().employerIds
+    : [];
+
+  const employerDocs = employerIds.length
+    ? await db.getAll(...employerIds.map((id) => db.collection("employers").doc(id)))
+    : [];
+
+  await Promise.all(employerDocs.map(async (doc) => {
+    if (!doc.exists) return;
+    const data = doc.data() || {};
+    const email = data.emailEncrypted ? await decryptText(data.emailEncrypted) : data.email || "";
+    if (email) recipients.add(email);
+  }));
+
+  for (let index = 0; index < employerIds.length; index += 10) {
+    const chunk = employerIds.slice(index, index + 10);
+    if (!chunk.length) continue;
+    const employerUserSnap = await db.collection("users").where("role", "==", "EMPLOYER").where("employerId", "in", chunk).get();
+    await Promise.all(employerUserSnap.docs.map(async (doc) => {
+      const email = await readEncryptedUserEmail(doc.data());
+      if (email) recipients.add(email);
+    }));
+  }
+
+  return Array.from(recipients);
+}
+
+async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isUpdate }) {
+  const recipients = await getTravelNotificationRecipients(applicant);
+  if (!recipients.length) return;
+
+  const applicantName = getApplicantDisplayName(applicant);
+  const subject = `${isUpdate ? "Travel details changed" : "Travel details added"} for ${applicantName}`;
+  const attachments = [
+    arrivalDetails.fileUrl ? { filename: "travel-ticket", path: arrivalDetails.fileUrl } : null,
+    arrivalDetails.busTicketUrl ? { filename: "bus-ticket", path: arrivalDetails.busTicketUrl } : null
+  ].filter(Boolean);
+  const lines = [
+    `Applicant: ${applicantName}`,
+    `Arrival date: ${arrivalDetails.date || "-"}`,
+    `Arrival time: ${arrivalDetails.time || "-"}`,
+    `Flight number: ${arrivalDetails.flightNumber || "-"}`,
+    `Arrival place: ${arrivalDetails.arrivalPlace || "-"}`,
+    arrivalDetails.fileUrl ? `Travel ticket: ${arrivalDetails.fileUrl}` : "",
+    arrivalDetails.busTicketUrl ? `Bus ticket: ${arrivalDetails.busTicketUrl}` : ""
+  ].filter(Boolean);
+
+  await sendEmail({
+    to: recipients,
+    subject,
+    text: lines.join("\n"),
+    html: lines.map((line) => `<p>${String(line).replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join(""),
+    attachments
+  });
+}
+
 async function addVisaTravelUseCase(req) {
   const applicantId = req.params.id;
   const { date, time, ticketNumber, flightNumber, arrivalPlace } = req.body;
@@ -356,9 +541,10 @@ async function addVisaTravelUseCase(req) {
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
-  const currentStage = Number(applicantSnap.data()?.stage || 1);
-  if (currentStage < 11) {
-    throw new AppError("Cannot add applicant travel details before visa collection completion stage", 400);
+  const applicantData = applicantSnap.data() || {};
+  const currentStage = Number(applicantData.stage || 1);
+  if (currentStage < 12) {
+    throw new AppError("Cannot add applicant arrival details before applicant arrival stage", 400);
   }
 
   let fileUrl = "";
@@ -387,22 +573,28 @@ async function addVisaTravelUseCase(req) {
     busTicketUrl = `https://storage.googleapis.com/${bucket.name}/${busFileName}`;
   }
 
-  const previousVisaTravelFileUrl = applicantSnap.data()?.visaTravel?.fileUrl || "";
-  const previousBusTicketUrl = applicantSnap.data()?.visaTravel?.busTicketUrl || "";
+  const previousVisaTravel = applicantData?.visaTravel || {};
+  const previousVisaTravelFileUrl = previousVisaTravel.fileUrl || "";
+  const previousBusTicketUrl = previousVisaTravel.busTicketUrl || "";
+  const isUpdate = Boolean(previousVisaTravel.date || previousVisaTravel.time || previousVisaTravel.fileUrl);
+  const now = new Date();
+  const arrivalDetails = {
+    date,
+    time,
+    ticketNumber: ticketNumber || "",
+    flightNumber,
+    arrivalPlace,
+    fileUrl: fileUrl || previousVisaTravelFileUrl || "",
+    busTicketUrl: busTicketUrl || previousBusTicketUrl || "",
+    uploadedBy: req.user.uid,
+    uploadedByRole: req.user.role,
+    createdAt: previousVisaTravel.createdAt || now,
+    updatedAt: now
+  };
+
   await applicantRef.set(
     {
-      visaTravel: {
-        date,
-        time,
-        ticketNumber: ticketNumber || "",
-        flightNumber,
-        arrivalPlace,
-        fileUrl,
-        busTicketUrl,
-        uploadedBy: req.user.uid,
-        uploadedByRole: req.user.role,
-        createdAt: new Date()
-      }
+      visaTravel: arrivalDetails
     },
     { merge: true }
   );
@@ -414,15 +606,13 @@ async function addVisaTravelUseCase(req) {
     await deleteStorageFileIfExists(bucket, previousBusTicketUrl);
   }
 
-  if (currentStage === 11) {
-    await applicantRef.update({
-      stage: 12,
-      stageUpdatedAt: new Date()
-    });
-  }
-
   await refreshApplicantDocumentSummary(applicantId);
-  return { message: "Visa travel details saved" };
+  try {
+    await sendApplicantArrivalDetailsEmail({ applicant: applicantData, arrivalDetails, isUpdate });
+  } catch (error) {
+    console.error("Travel details email failed", error);
+  }
+  return { message: "Applicant arrival details saved" };
 }
 
 async function getVisaTravelUseCase(req) {
@@ -431,7 +621,8 @@ async function getVisaTravelUseCase(req) {
   if (!visaTravel) return null;
   return {
     ...visaTravel,
-    createdAt: normalizeDate(visaTravel.createdAt)
+    createdAt: normalizeDate(visaTravel.createdAt),
+    updatedAt: normalizeDate(visaTravel.updatedAt)
   };
 }
 
@@ -441,12 +632,12 @@ async function uploadResidencePermitUseCase(req) {
 
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency allowed", 403);
   if (!req.file) throw new AppError("File required", 400);
-  if (!["FRONT", "BACK"].includes(String(type || "").toUpperCase())) {
-    throw new AppError("type must be FRONT or BACK", 400);
+  if (!["FRONT", "BACK", "TRP"].includes(String(type || "TRP").toUpperCase())) {
+    throw new AppError("type must be TRP, FRONT or BACK", 400);
   }
 
   const bucket = admin.storage().bucket();
-  const side = String(type || "").toUpperCase();
+  const side = String(type || "TRP").toUpperCase();
   const fileName = `residence/${applicantId}_${side}_${Date.now()}`;
   const fileUpload = bucket.file(fileName);
   await fileUpload.save(req.file.buffer, {
@@ -460,18 +651,17 @@ async function uploadResidencePermitUseCase(req) {
   if (!doc.exists) throw new AppError("Applicant not found", 404);
   const applicantData = doc.data() || {};
   const currentStage = Number(applicantData.stage || 1);
-  if (currentStage < 12) {
+  if (currentStage < 11) {
     throw new AppError("Cannot upload residence permit before visa collection completion stage", 400);
-  }
-  if (!applicantData.visaTravel?.date || !applicantData.visaTravel?.time) {
-    throw new AppError("Upload visa travel details before residence permit", 400);
   }
 
   const existing = applicantData.residencePermit || {};
-  const previousSideUrl = side === "FRONT" ? existing.frontUrl : existing.backUrl;
+  const previousSideUrl = side === "FRONT" ? existing.frontUrl : side === "BACK" ? existing.backUrl : existing.trpUrl || existing.fileUrl;
+  const fileField = side === "FRONT" ? "frontUrl" : side === "BACK" ? "backUrl" : "trpUrl";
   const updatedPermit = {
     ...existing,
-    [side === "FRONT" ? "frontUrl" : "backUrl"]: fileUrl,
+    [fileField]: fileUrl,
+    fileUrl: side === "TRP" ? fileUrl : existing.fileUrl || "",
     uploadedBy: req.user.uid,
     uploadedByRole: req.user.role,
     uploadedAt: new Date()
@@ -481,12 +671,8 @@ async function uploadResidencePermitUseCase(req) {
   await deleteStorageFileIfExists(bucket, previousSideUrl);
 
   const updatedDoc = await docRef.get();
-  const data = updatedDoc.data()?.residencePermit;
-  if (data?.frontUrl && data?.backUrl) {
-    await docRef.update({
-      stage: 12,
-      stageUpdatedAt: new Date()
-    });
+  if (updatedDoc.exists) {
+    await advanceToApplicantArrivalIfReady(docRef, applicantId);
   }
 
   await refreshApplicantDocumentSummary(applicantId);
@@ -507,6 +693,7 @@ module.exports = {
   addEmbassyAppointmentUseCase,
   addTravelDetailsUseCase,
   addVisaCollectionUseCase,
+  addVisaCollectionTravelUseCase,
   addVisaTravelUseCase,
   approveVisaCollectionUseCase,
   getEmbassyWorkflowUseCase,
@@ -515,6 +702,7 @@ module.exports = {
   getResidencePermitUseCase,
   getTravelDetailsUseCase,
   getVisaCollectionUseCase,
+  getVisaCollectionTravelUseCase,
   getVisaTravelUseCase,
   uploadBiometricSlipUseCase,
   uploadResidencePermitUseCase

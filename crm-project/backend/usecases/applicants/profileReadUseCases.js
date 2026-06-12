@@ -171,7 +171,16 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const visaTravel = applicantData.visaTravel
     ? {
         ...applicantData.visaTravel,
-        createdAt: normalizeDate(applicantData.visaTravel.createdAt)
+        createdAt: normalizeDate(applicantData.visaTravel.createdAt),
+        updatedAt: normalizeDate(applicantData.visaTravel.updatedAt)
+      }
+    : null;
+
+  const visaCollectionTravel = applicantData.visaCollectionTravel
+    ? {
+        ...applicantData.visaCollectionTravel,
+        createdAt: normalizeDate(applicantData.visaCollectionTravel.createdAt),
+        updatedAt: normalizeDate(applicantData.visaCollectionTravel.updatedAt)
       }
     : null;
 
@@ -212,7 +221,13 @@ async function getApplicantWorkflowBundleUseCase(req) {
     applicantData?.visaTravel?.time ||
     applicantData?.visaTravel?.fileUrl
   );
+  const hasVisaCollectionTravel = Boolean(
+    applicantData?.visaCollectionTravel?.date ||
+    applicantData?.visaCollectionTravel?.time ||
+    applicantData?.visaCollectionTravel?.fileUrl
+  );
   const hasResidencePermit = Boolean(
+    applicantData?.residencePermit?.trpUrl ||
     applicantData?.residencePermit?.frontUrl ||
     applicantData?.residencePermit?.backUrl ||
     applicantData?.residencePermit?.fileUrl
@@ -269,6 +284,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
       String(applicantData?.visaCollection?.status || "").toUpperCase() === "APPROVED" ||
       Number(applicantData?.stage || 1) >= 11,
     isVisaCollectionPendingApproval: Boolean(hasPendingVisaCollectionApproval),
+    isVisaCollectionTravelAdded: Boolean(hasVisaCollectionTravel),
     isVisaTravelUploaded: Boolean(hasVisaTravel),
     isResidencePermitUploaded: Boolean(hasResidencePermit)
   };
@@ -281,6 +297,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
     interviewTicket: _interviewTicket,
     interviewBiometric: _interviewBiometric,
     visaCollection: _visaCollection,
+    visaCollectionTravel: _visaCollectionTravel,
     visaTravel: _visaTravel,
     residencePermit: _residencePermit,
     travelDetails: _travelDetails,
@@ -341,6 +358,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
       interviewTicket,
       interviewBiometric,
       visaCollection,
+      visaCollectionTravel,
       visaTravel,
       residencePermit
     };

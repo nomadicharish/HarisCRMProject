@@ -12,7 +12,7 @@ const PIPELINE_ITEMS = [
   { id: 9, key: "EMBASSY_INTERVIEW_COMPLETED", title: "Embassy Interview Completed" },
   { id: 10, key: "VISA_COLLECTION_INITIATED", title: "Visa Collection Initiated" },
   { id: 11, key: "VISA_COLLECTION_COMPLETED", title: "Visa Collection Completed" },
-  { id: 12, key: "APPLICANT_TRAVEL_DETAILS", title: "Applicant Travel Details" },
+  { id: 12, key: "APPLICANT_ARRIVAL_DETAILS", title: "Applicant Arrival Details" },
   { id: 13, key: "CANDIDATE_ARRIVED", title: "Candidate Arrived" }
 ];
 

@@ -31,6 +31,7 @@ const {
   addEmbassyAppointmentUseCase,
   addTravelDetailsUseCase,
   addVisaCollectionUseCase,
+  addVisaCollectionTravelUseCase,
   addVisaTravelUseCase,
   approveVisaCollectionUseCase,
   getBiometricSlipUseCase,
@@ -39,6 +40,7 @@ const {
   getResidencePermitUseCase,
   getTravelDetailsUseCase,
   getVisaCollectionUseCase,
+  getVisaCollectionTravelUseCase,
   getVisaTravelUseCase,
   uploadBiometricSlipUseCase,
   uploadResidencePermitUseCase
@@ -342,6 +344,24 @@ async function getVisaCollection(req, res) {
   }
 }
 
+async function addVisaCollectionTravel(req, res) {
+  try {
+    const payload = await addVisaCollectionTravelUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Add Visa Collection Travel Error", error);
+  }
+}
+
+async function getVisaCollectionTravel(req, res) {
+  try {
+    const payload = await getVisaCollectionTravelUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Visa Collection Travel Error", error);
+  }
+}
+
 async function addVisaTravel(req, res) {
   try {
     const payload = await addVisaTravelUseCase(req);
@@ -412,6 +432,8 @@ module.exports = {
   addVisaCollection,
   approveVisaCollection,
   getVisaCollection,
+  addVisaCollectionTravel,
+  getVisaCollectionTravel,
   addVisaTravel,
   getVisaTravel,
   uploadResidencePermit,

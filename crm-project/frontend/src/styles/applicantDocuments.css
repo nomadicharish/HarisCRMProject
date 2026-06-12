@@ -940,6 +940,19 @@
   gap:0;
 }
 
+.docsUploadIcon{
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  background:#eef4ff;
+  color:#1767ea;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  margin-right:14px;
+}
+
 .docsFileName{
   font-size:12px;
   font-weight:500;
@@ -1129,6 +1142,11 @@
   .docsFileBoxLeft{
     align-items:flex-start;
     flex-direction:column;
+  }
+
+  .docsUploadIcon{
+    margin-right:0;
+    margin-bottom:8px;
   }
 
   .docsFileBox{

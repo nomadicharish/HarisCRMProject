@@ -13,7 +13,7 @@ const stages = [
   { id: 9, name: "Embassy Interview Completed" },
   { id: 10, name: "Visa Collection Initiated" },
   { id: 11, name: "Visa Collection Completed" },
-  { id: 12, name: "Applicant Travel Details" },
+  { id: 12, name: "Applicant Arrival Details" },
   { id: 13, name: "Candidate Arrived" }
 ];
 
