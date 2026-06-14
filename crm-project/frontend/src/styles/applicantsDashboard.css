@@ -243,11 +243,32 @@
 
 .companyDocumentsRow{
   display:grid;
-  grid-template-columns:minmax(180px,1.3fr) 160px minmax(220px,1fr) 130px;
-  gap:16px;
+  grid-template-columns:minmax(220px,1.15fr) 78px minmax(280px,1.2fr) minmax(280px,1.2fr) 120px;
+  gap:0;
   align-items:center;
-  padding:10px 14px;
+  padding:0;
   border-top:1px solid #e4e9f2;
+}
+
+.companyDocumentsRow > *{
+  min-width:0;
+  padding:14px 18px;
+  border-right:1px solid #e4e9f2;
+  height:100%;
+  box-sizing:border-box;
+}
+
+.companyDocumentsRow > *:last-child{
+  border-right:0;
+}
+
+.companyDocNameCell{
+  display:flex;
+  align-items:center;
+}
+
+.companyDocNameCell .companyFormInput{
+  width:100%;
 }
 
 .companyDocumentsRow:first-child{
@@ -262,10 +283,17 @@
   font-weight:900;
 }
 
+.companyDocumentsHead > div{
+  display:flex;
+  align-items:center;
+  min-height:48px;
+}
+
 .companyRequiredToggle{
   display:flex;
   align-items:center;
-  gap:10px;
+  justify-content:center;
+  gap:0;
   color:#344054;
   font-size:14px;
   font-weight:700;
@@ -315,6 +343,105 @@
   min-width:0;
 }
 
+.companyTemplateCell{
+  display:flex;
+  align-items:stretch;
+  flex-direction:column;
+  gap:10px;
+  min-width:0;
+}
+
+.companyDocUploadCard{
+  min-height:54px;
+  border:1px solid #d9e3f0;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 12px;
+  color:#0f172a;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  overflow:hidden;
+}
+
+.companyDocUploadCard input{
+  display:none;
+}
+
+.companyDocUploadCard span:last-child{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+
+.companyFileHelp{
+  color:#64748b;
+  font-size:12px;
+  line-height:1.4;
+}
+
+.companyStandardReferenceField{
+  grid-column:1 / -1;
+}
+
+.companyStandardReferenceControls{
+  display:grid;
+  grid-template-columns:minmax(280px,1fr) auto;
+  align-items:center;
+  justify-content:start;
+  gap:14px;
+  max-width:540px;
+}
+
+.companyDocFileActions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.companyDocFileAction{
+  border:0;
+  background:transparent;
+  min-height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyDocFileActionView{
+  color:#0052cc;
+}
+
+.companyDocFileActionRemove{
+  color:#ef0000;
+}
+
+.companyStandardReferenceRow{
+  margin:0 28px 20px;
+  padding:14px;
+  border:1px solid #d9e3f0;
+  border-radius:8px;
+  display:grid;
+  grid-template-columns:minmax(220px, 1fr) minmax(260px, 420px) auto;
+  gap:16px;
+  align-items:center;
+}
+
+.companyStandardReferenceRow label{
+  font-size:14px;
+  font-weight:800;
+  color:#0f172a;
+}
+
 .companyRemoveButton{
   border:0;
   background:transparent;
@@ -339,6 +466,11 @@
   display:flex;
   justify-content:flex-end;
   margin-top:14px;
+}
+
+.companyDocumentsBlock .companySectionFooter,
+.companyPositionsFooter{
+  justify-content:flex-start;
 }
 
 .companyPositionsFooter{

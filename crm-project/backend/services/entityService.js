@@ -355,6 +355,8 @@ async function addCompany(payload) {
     companyPaymentPerApplicant: payload.companyPaymentPerApplicant,
     contactNumber: payload.contactNumber || "",
     whatsappNumber: payload.whatsappNumber || "",
+    standardReferenceFileName: payload.standardReferenceFileName || "",
+    standardReferenceUrl: payload.standardReferenceUrl || "",
     employerIds: normalizedEmployerIds,
     agencyIds: normalizedAgencyIds,
     documentsNeeded: jobPositions[0]?.documents || documentsNeeded,
@@ -393,6 +395,8 @@ async function updateCompany(id, payload) {
       companyPaymentPerApplicant: payload.companyPaymentPerApplicant,
       contactNumber: payload.contactNumber || "",
       whatsappNumber: payload.whatsappNumber || "",
+      standardReferenceFileName: payload.standardReferenceFileName || "",
+      standardReferenceUrl: payload.standardReferenceUrl || "",
       employerIds: normalizedEmployerIds,
       agencyIds: normalizedAgencyIds,
       documentsNeeded: jobPositions[0]?.documents || documentsNeeded,
@@ -875,12 +879,47 @@ async function listCompanies({ user, query: queryParams = {} }) {
   throw new AppError("Access denied", 403);
 }
 
-async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPositionIdValue = "") {
+async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPositionIdValue = "", templateTypeValue = "documentToFill") {
   const companyRef = db.collection("companies").doc(companyId);
   const companyDoc = await companyRef.get();
 
   if (!companyDoc.exists) {
     throw new AppError("Company not found", 404);
+  }
+
+  const templateType = ["reference", "standardReference"].includes(String(templateTypeValue || "")) ? String(templateTypeValue) : "documentToFill";
+  const bucket = admin.storage().bucket();
+  const safeFileName = String(file.originalname || "template").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const fileLabel = templateType === "standardReference" ? "standard-reference" : String(documentId || "document").trim();
+  const storagePath = `companies/${companyId}/document-templates/${fileLabel}_${templateType}_${Date.now()}_${safeFileName}`;
+  const fileRef = bucket.file(storagePath);
+
+  await fileRef.save(file.buffer, {
+    metadata: { contentType: file.mimetype }
+  });
+  await fileRef.makePublic();
+
+  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+
+  if (templateType === "standardReference") {
+    await companyRef.set(
+      {
+        standardReferenceFileName: file.originalname || safeFileName,
+        standardReferenceUrl: fileUrl,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+
+    return {
+      message: "Standard reference uploaded successfully",
+      standardReferenceFileName: file.originalname || safeFileName,
+      standardReferenceUrl: fileUrl
+    };
+  }
+
+  if (!String(documentId || "").trim()) {
+    throw new AppError("Document id is required", 400);
   }
 
   const jobPositionId = String(jobPositionIdValue || "").trim();
@@ -897,20 +936,15 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
     throw new AppError("Company document not found", 404);
   }
 
-  const bucket = admin.storage().bucket();
-  const safeFileName = String(file.originalname || "template").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `companies/${companyId}/document-templates/${String(documentId).trim()}_${Date.now()}_${safeFileName}`;
-  const fileRef = bucket.file(storagePath);
-
-  await fileRef.save(file.buffer, {
-    metadata: { contentType: file.mimetype }
-  });
-  await fileRef.makePublic();
+  const fileNameField = templateType === "reference" ? "referenceFileName" : "documentToFillFileName";
+  const fileUrlField = templateType === "reference" ? "referenceUrl" : "documentToFillUrl";
 
   documentsNeeded[targetIndex] = {
     ...documentsNeeded[targetIndex],
-    templateFileName: file.originalname || safeFileName,
-    templateFileUrl: `https://storage.googleapis.com/${bucket.name}/${storagePath}`,
+    [fileNameField]: file.originalname || safeFileName,
+    [fileUrlField]: fileUrl,
+    templateFileName: templateType === "documentToFill" ? file.originalname || safeFileName : documentsNeeded[targetIndex].templateFileName || "",
+    templateFileUrl: templateType === "documentToFill" ? fileUrl : documentsNeeded[targetIndex].templateFileUrl || "",
     updatedAt: new Date()
   };
 

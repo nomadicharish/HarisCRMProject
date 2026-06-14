@@ -14,7 +14,11 @@ function normalizeApplicantDocumentConfigs(value) {
       label,
       required: Boolean(item.required),
       templateFileName: String(item.templateFileName || "").trim(),
-      templateFileUrl: String(item.templateFileUrl || "").trim()
+      templateFileUrl: String(item.templateFileUrl || "").trim(),
+      documentToFillFileName: String(item.documentToFillFileName || item.fillDocumentFileName || item.templateFileName || "").trim(),
+      documentToFillUrl: String(item.documentToFillUrl || item.fillDocumentUrl || item.templateFileUrl || "").trim(),
+      referenceFileName: String(item.referenceFileName || item.referenceDocumentFileName || "").trim(),
+      referenceUrl: String(item.referenceUrl || item.referenceDocumentUrl || "").trim()
     });
 
     return documents;

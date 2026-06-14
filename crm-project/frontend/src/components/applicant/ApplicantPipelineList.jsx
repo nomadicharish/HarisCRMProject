@@ -163,8 +163,15 @@ function ApplicantPipelineList({
       <div className="pipelineListCard">
         <div className="pipelineList">
         {PIPELINE_ITEMS.map((item) => {
+          const isProcessCompleted = resolvedCurrentStep >= totalSteps;
           const status =
-            item.id < resolvedCurrentStep ? "completed" : item.id === resolvedCurrentStep ? "active" : "locked";
+            isProcessCompleted && item.id <= totalSteps
+              ? "completed"
+              : item.id < resolvedCurrentStep
+              ? "completed"
+              : item.id === resolvedCurrentStep
+              ? "active"
+              : "locked";
           const resolvedStatus =
             item.id === 2 && documentRowStatus
               ? documentRowStatus

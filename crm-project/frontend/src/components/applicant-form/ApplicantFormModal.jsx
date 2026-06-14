@@ -385,7 +385,8 @@ function ApplicantFormModal({
       : selectedCompanyForPositions?.jobSpecifications || []
   ).map((position) => ({
     value: position.id,
-    label: position.title || position.name || position.label || "Job Position"
+    label: position.title || position.name || position.label || "Job Position",
+    documents: Array.isArray(position.documents) ? position.documents : Array.isArray(position.documentsNeeded) ? position.documentsNeeded : []
   }));
   const pageSubmitLabel = loading
     ? editData

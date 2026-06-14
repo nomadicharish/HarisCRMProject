@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
+import { toast } from "react-toastify";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
-import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantsDashboard.css";
 
 const DEFAULT_DOCUMENTS = [
@@ -48,6 +49,23 @@ function UploadFileIcon() {
   );
 }
 
+function ViewIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function buildId(value, fallback) {
   const normalized = String(value || "")
     .trim()
@@ -66,7 +84,12 @@ function createDocumentRow(document = {}, index = 0) {
     required: Boolean(document.required),
     templateFileName: document.templateFileName || "",
     templateFileUrl: document.templateFileUrl || "",
-    file: null
+    documentToFillFileName: document.documentToFillFileName || document.fillDocumentFileName || document.templateFileName || "",
+    documentToFillUrl: document.documentToFillUrl || document.fillDocumentUrl || document.templateFileUrl || "",
+    referenceFileName: document.referenceFileName || document.referenceDocumentFileName || "",
+    referenceUrl: document.referenceUrl || document.referenceDocumentUrl || "",
+    documentToFillFile: null,
+    referenceFile: null
   };
 }
 
@@ -144,6 +167,9 @@ function CompanyFormPage() {
     name: "",
     countryId: "",
     companyPaymentPerApplicant: "",
+    standardReferenceFileName: "",
+    standardReferenceUrl: "",
+    standardReferenceFile: null,
     employerIds: [],
     agencyIds: [],
     jobPositions: [createPositionRow({}, 0, DEFAULT_DOCUMENTS)]
@@ -184,6 +210,9 @@ function CompanyFormPage() {
               name: selected.name || "",
               countryId: selected.countryId || "",
               companyPaymentPerApplicant: selected.companyPaymentPerApplicant ?? "",
+              standardReferenceFileName: selected.standardReferenceFileName || "",
+              standardReferenceUrl: selected.standardReferenceUrl || "",
+              standardReferenceFile: null,
               employerIds: Array.isArray(selected.employerIds) ? selected.employerIds : [],
               agencyIds: selectedAgencyIds,
               jobPositions: normalizeCompanyPositions(selected)
@@ -267,7 +296,12 @@ function CompanyFormPage() {
       position.documents.some((document) => !String(document.name || "").trim())
     );
     if (invalidDocument) nextErrors.documents = "Document name is required";
-    const documentFiles = form.jobPositions.flatMap((position) => position.documents.map((document) => document.file).filter(Boolean));
+    const documentFiles = [
+      form.standardReferenceFile,
+      ...form.jobPositions.flatMap((position) =>
+        position.documents.flatMap((document) => [document.documentToFillFile, document.referenceFile]).filter(Boolean)
+      )
+    ].filter(Boolean);
     const fileValidation = validateDocumentFiles(documentFiles);
     if (!fileValidation.valid) nextErrors.documents = fileValidation.message;
 
@@ -276,16 +310,32 @@ function CompanyFormPage() {
   };
 
   const uploadDocumentTemplates = async (companyId) => {
+    if (form.standardReferenceFile) {
+      const body = new FormData();
+      body.append("file", form.standardReferenceFile);
+      body.append("templateType", "standardReference");
+      await API.post(`/companies/${companyId}/document-template`, body, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+    }
+
     for (const position of form.jobPositions) {
       for (const document of position.documents) {
-        if (!document.file) continue;
-        const body = new FormData();
-        body.append("file", document.file);
-        body.append("documentId", document.id || buildId(document.name, "document"));
-        body.append("jobPositionId", position.id || buildId(position.title, "job_position"));
-        await API.post(`/companies/${companyId}/document-template`, body, {
-          headers: { "Content-Type": "multipart/form-data" }
-        });
+        const uploads = [
+          { file: document.documentToFillFile, templateType: "documentToFill" },
+          { file: document.referenceFile, templateType: "reference" }
+        ];
+        for (const upload of uploads) {
+          if (!upload.file) continue;
+          const body = new FormData();
+          body.append("file", upload.file);
+          body.append("documentId", document.id || buildId(document.name, "document"));
+          body.append("jobPositionId", position.id || buildId(position.title, "job_position"));
+          body.append("templateType", upload.templateType);
+          await API.post(`/companies/${companyId}/document-template`, body, {
+            headers: { "Content-Type": "multipart/form-data" }
+          });
+        }
       }
     }
   };
@@ -309,7 +359,11 @@ function CompanyFormPage() {
               name,
               required: Boolean(document.required),
               templateFileName: document.templateFileName || "",
-              templateFileUrl: document.templateFileUrl || ""
+              templateFileUrl: document.templateFileUrl || "",
+              documentToFillFileName: document.documentToFillFileName || document.fillDocumentFileName || document.templateFileName || "",
+              documentToFillUrl: document.documentToFillUrl || document.fillDocumentUrl || document.templateFileUrl || "",
+              referenceFileName: document.referenceFileName || document.referenceDocumentFileName || "",
+              referenceUrl: document.referenceUrl || document.referenceDocumentUrl || ""
             };
           })
         };
@@ -319,6 +373,8 @@ function CompanyFormPage() {
         name: form.name.trim(),
         countryId: form.countryId,
         companyPaymentPerApplicant: Number(form.companyPaymentPerApplicant || 0),
+        standardReferenceFileName: form.standardReferenceFileName || "",
+        standardReferenceUrl: form.standardReferenceUrl || "",
         employerIds: form.employerIds,
         agencyIds: form.agencyIds,
         documentsNeeded: jobPositions[0]?.documents || [],
@@ -413,6 +469,34 @@ function CompanyFormPage() {
                 menuPosition="fixed"
               />
             </div>
+            <div className="companyStandardReferenceField">
+              <label>Add Standard Reference Document</label>
+              <div className="companyFileHelp">{DOCUMENT_UPLOAD_HELP_TEXT}</div>
+              <div className="companyStandardReferenceControls">
+                <label className="companyDocUploadCard">
+                  <input
+                    type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
+                    onChange={(event) => {
+                      const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                      setForm((prev) => ({
+                        ...prev,
+                        standardReferenceFile: file,
+                        standardReferenceFileName: file?.name || prev.standardReferenceFileName
+                      }));
+                    }}
+                  />
+                  <span className="companyFileDropIcon"><UploadFileIcon /></span>
+                  <span>{form.standardReferenceFile?.name || form.standardReferenceFileName || "Choose document"}</span>
+                </label>
+                {form.standardReferenceUrl ? (
+                  <a className="companyDocFileAction companyDocFileActionView" href={form.standardReferenceUrl} target="_blank" rel="noreferrer">
+                    <ViewIcon />
+                    View
+                  </a>
+                ) : null}
+              </div>
+            </div>
           </div>
 
           <div className="companyPositionsHeader">
@@ -464,47 +548,114 @@ function CompanyFormPage() {
                       <div>Document Name</div>
                       <div>Required</div>
                       <div>Document to fill</div>
+                      <div>Reference Document</div>
                       <div>Actions</div>
                     </div>
                     {position.documents.map((document) => (
                       <div className="companyDocumentsRow" key={document.rowKey}>
-                        <input
-                          className="companyFormInput"
-                          value={document.name}
-                          placeholder="Document name"
-                          onChange={(event) => handleDocumentChange(position.rowKey, document.rowKey, { name: event.target.value })}
-                        />
+                        <div className="companyDocNameCell">
+                          <input
+                            className="companyFormInput"
+                            value={document.name}
+                            placeholder="Document name"
+                            onChange={(event) => handleDocumentChange(position.rowKey, document.rowKey, { name: event.target.value })}
+                          />
+                        </div>
                         <label className="companyRequiredToggle">
                           <input
                             type="checkbox"
+                            aria-label={`Required ${document.name || "document"}`}
                             checked={Boolean(document.required)}
                             onChange={(event) => handleDocumentChange(position.rowKey, document.rowKey, { required: event.target.checked })}
                           />
-                          Required
                         </label>
-                        <label className="companyFileDrop">
-                          <input
-                            type="file"
-                            accept={ALLOWED_DOCUMENT_ACCEPT}
-                            onChange={(event) => {
-                              const file = getValidatedDocumentFile(event.target.files?.[0] || null, alert);
-                              handleDocumentChange(position.rowKey, document.rowKey, {
-                                file,
-                                templateFileName: file?.name || document.templateFileName
-                              });
-                            }}
-                          />
-                          <span className="companyFileDropIcon"><UploadFileIcon /></span>
-                          <span>{document.templateFileName || "Choose document"}</span>
-                        </label>
+                        <div className="companyTemplateCell">
+                          <label className="companyDocUploadCard">
+                            <input
+                              type="file"
+                              accept={ALLOWED_DOCUMENT_ACCEPT}
+                              onChange={(event) => {
+                                const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                                handleDocumentChange(position.rowKey, document.rowKey, {
+                                  documentToFillFile: file,
+                                  documentToFillFileName: file?.name || document.documentToFillFileName || document.templateFileName,
+                                  templateFileName: file?.name || document.templateFileName
+                                });
+                              }}
+                            />
+                            <span className="companyFileDropIcon"><UploadFileIcon /></span>
+                            <span>{document.documentToFillFile?.name || document.documentToFillFileName || "Choose document"}</span>
+                          </label>
+                          <div className="companyDocFileActions">
+                          {document.documentToFillUrl ? (
+                            <a className="companyDocFileAction companyDocFileActionView" href={document.documentToFillUrl} target="_blank" rel="noreferrer">
+                              <ViewIcon />
+                              View
+                            </a>
+                          ) : null}
+                            {document.documentToFillFile || document.documentToFillFileName || document.documentToFillUrl ? (
+                              <button
+                                type="button"
+                                className="companyDocFileAction companyDocFileActionRemove"
+                                onClick={() => handleDocumentChange(position.rowKey, document.rowKey, {
+                                  documentToFillFile: null,
+                                  documentToFillFileName: "",
+                                  documentToFillUrl: "",
+                                  templateFileName: "",
+                                  templateFileUrl: ""
+                                })}
+                              >
+                                <TrashIcon />
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="companyTemplateCell">
+                          <label className="companyDocUploadCard">
+                            <input
+                              type="file"
+                              accept={ALLOWED_DOCUMENT_ACCEPT}
+                              onChange={(event) => {
+                                const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                                handleDocumentChange(position.rowKey, document.rowKey, {
+                                  referenceFile: file,
+                                  referenceFileName: file?.name || document.referenceFileName
+                                });
+                              }}
+                            />
+                            <span className="companyFileDropIcon"><UploadFileIcon /></span>
+                            <span>{document.referenceFile?.name || document.referenceFileName || "Choose document"}</span>
+                          </label>
+                          <div className="companyDocFileActions">
+                            {document.referenceUrl ? (
+                              <a className="companyDocFileAction companyDocFileActionView" href={document.referenceUrl} target="_blank" rel="noreferrer">
+                                <ViewIcon />
+                                View
+                              </a>
+                            ) : null}
+                            {document.referenceFile || document.referenceFileName || document.referenceUrl ? (
+                              <button
+                                type="button"
+                                className="companyDocFileAction companyDocFileActionRemove"
+                                onClick={() => handleDocumentChange(position.rowKey, document.rowKey, {
+                                  referenceFile: null,
+                                  referenceFileName: "",
+                                  referenceUrl: ""
+                                })}
+                              >
+                                <TrashIcon />
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
                         <button
                           type="button"
                           className="companyRemoveButton"
                           onClick={() => removeDocument(position.rowKey, document.rowKey)}
                         >
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                            <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                          <TrashIcon />
                           Remove
                         </button>
                       </div>

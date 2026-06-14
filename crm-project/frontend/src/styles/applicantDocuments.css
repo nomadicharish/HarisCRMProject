@@ -518,7 +518,6 @@
 }
 
 .docsFooterNote{
-  margin-top:16px;
   color:#98a2b3;
   font-size:14px;
 }
@@ -895,9 +894,19 @@
 }
 
 .docsRow{
-  grid-template-columns:minmax(260px, 1.1fr) minmax(340px, 1.15fr) minmax(190px, 0.7fr);
+  grid-template-columns:minmax(230px, 1.05fr) minmax(210px, 0.85fr) minmax(280px, 1.1fr) minmax(160px, 0.65fr);
   gap:24px;
   padding:14px 22px;
+}
+
+.docsTableHead{
+  min-height:48px;
+  padding-top:12px;
+  padding-bottom:12px;
+  color:#344054;
+  font-size:14px;
+  font-weight:800;
+  border-bottom:1px solid #e6edf5;
 }
 
 .docsDocCell{
@@ -918,6 +927,32 @@
 .docsTemplateLink{
   margin-top:8px;
   font-size:12px;
+}
+
+.docsReferenceCell{
+  min-width:0;
+  align-self:center;
+}
+
+.docsReferenceLink{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  color:#1767ea;
+  font-size:13px;
+  font-weight:800;
+}
+
+.docsReferenceHint,
+.docsReferenceEmpty{
+  margin-top:10px;
+  color:#607089;
+  font-size:12px;
+  line-height:1.5;
+}
+
+.docsReferenceEmpty{
+  color:#98a2b3;
 }
 
 .docsFileBox{
@@ -1031,13 +1066,30 @@
   gap:12px;
 }
 
+.docsReviewFooter{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-top:10px;
+  padding:12px 18px;
+  border:1px solid #e6edf5;
+  border-radius:10px;
+  background:#eef5ff;
+}
+
 .docsFooterNote{
-  margin-left:8px;
+  margin-left:0;
   display:flex;
   align-items:center;
   gap:10px;
   font-size:13px;
   color:#7182a3;
+}
+
+.docsBottomSubmitButton{
+  margin-left:0;
+  flex:0 0 auto;
 }
 
 .docsFooterNote::before{
@@ -1075,9 +1127,18 @@
     gap:14px;
   }
 
+  .docsTableHead{
+    display:none;
+  }
+
   .docsStatusCell{
     align-items:flex-start;
     text-align:left;
+  }
+
+  .docsReviewFooter{
+    flex-direction:column;
+    align-items:stretch;
   }
 }
 
@@ -1158,11 +1219,418 @@
     text-align:left;
   }
 
+  .docsTableHead{
+    display:none;
+  }
+
+  .docsReviewFooter{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
   .docModalOverlay{
     padding:12px;
   }
 
   .docModalCard{
     max-width:100%;
+  }
+}
+
+/* Applicant document upload page v2 */
+.docsWorkspacePage{
+  width:100%;
+  max-width:none;
+  padding:20px 32px 32px;
+  box-sizing:border-box;
+}
+
+.docsUploadCard{
+  width:100%;
+  max-width:none;
+  border:1px solid #e6edf5;
+  border-radius:8px;
+  background:#ffffff;
+  box-shadow:0 14px 36px rgba(15,23,42,0.08);
+  overflow:hidden;
+  position:relative;
+}
+
+.docsUploadCard .docsTopBar{
+  margin:0;
+  border:0;
+  border-radius:0;
+  box-shadow:none;
+  min-height:118px;
+  border-bottom:1px solid #e6edf5;
+}
+
+.docsUploadCard .docsTopBarContent{
+  width:100%;
+  background:#ffffff;
+  padding:28px 30px;
+  color:#0f172a;
+  gap:18px;
+}
+
+.docsUploadCard .docsTopBarIcon{
+  width:58px;
+  height:58px;
+  background:#1767ea;
+  color:#ffffff;
+}
+
+.docsUploadCard .docsTopBarTitle,
+.docsUploadCard .docsTopBar-primary .docsTopBarTitle,
+.docsUploadCard .docsTopBar-successSoft .docsTopBarTitle,
+.docsUploadCard .docsTopBar-neutral .docsTopBarTitle{
+  color:#0b1538;
+  font-size:20px;
+  font-weight:600;
+}
+
+.docsUploadCard .docsTopBarSubtitle{
+  margin-top:8px;
+  color:#4d5d84;
+  font-size:13px;
+}
+
+.docsApplicantSummary{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  min-width:180px;
+}
+
+.docsApplicantIcon{
+  width:58px;
+  height:58px;
+  border-radius:50%;
+  background:#eef3ff;
+  color:#1767ea;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  overflow:hidden;
+  font-size:16px;
+  font-weight:800;
+}
+
+.docsApplicantIcon img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+
+.docsApplicantSummary strong{
+  color:#0b1538;
+  font-size:16px;
+  line-height:1.1;
+}
+
+.docsPrepRow{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) minmax(300px, 430px);
+  gap:72px;
+  align-items:start;
+  padding:18px 24px 24px;
+}
+
+.docsUploadInfo{
+  min-height:58px;
+  border:1px solid #dce7fb;
+  border-radius:6px;
+  background:#f6f9ff;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:0 18px;
+  color:#172554;
+  font-size:13px;
+}
+
+.docsInfoIcon{
+  width:22px;
+  height:22px;
+  border:2px solid #1767ea;
+  border-radius:50%;
+  color:#1767ea;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  font-weight:900;
+  flex:0 0 auto;
+}
+
+.docsStandardReference{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+.docsStandardReferenceBtn{
+  min-height:56px;
+  border:1px solid #f6a742;
+  border-radius:6px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:14px;
+  color:#0052ff;
+  background:#ffffff;
+  font-size:15px;
+  font-weight:600;
+}
+
+.docsStandardReferenceText{
+  color:#4d5d84;
+  font-size:13px;
+}
+
+.docsPrepRowReview{
+  display:flex;
+  justify-content:flex-end;
+  padding-bottom:28px;
+}
+
+.docsReviewBulkActions{
+  display:flex;
+  justify-content:flex-end;
+}
+
+.docsApproveAllButton{
+  min-width:160px;
+  min-height:44px;
+  border-radius:6px;
+  background:#0052ff;
+  border-color:#0052ff;
+  color:#fff;
+  justify-content:center;
+}
+
+.docsUploadCard .docsTableCard{
+  margin:0 24px 28px;
+  padding:0;
+  border:1px solid #dfe7f3;
+  border-radius:6px;
+  box-shadow:none;
+  overflow:hidden;
+}
+
+.docsUploadCard .docsRow{
+  display:grid;
+  grid-template-columns:minmax(240px, 1.15fr) minmax(190px, 0.95fr) minmax(250px, 1.15fr) minmax(340px, 1.35fr) minmax(135px, 0.6fr);
+  gap:0;
+  padding:0;
+  min-height:104px;
+  border-bottom:1px solid #e8eef6;
+  align-items:stretch;
+}
+
+.docsUploadCard .docsRowReview{
+  grid-template-columns:minmax(280px,1.25fr) minmax(430px,1.25fr) minmax(195px,.675fr);
+}
+
+.docsUploadCard .docsRow:last-child{
+  border-bottom:none;
+}
+
+.docsUploadCard .docsTableHead{
+  min-height:56px;
+  background:#fbfcff;
+  color:#34405f;
+  font-size:15px;
+  font-weight:800;
+}
+
+.docsUploadCard .docsRow > div{
+  display:flex;
+  align-items:center;
+  padding:20px 26px;
+  border-right:1px solid #e8eef6;
+  min-width:0;
+}
+
+.docsUploadCard .docsRow > div:last-child{
+  border-right:none;
+}
+
+.docsUploadCard .docsTableHead > div{
+  padding-top:0;
+  padding-bottom:0;
+}
+
+.docsUploadCard .docsDocCell{
+  padding-left:26px;
+}
+
+.docsUploadCard .docsDocMeta{
+  width:100%;
+}
+
+.docsUploadCard .docsDocTitle{
+  color:#0b1538;
+  font-size:15px;
+  font-weight:500;
+}
+
+.docsUploadCard .docsHint{
+  margin-top:12px;
+  margin-bottom:0;
+  color:#4d5d84;
+  font-size:13px;
+  line-height:1.6;
+}
+
+.docsFillCell,
+.docsReferenceCell{
+  justify-content:flex-start;
+}
+
+.docsDownloadLink,
+.docsReferenceLink{
+  display:inline-flex;
+  align-items:center;
+  gap:14px;
+  color:#0052ff;
+  font-size:15px;
+  font-weight:600;
+}
+
+.docsReferenceHint{
+  display:none;
+}
+
+.docsReferenceEmpty{
+  margin:0;
+  color:#8a94a6;
+  font-size:13px;
+}
+
+.docsUploadCard .docsFileBox{
+  width:100%;
+  max-width:none;
+  min-height:68px;
+  border:1px dashed #cbd8ec;
+  border-radius:10px;
+  padding:0 14px;
+}
+
+.docsUploadCard .docsUploadIcon{
+  width:38px;
+  height:38px;
+  margin-right:14px;
+}
+
+.docsUploadCard .docsFileName{
+  font-size:13px;
+  font-weight:500;
+  color:#0b1538;
+}
+
+.docsUploadCard .docsFileMeta{
+  font-size:13px;
+  color:#4d5d84;
+}
+
+.docsUploadCard .docsStatusCell{
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+}
+
+.docsUploadCard .docsStatusBadge{
+  color:#4d5d84;
+  font-size:12px;
+  font-weight:400;
+  white-space:normal;
+}
+
+.docsUploadCard .docsReviewFooter{
+  margin:0 24px 28px;
+  min-height:54px;
+  padding:0px 14px 0px 20px;
+  border:none;
+  border-radius:6px;
+  background:#eef4ff;
+}
+
+.docsUploadCard .docsFooterNote{
+  color:#4d5d84;
+  font-size:14px;
+}
+
+.docsUploadCard .docsFooterNote::before{
+  width:22px;
+  height:22px;
+  background-image:none;
+  border:2px solid #1767ea;
+  border-radius:50%;
+  content:"i";
+  color:#1767ea;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:14px;
+  font-weight:900;
+}
+
+.docsUploadCard .docsBottomSubmitButton{
+  min-width:180px;
+  min-height:44px;
+  border-radius:6px;
+  background:#0052ff;
+  border-color:#0052ff;
+  color:#ffffff;
+  justify-content:center;
+}
+
+@media (max-width: 1100px){
+  .docsPrepRow{
+    grid-template-columns:1fr;
+    gap:20px;
+  }
+
+  .docsUploadCard .docsRow{
+    grid-template-columns:1fr;
+    min-height:0;
+  }
+
+  .docsUploadCard .docsTableHead{
+    display:none;
+  }
+
+  .docsUploadCard .docsRow > div{
+    border-right:none;
+    border-bottom:1px solid #eef2f7;
+    padding:16px 18px;
+  }
+
+  .docsUploadCard .docsRow > div:last-child{
+    border-bottom:none;
+  }
+}
+
+@media (max-width: 640px){
+  .docsWorkspacePage{
+    padding:14px;
+  }
+
+  .docsUploadCard .docsTopBarContent,
+  .docsUploadCard .docsReviewFooter{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .docsApplicantSummary{
+    margin-left:0;
+  }
+
+  .docsUploadCard .docsFileBox,
+  .docsUploadCard .docsBottomSubmitButton{
+    max-width:none;
+    width:100%;
   }
 }

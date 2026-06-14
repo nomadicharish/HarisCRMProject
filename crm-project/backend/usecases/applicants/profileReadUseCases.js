@@ -13,6 +13,12 @@ const {
   roundCurrency
 } = require("../../services/applicantDomainService");
 
+async function getApplicantProfilePhotoUrl(applicantId) {
+  const doc = await db.collection("applicants").doc(applicantId).collection("documents").doc("passport_size_photo").get();
+  const data = doc.exists ? doc.data() || {} : {};
+  return data?.latestVersion?.fileUrl || data?.fileUrl || "";
+}
+
 async function getApplicantByIdUseCase(req) {
   const applicantId = req.params.id;
   const doc = await db.collection("applicants").doc(applicantId).get();
@@ -31,6 +37,7 @@ async function getApplicantByIdUseCase(req) {
   const companyDocuments = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicantData) : [];
   const countryName = applicantData.countryName || (countryDoc?.exists ? countryDoc.data()?.name || "" : "");
   const agencyName = applicantData.agencyName || (agencyDoc?.exists ? agencyDoc.data()?.name || "" : "");
+  const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
 
   const applicantPaid = roundCurrency(
     applicantData?.paymentSummary?.applicant?.paid ??
@@ -102,6 +109,7 @@ async function getApplicantByIdUseCase(req) {
     ...applicantData,
     companyName,
     companyDocuments,
+    profilePhotoUrl,
     agencyName,
     countryName,
     totalApplicantPayment,
@@ -134,6 +142,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
 
   const applicant = applicantSnap.data() || {};
   const applicantData = await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
+  const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
     !applicantData.companyName && applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
@@ -377,6 +386,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
     applicant: {
       id: applicantId,
       ...applicantCore,
+      profilePhotoUrl,
       docSummary: normalizedDocSummary,
       companyName,
       agencyName,
@@ -433,19 +443,32 @@ async function getApplicantDocumentsContextUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = applicantSnap.data() || {};
+  const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
   const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
-  const documentConfigs = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicant) : [];
+  const companyData = companyDoc?.exists ? companyDoc.data() || {} : {};
+  const documentConfigs = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyData, applicant) : [];
 
   return {
     applicant: {
       id: applicantId,
+      firstName: applicant.firstName || applicant.personalDetails?.firstName || "",
+      lastName: applicant.lastName || applicant.personalDetails?.lastName || "",
+      fullName:
+        applicant.fullName ||
+        [applicant.firstName || applicant.personalDetails?.firstName, applicant.lastName || applicant.personalDetails?.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim(),
       stage: Number(applicant.stage || 1),
       approvalStatus: applicant.approvalStatus || "",
       companyId: applicant.companyId || "",
       countryId: applicant.countryId || "",
       agencyId: applicant.agencyId || "",
       jobPositionId: applicant.jobPositionId || "",
-      jobPositionName: applicant.jobPositionName || ""
+      jobPositionName: applicant.jobPositionName || "",
+      standardReferenceFileName: companyData.standardReferenceFileName || "",
+      standardReferenceUrl: companyData.standardReferenceUrl || "",
+      profilePhotoUrl
     },
     documentConfigs
   };

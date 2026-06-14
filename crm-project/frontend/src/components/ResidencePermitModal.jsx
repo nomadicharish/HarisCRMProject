@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
-import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -228,6 +228,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
                       <span className="workflowUploadBoxText">
                         <span className="workflowUploadBoxTitle">Choose file</span>
                         <span className="workflowUploadBoxName">{trpFile ? trpFile.name : "No file chosen"}</span>
+                        <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                       </span>
                     </label>
                   </div>

@@ -45,6 +45,13 @@ function ApplicantSummaryCard({
 
   const age = applicant?.age ?? applicant?.personalDetails?.age;
   const createdText = formatCreatedAt(applicant?.createdAt);
+  const photoUrl =
+    applicant?.profilePhotoUrl ||
+    applicant?.photoUrl ||
+    applicant?.passportPhotoUrl ||
+    applicant?.passportSizePhotoUrl ||
+    applicant?.documents?.passport_size_photo?.fileUrl ||
+    "";
 
   const phone = applicant?.phone || applicant?.personalDetails?.phone || "";
   const email = applicant?.email || applicant?.personalDetails?.email || "-";
@@ -106,7 +113,7 @@ function ApplicantSummaryCard({
     <div className="applicantSideCard">
       <div className="sideTop">
         <div className="sideAvatar" aria-hidden="true">
-          {getInitials(fullName)}
+          {photoUrl ? <img src={photoUrl} alt="" className="sideAvatarImage" /> : getInitials(fullName)}
         </div>
         <div className="sideTopMeta">
           <div className="sideName">{fullName}</div>

@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
-import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -48,6 +48,14 @@ function DetailRow({ label, value, action }) {
       <span className="workflowDetailRowLabel">{label}</span>
       <span className="workflowDetailRowValue">{action || value}</span>
     </div>
+  );
+}
+
+function UploadFileIcon() {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -206,7 +214,7 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
               <div className="workflowModalBody">
               <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractUploadLabel">Biometric Slip</div>
-                <label className="contractFileCard" htmlFor="biometric-slip-file">
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="biometric-slip-file">
                   <input
                     id="biometric-slip-file"
                     type="file"
@@ -215,7 +223,12 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
                     disabled={saving}
                     onChange={(event) => setFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
-                  <span className="contractFileCardTitle">{file ? file.name : "Upload biometric slip"}</span>
+                  <span className="workflowUploadBoxIcon" aria-hidden="true"><UploadFileIcon /></span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">{file ? file.name : "No file chosen"}</span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
+                  </span>
                 </label>
 
                 <div className="contractActionRow">

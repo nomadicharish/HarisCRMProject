@@ -5,7 +5,7 @@ import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
-import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -611,7 +611,11 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                       <path d="M7 3h8l4 4v14H7zM15 3v4h4M10 13h4M10 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </span>
-                  <span className="workflowUploadBoxName">{collectionDocumentFile?.name || "Choose document"}</span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">{collectionDocumentFile?.name || "No file chosen"}</span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
+                  </span>
                 </label>
 
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
@@ -695,6 +699,7 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                           </span>
                           <span className="workflowUploadBoxText">
                             <span className="workflowUploadBoxName">{collectionTravelFile ? collectionTravelFile.name : "No file chosen"}</span>
+                            <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                           </span>
                         </label>
                       </div>
@@ -835,9 +840,11 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                             </svg>
                           </span>
                           <span className="workflowUploadBoxText">
+                            <span className="workflowUploadBoxTitle">Choose file</span>
                             <span className="workflowUploadBoxName">
                               {travelFile ? travelFile.name : removeTravelFile ? "Current flight ticket will be removed" : visaTravel?.fileUrl ? "Upload new file to replace current" : "No file chosen"}
                             </span>
+                            <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                           </span>
                         </label>
                       </div>
@@ -883,9 +890,11 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                             </svg>
                           </span>
                           <span className="workflowUploadBoxText">
+                            <span className="workflowUploadBoxTitle">Choose file</span>
                             <span className="workflowUploadBoxName">
                               {busTicketFile ? busTicketFile.name : removeBusTicketFile ? "Current bus ticket will be removed" : visaTravel?.busTicketUrl ? "Upload new file to replace current" : "No file chosen"}
                             </span>
+                            <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                           </span>
                         </label>
                       </div>

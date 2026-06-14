@@ -108,6 +108,77 @@
   white-space:nowrap;
 }
 
+.applicantJobDocumentsBlock{
+  margin-top:16px;
+  border:1px solid #e6eaf2;
+  border-radius:12px;
+  background:#ffffff;
+  overflow:hidden;
+}
+
+.applicantJobDocumentsHeader{
+  padding:12px 14px;
+  border-bottom:1px solid #eef2f7;
+  color:#101828;
+  font-size:14px;
+  font-weight:800;
+}
+
+.applicantJobDocumentsList{
+  display:flex;
+  flex-direction:column;
+}
+
+.applicantJobDocumentRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:12px 14px;
+}
+
+.applicantJobDocumentRow + .applicantJobDocumentRow{
+  border-top:1px solid #eef2f7;
+}
+
+.applicantJobDocumentMeta{
+  min-width:0;
+}
+
+.applicantJobDocumentName{
+  color:#1d2939;
+  font-size:14px;
+  font-weight:700;
+}
+
+.applicantJobDocumentName span{
+  margin-left:6px;
+  color:#dc2626;
+}
+
+.applicantJobDocumentHelp,
+.applicantJobDocumentFile,
+.applicantJobDocumentEmpty{
+  margin-top:4px;
+  color:#64748b;
+  font-size:12px;
+}
+
+.applicantJobDocumentView{
+  min-height:34px;
+  padding:0 14px;
+  border:1px solid #d9e3f0;
+  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#1767ea;
+  font-size:13px;
+  font-weight:800;
+  background:#fff;
+  flex:0 0 auto;
+}
+
 @media (max-width: 768px){
   .card{
     padding:20px;

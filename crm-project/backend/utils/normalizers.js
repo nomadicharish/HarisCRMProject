@@ -39,6 +39,10 @@ function normalizeCompanyDocuments(value) {
       required: Boolean(item.required),
       templateFileName: String(item.templateFileName || "").trim(),
       templateFileUrl: String(item.templateFileUrl || "").trim(),
+      documentToFillFileName: String(item.documentToFillFileName || item.fillDocumentFileName || item.templateFileName || "").trim(),
+      documentToFillUrl: String(item.documentToFillUrl || item.fillDocumentUrl || item.templateFileUrl || "").trim(),
+      referenceFileName: String(item.referenceFileName || item.referenceDocumentFileName || "").trim(),
+      referenceUrl: String(item.referenceUrl || item.referenceDocumentUrl || "").trim(),
       updatedAt: new Date()
     });
 
@@ -139,7 +143,14 @@ function normalizeCompanyJobPositions(value, fallbackDocuments = []) {
 function getCompanyDocumentsForApplicant(company = {}, applicant = {}) {
   const jobPositions = normalizeCompanyJobPositions(company?.jobPositions, company?.documentsNeeded);
   const jobPositionId = String(applicant?.jobPositionId || "").trim();
-  const matchedPosition = jobPositions.find((position) => position.id === jobPositionId);
+  const jobPositionName = String(applicant?.jobPositionName || applicant?.jobSpecificationName || applicant?.positionName || "").trim().toLowerCase();
+  const matchedPosition = jobPositions.find((position) => position.id === jobPositionId) ||
+    (jobPositionName
+      ? jobPositions.find((position) =>
+          String(position.title || position.name || "").trim().toLowerCase() === jobPositionName ||
+          String(position.id || "").trim().toLowerCase() === jobPositionName
+        )
+      : null);
 
   if (matchedPosition) return matchedPosition.documents;
   if (jobPositions.length === 1) return jobPositions[0].documents;

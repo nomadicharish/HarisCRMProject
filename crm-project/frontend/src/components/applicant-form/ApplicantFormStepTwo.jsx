@@ -12,6 +12,7 @@ import {
   label
 } from "./formStyles";
 import { CURRENCY_OPTIONS } from "../../utils/currency";
+import { DOCUMENT_UPLOAD_HELP_TEXT } from "../../utils/fileValidation";
 
 function FieldIcon({ children }) {
   return (
@@ -65,6 +66,8 @@ function ApplicantFormStepTwo({
   const customSelectStyles = getSelectStyles();
   const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
   const showSuperUserPaymentFields = user?.role === "SUPER_USER" && Boolean(editData);
+  const selectedJobPosition = jobPositionOptions.find((position) => position.value === form.jobPositionId);
+  const selectedJobDocuments = Array.isArray(selectedJobPosition?.documents) ? selectedJobPosition.documents : [];
   const amountCurrencySelectStyles = {
     ...customSelectStyles,
     control: (base, state) => ({
@@ -204,6 +207,36 @@ function ApplicantFormStepTwo({
         )}
 
       </div>
+
+      {selectedJobDocuments.length > 0 ? (
+        <div className="applicantJobDocumentsBlock">
+          <div className="applicantJobDocumentsHeader">Documents Required</div>
+          <div className="applicantJobDocumentsList">
+            {selectedJobDocuments.map((document, index) => {
+              const documentName = document.name || document.label || `Document ${index + 1}`;
+              return (
+                <div className="applicantJobDocumentRow" key={document.id || documentName}>
+                  <div className="applicantJobDocumentMeta">
+                    <div className="applicantJobDocumentName">
+                      {documentName}
+                      {document.required ? <span>*</span> : null}
+                    </div>
+                    <div className="applicantJobDocumentHelp">{DOCUMENT_UPLOAD_HELP_TEXT}</div>
+                    {document.templateFileName ? <div className="applicantJobDocumentFile">{document.templateFileName}</div> : null}
+                  </div>
+                  {document.templateFileUrl ? (
+                    <a className="applicantJobDocumentView" href={document.templateFileUrl} target="_blank" rel="noreferrer">
+                      View
+                    </a>
+                  ) : (
+                    <span className="applicantJobDocumentEmpty">No reference</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : null}
 
       {showActions ? (
         <div style={actions}>

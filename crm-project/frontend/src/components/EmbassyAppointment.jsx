@@ -4,7 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
-import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -377,7 +377,7 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                 </div>
 
                 <div className="contractUploadLabel">Appointment Document (Optional)</div>
-                <label className="contractFileCard" htmlFor="appointment-file">
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="appointment-file">
                   <input
                     id="appointment-file"
                     type="file"
@@ -386,12 +386,17 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                     disabled={isBusy}
                     onChange={(event) => setAppointmentFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
-                  <span className="contractFileCardTitle">
-                    {appointmentFile
-                      ? appointmentFile.name
-                      : appointment?.fileUrl
-                      ? "Update appointment document"
-                      : "Upload appointment document"}
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">
+                      {appointmentFile ? appointmentFile.name : appointment?.fileUrl ? "Upload new file to replace current" : "No file chosen"}
+                    </span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
 
@@ -443,7 +448,7 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                 </div>
 
                 <div className="contractUploadLabel">Ticket (Optional)</div>
-                <label className="contractFileCard" htmlFor="travel-file">
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="travel-file">
                   <input
                     id="travel-file"
                     type="file"
@@ -452,7 +457,16 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                     disabled={isBusy}
                     onChange={(event) => setTravelFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
-                  <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
+                  </span>
                 </label>
 
                 <div className="contractActionRow">

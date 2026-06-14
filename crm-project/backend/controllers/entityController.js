@@ -94,7 +94,8 @@ async function uploadDocumentTemplate(req, res) {
     req.params.id,
     req.body.documentId,
     req.file,
-    req.body.jobPositionId
+    req.body.jobPositionId,
+    req.body.templateType
   );
   return res.json(data);
 }

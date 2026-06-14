@@ -10,10 +10,10 @@ const ALLOWED_MIME_TYPES = new Set([
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter(req, file, callback) {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
-      return callback(new AppError("Unsupported file type", 400));
+      return callback(new AppError("Only PDF, JPEG, JPG and PNG files are allowed", 400));
     }
 
     return callback(null, true);

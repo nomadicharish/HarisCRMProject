@@ -744,6 +744,14 @@
   color:#243b63;
   font-size:22px;
   font-weight:800;
+  overflow:hidden;
+}
+
+.sideAvatarImage{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
 }
 
 .sideName{
