@@ -4,8 +4,6 @@ const { AppError } = require("../lib/AppError");
 const storage = multer.memoryStorage();
 const ALLOWED_MIME_TYPES = new Set([
   "application/pdf",
-  "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "image/jpeg",
   "image/png"
 ]);

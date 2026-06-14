@@ -39,6 +39,7 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "documentSummary",
   "approvalFlags",
   "contract.status",
+  "signedContract",
   "visaCollection.status",
   "embassyInterview.status",
   "embassyAppointment",
@@ -257,13 +258,17 @@ function getApplicantBannerStatusText(applicant, context = {}) {
     hasResidencePermit = false,
     hasPendingEmbassyInterviewApproval = false,
     hasPendingVisaCollectionApproval = false,
-    hasEmbassyAppointment = false
+    hasEmbassyAppointment = false,
+    hasRejectedSignedContractDocuments = false
   } = context;
 
   const isPendingSuperUserApproval = applicantStage === 1 && approvalStatus === "pending";
+  const signedContractRejected =
+    hasRejectedSignedContractDocuments || String(applicant?.signedContract?.status || "").toUpperCase() === "REJECTED";
   if (isPendingSuperUserApproval) return "Candidate created. Pending for Admin approval";
   if (applicantStage === 1 && approvalStatus === "approved") return "Document upload pending";
   if (applicantStage === 1) return "Complete the candidate profile for approval";
+  if (applicantStage >= 6 && signedContractRejected) return "Super user rejected few document.";
   if (applicantStage >= 13) return "Candidate Arrived and Process Completed";
   if (applicantStage === 12) return hasVisaTravel ? "Candidate arrival pending" : "Applicant arrival details pending";
   if (applicantStage === 11) return "Complete visa collection details";

@@ -11,6 +11,7 @@ import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/number
 import { getStoredUser } from "../utils/auth";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
@@ -142,6 +143,11 @@ function ApplicantPayments() {
 
     if (!form.paidDate) {
       toast.error("Paid date is required");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([form.document]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -432,7 +438,8 @@ function ApplicantPayments() {
                     <input
                       id="payment-document"
                       type="file"
-                      onChange={(event) => handleInputChange("document", event.target.files?.[0] || null)}
+                      accept={ALLOWED_DOCUMENT_ACCEPT}
+                      onChange={(event) => handleInputChange("document", getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                     />
                     <span className="paymentDocumentUploadIcon"><UploadFileIcon /></span>
                     <span>{form.document?.name || "Choose document"}</span>

@@ -33,7 +33,7 @@ const modal = {
 
 const grid = {
   display: "grid",
-  gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 280px), 1fr))",
   gap: "16px",
   width: "100%"
 };
@@ -55,6 +55,8 @@ const actions = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
+  gap: "12px",
+  flexWrap: "wrap",
   marginTop: "20px"
 };
 

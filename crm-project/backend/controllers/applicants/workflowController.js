@@ -23,6 +23,7 @@ const {
   getInterviewBiometricUseCase,
   getSignedContractUseCase,
   getInterviewTicketUseCase,
+  rejectSignedContractDocumentUseCase,
   uploadContractUseCase,
   uploadInterviewBiometricUseCase,
   uploadSignedContractUseCase
@@ -179,6 +180,15 @@ async function getSignedContract(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Signed Contract Error", error);
+  }
+}
+
+async function rejectSignedContractDocument(req, res) {
+  try {
+    const payload = await rejectSignedContractDocumentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Reject Signed Contract Document Error", error);
   }
 }
 
@@ -414,6 +424,7 @@ module.exports = {
   getContract,
   uploadSignedContract,
   getSignedContract,
+  rejectSignedContractDocument,
   addEmbassyAppointment,
   getEmbassyAppointment,
   addTravelDetails,

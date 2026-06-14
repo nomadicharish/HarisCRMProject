@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -83,6 +84,11 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
   const handleUploadContract = async () => {
     if (!file) {
       toast.error("Select contract file");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([file, ...additionalFiles]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -233,9 +239,10 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
                   <input
                     id="contract-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={saving}
-                    onChange={(event) => setFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
                   <span className="contractUploadTileIcon"><DocumentIcon /></span>
                   <span className="contractUploadText">
@@ -254,10 +261,11 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
                       <input
                         id={`contract-additional-${index}`}
                         type="file"
+                        accept={ALLOWED_DOCUMENT_ACCEPT}
                         className="contractFileInput"
                         disabled={saving}
                         onChange={(event) => {
-                          const nextFile = event.target.files?.[0] || null;
+                          const nextFile = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
                           setAdditionalFiles((prev) => {
                             const next = [...prev];
                             if (nextFile) next[index] = nextFile;

@@ -1336,6 +1336,8 @@
     order:3;
     justify-content:flex-start;
     width:100%;
+    overflow-x:auto;
+    padding-bottom:4px;
   }
 
   .companyFormPage{
@@ -1363,6 +1365,22 @@
 
   .dashboardTableCard{
     overflow:auto;
+  }
+
+  .dashboardTopbar{
+    gap:12px;
+  }
+
+  .dashboardTabs{
+    gap:18px;
+  }
+
+  .dashboardTopbarRight{
+    width:100%;
+  }
+
+  .dashboardActionGroup{
+    justify-content:flex-start;
   }
 
   .dashboardCountryAddRow,

@@ -5,6 +5,7 @@ import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantsDashboard.css";
 
 const DEFAULT_DOCUMENTS = [
@@ -266,6 +267,9 @@ function CompanyFormPage() {
       position.documents.some((document) => !String(document.name || "").trim())
     );
     if (invalidDocument) nextErrors.documents = "Document name is required";
+    const documentFiles = form.jobPositions.flatMap((position) => position.documents.map((document) => document.file).filter(Boolean));
+    const fileValidation = validateDocumentFiles(documentFiles);
+    if (!fileValidation.valid) nextErrors.documents = fileValidation.message;
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -481,8 +485,9 @@ function CompanyFormPage() {
                         <label className="companyFileDrop">
                           <input
                             type="file"
+                            accept={ALLOWED_DOCUMENT_ACCEPT}
                             onChange={(event) => {
-                              const file = event.target.files?.[0] || null;
+                              const file = getValidatedDocumentFile(event.target.files?.[0] || null, alert);
                               handleDocumentChange(position.rowKey, document.rowKey, {
                                 file,
                                 templateFileName: file?.name || document.templateFileName

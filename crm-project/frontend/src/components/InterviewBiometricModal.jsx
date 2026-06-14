@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -91,6 +92,11 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
   const handleUpload = async () => {
     if (!file) {
       toast.error("Please select interview biometric slip");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([file]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -202,9 +208,10 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
                   <input
                     id="interview-biometric-slip-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={saving}
-                    onChange={(event) => setFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
                   <span className="contractFileCardTitle">{file ? file.name : "Upload biometric slip"}</span>
                 </label>

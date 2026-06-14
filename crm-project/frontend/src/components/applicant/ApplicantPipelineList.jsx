@@ -126,6 +126,7 @@ function ApplicantPipelineList({
   visaCollectionCompletedRowTitle = "Visa Collection Completed",
   visaCollectionCompletedRowSubtitle = "",
   visaCollectionCompletedRowStatus = "",
+  applicantTravelRowStatus = "",
   candidateArrivalRowTitle = "Arrival of Candidate",
   candidateArrivalRowSubtitle = "",
   bannerText = "Complete the document uploading for admin to approve the candidate",
@@ -179,6 +180,8 @@ function ApplicantPipelineList({
               ? visaCollectionRowStatus
               : item.id === 11 && visaCollectionCompletedRowStatus
               ? visaCollectionCompletedRowStatus
+              : item.id === 12 && applicantTravelRowStatus
+              ? applicantTravelRowStatus
               : status;
           const rowAction =
             item.id === 1
@@ -255,8 +258,24 @@ function ApplicantPipelineList({
               : item.id === 13
               ? candidateArrivalRowTitle
               : item.title;
+          const isSignedContractRejectedRow =
+            item.id === 5 &&
+            signedContractRowStatus === "danger" &&
+            activeStepActionLabel === "Upload Signed Contract";
+          const isCandidateArrivalActionRow =
+            item.id === 13 &&
+            activeStepActionLabel === "Candidate Arrived";
+          const isApplicantArrivalUpdateRow =
+            item.id === 12 &&
+            resolvedStatus === "completed" &&
+            activeStepActionLabel === "Update Arrival Details";
           const showActiveButton =
-            isActiveRow &&
+            (isSignedContractRejectedRow ||
+              isCandidateArrivalActionRow ||
+              isApplicantArrivalUpdateRow ||
+              (isActiveRow &&
+                !(signedContractRowStatus === "danger" && activeStepActionLabel === "Upload Signed Contract") &&
+                activeStepActionLabel !== "Candidate Arrived")) &&
             activeStepActionLabel &&
             typeof onHeaderAction === "function" &&
             Boolean(canActiveStepAction);

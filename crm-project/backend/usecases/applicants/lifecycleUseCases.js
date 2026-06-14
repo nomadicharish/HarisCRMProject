@@ -55,6 +55,15 @@ async function completeApplicantUseCase(req) {
 
   const data = doc.data() || {};
   if (Number(data.stage || 0) < 12) throw new AppError("Process not ready for completion", 400);
+  const hasApplicantArrivalDetails = Boolean(
+    data?.visaTravel?.date ||
+    data?.visaTravel?.time ||
+    data?.visaTravel?.flightNumber ||
+    data?.visaTravel?.arrivalPlace
+  );
+  if (!hasApplicantArrivalDetails) {
+    throw new AppError("Applicant arrival details must be saved before completing process", 400);
+  }
 
   await docRef.update({
     stage: 13,

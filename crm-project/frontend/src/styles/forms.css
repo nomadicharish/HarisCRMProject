@@ -4,8 +4,9 @@
   background:#F3F5F9;
   min-height:100vh;
   display:flex;
-  justify-content:center;
-  align-items:flex-start;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:center;
 }
 
 .page-content{
@@ -227,7 +228,7 @@
 @media (min-width: 481px) and (max-width: 1024px){
   .page-container{
     padding:18px;
-    padding-top:calc(64px + 18px);
+    padding-top:24px;
   }
 
   .page-content{
@@ -235,7 +236,7 @@
   }
 
   .dashboardPageContainer{
-    padding:0 16px 24px;
+    padding:24px 16px 24px;
   }
 
   .dashboardPageContainer > .page-content{
@@ -253,7 +254,7 @@
 @media (max-width: 480px){
   .page-container{
     padding:12px;
-    padding-top:calc(56px + 12px);
+    padding-top:154px;
   }
 
   .page-content{
@@ -261,7 +262,7 @@
   }
 
   .dashboardPageContainer{
-    padding:0 12px 20px;
+    padding:24px 12px 20px;
   }
 
   .dashboardPageContainer > .page-content{

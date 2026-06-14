@@ -268,7 +268,7 @@ function mapApplicant({
     hasPendingVisaCollectionApproval,
     hasEmbassyAppointment
   });
-  const applicantBannerStatus = String(data?.applicantBannerStatus || computedStatusText);
+  const applicantBannerStatus = String(computedStatusText || stageLabel || "Candidate Created");
   const statusText = applicantBannerStatus;
 
   const workflowStatus =

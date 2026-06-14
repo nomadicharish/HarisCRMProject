@@ -223,6 +223,7 @@ function ApplicantProfile() {
     visaCollectionCompletedRowStatus,
     candidateArrivalRowTitle,
     candidateArrivalRowSubtitle,
+    applicantTravelRowStatus,
     pipelineBannerText,
     documentRowStatus
   } = useApplicantWorkflowLabels({
@@ -340,7 +341,7 @@ function ApplicantProfile() {
     ? openContractSection
     : canUploadSignedContract
     ? openSignedContractSection
-    : applicantStage === 12 && user?.role === "SUPER_USER"
+    : applicantStage === 12 && user?.role === "SUPER_USER" && applicantTravelRowStatus === "completed"
     ? () => setShowCompleteProcessModal(true)
     : canAddResidencePermit
     ? openResidencePermitSection
@@ -435,6 +436,7 @@ function ApplicantProfile() {
               visaCollectionCompletedRowStatus={visaCollectionCompletedRowStatus}
               candidateArrivalRowTitle={candidateArrivalRowTitle}
               candidateArrivalRowSubtitle={candidateArrivalRowSubtitle}
+              applicantTravelRowStatus={applicantTravelRowStatus}
               bannerText={pipelineBannerText}
               documentRowStatus={documentRowStatus}
               onCandidateAccountCreation={handleShowProfileDetails}

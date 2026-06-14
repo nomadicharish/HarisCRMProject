@@ -4,6 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -161,6 +162,11 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
       toast.error("Appointment date and time are required");
       return;
     }
+    const fileValidation = validateDocumentFiles([appointmentFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
+      return;
+    }
 
     try {
       setSavingAppointment(true);
@@ -196,6 +202,11 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
 
     if (!formattedDate || !trimmedTime) {
       toast.error("Travel date and time are required");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([travelFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -370,9 +381,10 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                   <input
                     id="appointment-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={isBusy}
-                    onChange={(event) => setAppointmentFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setAppointmentFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
                   <span className="contractFileCardTitle">
                     {appointmentFile
@@ -435,9 +447,10 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                   <input
                     id="travel-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={isBusy}
-                    onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setTravelFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
                   <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
                 </label>

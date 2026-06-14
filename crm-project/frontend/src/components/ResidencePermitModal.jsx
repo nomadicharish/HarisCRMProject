@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -61,6 +62,11 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
   const uploadSelectedFiles = async () => {
     if (!trpFile) {
       toast.error("Please select TRP document");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([trpFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -209,9 +215,10 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
                       <input
                         id="trp-document-file"
                         type="file"
+                        accept={ALLOWED_DOCUMENT_ACCEPT}
                         className="contractFileInput"
                         disabled={saving}
-                        onChange={(event) => setTrpFile(event.target.files?.[0] || null)}
+                        onChange={(event) => setTrpFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                       />
                       <span className="workflowUploadBoxIcon" aria-hidden="true">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none">

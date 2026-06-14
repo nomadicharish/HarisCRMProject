@@ -64,10 +64,18 @@ function useApplicantWorkflowLabels({
     const isContractCompleted = Boolean(
       workflowFlags.isContractIssued ?? (applicantStage >= 5 && contract?.status === "APPROVED")
     );
-    const hasSignedContract = Boolean(
-      workflowFlags.isSignedContractUploaded ?? (signedContract?.fileUrl || applicant?.signedContract?.fileUrl)
+    const hasRejectedSignedContractDocuments = Boolean(
+      workflowFlags.hasRejectedSignedContractDocuments ||
+      String(signedContract?.status || applicant?.signedContract?.status || "").toUpperCase() === "REJECTED" ||
+      Number(signedContract?.rejectedDocumentCount || applicant?.signedContract?.rejectedDocumentCount || 0) > 0
     );
-    const canUploadSignedContract = applicantStage === 5 && user?.role === "AGENCY" && !hasSignedContract;
+    const hasSignedContract = Boolean(
+      !hasRejectedSignedContractDocuments &&
+      (workflowFlags.isSignedContractUploaded ?? (signedContract?.fileUrl || applicant?.signedContract?.fileUrl))
+    );
+    const canUploadSignedContract =
+      user?.role === "AGENCY" &&
+      ((applicantStage === 5 && !hasSignedContract) || (applicantStage >= 6 && hasRejectedSignedContractDocuments));
     const canInitiateEmbassyAppointment =
       applicantStage === 6 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
     const hasTravelDetails = Boolean(
@@ -110,9 +118,11 @@ function useApplicantWorkflowLabels({
       workflowFlags.isVisaCollectionPendingApproval ??
       String(visaCollection?.status || "").toUpperCase() === "PENDING"
     );
-    const canAddVisaTravel = applicantStage === 12 && user?.role === "AGENCY" && !hasVisaTravel;
-    const canAddResidencePermit = applicantStage === 11 && user?.role === "AGENCY" && !hasResidencePermit;
-    const canAddVisaCollectionTravel = applicantStage === 11 && user?.role === "SUPER_USER";
+    const canAddVisaTravel = applicantStage === 12 && user?.role === "AGENCY";
+    const canAddResidencePermit =
+      applicantStage === 11 && user?.role === "AGENCY" && hasVisaCollectionTravel && !hasResidencePermit;
+    const canAddVisaCollectionTravel =
+      applicantStage === 11 && user?.role === "AGENCY" && !hasVisaCollectionTravel;
     const hasDocuments = hasAnyDocumentsPayload;
     const shouldShowDocumentAction =
       !hasCompletedDocumentStage &&
@@ -134,7 +144,9 @@ function useApplicantWorkflowLabels({
       : pendingRequired
       ? "Document uploaded. Pending admin approval"
       : "Upload relevant documents for admin approval";
-    const pipelineBannerText = applicant?.applicantBannerStatus || applicant?.statusText || (isPendingSuperUserApproval
+    const pipelineBannerText = hasRejectedSignedContractDocuments
+      ? "Super user rejected few document."
+      : applicant?.applicantBannerStatus || applicant?.statusText || (isPendingSuperUserApproval
       ? "Candidate created. Pending for Admin approval"
       : applicantStage === 1
       ? "Complete the candidate profile for approval"
@@ -203,9 +215,17 @@ function useApplicantWorkflowLabels({
       : applicantStage === 4
       ? "active"
       : "";
-    const signedContractRowTitle = hasSignedContract ? "Signed Contract Uploaded" : "Upload Signed Contract";
-    const signedContractRowSubtitle = applicantStage === 5 && !hasSignedContract ? "Signed contract upload pending" : "";
-    const signedContractRowStatus = hasSignedContract ? "completed" : applicantStage === 5 ? "active" : "";
+    const signedContractRowTitle = hasRejectedSignedContractDocuments
+      ? "Signed Contract Rejected"
+      : hasSignedContract
+      ? "Signed Contract Uploaded"
+      : "Upload Signed Contract";
+    const signedContractRowSubtitle = hasRejectedSignedContractDocuments
+      ? "Super user rejected few document."
+      : applicantStage === 5 && !hasSignedContract
+      ? "Signed contract upload pending"
+      : "";
+    const signedContractRowStatus = hasRejectedSignedContractDocuments ? "danger" : hasSignedContract ? "completed" : applicantStage === 5 ? "active" : "";
     const hasEmbassyAppointmentRecord = Boolean(
       workflowFlags.isEmbassyAppointmentCreated ?? Boolean(embassyAppointment)
     );
@@ -281,16 +301,16 @@ function useApplicantWorkflowLabels({
         : "Issue Contract"
       : canUploadSignedContract
       ? "Upload Signed Contract"
-      : applicantStage === 12 && user?.role === "SUPER_USER"
+      : applicantStage === 12 && user?.role === "SUPER_USER" && hasVisaTravel
       ? "Candidate Arrived"
       : canAddResidencePermit
       ? "Upload TRP Document"
       : canAddVisaTravel
-      ? "Applicant Arrival Details"
+      ? hasVisaTravel
+        ? "Update Arrival Details"
+        : "Applicant Arrival Details"
       : canAddVisaCollectionTravel
-      ? hasVisaCollectionTravel
-        ? "Update Travel Details"
-        : "Add Travel Details"
+      ? "Add Travel Details"
       : canAddVisaCollection
       ? hasPendingVisaCollectionApproval && user?.role === "SUPER_USER"
         ? "Verify & Approve"
@@ -325,7 +345,7 @@ function useApplicantWorkflowLabels({
     const canHeaderAction =
       canIssueContract ||
       canUploadSignedContract ||
-      (applicantStage === 12 && user?.role === "SUPER_USER") ||
+      (applicantStage === 12 && user?.role === "SUPER_USER" && hasVisaTravel) ||
       canAddResidencePermit ||
       canAddVisaTravel ||
       canAddVisaCollectionTravel ||
@@ -387,6 +407,7 @@ function useApplicantWorkflowLabels({
       visaCollectionCompletedRowStatus,
       candidateArrivalRowTitle,
       candidateArrivalRowSubtitle,
+      applicantTravelRowStatus: applicantStage === 12 && hasVisaTravel ? "completed" : "",
       pipelineBannerText,
       documentRowStatus
     };

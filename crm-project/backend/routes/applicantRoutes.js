@@ -27,6 +27,7 @@ const {
   interviewBodySchema,
   rejectDocumentSchema,
   residencePermitBodySchema,
+  signedContractDocumentParamsSchema,
   travelBodySchema,
   updateApplicantSchema,
   uploadDocumentBodySchema,
@@ -207,9 +208,19 @@ router.get("/:id/contract", readCache(15), validate(idParamsSchema, "params"), a
 // Upload Signed Contract
 router.post(
   "/:id/signed-contract",
-  uploadDoc.single("file"),
+  uploadDoc.fields([
+    { name: "file", maxCount: 1 },
+    { name: "additionalDocuments", maxCount: 3 }
+  ]),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.uploadSignedContract)
+);
+
+// Reject Signed Contract Document
+router.patch(
+  "/:id/signed-contract/:documentId/reject",
+  validate(signedContractDocumentParamsSchema, "params"),
+  asyncHandler(applicantController.rejectSignedContractDocument)
 );
 
 // Get Signed Contract

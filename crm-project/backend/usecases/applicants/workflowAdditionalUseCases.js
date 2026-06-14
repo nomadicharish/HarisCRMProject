@@ -7,6 +7,7 @@ const { readEncryptedUserEmail } = require("../../services/accountService");
 const { sendEmail } = require("../../services/emailService");
 const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
+const { assertNoRejectedSignedDocuments } = require("./workflowExecutionUseCases");
 
 async function addEmbassyAppointmentUseCase(req) {
   const applicantId = req.params.id;
@@ -119,6 +120,7 @@ async function addTravelDetailsUseCase(req) {
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
+  assertNoRejectedSignedDocuments(applicantSnap.data() || {});
 
   const currentStage = Number(applicantSnap.data()?.stage || 1);
   if (currentStage < 7) {
@@ -176,6 +178,7 @@ async function uploadBiometricSlipUseCase(req) {
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
   if (!docSnap.exists) throw new AppError("Applicant not found", 404);
+  assertNoRejectedSignedDocuments(docSnap.data() || {});
   const currentStage = Number(docSnap.data()?.stage || 1);
   if (currentStage < 7) throw new AppError("Cannot add biometric slip before ticket upload stage", 400);
 
@@ -399,7 +402,7 @@ async function addVisaCollectionTravelUseCase(req) {
   const applicantId = req.params.id;
   const { date, time } = req.body;
 
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can add travel details", 403);
+  if (req.user.role !== "AGENCY") throw new AppError("Only Agency can add travel details", 403);
   if (!date || !time) throw new AppError("Travel date and time are required", 400);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
@@ -407,6 +410,7 @@ async function addVisaCollectionTravelUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = applicantSnap.data() || {};
+  assertNoRejectedSignedDocuments(applicant);
   const currentStage = Number(applicant.stage || 1);
   const visaCollectionApproved = String(applicant?.visaCollection?.status || "").toUpperCase() === "APPROVED";
   if (currentStage < 11 || !visaCollectionApproved) {
@@ -516,6 +520,8 @@ async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isU
     `Arrival time: ${arrivalDetails.time || "-"}`,
     `Flight number: ${arrivalDetails.flightNumber || "-"}`,
     `Arrival place: ${arrivalDetails.arrivalPlace || "-"}`,
+    `Arrival bus number: ${arrivalDetails.arrivalBusNumber || "-"}`,
+    `Hotel name and address: ${arrivalDetails.hotelNameAddress || "-"}`,
     arrivalDetails.fileUrl ? `Travel ticket: ${arrivalDetails.fileUrl}` : "",
     arrivalDetails.busTicketUrl ? `Bus ticket: ${arrivalDetails.busTicketUrl}` : ""
   ].filter(Boolean);
@@ -529,9 +535,13 @@ async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isU
   });
 }
 
+function isTruthyFormFlag(value) {
+  return value === true || String(value || "").toLowerCase() === "true";
+}
+
 async function addVisaTravelUseCase(req) {
   const applicantId = req.params.id;
-  const { date, time, ticketNumber, flightNumber, arrivalPlace } = req.body;
+  const { date, time, ticketNumber, flightNumber, arrivalPlace, arrivalBusNumber, hotelNameAddress, removeTravelFile, removeBusTicket } = req.body;
 
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency can add travel details", 403);
   if (!date || !time || !flightNumber || !arrivalPlace) {
@@ -542,6 +552,7 @@ async function addVisaTravelUseCase(req) {
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
   const applicantData = applicantSnap.data() || {};
+  assertNoRejectedSignedDocuments(applicantData);
   const currentStage = Number(applicantData.stage || 1);
   if (currentStage < 12) {
     throw new AppError("Cannot add applicant arrival details before applicant arrival stage", 400);
@@ -576,6 +587,8 @@ async function addVisaTravelUseCase(req) {
   const previousVisaTravel = applicantData?.visaTravel || {};
   const previousVisaTravelFileUrl = previousVisaTravel.fileUrl || "";
   const previousBusTicketUrl = previousVisaTravel.busTicketUrl || "";
+  const shouldRemoveTravelFile = isTruthyFormFlag(removeTravelFile) && !fileUrl;
+  const shouldRemoveBusTicket = isTruthyFormFlag(removeBusTicket) && !busTicketUrl;
   const isUpdate = Boolean(previousVisaTravel.date || previousVisaTravel.time || previousVisaTravel.fileUrl);
   const now = new Date();
   const arrivalDetails = {
@@ -584,8 +597,10 @@ async function addVisaTravelUseCase(req) {
     ticketNumber: ticketNumber || "",
     flightNumber,
     arrivalPlace,
-    fileUrl: fileUrl || previousVisaTravelFileUrl || "",
-    busTicketUrl: busTicketUrl || previousBusTicketUrl || "",
+    arrivalBusNumber: arrivalBusNumber || "",
+    hotelNameAddress: hotelNameAddress || "",
+    fileUrl: shouldRemoveTravelFile ? "" : fileUrl || previousVisaTravelFileUrl || "",
+    busTicketUrl: shouldRemoveBusTicket ? "" : busTicketUrl || previousBusTicketUrl || "",
     uploadedBy: req.user.uid,
     uploadedByRole: req.user.role,
     createdAt: previousVisaTravel.createdAt || now,
@@ -604,6 +619,14 @@ async function addVisaTravelUseCase(req) {
   }
   if (busTicketUrl && bucket) {
     await deleteStorageFileIfExists(bucket, previousBusTicketUrl);
+  }
+  if (shouldRemoveTravelFile && previousVisaTravelFileUrl) {
+    const cleanupBucket = bucket || admin.storage().bucket();
+    await deleteStorageFileIfExists(cleanupBucket, previousVisaTravelFileUrl);
+  }
+  if (shouldRemoveBusTicket && previousBusTicketUrl) {
+    const cleanupBucket = bucket || admin.storage().bucket();
+    await deleteStorageFileIfExists(cleanupBucket, previousBusTicketUrl);
   }
 
   await refreshApplicantDocumentSummary(applicantId);
@@ -650,9 +673,18 @@ async function uploadResidencePermitUseCase(req) {
   const doc = await docRef.get();
   if (!doc.exists) throw new AppError("Applicant not found", 404);
   const applicantData = doc.data() || {};
+  assertNoRejectedSignedDocuments(applicantData);
   const currentStage = Number(applicantData.stage || 1);
   if (currentStage < 11) {
     throw new AppError("Cannot upload residence permit before visa collection completion stage", 400);
+  }
+  const hasVisaCollectionTravel = Boolean(
+    applicantData?.visaCollectionTravel?.date ||
+    applicantData?.visaCollectionTravel?.time ||
+    applicantData?.visaCollectionTravel?.fileUrl
+  );
+  if (!hasVisaCollectionTravel) {
+    throw new AppError("Travel details must be saved before uploading TRP", 400);
   }
 
   const existing = applicantData.residencePermit || {};

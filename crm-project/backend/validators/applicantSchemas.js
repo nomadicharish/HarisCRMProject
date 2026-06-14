@@ -32,6 +32,11 @@ const idDocTypeParamsSchema = z.object({
   docType: idSchema
 });
 
+const signedContractDocumentParamsSchema = z.object({
+  id: idSchema,
+  documentId: idSchema
+});
+
 const appointmentParamsSchema = z.object({
   applicantId: idSchema,
   type: z.enum(["medical", "biometric", "embassy"])
@@ -133,6 +138,10 @@ const visaTravelBodySchema = z.object({
   time: trimmedString.min(1, "Time is required"),
   flightNumber: trimmedString.min(1, "Flight number is required"),
   arrivalPlace: trimmedString.min(1, "Arrival place is required"),
+  arrivalBusNumber: optionalTrimmedString,
+  hotelNameAddress: optionalTrimmedString,
+  removeTravelFile: optionalTrimmedString,
+  removeBusTicket: optionalTrimmedString,
   ticketNumber: optionalTrimmedString
 });
 
@@ -190,6 +199,7 @@ module.exports = {
   interviewOrStageParamsSchema,
   rejectDocumentSchema,
   residencePermitBodySchema,
+  signedContractDocumentParamsSchema,
   travelBodySchema,
   updateApplicantSchema,
   uploadDocumentBodySchema,

@@ -5,6 +5,7 @@ import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -179,6 +180,11 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
       toast.error("Interview date and time are required");
       return;
     }
+    const fileValidation = validateDocumentFiles([interviewDocumentFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
+      return;
+    }
 
     try {
       setSavingInterview(true);
@@ -225,6 +231,11 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
 
     if (!formattedDate || !trimmedTime) {
       toast.error("Travel date and time are required");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([travelFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -395,9 +406,10 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                   <input
                     id="embassy-interview-document"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={isBusy}
-                    onChange={(event) => setInterviewDocumentFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setInterviewDocumentFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
                   <span className="workflowUploadBoxIcon" aria-hidden="true">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
@@ -475,9 +487,10 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                   <input
                     id="interview-travel-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={isBusy}
-                    onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setTravelFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
                   <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
                 </label>

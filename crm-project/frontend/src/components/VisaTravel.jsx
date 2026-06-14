@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 
 function VisaTravel({ applicantId, user }) {
 
@@ -25,6 +26,8 @@ function VisaTravel({ applicantId, user }) {
   };
 
   const submit = async () => {
+    const fileValidation = validateDocumentFiles([file]);
+    if (!fileValidation.valid) return alert(fileValidation.message);
 
     const formData = new FormData();
 
@@ -95,7 +98,8 @@ function VisaTravel({ applicantId, user }) {
 
           <input
             type="file"
-            onChange={(e) => setFile(e.target.files[0])}
+            accept={ALLOWED_DOCUMENT_ACCEPT}
+            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
           />
 
           <button onClick={submit}>

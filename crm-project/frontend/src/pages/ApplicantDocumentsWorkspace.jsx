@@ -16,6 +16,7 @@ import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getStoredUser } from "../utils/auth";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 import { formatCurrencyAmount } from "../utils/currency";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantProfile.css";
 
 function StatusIcon({ tone = "success" }) {
@@ -324,6 +325,11 @@ function ApplicantDocumentsWorkspace() {
       toast.info("Select documents before sending for approval");
       return;
     }
+    const fileValidation = validateDocumentFiles(uploads.map(([, file]) => file));
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
+      return;
+    }
 
     try {
       setSaving(true);
@@ -534,16 +540,18 @@ function ApplicantDocumentsWorkspace() {
                     <label className="docsFileBox docsFileBoxUpload">
                       <input
                         type="file"
+                        accept={ALLOWED_DOCUMENT_ACCEPT}
                         className="docsFileInput"
                         disabled={saving}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
                           setSelectedFiles((prev) => ({
                             ...prev,
-                            [doc.key]: event.target.files?.[0]
-                              ? { file: event.target.files[0], selectedAt: Date.now() }
+                            [doc.key]: file
+                              ? { file, selectedAt: Date.now() }
                               : null
-                          }))
-                        }
+                          }));
+                        }}
                       />
                       <div className="docsFileBoxLeft">
                         <span className="docsUploadIcon"><UploadFileIcon /></span>

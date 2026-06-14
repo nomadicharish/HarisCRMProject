@@ -68,7 +68,7 @@ function ApplicantFormModal({
 
   const navigate = useNavigate();
 
-  const validateStep1 = () => {
+  const getStep1Errors = () => {
     const newErrors = {};
     if (!form.firstName) newErrors.firstName = "First name is required";
     if (!form.lastName) newErrors.lastName = "Surname is required";
@@ -90,11 +90,10 @@ function ApplicantFormModal({
     const whatsappError = validateOptionalPhone(form.whatsappNumber, form.whatsappCountry || form.phoneCountry);
     if (whatsappError) newErrors.whatsappNumber = whatsappError;
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return newErrors;
   };
 
-  const validateStep2 = () => {
+  const getStep2Errors = () => {
     const newErrors = {};
     if (!form.countryId) newErrors.countryId = "Select country";
     if (!form.companyId) newErrors.companyId = "Select company";
@@ -106,6 +105,11 @@ function ApplicantFormModal({
       user?.role === "SUPER_USER" && Boolean(editData) ? "SUPER_USER" : user?.role
     );
     if (totalAmountError) newErrors.totalAmount = totalAmountError;
+    return newErrors;
+  };
+
+  const validateStep2 = () => {
+    const newErrors = getStep2Errors();
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -398,9 +402,11 @@ function ApplicantFormModal({
   };
   const handlePageSubmit = () => {
     if (readOnly) return;
-    const validStep1 = validateStep1();
-    const validStep2 = validateStep2();
-    if (!validStep1 || !validStep2) return;
+    const step1Errors = getStep1Errors();
+    const step2Errors = getStep2Errors();
+    const combinedErrors = { ...step1Errors, ...step2Errors };
+    setErrors(combinedErrors);
+    if (Object.keys(combinedErrors).length > 0) return;
     handleSubmit();
   };
 

@@ -42,8 +42,60 @@ async function getApplicantByIdUseCase(req) {
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
   const paymentCurrency = resolveApplicantPaymentCurrency(applicantData);
 
+  const docSummary = applicantData?.docSummary || applicantData?.documentSummary || {};
+  const approvalFlags = applicantData?.approvalFlags || {};
+  const approvedRequired = Number(docSummary.approvedCount || 0) > 0 && Number(docSummary.pendingCount || 0) === 0;
+  const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
+  const pendingRequired = Number(docSummary.pendingCount || 0) > 0;
+  const uploadedRequired = Number(docSummary.totalCount || 0) > 0;
+  const hasPendingEmbassyInterviewApproval =
+    Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
+    String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
+    (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
+  const hasPendingVisaCollectionApproval =
+    String(applicantData?.visaCollection?.status || "").toUpperCase() === "PENDING";
+  const hasRejectedSignedContractDocuments =
+    String(applicantData?.signedContract?.status || "").toUpperCase() === "REJECTED" ||
+    Number(applicantData?.signedContract?.rejectedDocumentCount || 0) > 0;
   const stageLabel = getApplicantStageLabel(applicantData?.stage, applicantData?.approvalStatus);
-  const applicantBannerStatus = String(applicantData?.applicantBannerStatus || stageLabel || "Candidate Created");
+  const applicantBannerStatus = getApplicantBannerStatusText(applicantData, {
+    hasCompletedDocumentStage: Number(applicantData?.stage || 1) >= 3 && approvedRequired,
+    pendingRequired,
+    rejectedRequired,
+    uploadedRequired,
+    hasDocuments: uploadedRequired,
+    hasTravelDetails: Boolean(
+      applicantData?.travelDetails?.travelDate ||
+      applicantData?.travelDetails?.time ||
+      applicantData?.travelDetails?.fileUrl
+    ),
+    hasBiometricSlip: Boolean(applicantData?.biometricSlip?.fileUrl),
+    hasInterviewTicket: Boolean(
+      applicantData?.interviewTicket?.date ||
+      applicantData?.interviewTicket?.time ||
+      applicantData?.interviewTicket?.fileUrl
+    ),
+    hasInterviewBiometric: Boolean(applicantData?.interviewBiometric?.fileUrl),
+    hasVisaTravel: Boolean(
+      applicantData?.visaTravel?.date ||
+      applicantData?.visaTravel?.time ||
+      applicantData?.visaTravel?.fileUrl
+    ),
+    hasResidencePermit: Boolean(
+      applicantData?.residencePermit?.trpUrl ||
+      applicantData?.residencePermit?.frontUrl ||
+      applicantData?.residencePermit?.backUrl ||
+      applicantData?.residencePermit?.fileUrl
+    ),
+    hasPendingEmbassyInterviewApproval,
+    hasPendingVisaCollectionApproval,
+    hasRejectedSignedContractDocuments,
+    hasEmbassyAppointment: Boolean(
+      applicantData?.embassyAppointment?.date ||
+      applicantData?.embassyAppointment?.time ||
+      applicantData?.embassyAppointment?.fileUrl
+    )
+  });
 
   return {
     id: doc.id,
@@ -204,6 +256,9 @@ async function getApplicantWorkflowBundleUseCase(req) {
     (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
   const hasPendingVisaCollectionApproval =
     String(applicantData?.visaCollection?.status || "").toUpperCase() === "PENDING";
+  const hasRejectedSignedContractDocuments =
+    String(applicantData?.signedContract?.status || "").toUpperCase() === "REJECTED" ||
+    Number(applicantData?.signedContract?.rejectedDocumentCount || 0) > 0;
   const hasTravelDetails = Boolean(
     applicantData?.travelDetails?.travelDate ||
     applicantData?.travelDetails?.time ||
@@ -253,6 +308,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
     hasResidencePermit,
     hasPendingEmbassyInterviewApproval,
     hasPendingVisaCollectionApproval,
+    hasRejectedSignedContractDocuments,
     hasEmbassyAppointment
   });
   const applicantBannerStatus = String(computedStatusText || "");
@@ -264,7 +320,10 @@ async function getApplicantWorkflowBundleUseCase(req) {
     hasPendingDocumentsApproval: Boolean(pendingRequired),
     isDispatchCompleted: Number(applicantData?.stage || 1) >= 4,
     isContractIssued: Number(applicantData?.stage || 1) >= 5 || String(applicantData?.contract?.status || "").toUpperCase() === "APPROVED",
-    isSignedContractUploaded: Number(applicantData?.stage || 1) >= 6 || Boolean(applicantData?.signedContract?.fileUrl),
+    isSignedContractUploaded:
+      !hasRejectedSignedContractDocuments &&
+      (Number(applicantData?.stage || 1) >= 6 || Boolean(applicantData?.signedContract?.fileUrl)),
+    hasRejectedSignedContractDocuments,
     isContractPendingApproval: String(applicantData?.contract?.status || "").toUpperCase() === "PENDING",
     isEmbassyAppointmentCreated: Boolean(hasEmbassyAppointment),
     isEmbassyAppointmentApproved:
