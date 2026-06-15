@@ -34,6 +34,7 @@ const {
   addVisaCollectionUseCase,
   addVisaCollectionTravelUseCase,
   addVisaTravelUseCase,
+  approveEmbassyAppointmentUseCase,
   approveVisaCollectionUseCase,
   getBiometricSlipUseCase,
   getEmbassyAppointmentUseCase,
@@ -354,6 +355,15 @@ async function getVisaCollection(req, res) {
   }
 }
 
+async function approveEmbassyAppointment(req, res) {
+  try {
+    const payload = await approveEmbassyAppointmentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Approve Embassy Appointment Error", error);
+  }
+}
+
 async function addVisaCollectionTravel(req, res) {
   try {
     const payload = await addVisaCollectionTravelUseCase(req);
@@ -426,6 +436,7 @@ module.exports = {
   getSignedContract,
   rejectSignedContractDocument,
   addEmbassyAppointment,
+  approveEmbassyAppointment,
   getEmbassyAppointment,
   addTravelDetails,
   getTravelDetails,

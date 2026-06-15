@@ -78,6 +78,10 @@ function useApplicantWorkflowLabels({
       ((applicantStage === 5 && !hasSignedContract) || (applicantStage >= 6 && hasRejectedSignedContractDocuments));
     const canInitiateEmbassyAppointment =
       applicantStage === 6 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+    const hasPendingEmbassyAppointmentApproval = Boolean(
+      workflowFlags.isEmbassyAppointmentPendingApproval ??
+      String(embassyAppointment?.status || "").toUpperCase() === "PENDING"
+    );
     const hasTravelDetails = Boolean(
       workflowFlags.isTravelTicketUploaded ??
       (applicant?.travelDetails?.travelDate || applicant?.travelDetails?.time || applicant?.travelDetails?.fileUrl)
@@ -179,7 +183,9 @@ function useApplicantWorkflowLabels({
         ? "Pending Biometric slip"
         : "Ticket upload pending"
       : applicantStage === 6
-      ? "Pending embassy appointment."
+      ? hasPendingEmbassyAppointmentApproval
+        ? "Embassy appointment Initiated. Pending admin approval"
+        : "Pending embassy appointment."
       : applicantStage === 5
       ? "Signed contract upload pending."
       : applicantStage >= 5
@@ -230,7 +236,19 @@ function useApplicantWorkflowLabels({
       workflowFlags.isEmbassyAppointmentCreated ?? Boolean(embassyAppointment)
     );
     const embassyAppointmentRowTitle =
-      applicantStage === 6 && !hasEmbassyAppointmentRecord ? "Initiate Embassy Appointment" : "Embassy Appointment Initiated";
+      applicantStage === 6 && hasPendingEmbassyAppointmentApproval
+        ? "Embassy Appointment Pending Approval"
+        : applicantStage === 6 && !hasEmbassyAppointmentRecord
+        ? "Initiate Embassy Appointment"
+        : "Embassy Appointment Initiated";
+    const embassyAppointmentRowSubtitle =
+      applicantStage === 6 && hasPendingEmbassyAppointmentApproval
+        ? "Embassy appointment Initiated. Pending admin approval"
+        : "";
+    const embassyAppointmentRowStatus =
+      applicantStage === 6 && hasPendingEmbassyAppointmentApproval
+        ? "warning"
+        : "";
     const embassyAppointmentCompletedRowTitle =
       applicantStage > 7 ? "Embassy Appointment Completed" : "Embassy Appointment";
     const embassyAppointmentCompletedRowSubtitle =
@@ -332,7 +350,11 @@ function useApplicantWorkflowLabels({
       : canAddTicket
       ? "Add Ticket"
       : canInitiateEmbassyAppointment
-      ? "Initiate Embassy Appointment"
+      ? hasPendingEmbassyAppointmentApproval && user?.role === "SUPER_USER"
+        ? "Verify & Approve"
+        : hasEmbassyAppointmentRecord && user?.role === "EMPLOYER"
+        ? "Update Embassy Appointment"
+        : "Initiate Embassy Appointment"
       : canShowDispatchHeaderButton
       ? canEditDispatch
         ? "Dispatch Document"
@@ -391,6 +413,8 @@ function useApplicantWorkflowLabels({
       signedContractRowSubtitle,
       signedContractRowStatus,
       embassyAppointmentRowTitle,
+      embassyAppointmentRowSubtitle,
+      embassyAppointmentRowStatus,
       embassyAppointmentCompletedRowTitle,
       embassyAppointmentCompletedRowSubtitle,
       embassyAppointmentCompletedRowStatus,

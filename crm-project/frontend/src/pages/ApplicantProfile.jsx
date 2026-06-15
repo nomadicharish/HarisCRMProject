@@ -43,11 +43,14 @@ function ApplicantProfile() {
   const [showContractModal, setShowContractModal] = useState(false);
   const [showSignedContractModal, setShowSignedContractModal] = useState(false);
   const [showEmbassyAppointmentModal, setShowEmbassyAppointmentModal] = useState(false);
+  const [editAppointmentTravel, setEditAppointmentTravel] = useState(false);
   const [showBiometricSlipModal, setShowBiometricSlipModal] = useState(false);
   const [showEmbassyInterviewModal, setShowEmbassyInterviewModal] = useState(false);
+  const [editInterviewTravel, setEditInterviewTravel] = useState(false);
   const [showInterviewBiometricModal, setShowInterviewBiometricModal] = useState(false);
   const [showVisaCollectionModal, setShowVisaCollectionModal] = useState(false);
   const [visaCollectionModalMode, setVisaCollectionModalMode] = useState("collection");
+  const [editVisaCollectionTravel, setEditVisaCollectionTravel] = useState(false);
   const [showResidencePermitModal, setShowResidencePermitModal] = useState(false);
   const [editContext, setEditContext] = useState("default");
   const [resolvedAgencyName, setResolvedAgencyName] = useState("");
@@ -128,7 +131,8 @@ function ApplicantProfile() {
     setShowSignedContractModal(true);
   };
 
-  const openEmbassyAppointmentSection = () => {
+  const openEmbassyAppointmentSection = ({ editTravel = false } = {}) => {
+    setEditAppointmentTravel(Boolean(editTravel));
     setShowEmbassyAppointmentModal(true);
   };
 
@@ -136,7 +140,8 @@ function ApplicantProfile() {
     setShowBiometricSlipModal(true);
   };
 
-  const openEmbassyInterviewSection = () => {
+  const openEmbassyInterviewSection = ({ editTravel = false } = {}) => {
+    setEditInterviewTravel(Boolean(editTravel));
     setShowEmbassyInterviewModal(true);
   };
 
@@ -144,8 +149,9 @@ function ApplicantProfile() {
     setShowInterviewBiometricModal(true);
   };
 
-  const openVisaCollectionSection = (mode = "collection") => {
+  const openVisaCollectionSection = (mode = "collection", { editCollectionTravel = false } = {}) => {
     setVisaCollectionModalMode(mode);
+    setEditVisaCollectionTravel(Boolean(editCollectionTravel));
     setShowVisaCollectionModal(true);
   };
 
@@ -207,6 +213,8 @@ function ApplicantProfile() {
     signedContractRowSubtitle,
     signedContractRowStatus,
     embassyAppointmentRowTitle,
+    embassyAppointmentRowSubtitle,
+    embassyAppointmentRowStatus,
     embassyAppointmentCompletedRowTitle,
     embassyAppointmentCompletedRowSubtitle,
     embassyAppointmentCompletedRowStatus,
@@ -370,6 +378,13 @@ function ApplicantProfile() {
     : shouldShowDocumentAction
     ? handleShowDocuments
     : undefined;
+  const updateTravelActionHandler = canAddInterviewBiometric
+    ? () => openEmbassyInterviewSection({ editTravel: true })
+    : canAddBiometricSlip
+    ? () => openEmbassyAppointmentSection({ editTravel: true })
+    : canAddResidencePermit
+    ? () => openVisaCollectionSection("collection", { editCollectionTravel: true })
+    : undefined;
 
   return (
     <div className="page-container dashboardPageContainer">
@@ -420,6 +435,8 @@ function ApplicantProfile() {
               signedContractRowSubtitle={signedContractRowSubtitle}
               signedContractRowStatus={signedContractRowStatus}
               embassyAppointmentRowTitle={embassyAppointmentRowTitle}
+              embassyAppointmentRowSubtitle={embassyAppointmentRowSubtitle}
+              embassyAppointmentRowStatus={embassyAppointmentRowStatus}
               embassyAppointmentCompletedRowTitle={embassyAppointmentCompletedRowTitle}
               embassyAppointmentCompletedRowSubtitle={embassyAppointmentCompletedRowSubtitle}
               embassyAppointmentCompletedRowStatus={embassyAppointmentCompletedRowStatus}
@@ -469,6 +486,7 @@ function ApplicantProfile() {
               }
               onApplicantTravelAction={applicantStage >= 12 ? () => openVisaCollectionSection("applicantTravel") : undefined}
               onCandidateArrivalAction={undefined}
+              onUpdateTravelAction={updateTravelActionHandler}
             />
 
             {Number(applicant.stage) === 13 ? <p className="successText">{candidateArrivalRowTitle}</p> : null}
@@ -496,15 +514,21 @@ function ApplicantProfile() {
           setShowSignedContractModal={setShowSignedContractModal}
           showEmbassyAppointmentModal={showEmbassyAppointmentModal}
           setShowEmbassyAppointmentModal={setShowEmbassyAppointmentModal}
+          editAppointmentTravel={editAppointmentTravel}
+          setEditAppointmentTravel={setEditAppointmentTravel}
           showBiometricSlipModal={showBiometricSlipModal}
           setShowBiometricSlipModal={setShowBiometricSlipModal}
           showEmbassyInterviewModal={showEmbassyInterviewModal}
           setShowEmbassyInterviewModal={setShowEmbassyInterviewModal}
+          editInterviewTravel={editInterviewTravel}
+          setEditInterviewTravel={setEditInterviewTravel}
           showInterviewBiometricModal={showInterviewBiometricModal}
           setShowInterviewBiometricModal={setShowInterviewBiometricModal}
           showVisaCollectionModal={showVisaCollectionModal}
           setShowVisaCollectionModal={setShowVisaCollectionModal}
           visaCollectionModalMode={visaCollectionModalMode}
+          editVisaCollectionTravel={editVisaCollectionTravel}
+          setEditVisaCollectionTravel={setEditVisaCollectionTravel}
           showResidencePermitModal={showResidencePermitModal}
           setShowResidencePermitModal={setShowResidencePermitModal}
           showApplicantDetailsModal={showApplicantDetailsModal}

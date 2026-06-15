@@ -92,7 +92,7 @@
 
 .companyFormGrid label span,
 .companyPositionTop label span{
-  color:#e11d48;
+  color:#1d2939;
 }
 
 .companyFormInput{
@@ -347,7 +347,6 @@
   display:flex;
   align-items:stretch;
   flex-direction:column;
-  gap:10px;
   min-width:0;
 }
 
@@ -359,11 +358,16 @@
   align-items:center;
   gap:10px;
   padding:0 12px;
-  color:#0f172a;
+  color:#475467;
   font-size:13px;
   font-weight:700;
   cursor:pointer;
   overflow:hidden;
+}
+
+.companyDocUploadCard .companyFileDropIcon{
+  align-self:center;
+  color:#0b55d9;
 }
 
 .companyDocUploadCard input{
@@ -388,12 +392,10 @@
 }
 
 .companyStandardReferenceControls{
-  display:grid;
-  grid-template-columns:minmax(280px,1fr) auto;
+  display:block;
   align-items:center;
   justify-content:start;
-  gap:14px;
-  max-width:540px;
+  max-width:420px;
 }
 
 .companyDocFileActions{

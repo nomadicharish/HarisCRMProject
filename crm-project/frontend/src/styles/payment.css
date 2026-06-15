@@ -326,6 +326,39 @@
   color:#000000;
 }
 
+.paymentAmountInputWrap{
+  display:flex;
+  align-items:center;
+  min-height:44px;
+  border:1px solid #cfd8e6;
+  border-radius:6px;
+  overflow:hidden;
+  background:#fff;
+}
+
+.paymentAmountPrefix{
+  align-self:stretch;
+  min-width:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-right:1px solid #d9e3f0;
+  color:#0f172a;
+  font-weight:800;
+  background:#f8fafc;
+}
+
+.paymentPage .contractFormGrid .paymentAmountInputWrap input{
+  border:0;
+  min-height:42px;
+  flex:1;
+}
+
+.paymentPage .contractFormGrid .paymentAmountInputWrap input:focus{
+  outline:none;
+  box-shadow:none;
+}
+
 @media (max-width: 900px){
   .paymentLayout{
     grid-template-columns:1fr;

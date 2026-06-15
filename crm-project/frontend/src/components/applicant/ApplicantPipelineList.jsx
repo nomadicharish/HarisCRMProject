@@ -98,6 +98,8 @@ function ApplicantPipelineList({
   onVisaCompletionAction,
   onApplicantTravelAction,
   onCandidateArrivalAction,
+  onUpdateTravelAction,
+  updateTravelActionLabel = "Update Travel",
   onHeaderAction,
   headerActionLabel = "",
   canHeaderAction = true,
@@ -112,6 +114,8 @@ function ApplicantPipelineList({
   signedContractRowSubtitle = "",
   signedContractRowStatus = "",
   embassyAppointmentRowTitle = "Embassy Appointment Initiated",
+  embassyAppointmentRowSubtitle = "",
+  embassyAppointmentRowStatus = "",
   embassyAppointmentCompletedRowTitle = "Embassy Appointment Completed",
   embassyAppointmentCompletedRowSubtitle = "",
   embassyAppointmentCompletedRowStatus = "",
@@ -179,6 +183,8 @@ function ApplicantPipelineList({
               ? contractRowStatus
               : item.id === 5 && signedContractRowStatus
               ? signedContractRowStatus
+              : item.id === 6 && embassyAppointmentRowStatus
+              ? embassyAppointmentRowStatus
               : item.id === 7 && embassyAppointmentCompletedRowStatus
               ? embassyAppointmentCompletedRowStatus
               : item.id === 9 && embassyInterviewCompletedRowStatus
@@ -228,6 +234,8 @@ function ApplicantPipelineList({
               ? contractRowSubtitle
               : item.id === 5
               ? signedContractRowSubtitle
+              : item.id === 6
+              ? embassyAppointmentRowSubtitle
               : item.id === 7
               ? embassyAppointmentCompletedRowSubtitle
               : item.id === 8
@@ -286,6 +294,11 @@ function ApplicantPipelineList({
             activeStepActionLabel &&
             typeof onHeaderAction === "function" &&
             Boolean(canActiveStepAction);
+          const showUpdateTravelButton =
+            typeof onUpdateTravelAction === "function" &&
+            Boolean(canActiveStepAction) &&
+            isActiveRow &&
+            (activeStepActionLabel === "Add Biometric Slip" || activeStepActionLabel === "Upload TRP Document");
           const showCompletedArrow = isCompletedRow && canRowClick;
           const isLastRow = item.id === totalSteps;
 
@@ -307,6 +320,12 @@ function ApplicantPipelineList({
               </div>
 
               <div className="pipeRight">
+                {showUpdateTravelButton ? (
+                  <button className="btn btnSecondary btnSm pipeStageActionBtn" type="button" onClick={onUpdateTravelAction}>
+                    {updateTravelActionLabel}
+                  </button>
+                ) : null}
+
                 {showActiveButton ? (
                   <button className="btn bannerBtn btnSm pipeStageActionBtn" type="button" onClick={onHeaderAction}>
                     {activeStepActionLabel}

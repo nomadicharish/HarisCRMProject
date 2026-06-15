@@ -256,6 +256,7 @@ function getApplicantBannerStatusText(applicant, context = {}) {
     hasInterviewBiometric = false,
     hasVisaTravel = false,
     hasResidencePermit = false,
+    hasPendingEmbassyAppointmentApproval = false,
     hasPendingEmbassyInterviewApproval = false,
     hasPendingVisaCollectionApproval = false,
     hasEmbassyAppointment = false,
@@ -291,6 +292,7 @@ function getApplicantBannerStatusText(applicant, context = {}) {
     return "Embassy Appointment Initiated. Travel ticket upload pending.";
   }
   if (applicantStage === 6) {
+    if (hasPendingEmbassyAppointmentApproval) return "Embassy appointment Initiated. Pending admin approval";
     if (!hasEmbassyAppointment) return "Pending Embassy Appointment Initiation.";
     return "Pending embassy appointment.";
   }

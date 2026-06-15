@@ -503,7 +503,11 @@ function ApplicantDocumentsWorkspace() {
                     <div className="docsTopBarSubtitle">Request the admin for review &amp; approval to go to next phase.</div>
                   ) : null}
                 </div>
-                <div className="docsApplicantSummary">
+                <button
+                  type="button"
+                  className="docsApplicantSummary docsApplicantSummaryAction"
+                  onClick={() => navigate(`/applicants/${id}`)}
+                >
                   <span className="docsApplicantIcon" aria-hidden="true">
                     {applicant.profilePhotoUrl ? (
                       <img src={applicant.profilePhotoUrl} alt="" />
@@ -512,7 +516,7 @@ function ApplicantDocumentsWorkspace() {
                     )}
                   </span>
                   <strong>{applicantName}</strong>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -701,12 +705,6 @@ function ApplicantDocumentsWorkspace() {
                     </span>
                   ) : null}
 
-
-                  {!showReviewActions && isRejected && latest?.rejectedReason ? (
-                    <span className="docsStatusLink">
-                      View remarks
-                    </span>
-                  ) : null}
 
                   {showReviewActions ? (
                     <div className="docsReviewActions">

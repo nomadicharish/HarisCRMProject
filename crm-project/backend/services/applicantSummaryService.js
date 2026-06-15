@@ -145,6 +145,8 @@ async function buildDocSummary(applicantId, applicantData = {}) {
 }
 
 function buildApprovalFlags(applicantData = {}, docSummary = {}) {
+  const hasPendingEmbassyAppointmentApproval =
+    String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
   const hasPendingEmbassyInterviewApproval =
     String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
     (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
@@ -154,11 +156,13 @@ function buildApprovalFlags(applicantData = {}, docSummary = {}) {
     String(applicantData?.contract?.status || "").toUpperCase() === "PENDING";
   const hasPendingApplicantApproval =
     String(applicantData?.approvalStatus || "").toLowerCase() !== "approved";
-  const hasPendingAppointmentApproval = Boolean(applicantData?.hasPendingAppointmentApproval);
+  const hasPendingAppointmentApproval =
+    Boolean(applicantData?.hasPendingAppointmentApproval) || hasPendingEmbassyAppointmentApproval;
 
   return {
     hasPendingDocumentApproval: Number(docSummary.pendingCount || 0) > 0,
     hasRejectedDocument: Number(docSummary.rejectedCount || 0) > 0,
+    hasPendingEmbassyAppointmentApproval,
     hasPendingEmbassyInterviewApproval,
     hasPendingVisaCollectionApproval,
     hasPendingContractApproval,

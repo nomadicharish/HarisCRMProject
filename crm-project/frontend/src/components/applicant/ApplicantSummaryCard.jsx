@@ -25,12 +25,52 @@ function formatCreatedAt(createdAt) {
   }
 }
 
+function InfoIcon({ type }) {
+  if (type === "phone") {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.78 19.78 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.78 19.78 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.64 2.62a2 2 0 0 1-.45 2.11L8.03 9.97a16 16 0 0 0 6 6l1.52-1.27a2 2 0 0 1 2.11-.45c.84.31 1.72.52 2.62.64A2 2 0 0 1 22 16.92Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (type === "email") {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.7" />
+        <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  if (type === "address") {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" stroke="currentColor" strokeWidth="1.7" />
+        <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.7" />
+      </svg>
+    );
+  }
+  if (type === "company") {
+    return (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function ApplicantSummaryCard({
   applicant,
   pendingAmount,
   pendingDisplayValue,
   onEdit,
   canEdit,
+  onProfileClick,
   onPendingClick,
   agencyName: agencyNameOverride,
   countryName: countryNameOverride,
@@ -68,50 +108,28 @@ function ApplicantSummaryCard({
     "";
 
   const PendingContainer = onPendingClick ? "button" : "div";
+  const canOpenProfile = typeof onProfileClick === "function";
   const pendingValue = pendingDisplayValue || `INR ${pendingAmount ?? 0}`;
   const pendingCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
   const pendingCurrencySymbol = pendingValue === "-" ? "-" : getCurrencySymbol(pendingCurrency);
-  const InfoIcon = ({ type }) => {
-    if (type === "phone") {
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.78 19.78 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.78 19.78 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.12.9.33 1.78.64 2.62a2 2 0 0 1-.45 2.11L8.03 9.97a16 16 0 0 0 6 6l1.52-1.27a2 2 0 0 1 2.11-.45c.84.31 1.72.52 2.62.64A2 2 0 0 1 22 16.92Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    }
-    if (type === "email") {
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M4 6h16v12H4z" stroke="currentColor" strokeWidth="1.7" />
-          <path d="m4 7 8 6 8-6" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      );
-    }
-    if (type === "address") {
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z" stroke="currentColor" strokeWidth="1.7" />
-          <circle cx="12" cy="10" r="2.2" stroke="currentColor" strokeWidth="1.7" />
-        </svg>
-      );
-    }
-    if (type === "company") {
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-          <path d="M3 21h18M6 21V7a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v14M9 9h.01M9 12h.01M9 15h.01M15 9h.01M15 12h.01M15 15h.01" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-        </svg>
-      );
-    }
-    return (
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
-      </svg>
-    );
-  };
   return (
     <div className="applicantSideCard">
-      <div className="sideTop">
+      <div
+        className={`sideTop${canOpenProfile ? " sideTopActionable" : ""}`}
+        role={canOpenProfile ? "button" : undefined}
+        tabIndex={canOpenProfile ? 0 : undefined}
+        onClick={canOpenProfile ? onProfileClick : undefined}
+        onKeyDown={
+          canOpenProfile
+            ? (event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onProfileClick();
+                }
+              }
+            : undefined
+        }
+      >
         <div className="sideAvatar" aria-hidden="true">
           {photoUrl ? <img src={photoUrl} alt="" className="sideAvatarImage" /> : getInitials(fullName)}
         </div>
@@ -122,7 +140,15 @@ function ApplicantSummaryCard({
         </div>
 
         {canEdit ? (
-          <button className="iconBtn" type="button" onClick={onEdit} aria-label="Edit applicant">
+          <button
+            className="iconBtn"
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              onEdit?.();
+            }}
+            aria-label="Edit applicant"
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
               <path d="M12 12h.01M19 12h.01M5 12h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
             </svg>

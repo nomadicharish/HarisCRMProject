@@ -38,9 +38,12 @@ async function addEmbassyAppointmentUseCase(req) {
   const createdAt = new Date();
   const docRef = db.collection("applicants").doc(applicantId);
   const existingApplicantSnap = await docRef.get();
+  if (!existingApplicantSnap.exists) throw new AppError("Applicant not found", 404);
+  const existingApplicant = existingApplicantSnap.data() || {};
   const previousAppointmentFileUrl = existingApplicantSnap.exists
     ? existingApplicantSnap.data()?.embassyAppointment?.fileUrl || ""
     : "";
+  const status = req.user.role === "SUPER_USER" ? "APPROVED" : "PENDING";
 
   await docRef.set(
     {
@@ -48,11 +51,16 @@ async function addEmbassyAppointmentUseCase(req) {
         date: resolvedDate,
         time: resolvedTime,
         dateTime: appointmentDateTime,
-        fileUrl,
+        fileUrl: fileUrl || previousAppointmentFileUrl || "",
+        status,
+        approved: status === "APPROVED",
+        approvedBy: status === "APPROVED" ? req.user.uid : null,
+        approvedAt: status === "APPROVED" ? createdAt : null,
         createdBy: req.user.uid,
         createdByRole: req.user.role,
         createdAt
-      }
+      },
+      hasPendingAppointmentApproval: status === "PENDING"
     },
     { merge: true }
   );
@@ -61,10 +69,8 @@ async function addEmbassyAppointmentUseCase(req) {
     await deleteStorageFileIfExists(bucket, previousAppointmentFileUrl);
   }
 
-  const doc = await docRef.get();
-  const applicant = doc.data() || {};
-  const currentStage = Number(applicant.stage || 1);
-  if (currentStage === 6) {
+  const currentStage = Number(existingApplicant.stage || 1);
+  if (status === "APPROVED" && currentStage === 6) {
     await docRef.update({
       stage: 7,
       stageUpdatedAt: createdAt
@@ -82,6 +88,48 @@ async function addEmbassyAppointmentUseCase(req) {
   return { message: "Embassy appointment added" };
 }
 
+async function approveEmbassyAppointmentUseCase(req) {
+  const applicantId = req.params.id;
+  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve", 403);
+
+  const docRef = db.collection("applicants").doc(applicantId);
+  const docSnap = await docRef.get();
+  if (!docSnap.exists) throw new AppError("Applicant not found", 404);
+
+  const applicant = docSnap.data() || {};
+  if (!applicant.embassyAppointment) throw new AppError("Embassy appointment not found", 404);
+
+  const approvedAt = new Date();
+  const currentStage = Number(applicant.stage || 1);
+  const updatePayload = {
+    "embassyAppointment.status": "APPROVED",
+    "embassyAppointment.approved": true,
+    "embassyAppointment.approvedBy": req.user.uid,
+    "embassyAppointment.approvedAt": approvedAt,
+    hasPendingAppointmentApproval: false
+  };
+
+  if (currentStage < 7) {
+    updatePayload.stage = 7;
+    updatePayload.stageUpdatedAt = approvedAt;
+  }
+
+  await docRef.update(updatePayload);
+
+  if (currentStage < 7) {
+    await addStageLog({
+      applicantId,
+      fromStage: currentStage,
+      toStage: 7,
+      role: req.user.role,
+      action: "EMBASSY_APPOINTMENT_APPROVED"
+    });
+  }
+
+  await refreshApplicantDocumentSummary(applicantId);
+  return { message: "Embassy appointment approved" };
+}
+
 async function getEmbassyAppointmentUseCase(req) {
   const doc = await db.collection("applicants").doc(req.params.id).get();
   const appointment = doc.data()?.embassyAppointment || null;
@@ -93,7 +141,8 @@ async function getEmbassyAppointmentUseCase(req) {
       appointment.appointmentTime ||
       (appointment.dateTime ? String(appointment.dateTime).split("T")[1]?.slice(0, 5) : "") ||
       "",
-    createdAt: normalizeDate(appointment.createdAt)
+    createdAt: normalizeDate(appointment.createdAt),
+    approvedAt: normalizeDate(appointment.approvedAt)
   };
 }
 
@@ -229,7 +278,8 @@ async function getEmbassyWorkflowUseCase(req) {
             ? String(data.embassyAppointment.dateTime).split("T")[1]?.slice(0, 5)
             : "") ||
           "",
-        createdAt: normalizeDate(data.embassyAppointment.createdAt)
+        createdAt: normalizeDate(data.embassyAppointment.createdAt),
+        approvedAt: normalizeDate(data.embassyAppointment.approvedAt)
       }
     : null;
 
@@ -727,6 +777,7 @@ module.exports = {
   addVisaCollectionUseCase,
   addVisaCollectionTravelUseCase,
   addVisaTravelUseCase,
+  approveEmbassyAppointmentUseCase,
   approveVisaCollectionUseCase,
   getEmbassyWorkflowUseCase,
   getBiometricSlipUseCase,

@@ -344,6 +344,7 @@ function CompanyFormPage() {
     if (!validate()) return;
 
     try {
+      window.scrollTo({ top: 0, behavior: "auto" });
       setSaving(true);
       const jobPositions = form.jobPositions.map((position, index) => {
         const title = position.title.trim();
@@ -473,28 +474,47 @@ function CompanyFormPage() {
               <label>Add Standard Reference Document</label>
               <div className="companyFileHelp">{DOCUMENT_UPLOAD_HELP_TEXT}</div>
               <div className="companyStandardReferenceControls">
-                <label className="companyDocUploadCard">
-                  <input
-                    type="file"
-                    accept={ALLOWED_DOCUMENT_ACCEPT}
-                    onChange={(event) => {
-                      const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
-                      setForm((prev) => ({
-                        ...prev,
-                        standardReferenceFile: file,
-                        standardReferenceFileName: file?.name || prev.standardReferenceFileName
-                      }));
-                    }}
-                  />
-                  <span className="companyFileDropIcon"><UploadFileIcon /></span>
-                  <span>{form.standardReferenceFile?.name || form.standardReferenceFileName || "Choose document"}</span>
-                </label>
-                {form.standardReferenceUrl ? (
-                  <a className="companyDocFileAction companyDocFileActionView" href={form.standardReferenceUrl} target="_blank" rel="noreferrer">
-                    <ViewIcon />
-                    View
-                  </a>
-                ) : null}
+                <div className="companyTemplateCell">
+                  <label className="companyDocUploadCard">
+                    <input
+                      type="file"
+                      accept={ALLOWED_DOCUMENT_ACCEPT}
+                      onChange={(event) => {
+                        const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                        setForm((prev) => ({
+                          ...prev,
+                          standardReferenceFile: file,
+                          standardReferenceFileName: file?.name || prev.standardReferenceFileName
+                        }));
+                      }}
+                    />
+                    <span className="companyFileDropIcon"><UploadFileIcon /></span>
+                    <span>{form.standardReferenceFile?.name || form.standardReferenceFileName || "Choose document"}</span>
+                  </label>
+                  <div className="companyDocFileActions">
+                    {form.standardReferenceUrl ? (
+                      <a className="companyDocFileAction companyDocFileActionView" href={form.standardReferenceUrl} target="_blank" rel="noreferrer">
+                        <ViewIcon />
+                        View
+                      </a>
+                    ) : null}
+                    {form.standardReferenceFile || form.standardReferenceFileName || form.standardReferenceUrl ? (
+                      <button
+                        type="button"
+                        className="companyDocFileAction companyDocFileActionRemove"
+                        onClick={() => setForm((prev) => ({
+                          ...prev,
+                          standardReferenceFile: null,
+                          standardReferenceFileName: "",
+                          standardReferenceUrl: ""
+                        }))}
+                      >
+                        <TrashIcon />
+                        Remove
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

@@ -59,6 +59,8 @@ async function getApplicantByIdUseCase(req) {
     Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
     String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
     (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
+  const hasPendingEmbassyAppointmentApproval =
+    String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
   const hasPendingVisaCollectionApproval =
     String(applicantData?.visaCollection?.status || "").toUpperCase() === "PENDING";
   const hasRejectedSignedContractDocuments =
@@ -95,6 +97,7 @@ async function getApplicantByIdUseCase(req) {
       applicantData?.residencePermit?.fileUrl
     ),
     hasPendingEmbassyInterviewApproval,
+    hasPendingEmbassyAppointmentApproval,
     hasPendingVisaCollectionApproval,
     hasRejectedSignedContractDocuments,
     hasEmbassyAppointment: Boolean(
@@ -263,6 +266,8 @@ async function getApplicantWorkflowBundleUseCase(req) {
     Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
     String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
     (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
+  const hasPendingEmbassyAppointmentApproval =
+    String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
   const hasPendingVisaCollectionApproval =
     String(applicantData?.visaCollection?.status || "").toUpperCase() === "PENDING";
   const hasRejectedSignedContractDocuments =
@@ -316,6 +321,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
     hasVisaTravel,
     hasResidencePermit,
     hasPendingEmbassyInterviewApproval,
+    hasPendingEmbassyAppointmentApproval,
     hasPendingVisaCollectionApproval,
     hasRejectedSignedContractDocuments,
     hasEmbassyAppointment
@@ -336,7 +342,10 @@ async function getApplicantWorkflowBundleUseCase(req) {
     isContractPendingApproval: String(applicantData?.contract?.status || "").toUpperCase() === "PENDING",
     isEmbassyAppointmentCreated: Boolean(hasEmbassyAppointment),
     isEmbassyAppointmentApproved:
-      Boolean(applicantData?.embassyAppointment?.approved) || Number(applicantData?.stage || 1) >= 6,
+      String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "APPROVED" ||
+      Boolean(applicantData?.embassyAppointment?.approved) ||
+      Number(applicantData?.stage || 1) >= 7,
+    isEmbassyAppointmentPendingApproval: Boolean(hasPendingEmbassyAppointmentApproval),
     isEmbassyAppointmentCompleted: Number(applicantData?.stage || 1) >= 8,
     isTravelTicketUploaded: Boolean(hasTravelDetails),
     isBiometricCompleted: Boolean(hasBiometricSlip),

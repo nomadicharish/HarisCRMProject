@@ -28,15 +28,21 @@ function ApplicantProfileModalStack({
   setShowSignedContractModal,
   showEmbassyAppointmentModal,
   setShowEmbassyAppointmentModal,
+  editAppointmentTravel = false,
+  setEditAppointmentTravel,
   showBiometricSlipModal,
   setShowBiometricSlipModal,
   showEmbassyInterviewModal,
   setShowEmbassyInterviewModal,
+  editInterviewTravel = false,
+  setEditInterviewTravel,
   showInterviewBiometricModal,
   setShowInterviewBiometricModal,
   showVisaCollectionModal,
   setShowVisaCollectionModal,
   visaCollectionModalMode = "collection",
+  editVisaCollectionTravel = false,
+  setEditVisaCollectionTravel,
   showResidencePermitModal,
   setShowResidencePermitModal,
   showApplicantDetailsModal,
@@ -68,9 +74,14 @@ function ApplicantProfileModalStack({
       <EmbassyAppointment
         applicantId={id}
         user={user}
+        applicant={applicant}
         biometricSlip={biometricSlip || applicant?.biometricSlip || null}
         open={showEmbassyAppointmentModal}
-        onClose={() => setShowEmbassyAppointmentModal(false)}
+        initialEditTravel={editAppointmentTravel}
+        onClose={() => {
+          setShowEmbassyAppointmentModal(false);
+          setEditAppointmentTravel?.(false);
+        }}
         onUpdated={refreshWorkflowData}
       />
 
@@ -89,7 +100,11 @@ function ApplicantProfileModalStack({
         applicant={applicant}
         interviewBiometric={interviewBiometric || applicant?.interviewBiometric || null}
         open={showEmbassyInterviewModal}
-        onClose={() => setShowEmbassyInterviewModal(false)}
+        initialEditTravel={editInterviewTravel}
+        onClose={() => {
+          setShowEmbassyInterviewModal(false);
+          setEditInterviewTravel?.(false);
+        }}
         onUpdated={refreshWorkflowData}
       />
 
@@ -110,7 +125,11 @@ function ApplicantProfileModalStack({
         residencePermit={residencePermit || applicant?.residencePermit || null}
         mode={visaCollectionModalMode}
         open={showVisaCollectionModal}
-        onClose={() => setShowVisaCollectionModal(false)}
+        initialEditCollectionTravel={editVisaCollectionTravel}
+        onClose={() => {
+          setShowVisaCollectionModal(false);
+          setEditVisaCollectionTravel?.(false);
+        }}
         onUpdated={refreshWorkflowData}
       />
 
@@ -127,7 +146,7 @@ function ApplicantProfileModalStack({
         applicant={applicant}
         open={showApplicantDetailsModal}
         onClose={() => setShowApplicantDetailsModal(false)}
-        showPaymentDetails={!isEmployer}
+        showPaymentDetails={user?.role === "SUPER_USER" && !isEmployer}
         agencyName={user?.role === "SUPER_USER" ? resolvedAgencyName : ""}
         countryName={resolvedCountryName}
       />

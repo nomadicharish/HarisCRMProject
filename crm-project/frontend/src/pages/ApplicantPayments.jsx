@@ -9,7 +9,7 @@ import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getCached, invalidateCache, readCached, updateCached, writeCached } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import { getStoredUser } from "../utils/auth";
-import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import { formatCurrencyAmount, getCurrencySymbol, normalizeCurrency } from "../utils/currency";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/forms.css";
@@ -109,6 +109,7 @@ function ApplicantPayments() {
 
   const applicantPayment = paymentSummary?.applicant || {};
   const paymentCurrency = normalizeCurrency(applicantPayment.currency || applicant?.paymentCurrency || applicant?.currency);
+  const paymentCurrencySymbol = getCurrencySymbol(paymentCurrency);
   const formatPaymentCurrency = (value, withDecimals = false) =>
     formatCurrencyAmount(value, paymentCurrency, withDecimals);
   const pendingAmount = applicantPayment.pendingInr ?? applicantPayment.pending ?? 0;
@@ -271,6 +272,7 @@ function ApplicantPayments() {
             pendingAmount={sidebarProfile?.pendingAmount ?? pendingAmount}
             pendingDisplayValue={formatPaymentCurrency(sidebarProfile?.pendingAmount ?? pendingAmount)}
             onPendingClick={() => navigate(`/applicants/${id}/payments`)}
+            onProfileClick={() => navigate(`/applicants/${id}`)}
             agencyName={sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || ""}
             countryName={sidebarProfile?.countryName || applicant?.countryName || applicant?.country || ""}
             showAgency={Boolean((sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || applicant?.agencyId))}
@@ -379,13 +381,16 @@ function ApplicantPayments() {
                   <label className="contractUploadLabel" htmlFor="payment-amount">
                     Paid Amount
                   </label>
-                  <input
-                    id="payment-amount"
-                    type="text"
-                    value={form.amount}
-                    onChange={(event) => handleInputChange("amount", event.target.value)}
-                    placeholder="Enter paid amount"
-                  />
+                  <div className="paymentAmountInputWrap">
+                    <span className="paymentAmountPrefix">{paymentCurrencySymbol}</span>
+                    <input
+                      id="payment-amount"
+                      type="text"
+                      value={form.amount}
+                      onChange={(event) => handleInputChange("amount", event.target.value)}
+                      placeholder="Enter paid amount"
+                    />
+                  </div>
                 </div>
 
                 <div className="input-field">

@@ -188,6 +188,12 @@ router.post(
   asyncHandler(applicantController.addEmbassyAppointment)
 );
 
+router.patch(
+  "/:id/embassy-appointment/approve",
+  validate(idParamsSchema, "params"),
+  asyncHandler(applicantController.approveEmbassyAppointment)
+);
+
 // Get Embassy Appointment
 router.get(
   "/:id/embassy-appointment",

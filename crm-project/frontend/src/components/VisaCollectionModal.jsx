@@ -4,7 +4,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
-import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
@@ -103,7 +103,18 @@ function DetailRow({ label, value, action }) {
   );
 }
 
-function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollectionTravel, residencePermit, mode = "collection", open, onClose, onUpdated }) {
+function VisaCollectionModal({
+  applicantId,
+  user,
+  applicant,
+  fallbackVisaCollectionTravel,
+  residencePermit,
+  mode = "collection",
+  open,
+  onClose,
+  onUpdated,
+  initialEditCollectionTravel = false
+}) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
   };
@@ -131,6 +142,8 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
   const [removeTravelFile, setRemoveTravelFile] = useState(false);
   const [removeBusTicketFile, setRemoveBusTicketFile] = useState(false);
   const [editingArrivalDetails, setEditingArrivalDetails] = useState(false);
+  const [editingCollectionDetails, setEditingCollectionDetails] = useState(false);
+  const [editingCollectionTravel, setEditingCollectionTravel] = useState(false);
 
   const hasResidencePermit = Boolean(
     residencePermitData?.trpUrl || residencePermitData?.fileUrl || residencePermitData?.frontUrl || residencePermitData?.backUrl
@@ -148,9 +161,7 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
     user?.role === "AGENCY" &&
     Number(applicant?.stage || 1) >= 11 &&
     visaCollection?.status === "APPROVED" &&
-    !visaCollectionTravel;
-  const pendingAmount = applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0;
-  const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
+    (!visaCollectionTravel || editingCollectionTravel);
   const canAddTicket =
     isApplicantTravelMode &&
     user?.role === "AGENCY" &&
@@ -164,6 +175,7 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
     Boolean(visaTravel) &&
     editingArrivalDetails;
   const isBusy = savingCollection || savingTicket;
+  const showCollectionForm = canEditCollection && (!visaCollection || editingCollectionDetails);
 
   const loadData = useCallback(async () => {
     try {
@@ -230,8 +242,10 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
       setBusTicketFile(null);
       setRemoveTravelFile(false);
       setRemoveBusTicketFile(false);
+      setEditingCollectionDetails(false);
+      setEditingCollectionTravel(Boolean(initialEditCollectionTravel));
     }
-  }, [open, applicantId, loadData]);
+  }, [open, applicantId, loadData, initialEditCollectionTravel]);
 
   const title = useMemo(() => {
     if (isApplicantTravelMode) return "Applicant Arrival Details";
@@ -239,18 +253,18 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
     return "Visa Collection Details";
   }, [isApplicantTravelMode, visaCollection]);
 
-  const handleSaveCollection = async () => {
+  const handleSaveCollection = async ({ closeAfter = true, refreshAfter = true } = {}) => {
     const formattedDate = formatDateForInput(collectionDate);
     const trimmedTime = typeof collectionTime === "string" ? collectionTime.trim() : "";
 
     if (!formattedDate || !trimmedTime) {
       toast.error("Visa collection date and time are required");
-      return;
+      return false;
     }
     const fileValidation = validateDocumentFiles([collectionDocumentFile]);
     if (!fileValidation.valid) {
       toast.error(fileValidation.message);
-      return;
+      return false;
     }
 
     try {
@@ -260,13 +274,22 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
       formData.append("time", trimmedTime);
       if (collectionDocumentFile) formData.append("file", collectionDocumentFile);
       await API.post(`/applicants/${applicantId}/visa-collection`, formData);
-      if (typeof onUpdated === "function") await onUpdated();
-      if (typeof onClose === "function") onClose();
+      if (refreshAfter && typeof onUpdated === "function") await onUpdated();
+      if (closeAfter && typeof onClose === "function") onClose();
+      return true;
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to save visa collection");
+      return false;
     } finally {
       setSavingCollection(false);
+    }
+  };
+
+  const handleUpdateAndApproveCollection = async () => {
+    const saved = await handleSaveCollection({ closeAfter: false, refreshAfter: false });
+    if (saved) {
+      await handleApprove();
     }
   };
 
@@ -388,10 +411,10 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
           </div>
         ) : (
           <>
-            {(isCollectionMode && visaCollection) || (isApplicantTravelMode && visaTravel && !editingArrivalDetails) ? (
+            {(isCollectionMode && visaCollection && !showCollectionForm) || (isApplicantTravelMode && visaTravel && !editingArrivalDetails) ? (
               <div className="workflowModalBody">
                 <div className="workflowDetailStack">
-                  {isCollectionMode && visaCollection ? (
+                  {isCollectionMode && visaCollection && !showCollectionForm ? (
                     <DetailCard
                       title="Visa Collection Details"
                       icon={(
@@ -416,7 +439,7 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                     </DetailCard>
                   ) : null}
 
-                  {isCollectionMode && visaCollectionTravel ? (
+                  {isCollectionMode && visaCollectionTravel && !showCollectionForm ? (
                     <DetailCard
                       title="Travel Details"
                       icon={(
@@ -440,7 +463,7 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                     </DetailCard>
                   ) : null}
 
-                  {isCollectionMode && hasResidencePermit ? (
+                  {isCollectionMode && hasResidencePermit && !showCollectionForm ? (
                     <DetailCard
                       title="TRP Details"
                       icon={(
@@ -528,6 +551,9 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                       ) : null}
                     </DetailCard>
                   ) : null}
+                  {isCollectionMode && visaCollection && !showCollectionForm ? (
+                    <WorkflowPaymentStatus applicant={applicant} requiredPercent={100} user={user} />
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -549,18 +575,7 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
               </div>
             ) : null}
 
-            {canApprove ? (
-              <div className="workflowModalBody">
-                <div className="contractInfoCard">
-                  <div className="contractInfoRow">
-                    <span>Pending Amount</span>
-                    <strong>{formatCurrencyAmount(pendingAmount, paymentCurrency, true)}</strong>
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            {canEditCollection ? (
+            {showCollectionForm ? (
               <div className="workflowModalBody">
               <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractFormGrid">
@@ -617,21 +632,52 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
+                {visaCollection ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={100} user={user} /> : null}
 
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
-                  <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={onClose}>
+                  <button
+                    type="button"
+                    className="btn btnSecondary"
+                    disabled={isBusy}
+                    onClick={visaCollection ? () => setEditingCollectionDetails(false) : onClose}
+                  >
                     Cancel
                   </button>
-                  <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveCollection}>
-                    {savingCollection ? "Saving..." : visaCollection ? "Update Visa Collection" : "Add Visa Collection"}
+                  <button
+                    type="button"
+                    className="btn btnPrimary"
+                    disabled={isBusy}
+                    onClick={canApprove && visaCollection ? handleUpdateAndApproveCollection : handleSaveCollection}
+                  >
+                    {savingCollection
+                      ? "Saving..."
+                      : canApprove && visaCollection
+                      ? "Update & Approve"
+                      : visaCollection
+                      ? "Update Visa Collection"
+                      : "Add Visa Collection"}
                   </button>
-                  {canApprove ? (
-                    <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApprove}>
-                      {savingCollection ? "Approving..." : "Approve Visa Collection"}
-                    </button>
-                  ) : null}
                 </div>
               </div>
+              </div>
+            ) : null}
+
+            {isCollectionMode && visaCollection && !showCollectionForm && !canAddCollectionTravel ? (
+              <div className="workflowModalFooter">
+                {canEditCollection ? (
+                  <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingCollectionDetails(true)}>
+                    Edit
+                  </button>
+                ) : null}
+                {canApprove ? (
+                  <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApprove}>
+                    {savingCollection ? "Approving..." : "Approve Visa Collection"}
+                  </button>
+                ) : (
+                  <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                    Close
+                  </button>
+                )}
               </div>
             ) : null}
 
@@ -709,8 +755,13 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
 
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveCollectionTravel}>
-                    {savingCollection ? "Saving..." : visaCollectionTravel ? "Update Travel Details" : "Save Travel Details"}
+                    {savingCollection ? "Saving..." : visaCollectionTravel ? "Update Travel" : "Save Travel Details"}
                   </button>
+                  {visaCollectionTravel ? (
+                    <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={() => setEditingCollectionTravel(false)}>
+                      Cancel
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ) : null}
@@ -929,7 +980,7 @@ function VisaCollectionModal({ applicantId, user, applicant, fallbackVisaCollect
               </div>
             ) : null}
 
-            {!canAddTicket && !canUpdateTicket && !canAddCollectionTravel ? (
+            {!canAddTicket && !canUpdateTicket && !canAddCollectionTravel && !(isCollectionMode && visaCollection) && !showCollectionForm ? (
               <div className="workflowModalFooter">
                 <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
                   Close
