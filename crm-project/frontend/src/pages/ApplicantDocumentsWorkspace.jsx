@@ -336,7 +336,8 @@ function ApplicantDocumentsWorkspace() {
   const pendingReviewDocs = visibleDocs
     .map((doc) => ({ doc, latest: getLatestVersion(documents?.[doc.key] || []) }))
     .filter(({ latest }) => latest?.status === "PENDING");
-  const canApproveAll = canReview && pendingReviewDocs.length > 0;
+  const isDocumentUploadStageCompleted = Number(applicant?.stage || 1) > 2;
+  const canApproveAll = canReview && !allRequiredApproved && !isDocumentUploadStageCompleted && pendingReviewDocs.length > 0;
 
   const handleSendForApproval = async () => {
     const uploads = Object.entries(selectedFiles)
@@ -541,7 +542,7 @@ function ApplicantDocumentsWorkspace() {
                   <div className="docsStandardReferenceText">Kindly refer this document before preparing your documents.</div>
                 </div>
               ) : null}
-              {canReview ? (
+              {canApproveAll ? (
                 <div className="docsReviewBulkActions">
                   <button
                     type="button"

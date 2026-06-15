@@ -21,6 +21,72 @@ function parseList(value) {
     .filter(Boolean);
 }
 
+function parseDateBoundary(value, endOfDay = false) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  if (endOfDay) date.setHours(23, 59, 59, 999);
+  else date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function toDate(value) {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") return value.toDate();
+  if (typeof value === "object" && value._seconds) return new Date(value._seconds * 1000);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isWithinRange(date, fromDate, toDate) {
+  if (!date) return false;
+  if (fromDate && date < fromDate) return false;
+  if (toDate && date > toDate) return false;
+  return true;
+}
+
+function hasResidencePermit(applicant) {
+  const permit = applicant?.residencePermit || {};
+  return Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl || permit.frontFileUrl || permit.backFileUrl);
+}
+
+function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
+  const now = new Date();
+  const appointmentDate = firstDate(applicant?.embassyAppointment?.dateTime, applicant?.embassyAppointment?.date, applicant?.embassyAppointment?.createdAt);
+  const interviewDate = firstDate(applicant?.embassyInterview?.dateTime, applicant?.embassyInterview?.date, applicant?.embassyInterview?.createdAt);
+  const visaCollectionDate = firstDate(applicant?.visaCollection?.dateTime, applicant?.visaCollection?.date, applicant?.visaCollection?.createdAt);
+  const arrivalDate = firstDate(applicant?.visaTravel?.dateTime, applicant?.visaTravel?.date, applicant?.visaTravel?.createdAt);
+
+  switch (filter) {
+    case "arriving":
+      return isWithinRange(arrivalDate, fromDate, toDate);
+    case "visa_collection":
+      return isWithinRange(visaCollectionDate, fromDate, toDate);
+    case "embassy_interview":
+      return isWithinRange(interviewDate, fromDate, toDate);
+    case "embassy_appointment":
+      return isWithinRange(appointmentDate, fromDate, toDate);
+    case "pending_payment":
+      return Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0) > 0;
+    case "trp_pending":
+      return Boolean(visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(applicant));
+    case "interview_biometric_pending":
+      return Boolean(interviewDate && interviewDate < now && !applicant?.interviewBiometric?.fileUrl);
+    case "appointment_biometric_pending":
+      return Boolean(appointmentDate && appointmentDate < now && !applicant?.biometricSlip?.fileUrl);
+    default:
+      return true;
+  }
+}
+
+function firstDate(...values) {
+  for (const value of values) {
+    const date = toDate(value);
+    if (date) return date;
+  }
+  return null;
+}
+
 function sortByCreatedAtDesc(items = []) {
   return [...items].sort((a, b) => {
     const aDate = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
@@ -383,7 +449,7 @@ async function getApplicantsFirestorePage({
   };
 }
 
-function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters }) {
+function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate }) {
   let applicants = [...items];
   if (searchQuery) {
     applicants = applicants.filter((applicant) =>
@@ -412,6 +478,9 @@ function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilt
         return applicant.workflowStatus === type;
       })
     );
+  }
+  if (dashboardFilter) {
+    applicants = applicants.filter((applicant) => matchesDashboardFilter(applicant, dashboardFilter, fromDate, toDate));
   }
   return applicants;
 }
@@ -454,6 +523,10 @@ async function getApplicantsUseCase(req) {
   const companyFilters = parseList(req.query?.company);
   const agencyFilters = parseList(req.query?.agency);
   const typeFilters = parseList(req.query?.type);
+  const dashboardFilter = String(req.query?.dashboardFilter || "").trim();
+  const fromDate = parseDateBoundary(req.query?.fromDate, false);
+  const toDate = parseDateBoundary(req.query?.toDate, true);
+  const effectiveLiteMode = dashboardFilter ? false : liteMode;
 
   if (!userId) {
     throw new AppError("Unauthorized", 401);
@@ -462,7 +535,7 @@ async function getApplicantsUseCase(req) {
   if (canUseFirestorePaginatedPath({
     paginated,
     searchQuery,
-    typeFilters,
+    typeFilters: dashboardFilter || fromDate || toDate ? ["dashboard"] : typeFilters,
     countryFilters,
     companyFilters,
     agencyFilters,
@@ -490,7 +563,7 @@ async function getApplicantsUseCase(req) {
     mapApplicant({
       doc,
       userRole,
-      liteMode,
+      liteMode: effectiveLiteMode,
       companyIdToName,
       countryIdToName,
       agencyIdToName,
@@ -504,7 +577,10 @@ async function getApplicantsUseCase(req) {
     countryFilters,
     companyFilters,
     agencyFilters,
-    typeFilters
+    typeFilters,
+    dashboardFilter,
+    fromDate,
+    toDate
   });
 
   return paginateApplicants(filtered, {

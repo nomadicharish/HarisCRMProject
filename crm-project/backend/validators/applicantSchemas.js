@@ -176,7 +176,10 @@ const applicantsListQuerySchema = z.object({
   type: optionalTrimmedString.optional().default(""),
   country: optionalTrimmedString.optional().default(""),
   company: optionalTrimmedString.optional().default(""),
-  agency: optionalTrimmedString.optional().default("")
+  agency: optionalTrimmedString.optional().default(""),
+  dashboardFilter: optionalTrimmedString.optional().default(""),
+  fromDate: optionalTrimmedString.optional().default(""),
+  toDate: optionalTrimmedString.optional().default("")
 });
 
 module.exports = {

@@ -424,8 +424,7 @@ function VisaCollectionModal({
                         </svg>
                       )}
                     >
-                      <DetailRow label="Visa Collection Date" value={formatDate(visaCollection.date)} />
-                      <DetailRow label="Visa Collection Time" value={formatTime(visaCollection.time)} />
+                      <DetailRow label="Visa Collection Date & Time" value={`${formatDate(visaCollection.date)} ${formatTime(visaCollection.time)}`} />
                       {visaCollection.documentUrl ? (
                         <DetailRow
                           label="Document"
@@ -448,8 +447,7 @@ function VisaCollectionModal({
                         </svg>
                       )}
                     >
-                      <DetailRow label="Travel Date" value={formatDate(visaCollectionTravel.date)} />
-                      <DetailRow label="Travel Time" value={formatTime(visaCollectionTravel.time)} />
+                      <DetailRow label="Travel Date & Time" value={`${formatDate(visaCollectionTravel.date)} ${formatTime(visaCollectionTravel.time)}`} />
                       {visaCollectionTravel.fileUrl ? (
                         <DetailRow
                           label="Travel Ticket"
@@ -551,7 +549,7 @@ function VisaCollectionModal({
                       ) : null}
                     </DetailCard>
                   ) : null}
-                  {isCollectionMode && visaCollection && !showCollectionForm ? (
+                  {isCollectionMode && visaCollection && !showCollectionForm && canApprove ? (
                     <WorkflowPaymentStatus applicant={applicant} requiredPercent={100} user={user} />
                   ) : null}
                 </div>
@@ -632,7 +630,7 @@ function VisaCollectionModal({
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
-                {visaCollection ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={100} user={user} /> : null}
+                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={100} user={user} /> : null}
 
                 <div className="contractActionRow workflowActionRow workflowActionRowEnd">
                   <button

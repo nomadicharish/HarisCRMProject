@@ -373,7 +373,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                       <DetailRow label="Uploaded On" value={formatDateTime(resolvedInterviewBiometric.uploadedAt)} />
                     </DetailCard>
                   ) : null}
-                  <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} />
+                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
                 </div>
               </div>
             ) : null}
@@ -435,7 +435,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
-                {interview ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
+                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
 
                 <div className="contractActionRow">
                   {interview ? (

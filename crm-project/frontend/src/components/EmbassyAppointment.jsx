@@ -376,7 +376,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                       />
                     </DetailCard>
                   ) : null}
-                  <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} />
+                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
                 </div>
               </div>
             ) : null}
@@ -440,7 +440,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
-                {appointment ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
+                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
 
                 <div className="contractActionRow">
                   {appointment ? (
