@@ -2,6 +2,7 @@ const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { getAuthenticatedUserFromReq } = require("../../services/applicantDomainService");
+const { recordAgencyTask } = require("../../services/notificationService");
 const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
 const { getCompanyDocumentsForApplicant, normalizeAllowedDocumentExtensions } = require("../../utils/normalizers");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
@@ -158,6 +159,13 @@ async function uploadDocumentByTypeUseCase(req) {
   await deleteStorageFileIfExists(bucket, previousFileUrl);
 
   await refreshApplicantDocumentSummary(applicantId);
+  const applicantSnap = await db.collection("applicants").doc(applicantId).get();
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+    user: req.user,
+    actionKey: "DOCUMENT_UPLOADED"
+  });
   return { message: "Document uploaded successfully", fileUrl };
 }
 
@@ -266,6 +274,13 @@ async function uploadDocumentGenericUseCase(req) {
   await deleteStorageFileIfExists(bucket, previousVersionFileUrl);
 
   await refreshApplicantDocumentSummary(id);
+  const applicantSnap = await db.collection("applicants").doc(id).get();
+  await recordAgencyTask({
+    applicantId: id,
+    applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+    user: req.user,
+    actionKey: "DOCUMENT_UPLOADED"
+  });
   return { message: "Uploaded successfully" };
 }
 

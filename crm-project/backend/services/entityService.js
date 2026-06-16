@@ -465,7 +465,7 @@ async function addAgency(payload) {
     createdAt: new Date()
   });
 
-  await createLinkedUserAccount({
+  const linkedUser = await createLinkedUserAccount({
     email: payload.email,
     name: payload.name,
     role: "AGENCY",
@@ -473,7 +473,7 @@ async function addAgency(payload) {
     contactNumber: payload.contactNumber
   });
 
-  return { message: "Agency added", id: docRef.id };
+  return { message: "Agency added", id: docRef.id, welcomeEmail: linkedUser.welcomeEmail };
 }
 
 async function updateAgency(id, payload) {
@@ -543,7 +543,7 @@ async function addEmployer(payload) {
     createdAt: new Date()
   });
 
-  await createLinkedUserAccount({
+  const linkedUser = await createLinkedUserAccount({
     email: payload.email,
     name: payload.name,
     role: "EMPLOYER",
@@ -560,7 +560,7 @@ async function addEmployer(payload) {
     );
   }
 
-  return { message: "Employer added", id: docRef.id };
+  return { message: "Employer added", id: docRef.id, welcomeEmail: linkedUser.welcomeEmail };
 }
 
 async function updateEmployer(id, payload) {

@@ -9,6 +9,7 @@ import AgenciesTable from "../components/dashboard/AgenciesTable";
 import DashboardFiltersSidebar from "../components/dashboard/DashboardFiltersSidebar";
 import DashboardResultsHeader from "../components/dashboard/DashboardResultsHeader";
 import PageLoader from "../components/common/PageLoader";
+import BlockingLoader from "../components/common/BlockingLoader";
 import { getCached, hasFreshCache, invalidateCache, prefetchCached } from "../services/cachedApi";
 import API from "../services/api";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
@@ -125,7 +126,7 @@ function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
   );
 }
 
-function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onApply, onOpenFilter, onViewAll }) {
+function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onApply, onOpenFilter, onViewAll, applying }) {
   const upcoming = summary?.upcoming || {};
   const overdue = summary?.overdue || {};
   const payments = summary?.payments || {};
@@ -135,6 +136,7 @@ function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onA
 
   return (
     <main className="dashboardHome">
+      <BlockingLoader open={applying} label="Loading dashboard..." />
       <section className="homeSection homePaymentSection">
         {/* <h2>Pending Payment Overview</h2> */}
         <button type="button" className="homePaymentCard" onClick={() => onOpenFilter("pending_payment", false)}>
@@ -182,7 +184,9 @@ function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onA
               isClearable
               customInput={<HomeDatePickerInput placeholder="To date" ariaLabel="To date" />}
             />
-            <button type="button" className="dashboardPrimaryBtn" onClick={onApply}>Apply</button>
+            <button type="button" className="dashboardPrimaryBtn" onClick={onApply} disabled={applying}>
+              {applying ? "Loading..." : "Apply"}
+            </button>
           </div>
           {dateError ? <div className="homeDateError">{dateError}</div> : null}
         </div>
@@ -310,6 +314,7 @@ function ApplicantsDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const [isExporting, setIsExporting] = useState(false);
   const [homeSummary, setHomeSummary] = useState(null);
+  const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const defaultHomeRange = useMemo(() => getDefaultHomeRange(), []);
   const [homeDateDraft, setHomeDateDraft] = useState(defaultHomeRange);
   const [homeDateError, setHomeDateError] = useState("");
@@ -542,6 +547,7 @@ function ApplicantsDashboard() {
     } finally {
       setHasLoadedOnce(true);
       setLoading(false);
+      setHomeApplyLoading(false);
     }
   }, [
     activeTab,
@@ -960,6 +966,7 @@ function ApplicantsDashboard() {
       return;
     }
 
+    setHomeApplyLoading(true);
     const next = new URLSearchParams(searchParams);
     next.set("fromDate", nextFromDate);
     next.set("toDate", nextToDate);
@@ -1215,6 +1222,7 @@ function ApplicantsDashboard() {
             onApply={applyHomeDateRange}
             onOpenFilter={openHomeFilter}
             onViewAll={() => handleTabChange("applicants")}
+            applying={homeApplyLoading}
           />
         ) : (
           <>

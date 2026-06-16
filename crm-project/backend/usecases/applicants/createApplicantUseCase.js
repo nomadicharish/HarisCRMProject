@@ -1,6 +1,7 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
+const { recordAgencyTask } = require("../../services/notificationService");
 const {
   buildApplicantListDerivedFields,
   getAuthenticatedUserFromReq,
@@ -119,6 +120,12 @@ async function createApplicantUseCase(req) {
   const applicantId = docRef.id;
 
   await refreshApplicantSummaries(applicantId, applicant);
+  await recordAgencyTask({
+    applicantId,
+    applicant,
+    user: req.user,
+    actionKey: "APPLICANT_ADDED"
+  });
 
   return {
     message: "Applicant created successfully",

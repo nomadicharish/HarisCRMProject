@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import ConfirmActionModal from "../common/ConfirmActionModal";
 import Select from "react-select";
 import PhoneInput from "react-phone-input-2";
+import { toast } from "react-toastify";
 import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
@@ -102,6 +103,14 @@ const INITIAL_FORM = {
 };
 
 const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
+
+function getWelcomeEmailWarning(welcomeEmail) {
+  if (!welcomeEmail?.skipped) return "";
+  if (welcomeEmail.reason === "smtp_not_configured") {
+    return "Account created, but welcome email was not sent because SMTP is not configured.";
+  }
+  return "Account created, but welcome email could not be sent.";
+}
 
 function TrashIcon() {
   return (
@@ -265,6 +274,8 @@ function EntityFormModal({
         }
       } else {
         const response = await API.post(config.createEndpoint, payload);
+        const welcomeEmailWarning = getWelcomeEmailWarning(response?.data?.welcomeEmail);
+        
         if (typeof onSaved === "function") {
           await onSaved({
             operation: "create",

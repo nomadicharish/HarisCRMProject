@@ -2351,10 +2351,16 @@
 }
 
 .dashboardHome{
+  position:relative;
   grid-column:1 / -1;
   width:100%;
   padding:0px 12px 34px;
   box-sizing:border-box;
+}
+
+.homeDateControls .dashboardPrimaryBtn:disabled{
+  opacity:0.72;
+  cursor:not-allowed;
 }
 
 .homeDateCard{

@@ -18,7 +18,23 @@ const {
   autoAdvanceStage,
   getRequiredDocumentTypes
 } = require("../../services/applicantWorkflowStageService");
+const {
+  recordAdminApproval,
+  recordEmployerWorkflowInitiated
+} = require("../../services/notificationService");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+
+const GENERIC_EMPLOYER_ACTIONS = {
+  EMBASSY_APPOINTMENT: "EMBASSY_APPOINTMENT_INITIATED",
+  EMBASSY_INTERVIEW: "EMBASSY_INTERVIEW_INITIATED",
+  VISA_COLLECTION: "VISA_COLLECTION_INITIATED"
+};
+
+const GENERIC_ADMIN_ACTIONS = {
+  EMBASSY_APPOINTMENT: "EMBASSY_APPOINTMENT_APPROVED",
+  EMBASSY_INTERVIEW: "EMBASSY_INTERVIEW_APPROVED",
+  VISA_COLLECTION: "VISA_COLLECTION_APPROVED"
+};
 
 async function addAppointmentUseCase(req) {
   const { applicantId, type } = req.params;
@@ -50,6 +66,15 @@ async function addAppointmentUseCase(req) {
     { merge: true }
   );
   await refreshApplicantDocumentSummary(applicantId);
+  if (GENERIC_EMPLOYER_ACTIONS[type]) {
+    const applicantSnap = await db.collection("applicants").doc(applicantId).get();
+    await recordEmployerWorkflowInitiated({
+      applicantId,
+      applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+      user: req.user,
+      actionKey: GENERIC_EMPLOYER_ACTIONS[type]
+    });
+  }
   return { message: "Appointment added successfully" };
 }
 
@@ -101,6 +126,16 @@ async function approveAppointmentUseCase(req) {
         await autoAdvanceStage(applicantId, newStage, `AUTO_AFTER_${type}_APPROVAL`);
       }
     }
+  }
+
+  if (GENERIC_ADMIN_ACTIONS[type]) {
+    const applicantSnap = await applicantRef.get();
+    await recordAdminApproval({
+      applicantId,
+      applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+      user: req.user,
+      actionKey: GENERIC_ADMIN_ACTIONS[type]
+    });
   }
 
   return { message: "Appointment approved and stage updated if applicable" };

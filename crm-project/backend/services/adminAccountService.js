@@ -1,11 +1,19 @@
 const { admin, db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
+const { logger } = require("../lib/logger");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
 const { decryptText, encryptText } = require("../utils/crypto");
 const { DEFAULT_ENTITY_PASSWORD, readEncryptedUserContactNumber, readEncryptedUserEmail } = require("./accountService");
 const { ensureUniqueEntityDetails } = require("./entityService");
 const { sendEmail } = require("./emailService");
 const { ADMIN_ROLE } = require("../utils/roles");
+
+const DEFAULT_APP_LOGIN_URL = "http://localhost:5173/login";
+
+function getAppLoginUrl() {
+  if (process.env.APP_LOGIN_URL) return String(process.env.APP_LOGIN_URL).trim();
+  return String(process.env.FRONTEND_URL || DEFAULT_APP_LOGIN_URL).replace(/\/$/, "") + "/login";
+}
 
 async function mapAdminDoc(doc) {
   const data = doc.data() || {};
@@ -29,22 +37,15 @@ async function listAdmins() {
 }
 
 async function sendWelcomeEmail({ email, name }) {
-  let resetLink = "";
-  try {
-    resetLink = await admin.auth().generatePasswordResetLink(email);
-  } catch {
-    resetLink = "";
-  }
-
   const subject = "Welcome to Talent Acquisition CRM";
   const greetingName = name || "Admin";
+  const loginUrl = getAppLoginUrl();
   const text = [
     `Hi ${greetingName},`,
     "",
     "Your admin account has been created for Talent Acquisition CRM.",
-    resetLink
-      ? `Set your password using this link: ${resetLink}`
-      : `Temporary password: ${DEFAULT_ENTITY_PASSWORD}`,
+    `Login here: ${loginUrl}`,
+    `Temporary password: ${DEFAULT_ENTITY_PASSWORD}`,
     "",
     "Please sign in and update your password."
   ].join("\n");
@@ -52,11 +53,8 @@ async function sendWelcomeEmail({ email, name }) {
   const html = `
     <p>Hi ${greetingName},</p>
     <p>Your admin account has been created for Talent Acquisition CRM.</p>
-    <p>${
-      resetLink
-        ? `<a href="${resetLink}">Set your password</a>`
-        : `Temporary password: <strong>${DEFAULT_ENTITY_PASSWORD}</strong>`
-    }</p>
+    <p><a href="${loginUrl}">Open Talent Acquisition CRM</a></p>
+    <p>Temporary password: <strong>${DEFAULT_ENTITY_PASSWORD}</strong></p>
     <p>Please sign in and update your password.</p>
   `;
 
@@ -115,12 +113,23 @@ async function createAdmin({ name, email, contactNumber, whatsappNumber = "" }) 
     throw error;
   }
 
-  const emailResult = await sendWelcomeEmail({ email: normalizedEmail, name: normalizedName });
+  let emailResult;
+  try {
+    emailResult = await sendWelcomeEmail({ email: normalizedEmail, name: normalizedName });
+  } catch (error) {
+    logger.error("Admin welcome email failed", {
+      email: normalizedEmail,
+      message: error?.message,
+      stack: error?.stack
+    });
+    emailResult = { skipped: true, reason: "send_failed" };
+  }
 
   return {
     message: "Admin added successfully",
     admin: await mapAdminDoc(await db.collection("users").doc(userRecord.uid).get()),
-    email: emailResult?.skipped ? emailResult : { sent: true }
+    email: emailResult?.skipped ? emailResult : { sent: true },
+    welcomeEmail: emailResult?.skipped ? emailResult : { sent: true }
   };
 }
 

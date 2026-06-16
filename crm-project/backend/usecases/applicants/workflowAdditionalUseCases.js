@@ -5,6 +5,11 @@ const { refreshApplicantDocumentSummary } = require("../../services/applicantSum
 const { addStageLog } = require("../../services/applicantWorkflowStageService");
 const { readEncryptedUserEmail } = require("../../services/accountService");
 const { sendEmail } = require("../../services/emailService");
+const {
+  recordAdminApproval,
+  recordAgencyTask,
+  recordEmployerWorkflowInitiated
+} = require("../../services/notificationService");
 const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { ADMIN_ROLE, isSuperUserLikeRole } = require("../../utils/roles");
@@ -86,6 +91,12 @@ async function addEmbassyAppointmentUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordEmployerWorkflowInitiated({
+    applicantId,
+    applicant: existingApplicant,
+    user: req.user,
+    actionKey: "EMBASSY_APPOINTMENT_INITIATED"
+  });
   return { message: "Embassy appointment added" };
 }
 
@@ -128,6 +139,12 @@ async function approveEmbassyAppointmentUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAdminApproval({
+    applicantId,
+    applicant,
+    user: req.user,
+    actionKey: "EMBASSY_APPOINTMENT_APPROVED"
+  });
   return { message: "Embassy appointment approved" };
 }
 
@@ -251,6 +268,12 @@ async function uploadBiometricSlipUseCase(req) {
   });
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAgencyTask({
+    applicantId,
+    applicant: docSnap.data() || {},
+    user: req.user,
+    actionKey: "EMBASSY_APPOINTMENT_COMPLETED"
+  });
   return { message: "Biometric slip uploaded & stage completed" };
 }
 
@@ -332,7 +355,7 @@ function hasVisaCollectionStageDetails(applicant = {}) {
 
 async function advanceToApplicantArrivalIfReady(applicantRef, applicantId) {
   const snap = await applicantRef.get();
-  if (!snap.exists) return;
+  if (!snap.exists) return false;
   const applicant = snap.data() || {};
   const currentStage = Number(applicant.stage || 1);
   if (currentStage === 11 && hasVisaCollectionStageDetails(applicant)) {
@@ -347,7 +370,9 @@ async function advanceToApplicantArrivalIfReady(applicantRef, applicantId) {
       role: "SYSTEM",
       action: "VISA_COLLECTION_COMPLETION_DETAILS_SAVED"
     });
+    return true;
   }
+  return false;
 }
 
 async function addVisaCollectionUseCase(req) {
@@ -409,6 +434,12 @@ async function addVisaCollectionUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordEmployerWorkflowInitiated({
+    applicantId,
+    applicant: docSnap.data() || {},
+    user: req.user,
+    actionKey: "VISA_COLLECTION_INITIATED"
+  });
   return { message: "Visa collection saved" };
 }
 
@@ -429,6 +460,12 @@ async function approveVisaCollectionUseCase(req) {
   });
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAdminApproval({
+    applicantId,
+    applicant: docSnap.data() || {},
+    user: req.user,
+    actionKey: "VISA_COLLECTION_APPROVED"
+  });
   return { message: "Visa collection approved" };
 }
 
@@ -490,8 +527,16 @@ async function addVisaCollectionTravelUseCase(req) {
     { merge: true }
   );
 
-  await advanceToApplicantArrivalIfReady(applicantRef, applicantId);
+  const advancedToArrival = await advanceToApplicantArrivalIfReady(applicantRef, applicantId);
   await refreshApplicantDocumentSummary(applicantId);
+  if (advancedToArrival) {
+    await recordAgencyTask({
+      applicantId,
+      applicant,
+      user: req.user,
+      actionKey: "VISA_COLLECTION_COMPLETED"
+    });
+  }
   return { message: "Visa collection travel details saved" };
 }
 
@@ -686,6 +731,12 @@ async function addVisaTravelUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantData,
+    user: req.user,
+    actionKey: "ARRIVAL_DETAILS_ADDED"
+  });
   try {
     await sendApplicantArrivalDetailsEmail({ applicant: applicantData, arrivalDetails, isUpdate });
   } catch (error) {
@@ -758,12 +809,21 @@ async function uploadResidencePermitUseCase(req) {
   await docRef.set({ residencePermit: updatedPermit }, { merge: true });
   await deleteStorageFileIfExists(bucket, previousSideUrl);
 
+  let advancedToArrival = false;
   const updatedDoc = await docRef.get();
   if (updatedDoc.exists) {
-    await advanceToApplicantArrivalIfReady(docRef, applicantId);
+    advancedToArrival = await advanceToApplicantArrivalIfReady(docRef, applicantId);
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  if (advancedToArrival) {
+    await recordAgencyTask({
+      applicantId,
+      applicant: applicantData,
+      user: req.user,
+      actionKey: "VISA_COLLECTION_COMPLETED"
+    });
+  }
   return { message: "Uploaded successfully" };
 }
 

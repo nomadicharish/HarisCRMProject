@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import PageLoader from "../components/common/PageLoader";
@@ -46,6 +47,14 @@ function CheckIcon() {
       <path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+function getWelcomeEmailWarning(welcomeEmail) {
+  if (!welcomeEmail?.skipped) return "";
+  if (welcomeEmail.reason === "smtp_not_configured") {
+    return "Admin added, but welcome email was not sent because SMTP is not configured.";
+  }
+  return "Admin added, but welcome email could not be sent.";
 }
 
 function Settings() {
@@ -199,6 +208,8 @@ function Settings() {
         whatsappNumber: adminForm.whatsappNumber.trim()
       });
       const createdAdmin = response.data?.admin;
+      const welcomeEmailWarning = getWelcomeEmailWarning(response.data?.welcomeEmail);
+      
       setAdmins((current) => createdAdmin ? [...current, createdAdmin].sort((a, b) => a.name.localeCompare(b.name)) : current);
       setShowAddAdminModal(false);
       setSuccessModal({

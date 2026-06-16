@@ -4,6 +4,11 @@ const { logger } = require("../../lib/logger");
 const { normalizeDate } = require("../../services/applicantDomainService");
 const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { addStageLog, autoAdvanceStage } = require("../../services/applicantWorkflowStageService");
+const {
+  recordAdminApproval,
+  recordAgencyTask,
+  recordEmployerWorkflowInitiated
+} = require("../../services/notificationService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
@@ -37,6 +42,13 @@ async function addDispatchUseCase(req) {
   if (applicantStage === 3) {
     await autoAdvanceStage(applicantId, 3, "AUTO_AFTER_DISPATCH");
   }
+
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantSnap.data() || {},
+    user: req.user,
+    actionKey: "DOCUMENT_DISPATCHED"
+  });
 
   return { message: "Dispatch added successfully", id: docRef.id };
 }
@@ -120,6 +132,13 @@ async function uploadContractUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordEmployerWorkflowInitiated({
+    applicantId,
+    applicant: applicantSnapBeforeUpdate.data() || {},
+    user: req.user,
+    actionKey: "CONTRACT_ISSUED"
+  });
+
   return {
     message: "Contract uploaded successfully",
     fileUrl,
@@ -251,6 +270,12 @@ async function uploadSignedContractUseCase(req) {
   }
 
   await safeRefreshApplicantDocumentSummary(applicantId);
+  await recordAgencyTask({
+    applicantId,
+    applicant,
+    user: req.user,
+    actionKey: "SIGNED_CONTRACT_UPLOADED"
+  });
   return { message: "Signed contract uploaded successfully", fileUrl: activeMainDocument.fileUrl };
 }
 
@@ -497,6 +522,12 @@ async function approveContractUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAdminApproval({
+    applicantId,
+    applicant,
+    user: req.user,
+    actionKey: "CONTRACT_APPROVED"
+  });
   return { message: "Contract approved successfully" };
 }
 
@@ -587,6 +618,12 @@ async function addEmbassyInterviewUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordEmployerWorkflowInitiated({
+    applicantId,
+    applicant: existingApplicantSnap.data() || {},
+    user: req.user,
+    actionKey: "EMBASSY_INTERVIEW_INITIATED"
+  });
   return { message: "Embassy interview added" };
 }
 
@@ -608,6 +645,12 @@ async function approveEmbassyInterviewUseCase(req) {
   });
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAdminApproval({
+    applicantId,
+    applicant,
+    user: req.user,
+    actionKey: "EMBASSY_INTERVIEW_APPROVED"
+  });
   return { message: "Interview approved & stage moved" };
 }
 
@@ -715,6 +758,13 @@ async function uploadInterviewBiometricUseCase(req) {
   await docRef.update({
     stage: 10,
     stageUpdatedAt: new Date()
+  });
+
+  await recordAgencyTask({
+    applicantId,
+    applicant: docSnap.data() || {},
+    user: req.user,
+    actionKey: "EMBASSY_INTERVIEW_COMPLETED"
   });
 
   return { message: "Interview biometric uploaded & stage completed" };

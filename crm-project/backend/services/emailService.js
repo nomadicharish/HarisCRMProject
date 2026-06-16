@@ -1,4 +1,5 @@
 const nodemailer = require("nodemailer");
+const { logger } = require("../lib/logger");
 
 let transporterPromise = null;
 
@@ -32,7 +33,7 @@ async function sendEmail({ to = [], subject = "", text = "", html = "", attachme
 
   const transporter = await getTransporter();
   if (!transporter) {
-    console.warn("Email not sent because SMTP is not configured", { subject, recipients });
+    logger.warn("Email not sent because SMTP is not configured", { subject, recipients });
     return { skipped: true, reason: "smtp_not_configured" };
   }
 
@@ -47,5 +48,6 @@ async function sendEmail({ to = [], subject = "", text = "", html = "", attachme
 }
 
 module.exports = {
+  isEmailConfigured,
   sendEmail
 };
