@@ -5,20 +5,87 @@ const {
   getApplicantBannerStatusText,
   getApplicantStageLabel,
   getAuthenticatedUserFromReq,
-  getTodayEurToInrRate,
   normalizeTextForSearch,
   parseBooleanQuery,
   parseProjectionFields,
   projectApplicantFields,
+  resolveApplicantPaymentCurrency,
   roundCurrency,
   toNumber
 } = require("../../services/applicantDomainService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 function parseList(value) {
   return String(value || "")
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function parseDateBoundary(value, endOfDay = false) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  if (endOfDay) date.setHours(23, 59, 59, 999);
+  else date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function toDate(value) {
+  if (!value) return null;
+  if (typeof value?.toDate === "function") return value.toDate();
+  if (typeof value === "object" && value._seconds) return new Date(value._seconds * 1000);
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isWithinRange(date, fromDate, toDate) {
+  if (!date) return false;
+  if (fromDate && date < fromDate) return false;
+  if (toDate && date > toDate) return false;
+  return true;
+}
+
+function hasResidencePermit(applicant) {
+  const permit = applicant?.residencePermit || {};
+  return Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl || permit.frontFileUrl || permit.backFileUrl);
+}
+
+function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
+  const now = new Date();
+  const appointmentDate = firstDate(applicant?.embassyAppointment?.dateTime, applicant?.embassyAppointment?.date, applicant?.embassyAppointment?.createdAt);
+  const interviewDate = firstDate(applicant?.embassyInterview?.dateTime, applicant?.embassyInterview?.date, applicant?.embassyInterview?.createdAt);
+  const visaCollectionDate = firstDate(applicant?.visaCollection?.dateTime, applicant?.visaCollection?.date, applicant?.visaCollection?.createdAt);
+  const arrivalDate = firstDate(applicant?.visaTravel?.dateTime, applicant?.visaTravel?.date, applicant?.visaTravel?.createdAt);
+
+  switch (filter) {
+    case "arriving":
+      return isWithinRange(arrivalDate, fromDate, toDate);
+    case "visa_collection":
+      return isWithinRange(visaCollectionDate, fromDate, toDate);
+    case "embassy_interview":
+      return isWithinRange(interviewDate, fromDate, toDate);
+    case "embassy_appointment":
+      return isWithinRange(appointmentDate, fromDate, toDate);
+    case "pending_payment":
+      return Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0) > 0;
+    case "trp_pending":
+      return Boolean(visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(applicant));
+    case "interview_biometric_pending":
+      return Boolean(interviewDate && interviewDate < now && !applicant?.interviewBiometric?.fileUrl);
+    case "appointment_biometric_pending":
+      return Boolean(appointmentDate && appointmentDate < now && !applicant?.biometricSlip?.fileUrl);
+    default:
+      return true;
+  }
+}
+
+function firstDate(...values) {
+  for (const value of values) {
+    const date = toDate(value);
+    if (date) return date;
+  }
+  return null;
 }
 
 function sortByCreatedAtDesc(items = []) {
@@ -91,7 +158,7 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId }) {
     return query.where("companyId", "==", companyId);
   }
 
-  if (["SUPER_USER", "ACCOUNTANT"].includes(userRole)) {
+  if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
     return query;
   }
 
@@ -119,7 +186,7 @@ async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId }) {
     const companyId = await resolveEmployerCompanyId(userId);
     query = query.where("companyId", "==", companyId);
     docs = (await query.get()).docs;
-  } else if (["SUPER_USER", "ACCOUNTANT"].includes(userRole)) {
+  } else if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
     docs = (await query.get()).docs;
   } else {
     throw new AppError("Unauthorized", 403);
@@ -180,7 +247,6 @@ function mapApplicant({
   doc,
   userRole,
   liteMode,
-  eurToInrRate,
   companyIdToName,
   countryIdToName,
   agencyIdToName,
@@ -210,10 +276,11 @@ function mapApplicant({
     data?.totalPayment ??
     0
   );
-  const totalEur = storedTotalEur > 0 ? storedTotalEur : roundCurrency(companyIdToPayment[data?.companyId] ?? 0);
+  const totalEur = storedTotalEur;
   const paidInr = roundCurrency(paymentSummary?.applicant?.paid ?? applicantPaid);
-  const totalInr = roundCurrency(totalEur * eurToInrRate);
+  const totalInr = roundCurrency(totalEur);
   const pendingInr = Math.max(0, roundCurrency(totalInr - paidInr));
+  const paymentCurrency = resolveApplicantPaymentCurrency(data);
 
   const approvedRequired = Number(docSummary.approvedCount || 0) > 0 && Number(docSummary.pendingCount || 0) === 0;
   const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
@@ -237,7 +304,7 @@ function mapApplicant({
     (Boolean(data?.embassyInterview?.dateTime) && !Boolean(data?.embassyInterview?.approved));
 
   const attentionRequired =
-    userRole === "SUPER_USER"
+    isSuperUserLikeRole(userRole)
       ? hasPendingDocumentApproval || hasPendingPipelineApproval || hasPendingEmbassyInterviewApproval
       : userRole === "AGENCY"
       ? hasRejectedDocument
@@ -273,11 +340,11 @@ function mapApplicant({
     hasPendingVisaCollectionApproval,
     hasEmbassyAppointment
   });
-  const applicantBannerStatus = String(computedStatusText || data?.applicantBannerStatus || stageLabel || "Candidate Created");
+  const applicantBannerStatus = String(data?.applicantBannerStatus || computedStatusText);
   const statusText = applicantBannerStatus;
 
   const workflowStatus =
-    Number(data?.stage || 1) >= 12
+    Number(data?.stage || 1) >= 13
       ? "completed"
       : attentionRequired
       ? "attention_required"
@@ -290,7 +357,9 @@ function mapApplicant({
     paid: paidInr,
     paidInr,
     pending: pendingInr,
-    pendingInr
+    pendingInr,
+    currency: paymentCurrency,
+    sourceCurrency: paymentCurrency
   };
 
   if (liteMode) {
@@ -332,7 +401,6 @@ function mapApplicant({
     stageLabel,
     applicantBannerStatus,
     statusText,
-    exchangeRate: eurToInrRate,
     payment
   };
 }
@@ -361,13 +429,11 @@ async function getApplicantsFirestorePage({
   const snap = await query.orderBy("createdAt", "desc").offset(offset).limit(safeLimit).get();
   const docs = snap.docs;
   const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
-  const eurToInrRate = await getTodayEurToInrRate();
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
       userRole,
       liteMode,
-      eurToInrRate,
       companyIdToName,
       countryIdToName,
       agencyIdToName,
@@ -389,7 +455,7 @@ async function getApplicantsFirestorePage({
   };
 }
 
-function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters }) {
+function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate }) {
   let applicants = [...items];
   if (searchQuery) {
     applicants = applicants.filter((applicant) =>
@@ -418,6 +484,9 @@ function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilt
         return applicant.workflowStatus === type;
       })
     );
+  }
+  if (dashboardFilter) {
+    applicants = applicants.filter((applicant) => matchesDashboardFilter(applicant, dashboardFilter, fromDate, toDate));
   }
   return applicants;
 }
@@ -460,6 +529,10 @@ async function getApplicantsUseCase(req) {
   const companyFilters = parseList(req.query?.company);
   const agencyFilters = parseList(req.query?.agency);
   const typeFilters = parseList(req.query?.type);
+  const dashboardFilter = String(req.query?.dashboardFilter || "").trim();
+  const fromDate = parseDateBoundary(req.query?.fromDate, false);
+  const toDate = parseDateBoundary(req.query?.toDate, true);
+  const effectiveLiteMode = dashboardFilter ? false : liteMode;
 
   if (!userId) {
     throw new AppError("Unauthorized", 401);
@@ -468,7 +541,7 @@ async function getApplicantsUseCase(req) {
   const canUseFirestorePage = canUseFirestorePaginatedPath({
     paginated,
     searchQuery,
-    typeFilters,
+    typeFilters: dashboardFilter || fromDate || toDate ? ["dashboard"] : typeFilters,
     countryFilters,
     companyFilters,
     agencyFilters,
@@ -500,14 +573,11 @@ async function getApplicantsUseCase(req) {
 
   const docs = await resolveRoleScopedApplicantDocs({ userRole, userId, agencyId });
   const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
-  const eurToInrRate = await getTodayEurToInrRate();
-
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
       userRole,
-      liteMode,
-      eurToInrRate,
+      liteMode: effectiveLiteMode,
       companyIdToName,
       countryIdToName,
       agencyIdToName,
@@ -521,7 +591,10 @@ async function getApplicantsUseCase(req) {
     countryFilters,
     companyFilters,
     agencyFilters,
-    typeFilters
+    typeFilters,
+    dashboardFilter,
+    fromDate,
+    toDate
   });
 
   return paginateApplicants(filtered, {

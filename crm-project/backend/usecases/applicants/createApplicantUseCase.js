@@ -1,12 +1,15 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
+const { recordAgencyTask } = require("../../services/notificationService");
 const {
   buildApplicantListDerivedFields,
   getAuthenticatedUserFromReq,
   resolveApplicantReferenceFields,
+  normalizePaymentCurrency,
   toNumber
 } = require("../../services/applicantDomainService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 async function createApplicantUseCase(req) {
   const { userRole, userId } = getAuthenticatedUserFromReq(req);
@@ -14,7 +17,7 @@ async function createApplicantUseCase(req) {
   let assignedAgencyId = null;
   if (userRole === "AGENCY") {
     assignedAgencyId = req.user?.agencyId || userId;
-  } else if (userRole === "SUPER_USER") {
+  } else if (isSuperUserLikeRole(userRole)) {
     assignedAgencyId = req.body.agencyId || null;
   } else {
     throw new AppError("Unauthorized", 403);
@@ -39,27 +42,35 @@ async function createApplicantUseCase(req) {
     whatsappNumber = personalDetails.whatsappNumber || personalDetails.whatsapp,
     countryId,
     companyId,
+    jobPositionId,
+    jobPositionName,
     totalAmount,
-    amountPaid,
     currency,
     totalApplicantPayment,
     totalEmployerPayment
   } = req.body;
 
-  const companySnap = await db.collection("companies").doc(companyId).get();
-  const companyPaymentPerApplicant = companySnap.exists
-    ? toNumber(companySnap.data()?.companyPaymentPerApplicant)
-    : 0;
+  if (userRole === "AGENCY") {
+    const agencyDoc = await db.collection("agencies").doc(assignedAgencyId).get();
+    const assignedCompanyIds = Array.isArray(agencyDoc.data()?.assignedCompanyIds)
+      ? agencyDoc.data().assignedCompanyIds.map((value) => String(value || "").trim()).filter(Boolean)
+      : [];
+    if (!assignedCompanyIds.includes(companyId)) {
+      throw new AppError("Agency is not assigned to this company", 403);
+    }
+  }
 
   const requestedTotal = toNumber(totalApplicantPayment ?? totalAmount);
-  const normalizedTotalApplicantPayment = requestedTotal > 0 ? requestedTotal : companyPaymentPerApplicant;
-  const normalizedTotalEmployerPayment = toNumber(totalEmployerPayment ?? companyPaymentPerApplicant);
-  const normalizedAmountPaid = toNumber(amountPaid);
+  const normalizedTotalApplicantPayment = requestedTotal > 0 ? requestedTotal : 0;
+  const normalizedTotalEmployerPayment = toNumber(totalEmployerPayment);
+  const paymentCurrency = normalizePaymentCurrency(req.body.paymentCurrency || currency);
   const approvalStatus = userRole === "AGENCY" ? "pending" : "approved";
 
   const referenceFields = await resolveApplicantReferenceFields({
     countryId,
     companyId,
+    jobPositionId,
+    jobPositionName,
     agencyId: assignedAgencyId
   });
 
@@ -86,6 +97,8 @@ async function createApplicantUseCase(req) {
     whatsappNumber: whatsappNumber || "",
     countryId,
     companyId,
+    jobPositionId,
+    jobPositionName: referenceFields.jobPositionName || jobPositionName || "",
     agencyId: assignedAgencyId,
     ...referenceFields,
     createdBy: userId,
@@ -94,6 +107,9 @@ async function createApplicantUseCase(req) {
     stage: 1,
     stageStatus: "ongoing",
     totalApplicantPayment: normalizedTotalApplicantPayment,
+    totalAmount: normalizedTotalApplicantPayment,
+    paymentCurrency,
+    currency: paymentCurrency,
     totalEmployerPayment: normalizedTotalEmployerPayment,
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -103,24 +119,12 @@ async function createApplicantUseCase(req) {
   const docRef = await db.collection("applicants").add(applicant);
   const applicantId = docRef.id;
 
-  if (normalizedAmountPaid > 0) {
-    const initialPayment = {
-      type: "APPLICANT",
-      amount: normalizedAmountPaid,
-      currency: currency || "INR",
-      note: "Initial payment",
-      paidBy: userRole,
-      paidTo: "SUPER_USER",
-      paidDate: admin.firestore.FieldValue.serverTimestamp(),
-      createdBy: userId,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    };
-    await db.collection("applicants").doc(applicantId).collection("payments").add(initialPayment);
-  }
-
-  await refreshApplicantSummaries(applicantId, {
-    ...applicant,
-    amountPaid: normalizedAmountPaid
+  await refreshApplicantSummaries(applicantId, applicant);
+  await recordAgencyTask({
+    applicantId,
+    applicant,
+    user: req.user,
+    actionKey: "APPLICANT_ADDED"
   });
 
   return {

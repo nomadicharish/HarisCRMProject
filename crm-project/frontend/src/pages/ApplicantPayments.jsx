@@ -8,19 +8,14 @@ import PageLoader from "../components/common/PageLoader";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getCached, invalidateCache, readCached, updateCached, writeCached } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
-import { getStoredUser } from "../utils/auth";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import { formatCurrencyAmount, getCurrencySymbol, normalizeCurrency } from "../utils/currency";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/forms.css";
 import "../styles/applicantContract.css";
 import "../styles/payment.css";
 import "../styles/applicantsDashboard.css";
-
-function formatCurrency(value, withDecimals = false, currencySymbol = "\u20b9") {
-  return `${currencySymbol}${Number(value || 0).toLocaleString("en-IN", {
-    minimumFractionDigits: withDecimals ? 2 : 0,
-    maximumFractionDigits: withDecimals ? 2 : 0
-  })}`;
-}
 
 function formatDate(value) {
   if (!value) return "-";
@@ -31,6 +26,15 @@ function formatDate(value) {
     month: "short",
     year: "numeric"
   });
+}
+
+function UploadFileIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V8M8.5 11.5 12 8l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 16.5a4 4 0 0 0-3.8-4A5.5 5.5 0 0 0 5.7 14 3.5 3.5 0 0 0 6.5 21H18a3 3 0 0 0 2-5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
 }
 
 const formatAmountInput = formatIndianNumberInput;
@@ -53,7 +57,8 @@ function ApplicantPayments() {
     amount: "",
     paidDate: new Date().toISOString().slice(0, 10),
     paymentMode: "Check",
-    note: ""
+    note: "",
+    document: null
   });
 
   const loadData = useCallback(async () => {
@@ -78,7 +83,10 @@ function ApplicantPayments() {
 
       const nextSidebarProfile = buildApplicantSidebarCache({
         applicant: nextApplicant,
-        pendingAmount: paymentPageRes.value?.paymentSummary?.applicant?.pendingInr || 0,
+        pendingAmount:
+          paymentPageRes.value?.paymentSummary?.applicant?.pendingInr ??
+          paymentPageRes.value?.paymentSummary?.applicant?.pending ??
+          0,
         countryName: nextApplicant?.countryName || nextApplicant?.country || "",
         agencyName: nextApplicant?.agencyName || nextApplicant?.agency?.name || ""
       });
@@ -100,6 +108,13 @@ function ApplicantPayments() {
   }, [loadData]);
 
   const applicantPayment = paymentSummary?.applicant || {};
+  const paymentCurrency = normalizeCurrency(applicantPayment.currency || applicant?.paymentCurrency || applicant?.currency);
+  const paymentCurrencySymbol = getCurrencySymbol(paymentCurrency);
+  const formatPaymentCurrency = (value, withDecimals = false) =>
+    formatCurrencyAmount(value, paymentCurrency, withDecimals);
+  const pendingAmount = applicantPayment.pendingInr ?? applicantPayment.pending ?? 0;
+  const totalAmount = applicantPayment.totalInr ?? applicantPayment.total ?? 0;
+  const paidAmount = applicantPayment.paidInr ?? applicantPayment.paid ?? 0;
   const paymentHistory = useMemo(() => {
     if (Array.isArray(paymentSummary?.applicant?.history)) {
       return paymentSummary.applicant.history;
@@ -107,9 +122,9 @@ function ApplicantPayments() {
     return (paymentSummary?.history || []).filter((payment) => payment.type === "APPLICANT");
   }, [paymentSummary]);
   const canAddPayment =
-    ["SUPER_USER", "AGENCY"].includes(user?.role) &&
+    isSuperUserLikeRole(user?.role) &&
     applicantPayment.remainingInstallments > 0 &&
-    Number(applicantPayment.pendingInr || 0) > 0;
+    Number(pendingAmount || 0) > 0;
   const installmentCount = applicantPayment.installmentCount || 0;
 
   const handleInputChange = (key, value) => {
@@ -131,6 +146,11 @@ function ApplicantPayments() {
       toast.error("Paid date is required");
       return;
     }
+    const fileValidation = validateDocumentFiles([form.document]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
+      return;
+    }
 
     const previousSummary = paymentSummary;
     const previousForm = form;
@@ -139,14 +159,15 @@ function ApplicantPayments() {
       id: `temp-${Date.now()}`,
       type: "APPLICANT",
       amount,
-      currency: "INR",
+      currency: paymentCurrency,
       paidDate: optimisticDate,
       paymentMode: form.paymentMode,
-      note: form.note
+      note: form.note,
+      documentFileName: form.document?.name || ""
     };
 
-    const nextPaidInr = Number(applicantPayment.paidInr || 0) + amount;
-    const nextPendingInr = Math.max(0, Number(applicantPayment.pendingInr || 0) - amount);
+    const nextPaidInr = Number(paidAmount || 0) + amount;
+    const nextPendingInr = Math.max(0, Number(pendingAmount || 0) - amount);
     const nextInstallmentCount = Number(applicantPayment.installmentCount || 0) + 1;
     const nextRemainingInstallments = Math.max(0, Number(applicantPayment.remainingInstallments || 0) - 1);
 
@@ -190,14 +211,28 @@ function ApplicantPayments() {
 
     try {
       setSaving(true);
-      await API.post(`/applicants/${id}/payments`, {
-        type: "APPLICANT",
-        amount,
-        currency: "INR",
-        paidDate: form.paidDate,
-        paymentMode: form.paymentMode,
-        note: form.note
-      });
+      if (form.document) {
+        const body = new FormData();
+        body.append("type", "APPLICANT");
+        body.append("amount", String(amount));
+        body.append("currency", paymentCurrency);
+        body.append("paidDate", form.paidDate);
+        body.append("paymentMode", form.paymentMode);
+        body.append("note", form.note || "");
+        body.append("file", form.document);
+        await API.post(`/applicants/${id}/payments`, body, {
+          headers: { "Content-Type": "multipart/form-data" }
+        });
+      } else {
+        await API.post(`/applicants/${id}/payments`, {
+          type: "APPLICANT",
+          amount,
+          currency: paymentCurrency,
+          paidDate: form.paidDate,
+          paymentMode: form.paymentMode,
+          note: form.note
+        });
+      }
 
       setShowAddPaymentModal(false);
       invalidateCache(`/applicants/${id}`);
@@ -209,7 +244,8 @@ function ApplicantPayments() {
         amount: "",
         paidDate: new Date().toISOString().slice(0, 10),
         paymentMode: "Check",
-        note: ""
+        note: "",
+        document: null
       });
       loadData();
     } catch (error) {
@@ -233,9 +269,10 @@ function ApplicantPayments() {
         <aside className="paymentSidebar">
           <ApplicantSummaryCard
             applicant={sidebarProfile?.applicant || applicant}
-            pendingAmount={sidebarProfile?.pendingAmount ?? applicantPayment.pendingInr}
-            pendingDisplayValue={formatCurrency(sidebarProfile?.pendingAmount ?? applicantPayment.pendingInr)}
+            pendingAmount={sidebarProfile?.pendingAmount ?? pendingAmount}
+            pendingDisplayValue={formatPaymentCurrency(sidebarProfile?.pendingAmount ?? pendingAmount)}
             onPendingClick={() => navigate(`/applicants/${id}/payments`)}
+            onProfileClick={() => navigate(`/applicants/${id}`)}
             agencyName={sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || ""}
             countryName={sidebarProfile?.countryName || applicant?.countryName || applicant?.country || ""}
             showAgency={Boolean((sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || applicant?.agencyId))}
@@ -256,15 +293,15 @@ function ApplicantPayments() {
               </div>
               <div className="paymentInfoText">
                 <div className="paymentInfoLine">
-                  <span className="paymentInfoAmount">{formatCurrency(applicantPayment.paidInr)}</span>
+                  <span className="paymentInfoAmount">{formatPaymentCurrency(paidAmount)}</span>
                   <span className="paymentInfoDivider">/</span>
-                  <span className="paymentInfoAmount">{formatCurrency(applicantPayment.totalInr)}</span>
+                  <span className="paymentInfoAmount">{formatPaymentCurrency(totalAmount)}</span>
                   <span className="paymentInfoSuffix">
                     paid in {installmentCount} {installmentCount === 1 ? "installment" : "installments"}
                   </span>
                 </div>
                 <span className="paymentInfoMeta">
-                  Remaining amount {formatCurrency(applicantPayment.pendingInr)}
+                  Remaining amount {formatPaymentCurrency(pendingAmount)}
                 </span>
               </div>
             </div>
@@ -286,20 +323,30 @@ function ApplicantPayments() {
                     <th>Amount</th>
                     <th>Date Paid</th>
                     <th>Payment Mode</th>
+                    <th>Document</th>
                     <th>Comments</th>
                   </tr>
                 </thead>
                 <tbody>
                   {paymentHistory.length === 0 ? (
                     <tr>
-                      <td colSpan="4" className="paymentEmptyState">No payment history available yet.</td>
+                      <td colSpan="5" className="paymentEmptyState">No payment history available yet.</td>
                     </tr>
                   ) : (
                     paymentHistory.map((payment) => (
                       <tr key={payment.id}>
-                        <td>{formatCurrency(payment.amount)}</td>
+                        <td>{formatCurrencyAmount(payment.amount, payment.currency || paymentCurrency)}</td>
                         <td>{formatDate(payment.paidDate)}</td>
                         <td>{payment.paymentMode || "-"}</td>
+                        <td>
+                          {payment.documentUrl ? (
+                            <a href={payment.documentUrl} target="_blank" rel="noreferrer" className="paymentDocumentLink">
+                              {payment.documentFileName || "View document"}
+                            </a>
+                          ) : (
+                            payment.documentFileName || "-"
+                          )}
+                        </td>
                         <td>{payment.note || "-"}</td>
                       </tr>
                     ))
@@ -321,7 +368,7 @@ function ApplicantPayments() {
                 <div>
                   <h3 className="dashboardModalTitle">Add Payment Details</h3>
                   <div className="paymentModalSubtitle">
-                    Pending Amount: {formatCurrency(applicantPayment.pendingInr, true)}
+                    Pending Amount: {formatPaymentCurrency(pendingAmount, true)}
                   </div>
                 </div>
                 <button type="button" className="dashboardModalCloseBtn" onClick={() => setShowAddPaymentModal(false)}>
@@ -332,15 +379,18 @@ function ApplicantPayments() {
               <div className="contractFormGrid">
                 <div className="input-field">
                   <label className="contractUploadLabel" htmlFor="payment-amount">
-                    Paid Amount (In INR)
+                    Paid Amount
                   </label>
-                  <input
-                    id="payment-amount"
-                    type="text"
-                    value={form.amount}
-                    onChange={(event) => handleInputChange("amount", event.target.value)}
-                    placeholder="Enter paid amount"
-                  />
+                  <div className="paymentAmountInputWrap">
+                    <span className="paymentAmountPrefix">{paymentCurrencySymbol}</span>
+                    <input
+                      id="payment-amount"
+                      type="text"
+                      value={form.amount}
+                      onChange={(event) => handleInputChange("amount", event.target.value)}
+                      placeholder="Enter paid amount"
+                    />
+                  </div>
                 </div>
 
                 <div className="input-field">
@@ -383,6 +433,22 @@ function ApplicantPayments() {
                     onChange={(event) => handleInputChange("note", event.target.value)}
                     placeholder="Add note"
                   />
+                </div>
+
+                <div className="input-field">
+                  <label className="contractUploadLabel" htmlFor="payment-document">
+                    Add Document(Optional)
+                  </label>
+                  <label className="paymentDocumentUpload" htmlFor="payment-document">
+                    <input
+                      id="payment-document"
+                      type="file"
+                      accept={ALLOWED_DOCUMENT_ACCEPT}
+                      onChange={(event) => handleInputChange("document", getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
+                    />
+                    <span className="paymentDocumentUploadIcon"><UploadFileIcon /></span>
+                    <span>{form.document?.name || "Choose document"}</span>
+                  </label>
                 </div>
               </div>
 

@@ -1,16 +1,20 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import DatePicker from "react-datepicker";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import ApplicantsTable from "../components/dashboard/ApplicantsTable";
+import ApplicantsTable, { resolveApplicantWorkflowMeta } from "../components/dashboard/ApplicantsTable";
 import CompaniesTable from "../components/dashboard/CompaniesTable";
 import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import DashboardFiltersSidebar from "../components/dashboard/DashboardFiltersSidebar";
 import DashboardResultsHeader from "../components/dashboard/DashboardResultsHeader";
 import PageLoader from "../components/common/PageLoader";
+import BlockingLoader from "../components/common/BlockingLoader";
 import { getCached, hasFreshCache, invalidateCache, prefetchCached } from "../services/cachedApi";
 import API from "../services/api";
-import { getStoredUser } from "../utils/auth";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
 const CountryManagerModal = lazy(() => import("../components/dashboard/CountryManagerModal"));
@@ -20,31 +24,200 @@ const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
-const COMPANY_LOOKUP_FIELDS = "id,name,countryId,companyPaymentPerApplicant,employerIds,createdAt";
+const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
-const pendingNumberFormatter = new Intl.NumberFormat("en-IN", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0
-});
-const euroNumberFormatter = new Intl.NumberFormat("en-IN", {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0
-});
 const TAB_CONFIG = {
+  home: { label: "Home", actionLabel: "" },
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
   companies: { label: "Companies", actionLabel: "Add Company" },
   employers: { label: "Employers", actionLabel: "Add Employer" },
   agencies: { label: "Agencies", actionLabel: "Add Agency" }
 };
 
-function formatPendingAmount(value) {
-  return `\u20b9${pendingNumberFormatter.format(Number(value || 0))}`;
+function formatDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
-function formatEuroAmount(value) {
-  const amount = Number(value || 0);
-  return amount > 0 ? `EUR ${euroNumberFormatter.format(amount)}` : "-";
+function parseDateInput(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+function getDefaultHomeRange() {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 13);
+  return {
+    fromDate: formatDateInput(start),
+    toDate: formatDateInput(end)
+  };
+}
+
+const HomeDatePickerInput = React.forwardRef(({ value, onClick, placeholder, ariaLabel }, ref) => (
+  <span className="homeDatePickerWrap">
+    <svg className="homeDatePickerIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 3v4m10-4v4M4 9h16M6 5h12a2 2 0 0 1 2 2v12H4V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+    <input
+      ref={ref}
+      className="homeDatePickerInput"
+      value={value || ""}
+      onClick={onClick}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      readOnly
+    />
+  </span>
+));
+
+HomeDatePickerInput.displayName = "HomeDatePickerInput";
+
+function HomeIcon({ type }) {
+  const commonProps = { width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" };
+  if (type === "plane") {
+    return <svg {...commonProps}><path d="m3 11 18-7-7 18-2.8-7.2L3 11Z" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  }
+  if (type === "visa") {
+    return <svg {...commonProps}><path d="M6 3h9l3 3v15H6zM15 3v4h4M9 13h6M9 17h4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+  }
+  if (type === "people") {
+    return <svg {...commonProps}><path d="M16 19v-1.5a3.5 3.5 0 0 0-7 0V19M12.5 10.5a3 3 0 1 0-6 0 3 3 0 0 0 6 0ZM20 19v-1a3 3 0 0 0-3-3M16.5 8.5a2.5 2.5 0 1 1-1.1 4.6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>;
+  }
+  if (type === "calendar") {
+    return <svg {...commonProps}><path d="M7 3v4m10-4v4M4 9h16M6 5h12a2 2 0 0 1 2 2v12H4V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>;
+  }
+  if (type === "fingerprint") {
+    return <svg {...commonProps}><path d="M12 11v5M8.5 13v3M15.5 13v3M7.5 9.5a5 5 0 0 1 9 0M5 12a7 7 0 0 1 14 0M12 3a9 9 0 0 1 9 9" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>;
+  }
+  if (type === "payment") {
+    return <svg {...commonProps}><path d="M12 3 5 6v5c0 4.4 2.8 8.2 7 10 4.2-1.8 7-5.6 7-10V6l-7-3Z" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /><path d="M9 10h6M9 13h4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" /></svg>;
+  }
+  return <svg {...commonProps}><path d="M7 3h8l4 4v14H7zM15 3v4h4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
+  return (
+    <button type="button" className={`homeMetricCard homeTone-${tone}`} onClick={onClick}>
+      <div className="homeMetricBody">
+        <span className="homeMetricIcon"><HomeIcon type={icon} /></span>
+        <div>
+          <div className="homeMetricTitle">{title}</div>
+          <div className="homeMetricCount"><strong>{count || 0}</strong><span>Applicants</span></div>
+          {subtitle ? <div className="homeMetricSubtitle">{subtitle}</div> : null}
+        </div>
+      </div>
+      <div className="homeMetricFooter"><span>View Details</span><span aria-hidden="true">&gt;</span></div>
+    </button>
+  );
+}
+
+function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onApply, onOpenFilter, onViewAll, applying }) {
+  const upcoming = summary?.upcoming || {};
+  const overdue = summary?.overdue || {};
+  const payments = summary?.payments || {};
+  const pendingByCurrency = payments.pendingByCurrency || {};
+  const selectedFromDate = parseDateInput(fromDate);
+  const selectedToDate = parseDateInput(toDate);
+
+  return (
+    <main className="dashboardHome">
+      <BlockingLoader open={applying} label="Loading dashboard..." />
+      <section className="homeSection homePaymentSection">
+        {/* <h2>Pending Payment Overview</h2> */}
+        <button type="button" className="homePaymentCard" onClick={() => onOpenFilter("pending_payment", false)}>
+          <span className="homeMetricIcon homePaymentIcon"><HomeIcon type="payment" /></span>
+          <div className="homePaymentApplicants">
+            <div>Pending Payment</div>
+            <strong>{payments.applicantsWithPendingPayment || 0}</strong> <span>Applicants</span>
+          </div>
+          <div className="homePaymentAmount"><span>INR</span><strong>{formatCurrencyAmount(pendingByCurrency.INR || 0, "INR", true)}</strong></div>
+          <div className="homePaymentAmount"><span>EUR</span><strong>{formatCurrencyAmount(pendingByCurrency.EUR || 0, "EUR", true)}</strong></div>
+          <div className="homePaymentAmount"><span>USD</span><strong>{formatCurrencyAmount(pendingByCurrency.USD || 0, "USD", true)}</strong></div>
+          <div className="homePaymentAction">View Details <span aria-hidden="true">&gt;</span></div>
+        </button>
+      </section>
+
+      <section className="homeDateCard">
+        <div>
+          <div className="homeDateControls">
+            <DatePicker
+              selected={selectedFromDate}
+              onChange={(date) => onDateChange("fromDate", date ? formatDateInput(date) : "")}
+              dateFormat="dd/MM/yyyy"
+              maxDate={selectedToDate || undefined}
+              selectsStart
+              startDate={selectedFromDate}
+              endDate={selectedToDate}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              isClearable
+              customInput={<HomeDatePickerInput placeholder="From date" ariaLabel="From date" />}
+            />
+            <span className="homeDateSeparator">-</span>
+            <DatePicker
+              selected={selectedToDate}
+              onChange={(date) => onDateChange("toDate", date ? formatDateInput(date) : "")}
+              dateFormat="dd/MM/yyyy"
+              minDate={selectedFromDate || undefined}
+              selectsEnd
+              startDate={selectedFromDate}
+              endDate={selectedToDate}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              isClearable
+              customInput={<HomeDatePickerInput placeholder="To date" ariaLabel="To date" />}
+            />
+            <button type="button" className="dashboardPrimaryBtn" onClick={onApply} disabled={applying}>
+              {applying ? "Loading..." : "Apply"}
+            </button>
+          </div>
+          {dateError ? <div className="homeDateError">{dateError}</div> : null}
+        </div>
+        <button type="button" className="homeViewAllBtn" onClick={onViewAll}>View All Applicants <span aria-hidden="true">&gt;</span></button>
+      </section>
+
+      <section className="homeSection">
+        {/* <h2>Upcoming Actions</h2> */}
+        <div className="homeCardGrid homeCardGridFour">
+          <HomeMetricCard title="Applicants Arriving" count={upcoming.arriving?.count} tone="blue" icon="plane" onClick={() => onOpenFilter("arriving", true)} />
+          <HomeMetricCard title="Visa Collection" count={upcoming.visaCollection?.count} tone="green" icon="visa" onClick={() => onOpenFilter("visa_collection", true)} />
+          <HomeMetricCard title="Embassy Interviews" count={upcoming.embassyInterview?.count} tone="purple" icon="people" onClick={() => onOpenFilter("embassy_interview", true)} />
+          <HomeMetricCard title="Embassy Appointments" count={upcoming.embassyAppointment?.count} tone="orange" icon="calendar" onClick={() => onOpenFilter("embassy_appointment", true)} />
+        </div>
+      </section>
+
+      <section className="homeSection">
+        {/* <h2>Action Pending (Overdue)</h2> */}
+        <div className="homeCardGrid homeCardGridThree">
+          <HomeMetricCard title="TRP Upload Pending" subtitle="Passed Visa Collection Date" count={overdue.trpPending?.count} tone="blue" icon="document" onClick={() => onOpenFilter("trp_pending", false)} />
+          <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Interview Date" count={overdue.interviewBiometricPending?.count} tone="blue" icon="fingerprint" onClick={() => onOpenFilter("interview_biometric_pending", false)} />
+          <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Appointment Date" count={overdue.appointmentBiometricPending?.count} tone="blue" icon="calendar" onClick={() => onOpenFilter("appointment_biometric_pending", false)} />
+        </div>
+      </section>
+
+    </main>
+  );
+}
+
+function formatApplicantPendingAmount(value, currency) {
+  return formatCurrencyAmount(value, normalizeCurrency(currency));
 }
 
 function getMultiParam(searchParams, key) {
@@ -140,17 +313,30 @@ function ApplicantsDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [isExporting, setIsExporting] = useState(false);
-  const isSuperUser = user?.role === "SUPER_USER";
+  const [homeSummary, setHomeSummary] = useState(null);
+  const [homeApplyLoading, setHomeApplyLoading] = useState(false);
+  const defaultHomeRange = useMemo(() => getDefaultHomeRange(), []);
+  const [homeDateDraft, setHomeDateDraft] = useState(defaultHomeRange);
+  const [homeDateError, setHomeDateError] = useState("");
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const isEmployer = user?.role === "EMPLOYER";
   const isAgency = user?.role === "AGENCY";
 
-  const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : "applicants";
+  const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : isSuperUser ? "home" : "applicants";
   const searchText = searchParams.get("q") || "";
   const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParams]);
   const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParams]);
   const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParams]);
   const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParams]);
+  const dashboardFilter = searchParams.get("dashboardFilter") || "";
+  const homeFromDate = searchParams.get("fromDate") || defaultHomeRange.fromDate;
+  const homeToDate = searchParams.get("toDate") || defaultHomeRange.toDate;
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
+
+  useEffect(() => {
+    setHomeDateDraft({ fromDate: homeFromDate, toDate: homeToDate });
+    setHomeDateError("");
+  }, [homeFromDate, homeToDate]);
 
   useEffect(() => {
     setSearchInput(searchText);
@@ -198,7 +384,10 @@ function ApplicantsDashboard() {
         type: applicantTypes.join(","),
         country: countryIds.join(","),
         company: companyIds.join(","),
-        agency: agencyIds.join(",")
+        agency: agencyIds.join(","),
+        dashboardFilter,
+        fromDate: searchParams.get("fromDate") || "",
+        toDate: searchParams.get("toDate") || ""
       };
       const entityParams = {
         paginated: "true",
@@ -223,7 +412,9 @@ function ApplicantsDashboard() {
       const [userData, countriesData, applicantsData] = await Promise.all([
         user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 }),
         getCached("/countries", { ttlMs: 120000 }),
-        getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
+        activeTab === "home"
+          ? Promise.resolve({ items: [], pagination: { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 } })
+          : getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
       ]);
 
       setUser(userData || null);
@@ -241,7 +432,18 @@ function ApplicantsDashboard() {
         totalPages: Number(applicantsData?.pagination?.totalPages || 1)
       });
 
-      if (activeTab === "companies") {
+      if (activeTab === "home" && isSuperUser) {
+        const dashboardData = await getCached("/dashboard", {
+          params: {
+            fromDate: homeFromDate,
+            toDate: homeToDate
+          },
+          ttlMs: 15000
+        });
+        setHomeSummary(dashboardData?.home || null);
+        setCompanies([]);
+        setAgencies([]);
+      } else if (activeTab === "companies") {
         const companiesData = await getCached("/companies", {
           params: {
             paginated: "true",
@@ -345,6 +547,7 @@ function ApplicantsDashboard() {
     } finally {
       setHasLoadedOnce(true);
       setLoading(false);
+      setHomeApplyLoading(false);
     }
   }, [
     activeTab,
@@ -353,9 +556,13 @@ function ApplicantsDashboard() {
     companyIds,
     countryIds,
     currentPage,
+    dashboardFilter,
     hasLoadedOnce,
+    homeFromDate,
+    homeToDate,
     isSuperUser,
     searchText,
+    searchParams,
     user
   ]);
 
@@ -694,7 +901,7 @@ function ApplicantsDashboard() {
 
   const resetFilters = () => {
     const next = new URLSearchParams();
-    if (activeTab !== "applicants") {
+    if (activeTab !== "applicants" && activeTab !== "home") {
       next.set("tab", activeTab);
     }
     setSearchParams(next, { replace: true });
@@ -709,7 +916,7 @@ function ApplicantsDashboard() {
   };
 
   const visibleTabs = useMemo(() => {
-    if (isSuperUser) return ["applicants", "companies", "employers", "agencies"];
+    if (isSuperUser) return ["home", "applicants", "companies", "employers", "agencies"];
     if (isAgency || isEmployer) return ["applicants", "companies"];
     return ["applicants"];
   }, [isAgency, isEmployer, isSuperUser]);
@@ -727,8 +934,54 @@ function ApplicantsDashboard() {
   const handleTabChange = (tabKey) => {
     if (!visibleTabs.includes(tabKey)) return;
     const next = new URLSearchParams();
-    if (tabKey !== "applicants") {
+    if (tabKey !== "home" && tabKey !== "applicants") {
       next.set("tab", tabKey);
+    } else if (tabKey === "applicants") {
+      next.set("tab", "applicants");
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  const handleHomeDateChange = (key, value) => {
+    setHomeDateError("");
+    setHomeDateDraft((current) => ({
+      ...current,
+      [key]: value
+    }));
+  };
+
+  const applyHomeDateRange = () => {
+    const nextFromDate = homeDateDraft.fromDate || defaultHomeRange.fromDate;
+    const nextToDate = homeDateDraft.toDate || defaultHomeRange.toDate;
+    const parsedFromDate = parseDateInput(nextFromDate);
+    const parsedToDate = parseDateInput(nextToDate);
+
+    if (!parsedFromDate || !parsedToDate) {
+      setHomeDateError("Select both from and to dates.");
+      return;
+    }
+
+    if (parsedFromDate > parsedToDate) {
+      setHomeDateError("From date must be before to date.");
+      return;
+    }
+
+    setHomeApplyLoading(true);
+    const next = new URLSearchParams(searchParams);
+    next.set("fromDate", nextFromDate);
+    next.set("toDate", nextToDate);
+    invalidateCache("/dashboard");
+    setSearchParams(next, { replace: true });
+    setRefreshKey((value) => value + 1);
+  };
+
+  const openHomeFilter = (filter, includeDateRange = true) => {
+    const next = new URLSearchParams();
+    next.set("tab", "applicants");
+    next.set("dashboardFilter", filter);
+    if (includeDateRange) {
+      next.set("fromDate", homeFromDate);
+      next.set("toDate", homeToDate);
     }
     setSearchParams(next, { replace: true });
   };
@@ -761,7 +1014,7 @@ function ApplicantsDashboard() {
   const currentActionLabel = TAB_CONFIG[activeTab].actionLabel;
   const showHeaderAction =
     (activeTab === "applicants" && !isEmployer) ||
-    (activeTab !== "applicants" && isSuperUser);
+    (!["home", "applicants"].includes(activeTab) && isSuperUser);
 
   const openCurrentAction = () => {
     if (activeTab === "applicants") {
@@ -802,18 +1055,19 @@ function ApplicantsDashboard() {
         const totalPayment = Number(applicant?.payment?.totalInr ?? applicant?.payment?.total ?? 0);
         const paidPayment = Number(applicant?.payment?.paidInr ?? applicant?.payment?.paid ?? 0);
         const pendingPayment = Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0);
+        const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
         return {
           candidateName: fullName,
           dateOfBirth: formatExcelDate(dob),
           age: resolveAge(applicant),
           address: applicant?.address || applicant?.personalDetails?.address || "-",
           contactNumber: applicant?.phone || applicant?.personalDetails?.phone || "-",
-          currentStatus: applicant?.statusText || applicant?.applicantBannerStatus || applicant?.stageLabel || "-",
+          currentStatus: resolveApplicantWorkflowMeta(applicant).title || "-",
           company: applicant?.companyName || "-",
           country: applicant?.countryName || applicant?.country || "-",
-          totalPayment,
-          paymentDone: paidPayment,
-          pendingPayment
+          totalPayment: formatCurrencyAmount(totalPayment, paymentCurrency),
+          paymentDone: formatCurrencyAmount(paidPayment, paymentCurrency),
+          pendingPayment: formatCurrencyAmount(pendingPayment, paymentCurrency)
         };
       });
 
@@ -829,9 +1083,9 @@ function ApplicantsDashboard() {
             <td>${escapeHtml(row.currentStatus)}</td>
             <td>${escapeHtml(row.company)}</td>
             <td>${escapeHtml(row.country)}</td>
-            <td>${escapeHtml(pendingNumberFormatter.format(row.totalPayment || 0))}</td>
-            <td>${escapeHtml(pendingNumberFormatter.format(row.paymentDone || 0))}</td>
-            <td>${escapeHtml(pendingNumberFormatter.format(row.pendingPayment || 0))}</td>
+            <td>${escapeHtml(row.totalPayment || "-")}</td>
+            <td>${escapeHtml(row.paymentDone || "-")}</td>
+            <td>${escapeHtml(row.pendingPayment || "-")}</td>
           </tr>`
         )
         .join("");
@@ -958,6 +1212,18 @@ function ApplicantsDashboard() {
           <div className="dashboardContentLoader dashboardTableCard">
             <PageLoader label="Loading dashboard..." />
           </div>
+        ) : activeTab === "home" ? (
+          <DashboardHome
+            summary={homeSummary}
+            fromDate={homeDateDraft.fromDate}
+            toDate={homeDateDraft.toDate}
+            dateError={homeDateError}
+            onDateChange={handleHomeDateChange}
+            onApply={applyHomeDateRange}
+            onOpenFilter={openHomeFilter}
+            onViewAll={() => handleTabChange("applicants")}
+            applying={homeApplyLoading}
+          />
         ) : (
           <>
             <DashboardFiltersSidebar
@@ -1010,7 +1276,7 @@ function ApplicantsDashboard() {
                     rows={paginatedRows}
                     isEmployer={isEmployer}
                     onOpenApplicant={handleOpenApplicant}
-                    formatPendingAmount={formatPendingAmount}
+                    formatPendingAmount={formatApplicantPendingAmount}
                   />
                 ) : null}
 
@@ -1019,7 +1285,6 @@ function ApplicantsDashboard() {
                     rows={paginatedRows}
                     isSuperUser={isSuperUser}
                     rightIconSrc={RIGHT_ICON_SRC}
-                    formatEuroAmount={formatEuroAmount}
                     onOpenCompanyEdit={(id) => navigate(`/companies/${id}/edit`)}
                     onOpenApplicantsForCompany={handleOpenApplicantsForCompany}
                   />

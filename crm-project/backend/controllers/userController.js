@@ -1,5 +1,6 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
+const { isSuperUserLikeRole } = require("../utils/roles");
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
@@ -20,7 +21,7 @@ const createUser = async (req, res) => {
 
     const creatorRole = req.user?.role || "SUPER_USER";
 
-    if (creatorRole !== "SUPER_USER") {
+    if (!isSuperUserLikeRole(creatorRole)) {
       return res.status(403).json({ message: "Only Super User can create users" });
     }
 

@@ -21,15 +21,20 @@ const {
   getEmbassyInterviewUseCase,
   getInterviewWorkflowUseCase,
   getInterviewBiometricUseCase,
+  getSignedContractUseCase,
   getInterviewTicketUseCase,
+  rejectSignedContractDocumentUseCase,
   uploadContractUseCase,
-  uploadInterviewBiometricUseCase
+  uploadInterviewBiometricUseCase,
+  uploadSignedContractUseCase
 } = require("../../usecases/applicants/workflowExecutionUseCases");
 const {
   addEmbassyAppointmentUseCase,
   addTravelDetailsUseCase,
   addVisaCollectionUseCase,
+  addVisaCollectionTravelUseCase,
   addVisaTravelUseCase,
+  approveEmbassyAppointmentUseCase,
   approveVisaCollectionUseCase,
   getBiometricSlipUseCase,
   getEmbassyAppointmentUseCase,
@@ -37,6 +42,7 @@ const {
   getResidencePermitUseCase,
   getTravelDetailsUseCase,
   getVisaCollectionUseCase,
+  getVisaCollectionTravelUseCase,
   getVisaTravelUseCase,
   uploadBiometricSlipUseCase,
   uploadResidencePermitUseCase
@@ -157,6 +163,33 @@ async function getContract(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Contract Error", error);
+  }
+}
+
+async function uploadSignedContract(req, res) {
+  try {
+    const payload = await uploadSignedContractUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Upload Signed Contract Error", error);
+  }
+}
+
+async function getSignedContract(req, res) {
+  try {
+    const payload = await getSignedContractUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Signed Contract Error", error);
+  }
+}
+
+async function rejectSignedContractDocument(req, res) {
+  try {
+    const payload = await rejectSignedContractDocumentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Reject Signed Contract Document Error", error);
   }
 }
 
@@ -322,6 +355,33 @@ async function getVisaCollection(req, res) {
   }
 }
 
+async function approveEmbassyAppointment(req, res) {
+  try {
+    const payload = await approveEmbassyAppointmentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Approve Embassy Appointment Error", error);
+  }
+}
+
+async function addVisaCollectionTravel(req, res) {
+  try {
+    const payload = await addVisaCollectionTravelUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Add Visa Collection Travel Error", error);
+  }
+}
+
+async function getVisaCollectionTravel(req, res) {
+  try {
+    const payload = await getVisaCollectionTravelUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Visa Collection Travel Error", error);
+  }
+}
+
 async function addVisaTravel(req, res) {
   try {
     const payload = await addVisaTravelUseCase(req);
@@ -372,7 +432,11 @@ module.exports = {
   uploadContract,
   approveContract,
   getContract,
+  uploadSignedContract,
+  getSignedContract,
+  rejectSignedContractDocument,
   addEmbassyAppointment,
+  approveEmbassyAppointment,
   getEmbassyAppointment,
   addTravelDetails,
   getTravelDetails,
@@ -390,6 +454,8 @@ module.exports = {
   addVisaCollection,
   approveVisaCollection,
   getVisaCollection,
+  addVisaCollectionTravel,
+  getVisaCollectionTravel,
   addVisaTravel,
   getVisaTravel,
   uploadResidencePermit,

@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 
 function TravelSection({ applicantId, user }) {
 
@@ -30,6 +32,8 @@ function TravelSection({ applicantId, user }) {
   };
 
   const handleSubmit = async () => {
+    const fileValidation = validateDocumentFiles([file]);
+    if (!fileValidation.valid) return alert(fileValidation.message);
 
     const formData = new FormData();
 
@@ -75,7 +79,7 @@ function TravelSection({ applicantId, user }) {
       )}
 
       {/* ADD (AGENCY + SUPER USER) */}
-      {(user?.role === "AGENCY" || user?.role === "SUPER_USER") && (
+      {(user?.role === "AGENCY" || isSuperUserLikeRole(user?.role)) && (
         <div>
 
           <input
@@ -101,7 +105,8 @@ function TravelSection({ applicantId, user }) {
 
           <input
             type="file"
-            onChange={(e) => setFile(e.target.files[0])}
+            accept={ALLOWED_DOCUMENT_ACCEPT}
+            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
           />
 
           <button onClick={handleSubmit}>

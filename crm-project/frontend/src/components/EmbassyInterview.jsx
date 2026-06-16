@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { isSuperUserLikeRole } from "../utils/auth";
 
 function EmbassyInterview({ applicantId, user, loadApplicant }) {
+  const isSuperUser = isSuperUserLikeRole(user?.role);
 
   const [data, setData] = useState(null);
   const [dateTime, setDateTime] = useState("");
@@ -45,7 +47,7 @@ function EmbassyInterview({ applicantId, user, loadApplicant }) {
       )}
 
       {/* ADD */}
-      {(user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && (
+      {(isSuperUser || user?.role === "EMPLOYER") && (
         <div>
           <input
             type="datetime-local"
@@ -60,7 +62,7 @@ function EmbassyInterview({ applicantId, user, loadApplicant }) {
       )}
 
       {/* APPROVE */}
-      {user?.role === "SUPER_USER" && data && !data.approved && (
+      {isSuperUser && data && !data.approved && (
         <button onClick={approve}>
           Approve Interview
         </button>

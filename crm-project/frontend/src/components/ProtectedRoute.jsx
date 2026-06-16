@@ -14,7 +14,11 @@ function ProtectedRoute({ children, allowedRoles = null, allowForcePasswordReset
     return <Navigate to="/change-password" replace />;
   }
 
-  if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+  const resolvedAllowedRoles = Array.isArray(allowedRoles) && allowedRoles.includes("SUPER_USER")
+    ? [...new Set([...allowedRoles, "ADMIN"])]
+    : allowedRoles;
+
+  if (Array.isArray(resolvedAllowedRoles) && resolvedAllowedRoles.length > 0 && !resolvedAllowedRoles.includes(user.role)) {
     return <Navigate to={getDashboardPathByRole(user.role)} replace />;
   }
 

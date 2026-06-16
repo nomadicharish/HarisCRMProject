@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 
 function ResidencePermit({ applicantId, user, loadApplicant }) {
 
@@ -18,6 +19,8 @@ function ResidencePermit({ applicantId, user, loadApplicant }) {
 
   const upload = async (type, file) => {
     if (!file) return alert("Select file");
+    const fileValidation = validateDocumentFiles([file]);
+    if (!fileValidation.valid) return alert(fileValidation.message);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -67,7 +70,8 @@ function ResidencePermit({ applicantId, user, loadApplicant }) {
 
       <input
         type="file"
-        onChange={(e) => setFrontFile(e.target.files[0])}
+        accept={ALLOWED_DOCUMENT_ACCEPT}
+        onChange={(e) => setFrontFile(getValidatedDocumentFile(e.target.files[0], alert))}
       />
 
       {frontFile && (
@@ -87,7 +91,8 @@ function ResidencePermit({ applicantId, user, loadApplicant }) {
 
       <input
         type="file"
-        onChange={(e) => setBackFile(e.target.files[0])}
+        accept={ALLOWED_DOCUMENT_ACCEPT}
+        onChange={(e) => setBackFile(getValidatedDocumentFile(e.target.files[0], alert))}
       />
 
       {backFile && (

@@ -1,6 +1,6 @@
 const { admin, db } = require("../config/firebase");
-const { buildApplicantListDerivedFields } = require("./applicantDomainService");
-const { normalizeCompanyDocuments } = require("../utils/normalizers");
+const { buildApplicantListDerivedFields, resolveApplicantPaymentCurrency } = require("./applicantDomainService");
+const { getCompanyDocumentsForApplicant } = require("../utils/normalizers");
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -11,11 +11,11 @@ function roundCurrency(value) {
   return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
 }
 
-async function getCompanyRequiredDocTypes(companyId) {
-  if (!companyId) return [];
-  const companyDoc = await db.collection("companies").doc(companyId).get();
+async function getCompanyRequiredDocTypes(applicantData = {}) {
+  if (!applicantData?.companyId) return [];
+  const companyDoc = await db.collection("companies").doc(applicantData.companyId).get();
   if (!companyDoc.exists) return [];
-  return normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded)
+  return getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicantData)
     .filter((item) => item.required)
     .map((item) => item.id)
     .filter(Boolean);
@@ -46,15 +46,20 @@ async function buildPaymentSummary(applicantId, applicantData = {}) {
   const totalApplicant = roundCurrency(
     applicantData.totalApplicantPayment ?? applicantData.totalAmount ?? applicantData.totalPayment ?? 0
   );
+  const applicantCurrency = resolveApplicantPaymentCurrency(applicantData);
   const totalEmployer = roundCurrency(applicantData.totalEmployerPayment ?? 0);
 
   return {
     applicant: {
       total: totalApplicant,
+      totalInr: totalApplicant,
       paid: roundCurrency(applicantPaid),
+      paidInr: roundCurrency(applicantPaid),
       pending: Math.max(0, roundCurrency(totalApplicant - applicantPaid)),
+      pendingInr: Math.max(0, roundCurrency(totalApplicant - applicantPaid)),
+      currency: applicantCurrency,
       installmentCount: applicantInstallments,
-      remainingInstallments: Math.max(0, 4 - applicantInstallments)
+      remainingInstallments: Math.max(0, 5 - applicantInstallments)
     },
     employer: {
       total: totalEmployer,
@@ -84,7 +89,7 @@ async function getLatestDocStatus(applicantId, docType) {
 }
 
 async function buildDocSummary(applicantId, applicantData = {}) {
-  const requiredDocTypes = await getCompanyRequiredDocTypes(applicantData.companyId);
+  const requiredDocTypes = await getCompanyRequiredDocTypes(applicantData);
   if (!requiredDocTypes.length) {
     return {
       totalCount: 0,
@@ -140,6 +145,8 @@ async function buildDocSummary(applicantId, applicantData = {}) {
 }
 
 function buildApprovalFlags(applicantData = {}, docSummary = {}) {
+  const hasPendingEmbassyAppointmentApproval =
+    String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
   const hasPendingEmbassyInterviewApproval =
     String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
     (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
@@ -149,11 +156,13 @@ function buildApprovalFlags(applicantData = {}, docSummary = {}) {
     String(applicantData?.contract?.status || "").toUpperCase() === "PENDING";
   const hasPendingApplicantApproval =
     String(applicantData?.approvalStatus || "").toLowerCase() !== "approved";
-  const hasPendingAppointmentApproval = Boolean(applicantData?.hasPendingAppointmentApproval);
+  const hasPendingAppointmentApproval =
+    Boolean(applicantData?.hasPendingAppointmentApproval) || hasPendingEmbassyAppointmentApproval;
 
   return {
     hasPendingDocumentApproval: Number(docSummary.pendingCount || 0) > 0,
     hasRejectedDocument: Number(docSummary.rejectedCount || 0) > 0,
+    hasPendingEmbassyAppointmentApproval,
     hasPendingEmbassyInterviewApproval,
     hasPendingVisaCollectionApproval,
     hasPendingContractApproval,
@@ -228,6 +237,7 @@ async function updatePaymentSummaryAfterPayment(applicantId, payment = {}, appli
     resolvedApplicant.totalPayment ??
     0
   );
+  const applicantCurrency = resolveApplicantPaymentCurrency(resolvedApplicant);
   const totalEmployer = roundCurrency(
     employerSummary.total ??
     resolvedApplicant.totalEmployerPayment ??
@@ -247,10 +257,14 @@ async function updatePaymentSummaryAfterPayment(applicantId, payment = {}, appli
   const paymentSummary = {
     applicant: {
       total: totalApplicant,
+      totalInr: totalApplicant,
       paid: nextApplicantPaid,
+      paidInr: nextApplicantPaid,
       pending: Math.max(0, roundCurrency(totalApplicant - nextApplicantPaid)),
+      pendingInr: Math.max(0, roundCurrency(totalApplicant - nextApplicantPaid)),
+      currency: applicantCurrency,
       installmentCount: nextApplicantInstallments,
-      remainingInstallments: Math.max(0, 4 - nextApplicantInstallments)
+      remainingInstallments: Math.max(0, 5 - nextApplicantInstallments)
     },
     employer: {
       total: totalEmployer,

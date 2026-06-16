@@ -233,19 +233,20 @@ function ApplicantFormStepOne({
           </div>
 
           <div>
-            <label style={label}>Place of Birth</label>
-            <InputShell icon={locationIcon} error={Boolean(errors.placeOfBirth)}>
+            <label style={label}>Age</label>
+            <InputShell icon={ageIcon} error={Boolean(errors.age)}>
               <input
-                style={{ ...input, paddingLeft: "44px", border: errors.placeOfBirth ? `1px solid ${THEME.error}` : input.border }}
-                value={form.placeOfBirth || ""}
+                style={{ ...input, paddingLeft: "44px", border: errors.age ? `1px solid ${THEME.error}` : input.border }}
+                value={form.age || ""}
                 onFocus={handleFocus}
-                onBlur={(event) => handleBlur(event, errors.placeOfBirth)}
-                onChange={(event) => handleChange("placeOfBirth", event.target.value)}
-                placeholder="Enter place of birth"
+                placeholder="Age"
+                onBlur={(event) => handleBlur(event, errors.age)}
+                onChange={(event) => handleChange("age", event.target.value)}
+                readOnly
                 disabled={readOnly}
               />
             </InputShell>
-            {errors.placeOfBirth && <div style={errorText}>{errors.placeOfBirth}</div>}
+            {errors.age && <div style={errorText}>{errors.age}</div>}
           </div>
         </div>
 
@@ -267,20 +268,19 @@ function ApplicantFormStepOne({
           </div>
 
           <div>
-            <label style={label}>Age</label>
-            <InputShell icon={ageIcon} error={Boolean(errors.age)}>
+            <label style={label}>Place of Birth</label>
+            <InputShell icon={locationIcon} error={Boolean(errors.placeOfBirth)}>
               <input
-                style={{ ...input, paddingLeft: "44px", border: errors.age ? `1px solid ${THEME.error}` : input.border }}
-                value={form.age || ""}
+                style={{ ...input, paddingLeft: "44px", border: errors.placeOfBirth ? `1px solid ${THEME.error}` : input.border }}
+                value={form.placeOfBirth || ""}
                 onFocus={handleFocus}
-                placeholder="Age"
-                onBlur={(event) => handleBlur(event, errors.age)}
-                onChange={(event) => handleChange("age", event.target.value)}
-                readOnly
+                onBlur={(event) => handleBlur(event, errors.placeOfBirth)}
+                onChange={(event) => handleChange("placeOfBirth", event.target.value)}
+                placeholder="Enter place of birth"
                 disabled={readOnly}
               />
             </InputShell>
-            {errors.age && <div style={errorText}>{errors.age}</div>}
+            {errors.placeOfBirth && <div style={errorText}>{errors.placeOfBirth}</div>}
           </div>
 
           <div>
@@ -317,11 +317,34 @@ function ApplicantFormStepOne({
                 <option value="Professional Degree">Professional Degree</option>
                 <option value="Doctorate (Ph.D.)">Doctorate (Ph.D.)</option>
                 <option value="No Formal Education">No Formal Education</option>
+                <option value="Others">Others</option>
               </select>
             </InputShell>
             {errors.education && <div style={errorText}>{errors.education}</div>}
           </div>
         </div>
+
+        {form.education === "Others" ? (
+          <div>
+            <label style={label}>Enter education</label>
+            <InputShell icon={educationIcon} error={Boolean(errors.customEducation)}>
+              <input
+                style={{
+                  ...input,
+                  paddingLeft: "44px",
+                  border: errors.customEducation ? `1px solid ${THEME.error}` : input.border
+                }}
+                value={form.customEducation || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.customEducation)}
+                onChange={(event) => handleChange("customEducation", event.target.value)}
+                placeholder="Enter education"
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.customEducation && <div style={errorText}>{errors.customEducation}</div>}
+          </div>
+        ) : null}
 
         <div style={{ gridColumn: "1 / -1" }}>
           <label style={label}>Address as in passport</label>

@@ -5,11 +5,10 @@ function CompaniesTable({
   rows = [],
   isSuperUser = false,
   rightIconSrc = "/right.png",
-  formatEuroAmount,
   onOpenCompanyEdit,
   onOpenApplicantsForCompany
 }) {
-  const gridTemplateColumns = isSuperUser ? "2fr 1.5fr 1.5fr 1.5fr 1.2fr" : "2fr 1.5fr 1.2fr";
+  const gridTemplateColumns = isSuperUser ? "2fr 1.5fr 1.5fr 1.2fr" : "2fr 1.5fr 1.2fr";
 
   if (rows.length > 40) {
     return (
@@ -19,7 +18,6 @@ function CompaniesTable({
           <div>Country</div>
           {!isSuperUser ? <div>Applicants</div> : null}
           {isSuperUser ? <div>Employer POC</div> : null}
-          {isSuperUser ? <div>Payment / Candidate</div> : null}
           {isSuperUser ? <div>Applicants</div> : null}
         </div>
         <VirtualizedRows
@@ -66,7 +64,6 @@ function CompaniesTable({
                 </div>
               ) : null}
               {isSuperUser ? <div>{company.employerNames || "-"}</div> : null}
-              {isSuperUser ? <div>{formatEuroAmount(company.companyPaymentPerApplicant)}</div> : null}
               {isSuperUser ? (
                 <div>
                   <button
@@ -96,14 +93,13 @@ function CompaniesTable({
           <th>Country</th>
           {!isSuperUser ? <th>Applicants</th> : null}
           {isSuperUser ? <th>Employer POC</th> : null}
-          {isSuperUser ? <th>Payment / Candidate</th> : null}
           {isSuperUser ? <th>Applicants</th> : null}
         </tr>
       </thead>
       <tbody>
         {rows.length === 0 ? (
           <tr>
-            <td colSpan={isSuperUser ? 5 : 3} className="dashboardEmptyState">
+            <td colSpan={isSuperUser ? 4 : 3} className="dashboardEmptyState">
               No companies found for the selected filters.
             </td>
           </tr>
@@ -146,7 +142,6 @@ function CompaniesTable({
                 </td>
               ) : null}
               {isSuperUser ? <td>{company.employerNames || "-"}</td> : null}
-              {isSuperUser ? <td>{formatEuroAmount(company.companyPaymentPerApplicant)}</td> : null}
               {isSuperUser ? (
                 <td>
                   <button

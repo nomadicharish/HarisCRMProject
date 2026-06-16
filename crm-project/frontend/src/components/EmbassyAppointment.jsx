@@ -4,6 +4,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -81,7 +84,7 @@ function DetailRow({ label, value, action }) {
   );
 }
 
-function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, onUpdated }) {
+function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open, onClose, onUpdated, initialEditTravel = false }) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
   };
@@ -90,6 +93,7 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
   const [loading, setLoading] = useState(false);
   const [savingAppointment, setSavingAppointment] = useState(false);
   const [savingTicket, setSavingTicket] = useState(false);
+  const [approvingAppointment, setApprovingAppointment] = useState(false);
   const [appointmentDate, setAppointmentDate] = useState(null);
   const [appointmentTime, setAppointmentTime] = useState("");
   const [appointmentFile, setAppointmentFile] = useState(null);
@@ -97,11 +101,20 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
   const [travelTime, setTravelTime] = useState("");
   const [travelFile, setTravelFile] = useState(null);
   const [biometricFromApi, setBiometricFromApi] = useState(null);
+  const [editingAppointment, setEditingAppointment] = useState(false);
+  const [editingTravel, setEditingTravel] = useState(false);
 
   const hasBiometricSlip = Boolean(biometricSlip?.fileUrl || biometricFromApi?.fileUrl);
-  const canEditAppointment = (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") && !hasBiometricSlip;
-  const canAddTicket = user?.role === "AGENCY" && appointment && !travelDetails && !hasBiometricSlip;
-  const isBusy = savingAppointment || savingTicket;
+  const isAppointmentPending = String(appointment?.status || "").toUpperCase() === "PENDING";
+  const isSuperUser = isSuperUserLikeRole(user?.role);
+  const canEditAppointment =
+    (isSuperUser || user?.role === "EMPLOYER") &&
+    !hasBiometricSlip &&
+    (!appointment || isAppointmentPending);
+  const canApprove = isSuperUser && appointment && isAppointmentPending && !hasBiometricSlip;
+  const canAddTicket = user?.role === "AGENCY" && appointment && !hasBiometricSlip && (!travelDetails || editingTravel);
+  const isBusy = savingAppointment || savingTicket || approvingAppointment;
+  const showAppointmentForm = canEditAppointment && (!appointment || editingAppointment);
 
   const loadData = useCallback(async () => {
     try {
@@ -144,8 +157,10 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
       loadData();
       setAppointmentFile(null);
       setTravelFile(null);
+      setEditingAppointment(false);
+      setEditingTravel(Boolean(initialEditTravel));
     }
-  }, [open, applicantId, loadData]);
+  }, [open, applicantId, loadData, initialEditTravel]);
 
   const title = useMemo(() => {
     if (!appointment) return "Enter Embassy Appointment details";
@@ -153,13 +168,18 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
     return "Embassy Appointment Details";
   }, [appointment, travelDetails, user?.role, hasBiometricSlip]);
 
-  const handleSaveAppointment = async () => {
+  const handleSaveAppointment = async ({ closeAfter = true, refreshAfter = true } = {}) => {
     const formattedDate = formatDateForInput(appointmentDate);
     const trimmedTime = typeof appointmentTime === "string" ? appointmentTime.trim() : "";
 
     if (!formattedDate || !trimmedTime) {
       toast.error("Appointment date and time are required");
-      return;
+      return false;
+    }
+    const fileValidation = validateDocumentFiles([appointmentFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
+      return false;
     }
 
     try {
@@ -175,18 +195,27 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
 
       await API.post(`/applicants/${applicantId}/embassy-appointment`, formData);
 
-      if (typeof onUpdated === "function") {
+      if (refreshAfter && typeof onUpdated === "function") {
         await onUpdated();
       }
 
-      if (typeof onClose === "function") {
+      if (closeAfter && typeof onClose === "function") {
         onClose();
       }
+      return true;
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to save appointment");
+      return false;
     } finally {
       setSavingAppointment(false);
+    }
+  };
+
+  const handleUpdateAndApproveAppointment = async () => {
+    const saved = await handleSaveAppointment({ closeAfter: false, refreshAfter: false });
+    if (saved) {
+      await handleApproveAppointment();
     }
   };
 
@@ -196,6 +225,11 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
 
     if (!formattedDate || !trimmedTime) {
       toast.error("Travel date and time are required");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([travelFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -227,6 +261,24 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
     }
   };
 
+  const handleApproveAppointment = async () => {
+    try {
+      setApprovingAppointment(true);
+      await API.patch(`/applicants/${applicantId}/embassy-appointment/approve`);
+      if (typeof onUpdated === "function") {
+        await onUpdated();
+      }
+      if (typeof onClose === "function") {
+        onClose();
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to approve embassy appointment");
+    } finally {
+      setApprovingAppointment(false);
+    }
+  };
+
   if (!open) return null;
 
   return (
@@ -254,7 +306,7 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
           </div>
         ) : (
           <>
-            {appointment ? (
+            {appointment && !showAppointmentForm ? (
               <div className="workflowModalBody">
                 <div className="workflowDetailStack">
                   <DetailCard
@@ -266,6 +318,7 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                     )}
                   >
                     <DetailRow label="Appointment Date & Time" value={`${formatDate(appointment.dateTime || appointment.date)} ${formatTime(appointment.time)}`} />
+                    <DetailRow label="Status" value={isAppointmentPending ? "Pending admin approval" : "Approved"} />
                     {appointment.fileUrl ? (
                       <DetailRow
                         label="Appointment Document"
@@ -325,11 +378,12 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                       />
                     </DetailCard>
                   ) : null}
+                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
                 </div>
               </div>
             ) : null}
 
-            {canEditAppointment ? (
+            {showAppointmentForm ? (
               <div className="workflowModalBody">
               <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractFormGrid">
@@ -366,26 +420,49 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                 </div>
 
                 <div className="contractUploadLabel">Appointment Document (Optional)</div>
-                <label className="contractFileCard" htmlFor="appointment-file">
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="appointment-file">
                   <input
                     id="appointment-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={isBusy}
-                    onChange={(event) => setAppointmentFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setAppointmentFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
-                  <span className="contractFileCardTitle">
-                    {appointmentFile
-                      ? appointmentFile.name
-                      : appointment?.fileUrl
-                      ? "Update appointment document"
-                      : "Upload appointment document"}
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">
+                      {appointmentFile ? appointmentFile.name : appointment?.fileUrl ? "Upload new file to replace current" : "No file chosen"}
+                    </span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
+                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
 
                 <div className="contractActionRow">
-                  <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveAppointment}>
-                    {savingAppointment ? "Saving..." : appointment ? "Update Appointment" : "Save Appointment"}
+                  {appointment ? (
+                    <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={() => setEditingAppointment(false)}>
+                      Cancel
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className="btn btnPrimary"
+                    disabled={isBusy}
+                    onClick={canApprove && appointment ? handleUpdateAndApproveAppointment : handleSaveAppointment}
+                  >
+                    {savingAppointment || approvingAppointment
+                      ? "Saving..."
+                      : canApprove && appointment
+                      ? "Update & Approve"
+                      : appointment
+                      ? "Update Appointment"
+                      : "Save Appointment"}
                   </button>
                 </div>
               </div>
@@ -431,31 +508,59 @@ function EmbassyAppointment({ applicantId, user, biometricSlip, open, onClose, o
                 </div>
 
                 <div className="contractUploadLabel">Ticket (Optional)</div>
-                <label className="contractFileCard" htmlFor="travel-file">
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="travel-file">
                   <input
                     id="travel-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={isBusy}
-                    onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setTravelFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
-                  <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
+                  </span>
                 </label>
 
                 <div className="contractActionRow">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveTicket}>
-                    {savingTicket ? "Saving..." : "Save Ticket Details"}
+                    {savingTicket ? "Saving..." : travelDetails ? "Update Travel" : "Save Ticket Details"}
                   </button>
+                  {travelDetails ? (
+                    <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={() => setEditingTravel(false)}>
+                      Cancel
+                    </button>
+                  ) : null}
                 </div>
               </div>
               </div>
             ) : null}
 
-            <div className="workflowModalFooter">
-              <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
-                Close
-              </button>
-            </div>
+            {!showAppointmentForm ? (
+              <div className="workflowModalFooter">
+                {appointment && canEditAppointment ? (
+                  <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingAppointment(true)}>
+                    Edit
+                  </button>
+                ) : null}
+                {canApprove ? (
+                  <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApproveAppointment}>
+                    {approvingAppointment ? "Approving..." : "Approve Embassy Appointment"}
+                  </button>
+                ) : (
+                  <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                    Close
+                  </button>
+                )}
+              </div>
+            ) : null}
           </>
         )}
       </div>

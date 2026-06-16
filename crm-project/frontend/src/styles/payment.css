@@ -258,6 +258,53 @@
   font-weight:500;
 }
 
+.paymentDocumentLink{
+  color:#0052CC;
+  font-weight:600;
+  text-decoration:none;
+}
+
+.paymentDocumentLink:hover{
+  text-decoration:underline;
+}
+
+.paymentDocumentUpload{
+  min-height:44px;
+  border:1px dashed #b9c6d8;
+  border-radius:12px;
+  background:#FAFBFC;
+  color:#344054;
+  display:flex;
+  align-items:center;
+  padding:6px 12px;
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+  gap:10px;
+}
+
+.paymentDocumentUpload input{
+  display:none;
+}
+
+.paymentDocumentUpload span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.paymentDocumentUploadIcon{
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#0052CC;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
 .paymentModalSubtitle{
   margin-top:4px;
   font-size:14px;
@@ -277,6 +324,39 @@
   font-size:14px;
   font-weight:400;
   color:#000000;
+}
+
+.paymentAmountInputWrap{
+  display:flex;
+  align-items:center;
+  min-height:44px;
+  border:1px solid #cfd8e6;
+  border-radius:6px;
+  overflow:hidden;
+  background:#fff;
+}
+
+.paymentAmountPrefix{
+  align-self:stretch;
+  min-width:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-right:1px solid #d9e3f0;
+  color:#0f172a;
+  font-weight:800;
+  background:#f8fafc;
+}
+
+.paymentPage .contractFormGrid .paymentAmountInputWrap input{
+  border:0;
+  min-height:42px;
+  flex:1;
+}
+
+.paymentPage .contractFormGrid .paymentAmountInputWrap input:focus{
+  outline:none;
+  box-shadow:none;
 }
 
 @media (max-width: 900px){

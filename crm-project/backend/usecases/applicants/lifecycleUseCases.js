@@ -3,18 +3,20 @@ const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
 const {
   buildApplicantListDerivedFields,
+  normalizePaymentCurrency,
   resolveApplicantReferenceFields,
-  resolveApplicantTotalEur,
+  resolveApplicantTotalAmount,
   toNumber
 } = require("../../services/applicantDomainService");
 const { approveAndMoveStageUseCase } = require("./workflowStageUseCases");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 async function approveApplicantUseCase(req) {
   const applicantId = req.params.applicantId;
   const userRole = req.user?.role || "";
   const userId = req.user?.uid || "";
 
-  if (userRole !== "SUPER_USER") throw new AppError("Only SUPER_USER can approve", 403);
+  if (!isSuperUserLikeRole(userRole)) throw new AppError("Only SUPER_USER can approve", 403);
 
   const ref = db.collection("applicants").doc(applicantId);
   const snap = await ref.get();
@@ -46,21 +48,30 @@ async function approveApplicantUseCase(req) {
 
 async function completeApplicantUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can complete process", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can complete process", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();
   if (!doc.exists) throw new AppError("Applicant not found", 404);
 
   const data = doc.data() || {};
-  if (Number(data.stage || 0) < 10) throw new AppError("Process not ready for completion", 400);
+  if (Number(data.stage || 0) < 12) throw new AppError("Process not ready for completion", 400);
+  const hasApplicantArrivalDetails = Boolean(
+    data?.visaTravel?.date ||
+    data?.visaTravel?.time ||
+    data?.visaTravel?.flightNumber ||
+    data?.visaTravel?.arrivalPlace
+  );
+  if (!hasApplicantArrivalDetails) {
+    throw new AppError("Applicant arrival details must be saved before completing process", 400);
+  }
 
   await docRef.update({
-    stage: 12,
+    stage: 13,
     applicantBannerStatus: "Candidate Arrived and Process Completed",
     ...buildApplicantListDerivedFields({
       ...data,
-      stage: 12,
+      stage: 13,
       applicantBannerStatus: "Candidate Arrived and Process Completed"
     }),
     completedAt: new Date(),
@@ -74,18 +85,19 @@ async function completeApplicantUseCase(req) {
 
 async function updateApplicantUseCase(req) {
   const { id } = req.params;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can update applicant", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can update applicant", 403);
 
   const applicantRef = db.collection("applicants").doc(id);
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const incomingTotal = toNumber(req.body?.totalApplicantPayment ?? req.body?.totalAmount);
-  const mergedApplicant = { ...applicantSnap.data(), ...req.body };
-  const resolvedTotal =
-    incomingTotal > 0
-      ? incomingTotal
-      : await resolveApplicantTotalEur(mergedApplicant);
+  const existingApplicant = applicantSnap.data() || {};
+  const incomingCurrency = normalizePaymentCurrency(
+    req.body?.paymentCurrency || req.body?.currency || existingApplicant.paymentCurrency || existingApplicant.currency
+  );
+  const mergedApplicant = { ...existingApplicant, ...req.body };
+  const resolvedTotal = incomingTotal > 0 ? incomingTotal : await resolveApplicantTotalAmount(mergedApplicant);
   const referenceFields = await resolveApplicantReferenceFields(mergedApplicant);
 
   await applicantRef.update({
@@ -94,20 +106,26 @@ async function updateApplicantUseCase(req) {
     ...buildApplicantListDerivedFields({
       ...mergedApplicant,
       ...referenceFields,
+      paymentCurrency: incomingCurrency,
+      currency: incomingCurrency,
       totalApplicantPayment: resolvedTotal,
       totalAmount: resolvedTotal
     }),
     totalApplicantPayment: resolvedTotal,
     totalAmount: resolvedTotal,
+    paymentCurrency: incomingCurrency,
+    currency: incomingCurrency,
     updatedAt: new Date()
   });
 
   await refreshApplicantSummaries(id, {
-    ...applicantSnap.data(),
+    ...existingApplicant,
     ...req.body,
     ...referenceFields,
     totalApplicantPayment: resolvedTotal,
-    totalAmount: resolvedTotal
+    totalAmount: resolvedTotal,
+    paymentCurrency: incomingCurrency,
+    currency: incomingCurrency
   });
 
   return { message: "Applicant updated successfully" };

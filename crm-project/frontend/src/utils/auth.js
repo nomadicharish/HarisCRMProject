@@ -57,11 +57,19 @@ export async function clearSession({ redirectTo = "/login" } = {}) {
 }
 
 export function getDashboardPathByRole(role) {
-  if (role === "SUPER_USER" || role === "AGENCY" || role === "EMPLOYER" || role === "ACCOUNTANT") {
+  if (role === "SUPER_USER" || role === "ADMIN" || role === "AGENCY" || role === "EMPLOYER" || role === "ACCOUNTANT") {
     return "/dashboard";
   }
 
   return "/login";
+}
+
+export function isSuperUserLikeRole(role) {
+  return role === "SUPER_USER" || role === "ADMIN";
+}
+
+export function isRootSuperUserRole(role) {
+  return role === "SUPER_USER";
 }
 
 export function validatePassword(password) {

@@ -1,6 +1,8 @@
 import React, { Suspense, lazy } from "react";
+import { isSuperUserLikeRole } from "../../utils/auth";
 
 const ContractSection = lazy(() => import("../ContractSection"));
+const SignedContractModal = lazy(() => import("../SignedContractModal"));
 const EmbassyAppointment = lazy(() => import("../EmbassyAppointment"));
 const BiometricSlipModal = lazy(() => import("../BiometricSlipModal"));
 const EmbassyInterviewModal = lazy(() => import("../EmbassyInterviewModal"));
@@ -16,48 +18,73 @@ function ApplicantProfileModalStack({
   applicant,
   biometricSlip,
   interviewBiometric,
+  visaCollectionTravel,
   residencePermit,
   isEmployer,
   resolvedAgencyName,
   resolvedCountryName,
   showContractModal,
   setShowContractModal,
+  showSignedContractModal,
+  setShowSignedContractModal,
   showEmbassyAppointmentModal,
   setShowEmbassyAppointmentModal,
+  editAppointmentTravel = false,
+  setEditAppointmentTravel,
   showBiometricSlipModal,
   setShowBiometricSlipModal,
   showEmbassyInterviewModal,
   setShowEmbassyInterviewModal,
+  editInterviewTravel = false,
+  setEditInterviewTravel,
   showInterviewBiometricModal,
   setShowInterviewBiometricModal,
   showVisaCollectionModal,
   setShowVisaCollectionModal,
+  visaCollectionModalMode = "collection",
+  editVisaCollectionTravel = false,
+  setEditVisaCollectionTravel,
   showResidencePermitModal,
   setShowResidencePermitModal,
   showApplicantDetailsModal,
   setShowApplicantDetailsModal,
   showDispatchHistoryModal,
   setShowDispatchHistoryModal,
-  refreshWorkflowData,
-  approveStage,
-  onSaved
+  refreshWorkflowData
 }) {
+  const isSuperUser = isSuperUserLikeRole(user?.role);
+
   return (
     <Suspense fallback={null}>
       <ContractSection
         applicantId={id}
         user={user}
+        applicant={applicant}
         open={showContractModal}
         onClose={() => setShowContractModal(false)}
+        onUpdated={refreshWorkflowData}
+      />
+
+      <SignedContractModal
+        applicantId={id}
+        user={user}
+        fallbackSignedContract={applicant?.signedContract || null}
+        open={showSignedContractModal}
+        onClose={() => setShowSignedContractModal(false)}
         onUpdated={refreshWorkflowData}
       />
 
       <EmbassyAppointment
         applicantId={id}
         user={user}
+        applicant={applicant}
         biometricSlip={biometricSlip || applicant?.biometricSlip || null}
         open={showEmbassyAppointmentModal}
-        onClose={() => setShowEmbassyAppointmentModal(false)}
+        initialEditTravel={editAppointmentTravel}
+        onClose={() => {
+          setShowEmbassyAppointmentModal(false);
+          setEditAppointmentTravel?.(false);
+        }}
         onUpdated={refreshWorkflowData}
       />
 
@@ -73,9 +100,14 @@ function ApplicantProfileModalStack({
       <EmbassyInterviewModal
         applicantId={id}
         user={user}
+        applicant={applicant}
         interviewBiometric={interviewBiometric || applicant?.interviewBiometric || null}
         open={showEmbassyInterviewModal}
-        onClose={() => setShowEmbassyInterviewModal(false)}
+        initialEditTravel={editInterviewTravel}
+        onClose={() => {
+          setShowEmbassyInterviewModal(false);
+          setEditInterviewTravel?.(false);
+        }}
         onUpdated={refreshWorkflowData}
       />
 
@@ -91,9 +123,16 @@ function ApplicantProfileModalStack({
       <VisaCollectionModal
         applicantId={id}
         user={user}
+        applicant={applicant}
+        fallbackVisaCollectionTravel={visaCollectionTravel || applicant?.visaCollectionTravel || null}
         residencePermit={residencePermit || applicant?.residencePermit || null}
+        mode={visaCollectionModalMode}
         open={showVisaCollectionModal}
-        onClose={() => setShowVisaCollectionModal(false)}
+        initialEditCollectionTravel={editVisaCollectionTravel}
+        onClose={() => {
+          setShowVisaCollectionModal(false);
+          setEditVisaCollectionTravel?.(false);
+        }}
         onUpdated={refreshWorkflowData}
       />
 
@@ -110,8 +149,8 @@ function ApplicantProfileModalStack({
         applicant={applicant}
         open={showApplicantDetailsModal}
         onClose={() => setShowApplicantDetailsModal(false)}
-        showPaymentDetails={!isEmployer}
-        agencyName={user?.role === "SUPER_USER" ? resolvedAgencyName : ""}
+        showPaymentDetails={isSuperUser && !isEmployer}
+        agencyName={isSuperUser ? resolvedAgencyName : ""}
         countryName={resolvedCountryName}
       />
 

@@ -1,44 +1,33 @@
 import React from "react";
 import VirtualizedRows from "./VirtualizedRows";
 
+export function resolveApplicantWorkflowMeta(applicant = {}) {
+  const statusText = applicant.statusText || applicant.applicantBannerStatus || applicant.stageLabel || "Candidate Created";
+  const parts = String(statusText).split(".").map((item) => item.trim()).filter(Boolean);
+  const workflowStatus = String(applicant.workflowStatus || applicant.stageStatus || "").toLowerCase();
+  const completed = workflowStatus === "completed" || Number(applicant.stage || 0) >= 13;
+  const attentionRequired = Boolean(applicant.attentionRequired) || workflowStatus === "attention_required";
+
+  return {
+    title: parts[0] || statusText,
+    subtitle: parts.slice(1).join(". ") || "",
+    pillLabel: completed ? "Completed" : attentionRequired ? "Attention Required" : "In Progress",
+    pillClass: completed
+      ? "dashboardStatusPillSuccess"
+      : attentionRequired
+      ? "dashboardStatusPillWarning"
+      : "dashboardStatusPillInfo",
+    completed,
+    attentionRequired
+  };
+}
+
 function ApplicantsTable({
   rows = [],
   isEmployer = false,
   onOpenApplicant,
   formatPendingAmount
 }) {
-  const getWorkflowMeta = (applicant) => {
-    const statusText = applicant.statusText || applicant.applicantBannerStatus || applicant.stageLabel || "Candidate Created";
-    const parts = String(statusText).split(".").map((item) => item.trim()).filter(Boolean);
-    return {
-      title: parts[0] || statusText,
-      subtitle: parts.slice(1).join(". ") || ""
-    };
-  };
-  const getWorkflowPill = (applicant) => {
-    if (
-      applicant.workflowStatus === "completed" ||
-      applicant.stageStatus === "completed" ||
-      Number(applicant.stage || 0) === 12
-    ) {
-      return {
-        label: "Completed",
-        className: "dashboardStatusPillSuccess"
-      };
-    }
-
-    if (applicant.workflowStatus === "attention_required" || applicant.attentionRequired) {
-      return {
-        label: "Attention Required",
-        className: "dashboardStatusPillWarning"
-      };
-    }
-
-    return {
-      label: "In Progress",
-      className: "dashboardStatusPillInfo"
-    };
-  };
   const gridTemplateColumns = isEmployer ? "2fr 2fr 2fr" : "2fr 2fr 1.5fr 1.5fr";
 
   if (!rows.length) {
@@ -80,9 +69,11 @@ function ApplicantsTable({
               applicant.fullName ||
               [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
               "Applicant";
-            const workflow = getWorkflowMeta(applicant);
-            const workflowPill = getWorkflowPill(applicant);
-            const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
+            const workflow = resolveApplicantWorkflowMeta(applicant);
+            const pendingAmount = applicant.payment?.pendingInr ?? applicant.payment?.pending ?? 0;
+            const paymentPending = Number(pendingAmount || 0) > 0;
+            const isCandidateApprovalPending =
+              Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
 
             return (
               <tr
@@ -98,8 +89,8 @@ function ApplicantsTable({
                 </td>
                 <td>
                   <div className="dashboardStatusCell">
-                    <span className={`dashboardStatusPill ${workflowPill.className}`}>
-                      {workflowPill.label}
+                    <span className={`dashboardStatusPill ${workflow.pillClass}`}>
+                      {workflow.pillLabel}
                     </span>
                     <span className="dashboardStatusMetaTitle">{workflow.title}</span>
                     {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
@@ -108,12 +99,20 @@ function ApplicantsTable({
                 <td>{applicant.companyName || "-"}</td>
                 {!isEmployer ? (
                   <td>
-                    <div className="dashboardStatusCell">
-                      <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
-                        {paymentPending ? "Pending" : "Completed"}
-                      </span>
-                      {paymentPending ? <span className="dashboardPaymentAmount">{formatPendingAmount(applicant.payment.pendingInr)}</span> : null}
-                    </div>
+                    {isCandidateApprovalPending ? (
+                      "-"
+                    ) : (
+                      <div className="dashboardStatusCell">
+                        <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
+                          {paymentPending ? "Pending" : "Completed"}
+                        </span>
+                        {paymentPending ? (
+                          <span className="dashboardPaymentAmount">
+                            {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                   </td>
                 ) : null}
               </tr>
@@ -141,9 +140,11 @@ function ApplicantsTable({
             applicant.fullName ||
             [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
             "Applicant";
-          const workflow = getWorkflowMeta(applicant);
-          const workflowPill = getWorkflowPill(applicant);
-          const paymentPending = Number(applicant.payment?.pendingInr || 0) > 0;
+          const workflow = resolveApplicantWorkflowMeta(applicant);
+          const pendingAmount = applicant.payment?.pendingInr ?? applicant.payment?.pending ?? 0;
+          const paymentPending = Number(pendingAmount || 0) > 0;
+          const isCandidateApprovalPending =
+            Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
           return (
             <div
               className="dashboardVirtualRow"
@@ -157,8 +158,8 @@ function ApplicantsTable({
                 {applicant.attentionRequired ? <span className="dashboardWarningIcon">!</span> : null}
               </div>
               <div className="dashboardStatusCell">
-                <span className={`dashboardStatusPill ${workflowPill.className}`}>
-                  {workflowPill.label}
+                <span className={`dashboardStatusPill ${workflow.pillClass}`}>
+                  {workflow.pillLabel}
                 </span>
                 <span className="dashboardStatusMetaTitle">{workflow.title}</span>
                 {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
@@ -166,10 +167,20 @@ function ApplicantsTable({
               <div>{applicant.companyName || "-"}</div>
               {!isEmployer ? (
                 <div className="dashboardStatusCell">
-                  <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
-                    {paymentPending ? "Pending" : "Completed"}
-                  </span>
-                  {paymentPending ? <span className="dashboardPaymentAmount">{formatPendingAmount(applicant.payment.pendingInr)}</span> : null}
+                  {isCandidateApprovalPending ? (
+                    "-"
+                  ) : (
+                    <>
+                      <span className={`dashboardStatusPill ${paymentPending ? "dashboardPaymentPillPending" : "dashboardPaymentPillSuccess"}`}>
+                        {paymentPending ? "Pending" : "Completed"}
+                      </span>
+                      {paymentPending ? (
+                        <span className="dashboardPaymentAmount">
+                          {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
                 </div>
               ) : null}
             </div>

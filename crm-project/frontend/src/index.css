@@ -214,7 +214,7 @@ a {
 
 @media (min-width: 481px) and (max-width: 1024px){
   .dashboardPageContainer{
-    padding:0 16px 24px;
+    padding:154px 16px 24px;
   }
 
   .dashboardPageContainer > .page-content{
@@ -224,7 +224,7 @@ a {
 
 @media (max-width: 480px){
   .dashboardPageContainer{
-    padding:0 12px 20px;
+    padding:154px 12px 20px;
   }
 
   .dashboardPageContainer > .page-content{

@@ -734,7 +734,20 @@
   margin-bottom:0;
   padding:16px 22px 12px;
   align-items:flex-start;
-  background:linear-gradient(135deg, #1f3762 0%, #182645 100%);
+  background:linear-gradient(
+  90deg,
+  #1D4ED8 0%,
+  #0A2A6D 100%
+);
+}
+
+.sideTopActionable{
+  cursor:pointer;
+}
+
+.sideTopActionable:focus-visible{
+  outline:3px solid rgba(37,99,235,0.28);
+  outline-offset:-3px;
 }
 
 .sideAvatar{
@@ -744,6 +757,14 @@
   color:#243b63;
   font-size:22px;
   font-weight:800;
+  overflow:hidden;
+}
+
+.sideAvatarImage{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  display:block;
 }
 
 .sideName{

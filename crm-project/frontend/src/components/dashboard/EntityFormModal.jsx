@@ -2,11 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import ConfirmActionModal from "../common/ConfirmActionModal";
 import Select from "react-select";
 import PhoneInput from "react-phone-input-2";
+import { toast } from "react-toastify";
 import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import BlockingLoader from "../common/BlockingLoader";
-import { formatIndianNumberInput, parseIndianNumberInput } from "../../utils/numberFormat";
 import "../../styles/forms.css";
 import "../../styles/applicantContract.css";
 
@@ -99,14 +99,18 @@ const INITIAL_FORM = {
   address: "",
   email: "",
   employerIds: [],
-  assignedCompanyIds: [],
-  companyPaymentPerApplicant: ""
+  assignedCompanyIds: []
 };
 
 const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
 
-const formatAmountInput = formatIndianNumberInput;
-const parseAmountInput = parseIndianNumberInput;
+function getWelcomeEmailWarning(welcomeEmail) {
+  if (!welcomeEmail?.skipped) return "";
+  if (welcomeEmail.reason === "smtp_not_configured") {
+    return "Account created, but welcome email was not sent because SMTP is not configured.";
+  }
+  return "Account created, but welcome email could not be sent.";
+}
 
 function TrashIcon() {
   return (
@@ -183,9 +187,7 @@ function EntityFormModal({
       address: editData.address || "",
       email: editData.email || "",
       employerIds: Array.isArray(editData.employerIds) ? editData.employerIds : [],
-      assignedCompanyIds: Array.isArray(editData.assignedCompanyIds) ? editData.assignedCompanyIds : [],
-      companyPaymentPerApplicant:
-        formatAmountInput(editData.companyPaymentPerApplicant ?? editData.totalEmployerPayment ?? "")
+      assignedCompanyIds: Array.isArray(editData.assignedCompanyIds) ? editData.assignedCompanyIds : []
     });
     const rawNumber = String(editData.contactNumber || "");
     const parsed = parsePhoneNumberFromString(rawNumber.startsWith("+") ? rawNumber : `+${rawNumber}`);
@@ -214,10 +216,6 @@ function EntityFormModal({
       if (key === "countryId" && type === "employer") {
         next.companyId = "";
       }
-      if (key === "companyPaymentPerApplicant") {
-        next.companyPaymentPerApplicant = formatAmountInput(value);
-      }
-
       return next;
     });
 
@@ -242,15 +240,6 @@ function EntityFormModal({
       }
     }
 
-    if (type === "company") {
-      const paymentValue = String(form.companyPaymentPerApplicant || "").trim();
-      if (!paymentValue) {
-        nextErrors.companyPaymentPerApplicant = "Payment for each candidate is required";
-      } else if (Number.isNaN(parseAmountInput(paymentValue)) || parseAmountInput(paymentValue) < 0) {
-        nextErrors.companyPaymentPerApplicant = "Enter a valid amount";
-      }
-    }
-
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -270,9 +259,7 @@ function EntityFormModal({
         address: form.address.trim(),
         email: String(form.email || "").trim(),
         employerIds: form.employerIds,
-        assignedCompanyIds: form.assignedCompanyIds,
-        companyPaymentPerApplicant:
-          form.companyPaymentPerApplicant === "" ? "" : parseAmountInput(form.companyPaymentPerApplicant)
+        assignedCompanyIds: form.assignedCompanyIds
       };
 
       if (editData?.id) {
@@ -287,6 +274,8 @@ function EntityFormModal({
         }
       } else {
         const response = await API.post(config.createEndpoint, payload);
+        const welcomeEmailWarning = getWelcomeEmailWarning(response?.data?.welcomeEmail);
+        
         if (typeof onSaved === "function") {
           await onSaved({
             operation: "create",
@@ -428,20 +417,6 @@ function EntityFormModal({
                     styles={createSelectStyles(Boolean(errors.employerIds))}
                   />
                   {errors.employerIds ? <div className="dashboardInlineError">{errors.employerIds}</div> : null}
-                </div>
-
-                <div className="input-field">
-                  <label className="contractUploadLabel">Payment for each candidate (EUR)</label>
-                  <input
-                    type="text"
-                    className={errors.companyPaymentPerApplicant ? "dashboardFieldError" : ""}
-                    value={form.companyPaymentPerApplicant}
-                    onChange={(event) => updateField("companyPaymentPerApplicant", event.target.value)}
-                    placeholder="Enter amount"
-                  />
-                  {errors.companyPaymentPerApplicant ? (
-                    <div className="dashboardInlineError">{errors.companyPaymentPerApplicant}</div>
-                  ) : null}
                 </div>
               </>
             ) : null}

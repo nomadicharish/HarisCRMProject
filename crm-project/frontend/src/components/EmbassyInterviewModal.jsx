@@ -4,6 +4,9 @@ import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -92,7 +95,7 @@ function DetailRow({ label, value, action }) {
   );
 }
 
-function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, onClose, onUpdated }) {
+function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometric, open, onClose, onUpdated, initialEditTravel = false }) {
   const openTimePicker = (event) => {
     event.target.showPicker?.();
   };
@@ -106,19 +109,24 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
   const [travelDate, setTravelDate] = useState(null);
   const [travelTime, setTravelTime] = useState("");
   const [travelFile, setTravelFile] = useState(null);
+  const [interviewDocumentFile, setInterviewDocumentFile] = useState(null);
   const [biometricFromApi, setBiometricFromApi] = useState(null);
+  const [editingInterview, setEditingInterview] = useState(false);
+  const [editingTravel, setEditingTravel] = useState(false);
 
   const resolvedInterviewBiometric = biometricFromApi || interviewBiometric || null;
   const hasInterviewBiometric = Boolean(resolvedInterviewBiometric?.fileUrl);
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const canEditInterview =
-    (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") &&
+    (isSuperUser || user?.role === "EMPLOYER") &&
     !hasInterviewBiometric &&
     !interviewTicket &&
     !interview?.approved &&
     String(interview?.status || "").toUpperCase() !== "APPROVED";
-  const canApprove = user?.role === "SUPER_USER" && interview && !interview.approved && !hasInterviewBiometric;
-  const canAddTicket = user?.role === "AGENCY" && interview && !interviewTicket && !hasInterviewBiometric;
+  const canApprove = isSuperUser && interview && !interview.approved && !hasInterviewBiometric;
+  const canAddTicket = user?.role === "AGENCY" && interview && !hasInterviewBiometric && (!interviewTicket || editingTravel);
   const isBusy = savingInterview || savingTicket;
+  const showInterviewForm = canEditInterview && (!interview || editingInterview);
 
   const loadData = useCallback(async () => {
     try {
@@ -157,8 +165,11 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
     if (open && applicantId) {
       loadData();
       setTravelFile(null);
+      setInterviewDocumentFile(null);
+      setEditingInterview(false);
+      setEditingTravel(Boolean(initialEditTravel));
     }
-  }, [open, applicantId, loadData]);
+  }, [open, applicantId, loadData, initialEditTravel]);
 
   const title = useMemo(() => {
     if (!interview) return "Add Embassy Interview";
@@ -166,32 +177,47 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
     return "Embassy Interview Details";
   }, [interview, interviewTicket, user?.role, hasInterviewBiometric]);
 
-  const handleSaveInterview = async () => {
+  const handleSaveInterview = async ({ closeAfter = true, refreshAfter = true } = {}) => {
     const formattedDate = formatDateForInput(interviewDate);
     const trimmedTime = typeof interviewTime === "string" ? interviewTime.trim() : "";
 
     if (!formattedDate || !trimmedTime) {
       toast.error("Interview date and time are required");
-      return;
+      return false;
+    }
+    const fileValidation = validateDocumentFiles([interviewDocumentFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
+      return false;
     }
 
     try {
       setSavingInterview(true);
-      await API.post(`/applicants/${applicantId}/interview`, {
-        dateTime: `${formattedDate}T${trimmedTime}`
-      });
+      const formData = new FormData();
+      formData.append("dateTime", `${formattedDate}T${trimmedTime}`);
+      if (interviewDocumentFile) formData.append("file", interviewDocumentFile);
+      await API.post(`/applicants/${applicantId}/interview`, formData);
 
-      if (typeof onUpdated === "function") {
+      if (refreshAfter && typeof onUpdated === "function") {
         await onUpdated();
       }
-      if (typeof onClose === "function") {
+      if (closeAfter && typeof onClose === "function") {
         onClose();
       }
+      return true;
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to save embassy interview");
+      return false;
     } finally {
       setSavingInterview(false);
+    }
+  };
+
+  const handleUpdateAndApprove = async () => {
+    const saved = await handleSaveInterview({ closeAfter: false, refreshAfter: false });
+    if (saved) {
+      await handleApprove();
     }
   };
 
@@ -219,6 +245,11 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
 
     if (!formattedDate || !trimmedTime) {
       toast.error("Travel date and time are required");
+      return;
+    }
+    const fileValidation = validateDocumentFiles([travelFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
@@ -274,7 +305,7 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
           </div>
         ) : (
           <>
-            {interview ? (
+            {interview && !showInterviewForm ? (
               <div className="workflowModalBody">
                 <div className="workflowDetailStack">
                   <DetailCard
@@ -289,6 +320,16 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       label="Interview Date & Time"
                       value={`${formatDate(interview.dateTime)} ${formatTime(interview.dateTime ? String(interview.dateTime).split("T")[1]?.slice(0, 5) : "")}`}
                     />
+                    {interview.documentUrl ? (
+                      <DetailRow
+                        label="Document"
+                        action={(
+                          <a href={interview.documentUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
+                            View document
+                          </a>
+                        )}
+                      />
+                    ) : null}
                   </DetailCard>
 
                   {interviewTicket ? (
@@ -334,11 +375,12 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                       <DetailRow label="Uploaded On" value={formatDateTime(resolvedInterviewBiometric.uploadedAt)} />
                     </DetailCard>
                   ) : null}
+                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
                 </div>
               </div>
             ) : null}
 
-            {canEditInterview ? (
+            {showInterviewForm ? (
               <div className="workflowModalBody">
               <div className="contractUploadPanel workflowEntryPanel workflowEntryPanelNoBorder">
                 <div className="contractFormGrid">
@@ -374,15 +416,49 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                   </div>
                 </div>
 
+                <div className="contractUploadLabel">Document (Optional)</div>
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="embassy-interview-document">
+                  <input
+                    id="embassy-interview-document"
+                    type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
+                    className="contractFileInput"
+                    disabled={isBusy}
+                    onChange={(event) => setInterviewDocumentFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
+                  />
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                      <path d="M7 3h8l4 4v14H7zM15 3v4h4M10 13h4M10 17h3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">{interviewDocumentFile?.name || "No file chosen"}</span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
+                  </span>
+                </label>
+                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
+
                 <div className="contractActionRow">
-                  <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveInterview}>
-                    {savingInterview ? "Saving..." : interview ? "Update Interview" : "Save Interview"}
-                  </button>
-                  {canApprove ? (
-                    <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApprove}>
-                      {savingInterview ? "Approving..." : "Approve embassy interview"}
+                  {interview ? (
+                    <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={() => setEditingInterview(false)}>
+                      Cancel
                     </button>
                   ) : null}
+                  <button
+                    type="button"
+                    className="btn btnPrimary"
+                    disabled={isBusy}
+                    onClick={canApprove && interview ? handleUpdateAndApprove : handleSaveInterview}
+                  >
+                    {savingInterview
+                      ? "Saving..."
+                      : canApprove && interview
+                      ? "Update & Approve"
+                      : interview
+                      ? "Update Interview"
+                      : "Save Interview"}
+                  </button>
                 </div>
               </div>
               </div>
@@ -427,31 +503,59 @@ function EmbassyInterviewModal({ applicantId, user, interviewBiometric, open, on
                 </div>
 
                 <div className="contractUploadLabel">Ticket (Optional)</div>
-                <label className="contractFileCard" htmlFor="interview-travel-file">
+                <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="interview-travel-file">
                   <input
                     id="interview-travel-file"
                     type="file"
+                    accept={ALLOWED_DOCUMENT_ACCEPT}
                     className="contractFileInput"
                     disabled={isBusy}
-                    onChange={(event) => setTravelFile(event.target.files?.[0] || null)}
+                    onChange={(event) => setTravelFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
                   />
-                  <span className="contractFileCardTitle">{travelFile ? travelFile.name : "Upload ticket"}</span>
+                  <span className="workflowUploadBoxIcon" aria-hidden="true">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                  <span className="workflowUploadBoxText">
+                    <span className="workflowUploadBoxTitle">Choose file</span>
+                    <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
+                    <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
+                  </span>
                 </label>
 
                 <div className="contractActionRow">
                   <button type="button" className="btn btnPrimary" disabled={isBusy} onClick={handleSaveTicket}>
-                    {savingTicket ? "Saving..." : "Save Ticket Details"}
+                    {savingTicket ? "Saving..." : interviewTicket ? "Update Travel" : "Save Ticket Details"}
                   </button>
+                  {interviewTicket ? (
+                    <button type="button" className="btn btnSecondary" disabled={isBusy} onClick={() => setEditingTravel(false)}>
+                      Cancel
+                    </button>
+                  ) : null}
                 </div>
               </div>
               </div>
             ) : null}
 
-            <div className="workflowModalFooter">
-              <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
-                Close
-              </button>
-            </div>
+            {!showInterviewForm ? (
+              <div className="workflowModalFooter">
+                {interview && canEditInterview ? (
+                  <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingInterview(true)}>
+                    Edit
+                  </button>
+                ) : null}
+                {canApprove ? (
+                  <button type="button" className="btn btnSuccess" disabled={isBusy} onClick={handleApprove}>
+                    {savingInterview ? "Approving..." : "Approve embassy interview"}
+                  </button>
+                ) : (
+                  <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                    Close
+                  </button>
+                )}
+              </div>
+            ) : null}
           </>
         )}
       </div>

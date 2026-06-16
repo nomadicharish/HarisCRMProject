@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearSession } from "../../utils/auth";
+import BrandLogo from "./BrandLogo";
 import "../../styles/applicantsDashboard.css";
 
 const DOWN_ICON_SRC = "/down.png";
@@ -30,10 +31,7 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
     <>
       <div className="dashboardTopbar">
         <button type="button" className="dashboardBrand dashboardBrandBtn" onClick={() => navigate("/dashboard")}>
-          <span className="dashboardBrandIcon" aria-hidden="true">
-            TA
-          </span>
-          <span>Talent Acquisition</span>
+          <BrandLogo className="dashboardBrandIcon" />
         </button>
 
         {showTabs ? (

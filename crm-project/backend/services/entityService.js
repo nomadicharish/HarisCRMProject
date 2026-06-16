@@ -3,6 +3,8 @@ const { AppError } = require("../lib/AppError");
 const { decryptText, encryptText } = require("../utils/crypto");
 const {
   normalizeCompanyDocuments,
+  normalizeCompanyJobSpecifications,
+  normalizeCompanyJobPositions,
   normalizeEmailValue,
   normalizeIdList,
   normalizePhoneValue
@@ -14,6 +16,7 @@ const {
   findLinkedUserByField,
   syncLinkedUserAccount
 } = require("./accountService");
+const { isSuperUserLikeRole } = require("../utils/roles");
 
 function buildNormalizedFields({ email = "", contactNumber = "" } = {}) {
   return {
@@ -274,6 +277,46 @@ async function syncCompanyEmployerLinks(companyId, countryId, nextEmployerIds = 
   await batch.commit();
 }
 
+async function syncCompanyAgencyLinks(companyId, nextAgencyIds = [], previousAgencyIds = []) {
+  if (!nextAgencyIds.length && !previousAgencyIds.length) return;
+
+  const batch = admin.firestore().batch();
+  const nextSet = new Set(nextAgencyIds);
+
+  nextAgencyIds.forEach((agencyId) => {
+    batch.set(
+      db.collection("agencies").doc(agencyId),
+      {
+        assignedCompanyIds: admin.firestore.FieldValue.arrayUnion(companyId)
+      },
+      { merge: true }
+    );
+  });
+
+  previousAgencyIds.forEach((agencyId) => {
+    if (nextSet.has(agencyId)) return;
+
+    batch.set(
+      db.collection("agencies").doc(agencyId),
+      {
+        assignedCompanyIds: admin.firestore.FieldValue.arrayRemove(companyId)
+      },
+      { merge: true }
+    );
+  });
+
+  await batch.commit();
+}
+
+async function getAgencyIdsAssignedToCompany(companyId) {
+  if (!companyId) return [];
+  const snapshot = await db
+    .collection("agencies")
+    .where("assignedCompanyIds", "array-contains", companyId)
+    .get();
+  return snapshot.docs.map((doc) => doc.id);
+}
+
 async function addCountry({ name }) {
   const docRef = await db.collection("countries").add({
     name,
@@ -304,18 +347,27 @@ async function updateCountry(id, { name }) {
 
 async function addCompany(payload) {
   const normalizedEmployerIds = normalizeIdList(payload.employerIds);
+  const normalizedAgencyIds = normalizeIdList(payload.agencyIds);
+  const documentsNeeded = normalizeCompanyDocuments(payload.documentsNeeded);
+  const jobPositions = normalizeCompanyJobPositions(payload.jobPositions, documentsNeeded);
   const docRef = await db.collection("companies").add({
     name: payload.name,
     countryId: payload.countryId,
     companyPaymentPerApplicant: payload.companyPaymentPerApplicant,
     contactNumber: payload.contactNumber || "",
     whatsappNumber: payload.whatsappNumber || "",
+    standardReferenceFileName: payload.standardReferenceFileName || "",
+    standardReferenceUrl: payload.standardReferenceUrl || "",
     employerIds: normalizedEmployerIds,
-    documentsNeeded: normalizeCompanyDocuments(payload.documentsNeeded),
+    agencyIds: normalizedAgencyIds,
+    documentsNeeded: jobPositions[0]?.documents || documentsNeeded,
+    jobSpecifications: normalizeCompanyJobSpecifications(payload.jobSpecifications),
+    jobPositions,
     createdAt: new Date()
   });
 
   await syncCompanyEmployerLinks(docRef.id, payload.countryId, normalizedEmployerIds, []);
+  await syncCompanyAgencyLinks(docRef.id, normalizedAgencyIds, []);
   return { message: "Company added", id: docRef.id };
 }
 
@@ -329,6 +381,13 @@ async function updateCompany(id, payload) {
 
   const previousEmployerIds = normalizeIdList(companyDoc.data()?.employerIds);
   const normalizedEmployerIds = normalizeIdList(payload.employerIds);
+  const storedPreviousAgencyIds = normalizeIdList(companyDoc.data()?.agencyIds);
+  const previousAgencyIds = storedPreviousAgencyIds.length
+    ? storedPreviousAgencyIds
+    : await getAgencyIdsAssignedToCompany(id);
+  const normalizedAgencyIds = normalizeIdList(payload.agencyIds);
+  const documentsNeeded = normalizeCompanyDocuments(payload.documentsNeeded);
+  const jobPositions = normalizeCompanyJobPositions(payload.jobPositions, documentsNeeded);
 
   await companyRef.set(
     {
@@ -337,14 +396,20 @@ async function updateCompany(id, payload) {
       companyPaymentPerApplicant: payload.companyPaymentPerApplicant,
       contactNumber: payload.contactNumber || "",
       whatsappNumber: payload.whatsappNumber || "",
+      standardReferenceFileName: payload.standardReferenceFileName || "",
+      standardReferenceUrl: payload.standardReferenceUrl || "",
       employerIds: normalizedEmployerIds,
-      documentsNeeded: normalizeCompanyDocuments(payload.documentsNeeded),
+      agencyIds: normalizedAgencyIds,
+      documentsNeeded: jobPositions[0]?.documents || documentsNeeded,
+      jobSpecifications: normalizeCompanyJobSpecifications(payload.jobSpecifications),
+      jobPositions,
       updatedAt: new Date()
     },
     { merge: true }
   );
 
   await syncCompanyEmployerLinks(id, payload.countryId, normalizedEmployerIds, previousEmployerIds);
+  await syncCompanyAgencyLinks(id, normalizedAgencyIds, previousAgencyIds);
   return { message: "Company updated", id };
 }
 
@@ -357,13 +422,22 @@ async function deleteCompany(id) {
   }
 
   const employerIds = normalizeIdList(companyDoc.data()?.employerIds);
-  if (employerIds.length) {
+  const agencyIds = normalizeIdList(companyDoc.data()?.agencyIds);
+  if (employerIds.length || agencyIds.length) {
     const batch = admin.firestore().batch();
 
     employerIds.forEach((employerId) => {
       batch.set(
         db.collection("employers").doc(employerId),
         { companyId: null },
+        { merge: true }
+      );
+    });
+
+    agencyIds.forEach((agencyId) => {
+      batch.set(
+        db.collection("agencies").doc(agencyId),
+        { assignedCompanyIds: admin.firestore.FieldValue.arrayRemove(id) },
         { merge: true }
       );
     });
@@ -391,7 +465,7 @@ async function addAgency(payload) {
     createdAt: new Date()
   });
 
-  await createLinkedUserAccount({
+  const linkedUser = await createLinkedUserAccount({
     email: payload.email,
     name: payload.name,
     role: "AGENCY",
@@ -399,7 +473,7 @@ async function addAgency(payload) {
     contactNumber: payload.contactNumber
   });
 
-  return { message: "Agency added", id: docRef.id };
+  return { message: "Agency added", id: docRef.id, welcomeEmail: linkedUser.welcomeEmail };
 }
 
 async function updateAgency(id, payload) {
@@ -469,7 +543,7 @@ async function addEmployer(payload) {
     createdAt: new Date()
   });
 
-  await createLinkedUserAccount({
+  const linkedUser = await createLinkedUserAccount({
     email: payload.email,
     name: payload.name,
     role: "EMPLOYER",
@@ -486,7 +560,7 @@ async function addEmployer(payload) {
     );
   }
 
-  return { message: "Employer added", id: docRef.id };
+  return { message: "Employer added", id: docRef.id, welcomeEmail: linkedUser.welcomeEmail };
 }
 
 async function updateEmployer(id, payload) {
@@ -577,7 +651,7 @@ async function listCountries() {
 }
 
 async function listAgencies({ role, query = {} }) {
-  if (role !== "SUPER_USER") return [];
+  if (!isSuperUserLikeRole(role)) return [];
   const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
@@ -654,7 +728,7 @@ async function listAgencies({ role, query = {} }) {
 }
 
 async function listEmployers({ role, query = {} }) {
-  if (role !== "SUPER_USER") return [];
+  if (!isSuperUserLikeRole(role)) return [];
   const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
@@ -721,7 +795,7 @@ async function listCompanies({ user, query: queryParams = {} }) {
   const companyFilters = parseCsv(queryParams?.company);
   const search = normalizeText(queryParams?.q);
 
-  if (userRole === "SUPER_USER" || userRole === "ACCOUNTANT") {
+  if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
     let companyQuery = db.collection("companies");
     if (countryId) {
       companyQuery = companyQuery.where("countryId", "==", countryId);
@@ -806,7 +880,7 @@ async function listCompanies({ user, query: queryParams = {} }) {
   throw new AppError("Access denied", 403);
 }
 
-async function uploadCompanyDocumentTemplate(companyId, documentId, file) {
+async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPositionIdValue = "", templateTypeValue = "documentToFill") {
   const companyRef = db.collection("companies").doc(companyId);
   const companyDoc = await companyRef.get();
 
@@ -814,16 +888,11 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file) {
     throw new AppError("Company not found", 404);
   }
 
-  const documentsNeeded = normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded);
-  const targetIndex = documentsNeeded.findIndex((document) => document.id === String(documentId).trim());
-
-  if (targetIndex === -1) {
-    throw new AppError("Company document not found", 404);
-  }
-
+  const templateType = ["reference", "standardReference"].includes(String(templateTypeValue || "")) ? String(templateTypeValue) : "documentToFill";
   const bucket = admin.storage().bucket();
   const safeFileName = String(file.originalname || "template").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `companies/${companyId}/document-templates/${String(documentId).trim()}_${Date.now()}_${safeFileName}`;
+  const fileLabel = templateType === "standardReference" ? "standard-reference" : String(documentId || "document").trim();
+  const storagePath = `companies/${companyId}/document-templates/${fileLabel}_${templateType}_${Date.now()}_${safeFileName}`;
   const fileRef = bucket.file(storagePath);
 
   await fileRef.save(file.buffer, {
@@ -831,20 +900,78 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file) {
   });
   await fileRef.makePublic();
 
+  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+
+  if (templateType === "standardReference") {
+    await companyRef.set(
+      {
+        standardReferenceFileName: file.originalname || safeFileName,
+        standardReferenceUrl: fileUrl,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+
+    return {
+      message: "Standard reference uploaded successfully",
+      standardReferenceFileName: file.originalname || safeFileName,
+      standardReferenceUrl: fileUrl
+    };
+  }
+
+  if (!String(documentId || "").trim()) {
+    throw new AppError("Document id is required", 400);
+  }
+
+  const jobPositionId = String(jobPositionIdValue || "").trim();
+  const jobPositions = normalizeCompanyJobPositions(companyDoc.data()?.jobPositions, companyDoc.data()?.documentsNeeded);
+  const targetPositionIndex = jobPositionId
+    ? jobPositions.findIndex((position) => position.id === jobPositionId)
+    : -1;
+  const documentsNeeded = targetPositionIndex >= 0
+    ? jobPositions[targetPositionIndex].documents
+    : normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded);
+  const targetIndex = documentsNeeded.findIndex((document) => document.id === String(documentId).trim());
+
+  if (targetIndex === -1) {
+    throw new AppError("Company document not found", 404);
+  }
+
+  const fileNameField = templateType === "reference" ? "referenceFileName" : "documentToFillFileName";
+  const fileUrlField = templateType === "reference" ? "referenceUrl" : "documentToFillUrl";
+
   documentsNeeded[targetIndex] = {
     ...documentsNeeded[targetIndex],
-    templateFileName: file.originalname || safeFileName,
-    templateFileUrl: `https://storage.googleapis.com/${bucket.name}/${storagePath}`,
+    [fileNameField]: file.originalname || safeFileName,
+    [fileUrlField]: fileUrl,
+    templateFileName: templateType === "documentToFill" ? file.originalname || safeFileName : documentsNeeded[targetIndex].templateFileName || "",
+    templateFileUrl: templateType === "documentToFill" ? fileUrl : documentsNeeded[targetIndex].templateFileUrl || "",
     updatedAt: new Date()
   };
 
-  await companyRef.set(
-    {
-      documentsNeeded,
+  if (targetPositionIndex >= 0) {
+    jobPositions[targetPositionIndex] = {
+      ...jobPositions[targetPositionIndex],
+      documents: documentsNeeded,
       updatedAt: new Date()
-    },
-    { merge: true }
-  );
+    };
+    await companyRef.set(
+      {
+        jobPositions,
+        documentsNeeded: jobPositions[0]?.documents || [],
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+  } else {
+    await companyRef.set(
+      {
+        documentsNeeded,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+  }
 
   return {
     message: "Template uploaded successfully",

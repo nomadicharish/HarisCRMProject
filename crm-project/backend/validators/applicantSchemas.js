@@ -32,6 +32,11 @@ const idDocTypeParamsSchema = z.object({
   docType: idSchema
 });
 
+const signedContractDocumentParamsSchema = z.object({
+  id: idSchema,
+  documentId: idSchema
+});
+
 const appointmentParamsSchema = z.object({
   applicantId: idSchema,
   type: z.enum(["medical", "biometric", "embassy"])
@@ -47,6 +52,8 @@ const createApplicantSchema = z.object({
   education: optionalTrimmedString,
   countryId: idSchema,
   companyId: idSchema,
+  jobPositionId: idSchema,
+  jobPositionName: optionalTrimmedString,
   agencyId: optionalTrimmedString,
   email: optionalEmailSchema,
   totalAmount: z.coerce.number().optional(),
@@ -54,6 +61,7 @@ const createApplicantSchema = z.object({
   paidAmount: z.coerce.number().optional(),
   whatsappNumber: optionalTrimmedString,
   currency: optionalTrimmedString,
+  paymentCurrency: optionalTrimmedString,
   totalApplicantPayment: z.coerce.number().optional(),
   totalEmployerPayment: z.coerce.number().optional(),
   personalDetails: z.object({
@@ -128,11 +136,17 @@ const dateTimeBodySchema = z.object({
 const visaTravelBodySchema = z.object({
   date: trimmedString.min(1, "Date is required"),
   time: trimmedString.min(1, "Time is required"),
+  flightNumber: trimmedString.min(1, "Flight number is required"),
+  arrivalPlace: trimmedString.min(1, "Arrival place is required"),
+  arrivalBusNumber: optionalTrimmedString,
+  hotelNameAddress: optionalTrimmedString,
+  removeTravelFile: optionalTrimmedString,
+  removeBusTicket: optionalTrimmedString,
   ticketNumber: optionalTrimmedString
 });
 
 const residencePermitBodySchema = z.object({
-  type: z.enum(["FRONT", "BACK"])
+  type: z.enum(["FRONT", "BACK", "TRP"]).optional().default("TRP")
 });
 
 const uploadDocumentBodySchema = z.object({
@@ -162,7 +176,10 @@ const applicantsListQuerySchema = z.object({
   type: optionalTrimmedString.optional().default(""),
   country: optionalTrimmedString.optional().default(""),
   company: optionalTrimmedString.optional().default(""),
-  agency: optionalTrimmedString.optional().default("")
+  agency: optionalTrimmedString.optional().default(""),
+  dashboardFilter: optionalTrimmedString.optional().default(""),
+  fromDate: optionalTrimmedString.optional().default(""),
+  toDate: optionalTrimmedString.optional().default("")
 });
 
 module.exports = {
@@ -185,6 +202,7 @@ module.exports = {
   interviewOrStageParamsSchema,
   rejectDocumentSchema,
   residencePermitBodySchema,
+  signedContractDocumentParamsSchema,
   travelBodySchema,
   updateApplicantSchema,
   uploadDocumentBodySchema,
