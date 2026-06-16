@@ -6,6 +6,7 @@ import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -115,13 +116,14 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
 
   const resolvedInterviewBiometric = biometricFromApi || interviewBiometric || null;
   const hasInterviewBiometric = Boolean(resolvedInterviewBiometric?.fileUrl);
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const canEditInterview =
-    (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") &&
+    (isSuperUser || user?.role === "EMPLOYER") &&
     !hasInterviewBiometric &&
     !interviewTicket &&
     !interview?.approved &&
     String(interview?.status || "").toUpperCase() !== "APPROVED";
-  const canApprove = user?.role === "SUPER_USER" && interview && !interview.approved && !hasInterviewBiometric;
+  const canApprove = isSuperUser && interview && !interview.approved && !hasInterviewBiometric;
   const canAddTicket = user?.role === "AGENCY" && interview && !hasInterviewBiometric && (!interviewTicket || editingTravel);
   const isBusy = savingInterview || savingTicket;
   const showInterviewForm = canEditInterview && (!interview || editingInterview);

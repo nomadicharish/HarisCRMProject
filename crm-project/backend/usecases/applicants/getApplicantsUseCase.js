@@ -13,6 +13,7 @@ const {
   roundCurrency,
   toNumber
 } = require("../../services/applicantDomainService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 function parseList(value) {
   return String(value || "")
@@ -152,7 +153,7 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId }) {
     return query.where("companyId", "==", companyId);
   }
 
-  if (["SUPER_USER", "ACCOUNTANT"].includes(userRole)) {
+  if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
     return query;
   }
 
@@ -180,7 +181,7 @@ async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId }) {
     const companyId = await resolveEmployerCompanyId(userId);
     query = query.where("companyId", "==", companyId);
     docs = (await query.get()).docs;
-  } else if (["SUPER_USER", "ACCOUNTANT"].includes(userRole)) {
+  } else if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
     docs = (await query.get()).docs;
   } else {
     throw new AppError("Unauthorized", 403);
@@ -298,7 +299,7 @@ function mapApplicant({
     (Boolean(data?.embassyInterview?.dateTime) && !Boolean(data?.embassyInterview?.approved));
 
   const attentionRequired =
-    userRole === "SUPER_USER"
+    isSuperUserLikeRole(userRole)
       ? hasPendingDocumentApproval || hasPendingPipelineApproval || hasPendingEmbassyInterviewApproval
       : userRole === "AGENCY"
       ? hasRejectedDocument

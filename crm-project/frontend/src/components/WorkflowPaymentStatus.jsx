@@ -1,5 +1,6 @@
 import React from "react";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import { isSuperUserLikeRole } from "../utils/auth";
 
 function getNumber(...values) {
   for (const value of values) {
@@ -16,7 +17,7 @@ function formatPercent(value) {
 }
 
 function WorkflowPaymentStatus({ applicant, requiredPercent = 65, user }) {
-  if (user?.role !== "SUPER_USER") return null;
+  if (!isSuperUserLikeRole(user?.role)) return null;
 
   const payment = applicant?.payment || {};
   const paymentCurrency = normalizeCurrency(payment.currency || applicant?.paymentCurrency || applicant?.currency);

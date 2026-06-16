@@ -4,6 +4,7 @@ import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -49,11 +50,12 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const canUpload =
-    (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") &&
+    (isSuperUser || user?.role === "EMPLOYER") &&
     !contract?.fileUrl &&
     contract?.status !== "APPROVED";
-  const canApprove = user?.role === "SUPER_USER" && contract?.status === "PENDING";
+  const canApprove = isSuperUser && contract?.status === "PENDING";
   const pendingAmount = applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0;
   const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
 

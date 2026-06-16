@@ -12,8 +12,16 @@ import {
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
-import { getStoredUser } from "../utils/auth";
-import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import {
+  ALLOWED_DOCUMENT_ACCEPT,
+  DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+  DOCUMENT_UPLOAD_HELP_TEXT,
+  getAcceptForExtensions,
+  getUploadHelpText,
+  getValidatedDocumentFile,
+  validateDocumentFile
+} from "../utils/fileValidation";
 
 function StatusIcon({ tone = "success" }) {
   if (tone === "danger") {
@@ -282,7 +290,7 @@ function ApplicantDocumentsWorkspace() {
     return <div style={{ padding: "40px" }}>Applicant not found</div>;
   }
 
-  const canReview = user?.role === "SUPER_USER";
+  const canReview = isSuperUserLikeRole(user?.role);
   const visibleDocs = getVisibleApplicantDocuments(applicant, documentConfigs);
   const reviewState = getDocumentReviewState(documents, applicant, documentConfigs);
   const dispatchStarted = Number(applicant.stage || 0) >= 3;
@@ -347,10 +355,13 @@ function ApplicantDocumentsWorkspace() {
       toast.info("Select documents before sending for approval");
       return;
     }
-    const fileValidation = validateDocumentFiles(uploads.map(([, file]) => file));
-    if (!fileValidation.valid) {
-      toast.error(fileValidation.message);
-      return;
+    for (const [docKey, file] of uploads) {
+      const docConfig = visibleDocs.find((doc) => doc.key === docKey);
+      const fileValidation = validateDocumentFile(file, docConfig?.allowedExtensions || DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS);
+      if (!fileValidation.valid) {
+        toast.error(fileValidation.message);
+        return;
+      }
     }
 
     try {
@@ -652,11 +663,15 @@ function ApplicantDocumentsWorkspace() {
                     <label className="docsFileBox docsFileBoxUpload">
                       <input
                         type="file"
-                        accept={ALLOWED_DOCUMENT_ACCEPT}
+                        accept={doc.allowedExtensions?.length ? getAcceptForExtensions(doc.allowedExtensions) : ALLOWED_DOCUMENT_ACCEPT}
                         className="docsFileInput"
                         disabled={saving}
                         onChange={(event) => {
-                          const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                          const file = getValidatedDocumentFile(
+                            event.target.files?.[0] || null,
+                            toast.error,
+                            doc.allowedExtensions || DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS
+                          );
                           setSelectedFiles((prev) => ({
                             ...prev,
                             [doc.key]: file
@@ -669,6 +684,7 @@ function ApplicantDocumentsWorkspace() {
                         <span className="docsUploadIcon"><UploadFileIcon /></span>
                         <div>
                           <div className="docsFileName">{displayFileName || "Choose file"}</div>
+                          <div className="docsFileMeta">{doc.uploadHelpText || getUploadHelpText(doc.allowedExtensions)}</div>
                         </div>
                       </div>
                     </label>

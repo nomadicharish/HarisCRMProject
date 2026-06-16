@@ -639,14 +639,9 @@
   width:28px;
   height:28px;
   border-radius:50%;
-  background:#0052cc;
-  color:#ffffff;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:0.04em;
+  display:block;
+  object-fit:cover;
+  flex:0 0 auto;
 }
 
 .dashboardTabs{
@@ -1635,7 +1630,6 @@
 .dashboardBrandIcon{
   width:36px;
   height:36px;
-  font-size:14px;
 }
 
 .dashboardTab{
@@ -1689,7 +1683,7 @@
   gap:20px;
   max-width:1440px;
   margin:0 auto;
-  padding:8px 20px 28px;
+  padding:18px 20px 28px;
 }
 
 .dashboardFilterCard{
@@ -2390,16 +2384,41 @@
   gap:18px;
 }
 
-.homeDateControls input{
+.homeDateControls .react-datepicker-wrapper{
   width:194px;
+  flex:0 0 194px;
+}
+
+.homeDateControls .react-datepicker__input-container{
+  width:100%;
+}
+
+.homeDatePickerWrap{
+  position:relative;
+  display:block;
+  width:100%;
+}
+
+.homeDatePickerIcon{
+  position:absolute;
+  left:16px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#6b7a99;
+  pointer-events:none;
+}
+
+.homeDateControls input{
+  width:100%;
   min-height:50px;
   border:1px solid #d4ddea;
   border-radius:8px;
-  padding:0 16px;
+  padding:0 16px 0 46px;
   color:#0b1538;
   background:#ffffff;
   font-size:16px;
   font-weight:700;
+  cursor:pointer;
 }
 
 .homeDateControls .dashboardPrimaryBtn{
@@ -2413,6 +2432,13 @@
   color:#0b1538;
   font-size:16px;
   font-weight:800;
+}
+
+.homeDateError{
+  margin-top:8px;
+  color:#d92d20;
+  font-size:12px;
+  font-weight:600;
 }
 
 .homeViewAllBtn{
@@ -2488,7 +2514,7 @@
   color:#0b1538;
   font-size:16px;
   padding:8px 0 0;
-  font-weight:800;
+  font-weight:500;
 }
 
 .homeMetricSubtitle{
@@ -2504,7 +2530,7 @@
   align-items:baseline;
   gap:18px;
   color:#1c3157;
-  font-size:16px;
+  font-size:14px;
 }
 
 .homeMetricCount strong{
@@ -2624,6 +2650,11 @@
   .homeDateControls input,
   .homeDateControls .dashboardPrimaryBtn{
     width:100%;
+  }
+
+  .homeDateControls .react-datepicker-wrapper{
+    width:100%;
+    flex:1 1 auto;
   }
 
   .homePaymentAmount{

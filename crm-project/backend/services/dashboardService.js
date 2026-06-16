@@ -1,5 +1,6 @@
 const { db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
+const { isSuperUserLikeRole } = require("../utils/roles");
 
 function toTimestamp(value) {
   if (!value) return null;
@@ -87,7 +88,7 @@ async function getDashboard({ user, query }) {
     firestoreQuery = firestoreQuery.where("companyId", "==", companyId);
   }
 
-  if (agencyId && role === "SUPER_USER") {
+  if (agencyId && isSuperUserLikeRole(role)) {
     firestoreQuery = firestoreQuery.where("agencyId", "==", agencyId);
   }
 

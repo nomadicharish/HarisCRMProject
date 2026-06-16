@@ -14,6 +14,13 @@ const updateSettingsSchema = z.object({
   contactNumber: trimmedString.min(1, "Contact number is required")
 });
 
+const createAdminSchema = z.object({
+  name: trimmedString.min(1, "Name is required"),
+  email: z.email("Valid email is required").transform((value) => value.trim().toLowerCase()),
+  contactNumber: trimmedString.min(1, "Contact number is required"),
+  whatsappNumber: trimmedString.optional().default("")
+});
+
 const disableUserParamsSchema = z.object({
   uid: trimmedString.min(1, "User id is required")
 });
@@ -21,6 +28,7 @@ const disableUserParamsSchema = z.object({
 module.exports = {
   changePasswordSchema,
   checkEmailSchema,
+  createAdminSchema,
   disableUserParamsSchema,
   updateSettingsSchema
 };

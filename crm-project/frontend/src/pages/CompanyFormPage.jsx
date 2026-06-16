@@ -6,18 +6,115 @@ import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
-import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import {
+  ALLOWED_DOCUMENT_ACCEPT,
+  DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+  DOC_ONLY_EXTENSIONS,
+  DOCUMENT_UPLOAD_HELP_TEXT,
+  getValidatedDocumentFile,
+  validateDocumentFiles
+} from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantsDashboard.css";
 
+const DEFAULT_DOCUMENT_ASSET_PATH = "/default-documents/";
+const defaultDocumentAssetUrl = (fileName) => `${DEFAULT_DOCUMENT_ASSET_PATH}${encodeURIComponent(fileName)}`;
+
 const DEFAULT_DOCUMENTS = [
-  { id: "passport", name: "Passport", required: true },
-  { id: "passport_size_photo", name: "Passport Size photo", required: true },
-  { id: "10th_education_certificate", name: "10th Education Certificate", required: true },
-  { id: "12th_education_certificate", name: "12th Education Certificate", required: true },
-  { id: "work_wear_measurement", name: "Work Wear measurement", required: true },
-  { id: "international_driving_permit_optional", name: "International Driving Permit", required: false },
-  { id: "birth_certificate", name: "Birth Certificate", required: true },
-  { id: "medical_certificate", name: "Medical Certificate", required: true }
+  {
+    id: "cv_word_format_with_photo",
+    name: "CV in word format with photo",
+    required: true,
+    allowedExtensions: DOC_ONLY_EXTENSIONS,
+    uploadHelpText: "Upload DOC (Max 5 MB)"
+  },
+  { id: "experience_reference_document", name: "Experience/reference document", required: false },
+  { id: "additional_experience_reference_document", name: "Additional Experience/reference document", required: false },
+  {
+    id: "passport_scan_standard",
+    name: "Passport scan as per the given standard",
+    required: true,
+    referenceFileName: "Passport copy sample.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("Passport copy sample.jpeg")
+  },
+  {
+    id: "passport_photo_scan_standard",
+    name: "Photo (passport photo scan as per the given standard)",
+    required: true,
+    referenceFileName: "Visa_Photo_Requirements.pdf",
+    referenceUrl: defaultDocumentAssetUrl("Visa_Photo_Requirements.pdf")
+  },
+  { id: "education_document", name: "Education document (higher secondary school pass certificate)", required: true },
+  { id: "additional_education_document", name: "Additional Education Document", required: false },
+  {
+    id: "podpis_tujca",
+    name: "Podpis Tujca (signed with blue pen)",
+    required: true,
+    documentToFillFileName: "podpisTujca.PDF",
+    documentToFillUrl: defaultDocumentAssetUrl("podpisTujca.PDF"),
+    templateFileName: "podpisTujca.PDF",
+    templateFileUrl: defaultDocumentAssetUrl("podpisTujca.PDF"),
+    referenceFileName: "podpisTujcaReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("podpisTujcaReference.jpeg")
+  },
+  {
+    id: "tax_authorization",
+    name: "Tax Authorization",
+    required: true,
+    documentToFillFileName: "taxAuthorization.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("taxAuthorization.pdf"),
+    templateFileName: "taxAuthorization.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("taxAuthorization.pdf"),
+    referenceFileName: "taxAuthorizationReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("taxAuthorizationReference.jpeg")
+  },
+  { id: "pan_card", name: "Pan card", required: true },
+  {
+    id: "application_authorization",
+    name: "Application Authorization",
+    required: true,
+    documentToFillFileName: "applicationAuthorization.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("applicationAuthorization.pdf"),
+    templateFileName: "applicationAuthorization.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("applicationAuthorization.pdf"),
+    referenceFileName: "applicationAuthorizationReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("applicationAuthorizationReference.jpeg")
+  },
+  {
+    id: "appointment_authorization",
+    name: "Appointment Authorization",
+    required: true,
+    documentToFillFileName: "AppointmentAuthorization.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("AppointmentAuthorization.pdf"),
+    templateFileName: "AppointmentAuthorization.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("AppointmentAuthorization.pdf"),
+    referenceFileName: "appointmentAuthorizationReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("appointmentAuthorizationReference.jpeg")
+  },
+  {
+    id: "medical_certificate",
+    name: "Medical certificate",
+    required: true,
+    documentToFillFileName: "Medical Certificate_01.2026.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("Medical Certificate_01.2026.pdf"),
+    templateFileName: "Medical Certificate_01.2026.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("Medical Certificate_01.2026.pdf")
+  },
+  {
+    id: "workwear_measurement",
+    name: "Workwear measurement",
+    required: false,
+    documentToFillFileName: "WorkwearMeasurement.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("WorkwearMeasurement.pdf"),
+    templateFileName: "WorkwearMeasurement.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("WorkwearMeasurement.pdf"),
+    referenceFileName: "footwearSize.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("footwearSize.jpeg")
+  },
+  { id: "affidavit", name: "AFFIDAVIT", required: true },
+  { id: "additional_document_1", name: "Additional Document", required: false },
+  { id: "additional_document_2", name: "Additional Document", required: false },
+  { id: "additional_document_3", name: "Additional Document", required: false }
 ];
 
 const createKey = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
@@ -88,6 +185,10 @@ function createDocumentRow(document = {}, index = 0) {
     documentToFillUrl: document.documentToFillUrl || document.fillDocumentUrl || document.templateFileUrl || "",
     referenceFileName: document.referenceFileName || document.referenceDocumentFileName || "",
     referenceUrl: document.referenceUrl || document.referenceDocumentUrl || "",
+    allowedExtensions: Array.isArray(document.allowedExtensions) && document.allowedExtensions.length
+      ? document.allowedExtensions
+      : DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+    uploadHelpText: document.uploadHelpText || "",
     documentToFillFile: null,
     referenceFile: null
   };
@@ -188,7 +289,7 @@ function CompanyFormPage() {
         ]);
         const nextUser = me.data || null;
         setUser(nextUser);
-        if (nextUser?.role !== "SUPER_USER") {
+        if (!isSuperUserLikeRole(nextUser?.role)) {
           navigate("/dashboard", { replace: true });
           return;
         }
@@ -364,7 +465,11 @@ function CompanyFormPage() {
               documentToFillFileName: document.documentToFillFileName || document.fillDocumentFileName || document.templateFileName || "",
               documentToFillUrl: document.documentToFillUrl || document.fillDocumentUrl || document.templateFileUrl || "",
               referenceFileName: document.referenceFileName || document.referenceDocumentFileName || "",
-              referenceUrl: document.referenceUrl || document.referenceDocumentUrl || ""
+              referenceUrl: document.referenceUrl || document.referenceDocumentUrl || "",
+              allowedExtensions: Array.isArray(document.allowedExtensions) && document.allowedExtensions.length
+                ? document.allowedExtensions
+                : DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+              uploadHelpText: document.uploadHelpText || ""
             };
           })
         };

@@ -15,7 +15,7 @@ import PageLoader from "../components/common/PageLoader";
 import useApplicantPaymentState from "../hooks/useApplicantPaymentState";
 import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
 import { formatCurrencyAmount } from "../utils/currency";
-import { getStoredUser } from "../utils/auth";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 
 function ApplicantProfile() {
@@ -349,7 +349,7 @@ function ApplicantProfile() {
     ? openContractSection
     : canUploadSignedContract
     ? openSignedContractSection
-    : applicantStage === 12 && user?.role === "SUPER_USER" && applicantTravelRowStatus === "completed"
+    : applicantStage === 12 && isSuperUserLikeRole(user?.role) && applicantTravelRowStatus === "completed"
     ? () => setShowCompleteProcessModal(true)
     : canAddResidencePermit
     ? openResidencePermitSection
@@ -412,7 +412,7 @@ function ApplicantProfile() {
               } : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
-              showAgency={user?.role === "SUPER_USER"}
+              showAgency={isSuperUserLikeRole(user?.role)}
               showPendingAmount={!isEmployer}
             />
           </aside>

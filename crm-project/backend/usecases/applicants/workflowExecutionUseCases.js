@@ -5,6 +5,7 @@ const { normalizeDate } = require("../../services/applicantDomainService");
 const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { addStageLog, autoAdvanceStage } = require("../../services/applicantWorkflowStageService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 
 async function addDispatchUseCase(req) {
@@ -57,7 +58,7 @@ async function getDispatchesUseCase(req) {
 
 async function uploadContractUseCase(req) {
   const applicantId = req.params.id;
-  const isSuperUser = req.user.role === "SUPER_USER";
+  const isSuperUser = isSuperUserLikeRole(req.user.role);
   const isEmployer = req.user.role === "EMPLOYER";
   const contractFile = req.file || (Array.isArray(req.files?.file) ? req.files.file[0] : null);
 
@@ -263,7 +264,7 @@ async function getSignedContractUseCase(req) {
 async function rejectSignedContractDocumentUseCase(req) {
   const applicantId = req.params.id;
   const documentId = req.params.documentId;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can reject signed documents", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can reject signed documents", 403);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
@@ -456,7 +457,7 @@ function assertNoRejectedSignedDocuments(applicant) {
 
 async function approveContractUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve contract", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can approve contract", 403);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
@@ -529,12 +530,12 @@ async function getContractUseCase(req) {
 async function addEmbassyInterviewUseCase(req) {
   const applicantId = req.params.id;
   const { dateTime } = req.body;
-  if (!["SUPER_USER", "EMPLOYER"].includes(req.user.role)) {
+  if (!(isSuperUserLikeRole(req.user.role) || req.user.role === "EMPLOYER")) {
     throw new AppError("Only Super User or Employer can add interview", 403);
   }
   if (!dateTime) throw new AppError("Date & Time required", 400);
 
-  const isSuperUser = req.user.role === "SUPER_USER";
+  const isSuperUser = isSuperUserLikeRole(req.user.role);
   const docRef = db.collection("applicants").doc(applicantId);
   const existingApplicantSnap = await docRef.get();
   const previousDocumentUrl = existingApplicantSnap.exists
@@ -591,7 +592,7 @@ async function addEmbassyInterviewUseCase(req) {
 
 async function approveEmbassyInterviewUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can approve", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();

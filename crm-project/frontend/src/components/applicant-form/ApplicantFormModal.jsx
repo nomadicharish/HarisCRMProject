@@ -9,6 +9,7 @@ import BlockingLoader from "../common/BlockingLoader";
 import DashboardTopbar from "../common/DashboardTopbar";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../../utils/numberFormat";
 import { normalizeCurrency } from "../../utils/currency";
+import { isSuperUserLikeRole } from "../../utils/auth";
 import {
   EMPTY_FORM,
   calculateAge,
@@ -98,11 +99,12 @@ function ApplicantFormModal({
     if (!form.countryId) newErrors.countryId = "Select country";
     if (!form.companyId) newErrors.companyId = "Select company";
     if (!form.jobPositionId) newErrors.jobPositionId = "Select job position";
-    if (user?.role === "SUPER_USER" && !form.agencyId) newErrors.agencyId = "Select agency";
+    const isSuperUser = isSuperUserLikeRole(user?.role);
+    if (isSuperUser && !form.agencyId) newErrors.agencyId = "Select agency";
 
     const totalAmountError = validateTotalAmount(
       form.totalAmount,
-      user?.role === "SUPER_USER" && Boolean(editData) ? "SUPER_USER" : user?.role
+      isSuperUser && Boolean(editData) ? "SUPER_USER" : user?.role
     );
     if (totalAmountError) newErrors.totalAmount = totalAmountError;
     return newErrors;
@@ -333,7 +335,7 @@ function ApplicantFormModal({
         jobPositionId: form.jobPositionId,
         jobPositionName: selectedJobPosition?.title || selectedJobPosition?.name || "",
         countryId: form.countryId,
-        agencyId: user?.role === "SUPER_USER" ? form.agencyId : user?.agencyId,
+        agencyId: isSuperUserLikeRole(user?.role) ? form.agencyId : user?.agencyId,
         totalApplicantPayment: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
         totalAmount: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
         paymentCurrency: normalizeCurrency(form.paymentCurrency),
@@ -393,7 +395,7 @@ function ApplicantFormModal({
       ? "Updating..."
       : "Creating..."
     : editData
-    ? user?.role === "SUPER_USER" && autoApproveAfterSave
+    ? isSuperUserLikeRole(user?.role) && autoApproveAfterSave
       ? "Approve Profile"
       : "Update Profile"
     : "Create Profile";

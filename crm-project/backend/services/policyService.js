@@ -2,6 +2,7 @@ const { db } = require("../config/firebase");
 
 const ROLE_DEFAULT_SCOPES = {
   SUPER_USER: ["*"],
+  ADMIN: ["*"],
   ACCOUNTANT: ["agent.jobs.read", "agent.jobs.enqueue", "agent.actions.read"],
   AGENCY: ["agent.actions.read"],
   EMPLOYER: ["agent.actions.read"]
@@ -20,7 +21,7 @@ function hasScope(user, scope) {
 
 async function canAccessApplicant(user = {}, applicantId = "") {
   if (!applicantId) return false;
-  if (user.role === "SUPER_USER" || user.role === "ACCOUNTANT") return true;
+  if (user.role === "SUPER_USER" || user.role === "ADMIN" || user.role === "ACCOUNTANT") return true;
 
   const applicantDoc = await db.collection("applicants").doc(applicantId).get();
   if (!applicantDoc.exists) return false;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import API from "../services/api";
 import { getCached } from "../services/cachedApi";
 import PageLoader from "../components/common/PageLoader";
+import { isSuperUserLikeRole } from "../utils/auth";
 
 function normalizeListResponse(response) {
   if (Array.isArray(response)) return response;
@@ -153,7 +154,7 @@ function Dashboard() {
           ))}
         </select>
 
-        {user && user.role === "SUPER_USER" && (
+        {user && isSuperUserLikeRole(user.role) && (
           <select
             value={filters.agencyId}
             onChange={(e) =>

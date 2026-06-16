@@ -13,6 +13,7 @@ import {
 } from "./formStyles";
 import { CURRENCY_OPTIONS } from "../../utils/currency";
 import { DOCUMENT_UPLOAD_HELP_TEXT } from "../../utils/fileValidation";
+import { isSuperUserLikeRole } from "../../utils/auth";
 
 function FieldIcon({ children }) {
   return (
@@ -65,7 +66,7 @@ function ApplicantFormStepTwo({
 }) {
   const customSelectStyles = getSelectStyles();
   const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
-  const showSuperUserPaymentFields = user?.role === "SUPER_USER" && Boolean(editData);
+  const showSuperUserPaymentFields = isSuperUserLikeRole(user?.role) && Boolean(editData);
   const selectedJobPosition = jobPositionOptions.find((position) => position.value === form.jobPositionId);
   const selectedJobDocuments = Array.isArray(selectedJobPosition?.documents) ? selectedJobPosition.documents : [];
   const amountCurrencySelectStyles = {
@@ -257,7 +258,7 @@ function ApplicantFormStepTwo({
                 ? "Updating..."
                 : "Creating..."
               : editData
-              ? user?.role === "SUPER_USER" && autoApproveAfterSave
+              ? isSuperUserLikeRole(user?.role) && autoApproveAfterSave
                 ? "Approve Profile"
                 : "Update Profile"
               : "Create Profile"}

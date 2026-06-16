@@ -8,6 +8,7 @@ const {
   normalizePaymentCurrency,
   toNumber
 } = require("../../services/applicantDomainService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 async function createApplicantUseCase(req) {
   const { userRole, userId } = getAuthenticatedUserFromReq(req);
@@ -15,7 +16,7 @@ async function createApplicantUseCase(req) {
   let assignedAgencyId = null;
   if (userRole === "AGENCY") {
     assignedAgencyId = req.user?.agencyId || userId;
-  } else if (userRole === "SUPER_USER") {
+  } else if (isSuperUserLikeRole(userRole)) {
     assignedAgencyId = req.body.agencyId || null;
   } else {
     throw new AppError("Unauthorized", 403);

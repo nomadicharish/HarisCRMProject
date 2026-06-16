@@ -9,13 +9,14 @@ const {
   toNumber
 } = require("../../services/applicantDomainService");
 const { approveAndMoveStageUseCase } = require("./workflowStageUseCases");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 async function approveApplicantUseCase(req) {
   const applicantId = req.params.applicantId;
   const userRole = req.user?.role || "";
   const userId = req.user?.uid || "";
 
-  if (userRole !== "SUPER_USER") throw new AppError("Only SUPER_USER can approve", 403);
+  if (!isSuperUserLikeRole(userRole)) throw new AppError("Only SUPER_USER can approve", 403);
 
   const ref = db.collection("applicants").doc(applicantId);
   const snap = await ref.get();
@@ -47,7 +48,7 @@ async function approveApplicantUseCase(req) {
 
 async function completeApplicantUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can complete process", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can complete process", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();
@@ -84,7 +85,7 @@ async function completeApplicantUseCase(req) {
 
 async function updateApplicantUseCase(req) {
   const { id } = req.params;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can update applicant", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can update applicant", 403);
 
   const applicantRef = db.collection("applicants").doc(id);
   const applicantSnap = await applicantRef.get();

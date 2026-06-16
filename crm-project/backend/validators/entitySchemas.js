@@ -16,7 +16,9 @@ const companyDocumentSchema = z.object({
   documentToFillFileName: optionalTrimmedString,
   documentToFillUrl: optionalTrimmedString,
   referenceFileName: optionalTrimmedString,
-  referenceUrl: optionalTrimmedString
+  referenceUrl: optionalTrimmedString,
+  allowedExtensions: z.array(trimmedString).optional().default([]),
+  uploadHelpText: optionalTrimmedString
 });
 
 const companyJobSpecificationSchema = z.object({

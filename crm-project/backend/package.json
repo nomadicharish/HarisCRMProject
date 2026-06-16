@@ -9,6 +9,7 @@
     "test:integration": "node tests/integration/run-baseline.js",
     "test:e2e": "node tests/e2e/run-e2e.js",
     "test:contracts": "node tests/contracts/check-openapi-sync.js",
+    "migrate:company-default-documents": "node scripts/migrate-company-default-documents.js",
     "migrate:normalized-fields": "node scripts/migrate-normalized-fields.js",
     "generate:openapi": "node scripts/generate-openapi.js",
     "backfill:search-index": "node scripts/backfill-search-index.js"

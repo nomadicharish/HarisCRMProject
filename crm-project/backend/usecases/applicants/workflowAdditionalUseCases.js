@@ -7,13 +7,14 @@ const { readEncryptedUserEmail } = require("../../services/accountService");
 const { sendEmail } = require("../../services/emailService");
 const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
+const { ADMIN_ROLE, isSuperUserLikeRole } = require("../../utils/roles");
 const { assertNoRejectedSignedDocuments } = require("./workflowExecutionUseCases");
 
 async function addEmbassyAppointmentUseCase(req) {
   const applicantId = req.params.id;
   const { dateTime, date, time } = req.body;
 
-  if (!["SUPER_USER", "EMPLOYER"].includes(req.user.role)) {
+  if (!(isSuperUserLikeRole(req.user.role) || req.user.role === "EMPLOYER")) {
     throw new AppError("Only Super User or Employer can add appointment", 403);
   }
 
@@ -43,7 +44,7 @@ async function addEmbassyAppointmentUseCase(req) {
   const previousAppointmentFileUrl = existingApplicantSnap.exists
     ? existingApplicantSnap.data()?.embassyAppointment?.fileUrl || ""
     : "";
-  const status = req.user.role === "SUPER_USER" ? "APPROVED" : "PENDING";
+  const status = isSuperUserLikeRole(req.user.role) ? "APPROVED" : "PENDING";
 
   await docRef.set(
     {
@@ -90,7 +91,7 @@ async function addEmbassyAppointmentUseCase(req) {
 
 async function approveEmbassyAppointmentUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can approve", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
@@ -353,7 +354,7 @@ async function addVisaCollectionUseCase(req) {
   const applicantId = req.params.id;
   const { date, time } = req.body;
 
-  if (!["EMPLOYER", "SUPER_USER"].includes(req.user.role)) {
+  if (!(req.user.role === "EMPLOYER" || isSuperUserLikeRole(req.user.role))) {
     throw new AppError("Only Employer or Super User can add", 403);
   }
   if (!date || !time) throw new AppError("Date & Time required", 400);
@@ -364,7 +365,7 @@ async function addVisaCollectionUseCase(req) {
   const currentStage = Number(docSnap.data()?.stage || 1);
   if (currentStage < 10) throw new AppError("Cannot add visa collection before visa collection stage", 400);
 
-  const status = req.user.role === "SUPER_USER" ? "APPROVED" : "PENDING";
+  const status = isSuperUserLikeRole(req.user.role) ? "APPROVED" : "PENDING";
   let documentUrl = "";
   let bucket = null;
   if (req.file) {
@@ -413,7 +414,7 @@ async function addVisaCollectionUseCase(req) {
 
 async function approveVisaCollectionUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can approve", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
@@ -437,7 +438,7 @@ async function getVisaCollectionUseCase(req) {
   if (!visaCollection) return null;
   if (
     String(visaCollection.status || "").toUpperCase() !== "APPROVED" &&
-    !["SUPER_USER", "EMPLOYER"].includes(req.user.role)
+    !(isSuperUserLikeRole(req.user.role) || req.user.role === "EMPLOYER")
   ) {
     return null;
   }
@@ -520,7 +521,12 @@ async function getTravelNotificationRecipients(applicant = {}) {
   const recipients = new Set();
 
   const superUserSnap = await db.collection("users").where("role", "==", "SUPER_USER").get();
+  const adminSnap = await db.collection("users").where("role", "==", ADMIN_ROLE).get();
   await Promise.all(superUserSnap.docs.map(async (doc) => {
+    const email = await readEncryptedUserEmail(doc.data());
+    if (email) recipients.add(email);
+  }));
+  await Promise.all(adminSnap.docs.map(async (doc) => {
     const email = await readEncryptedUserEmail(doc.data());
     if (email) recipients.add(email);
   }));

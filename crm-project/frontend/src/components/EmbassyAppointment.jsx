@@ -6,6 +6,7 @@ import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -105,11 +106,12 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
 
   const hasBiometricSlip = Boolean(biometricSlip?.fileUrl || biometricFromApi?.fileUrl);
   const isAppointmentPending = String(appointment?.status || "").toUpperCase() === "PENDING";
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const canEditAppointment =
-    (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") &&
+    (isSuperUser || user?.role === "EMPLOYER") &&
     !hasBiometricSlip &&
     (!appointment || isAppointmentPending);
-  const canApprove = user?.role === "SUPER_USER" && appointment && isAppointmentPending && !hasBiometricSlip;
+  const canApprove = isSuperUser && appointment && isAppointmentPending && !hasBiometricSlip;
   const canAddTicket = user?.role === "AGENCY" && appointment && !hasBiometricSlip && (!travelDetails || editingTravel);
   const isBusy = savingAppointment || savingTicket || approvingAppointment;
   const showAppointmentForm = canEditAppointment && (!appointment || editingAppointment);

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 
 function TravelSection({ applicantId, user }) {
 
@@ -78,7 +79,7 @@ function TravelSection({ applicantId, user }) {
       )}
 
       {/* ADD (AGENCY + SUPER USER) */}
-      {(user?.role === "AGENCY" || user?.role === "SUPER_USER") && (
+      {(user?.role === "AGENCY" || isSuperUserLikeRole(user?.role)) && (
         <div>
 
           <input

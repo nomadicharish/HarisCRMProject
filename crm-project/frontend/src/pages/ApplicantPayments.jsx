@@ -8,7 +8,7 @@ import PageLoader from "../components/common/PageLoader";
 import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getCached, invalidateCache, readCached, updateCached, writeCached } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
-import { getStoredUser } from "../utils/auth";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { formatCurrencyAmount, getCurrencySymbol, normalizeCurrency } from "../utils/currency";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
@@ -122,7 +122,7 @@ function ApplicantPayments() {
     return (paymentSummary?.history || []).filter((payment) => payment.type === "APPLICANT");
   }, [paymentSummary]);
   const canAddPayment =
-    user?.role === "SUPER_USER" &&
+    isSuperUserLikeRole(user?.role) &&
     applicantPayment.remainingInstallments > 0 &&
     Number(pendingAmount || 0) > 0;
   const installmentCount = applicantPayment.installmentCount || 0;

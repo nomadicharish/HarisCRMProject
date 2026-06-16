@@ -6,6 +6,7 @@ import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -150,12 +151,13 @@ function VisaCollectionModal({
   );
   const isApplicantTravelMode = mode === "applicantTravel";
   const isCollectionMode = !isApplicantTravelMode;
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const canEditCollection =
     isCollectionMode &&
-    (user?.role === "SUPER_USER" || user?.role === "EMPLOYER") &&
+    (isSuperUser || user?.role === "EMPLOYER") &&
     !hasResidencePermit &&
     visaCollection?.status !== "APPROVED";
-  const canApprove = isCollectionMode && user?.role === "SUPER_USER" && visaCollection?.status === "PENDING" && !hasResidencePermit;
+  const canApprove = isCollectionMode && isSuperUser && visaCollection?.status === "PENDING" && !hasResidencePermit;
   const canAddCollectionTravel =
     isCollectionMode &&
     user?.role === "AGENCY" &&

@@ -1,4 +1,5 @@
 import React, { Suspense, lazy } from "react";
+import { isSuperUserLikeRole } from "../../utils/auth";
 
 const ContractSection = lazy(() => import("../ContractSection"));
 const SignedContractModal = lazy(() => import("../SignedContractModal"));
@@ -51,6 +52,8 @@ function ApplicantProfileModalStack({
   setShowDispatchHistoryModal,
   refreshWorkflowData
 }) {
+  const isSuperUser = isSuperUserLikeRole(user?.role);
+
   return (
     <Suspense fallback={null}>
       <ContractSection
@@ -146,8 +149,8 @@ function ApplicantProfileModalStack({
         applicant={applicant}
         open={showApplicantDetailsModal}
         onClose={() => setShowApplicantDetailsModal(false)}
-        showPaymentDetails={user?.role === "SUPER_USER" && !isEmployer}
-        agencyName={user?.role === "SUPER_USER" ? resolvedAgencyName : ""}
+        showPaymentDetails={isSuperUser && !isEmployer}
+        agencyName={isSuperUser ? resolvedAgencyName : ""}
         countryName={resolvedCountryName}
       />
 

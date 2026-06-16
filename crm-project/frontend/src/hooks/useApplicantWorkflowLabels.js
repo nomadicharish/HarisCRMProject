@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { isSuperUserLikeRole } from "../utils/auth";
 import { getDocumentReviewState } from "../constants/applicantDocuments";
 
 function formatCompletedStageDate(value) {
@@ -36,7 +37,8 @@ function useApplicantWorkflowLabels({
   return useMemo(() => {
     const workflowFlags = applicant?.workflowFlags || {};
     const applicantStage = Number(applicant?.stage || 1);
-    const canApproveProfile = user?.role === "SUPER_USER" && applicantStage === 1;
+    const isSuperUser = isSuperUserLikeRole(user?.role);
+    const canApproveProfile = isSuperUser && applicantStage === 1;
     const isEmployer = user?.role === "EMPLOYER";
     const candidateArrivalCompletedDate = formatCompletedStageDate(applicant?.completedAt);
 
@@ -57,7 +59,7 @@ function useApplicantWorkflowLabels({
     const canAccessDispatch = applicantStage >= 3 && applicantStage < 5;
     const canEditDispatch = user?.role === "AGENCY" && applicantStage >= 3 && applicantStage < 5;
     const canShowDispatchHeaderButton = canEditDispatch;
-    const canIssueContract = applicantStage === 4 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+    const canIssueContract = applicantStage === 4 && (isSuperUser || user?.role === "EMPLOYER");
     const isContractPendingApproval =
       applicantStage === 4 &&
       (workflowFlags.isContractPendingApproval ?? String(contract?.status || "").toUpperCase() === "PENDING");
@@ -77,7 +79,7 @@ function useApplicantWorkflowLabels({
       user?.role === "AGENCY" &&
       ((applicantStage === 5 && !hasSignedContract) || (applicantStage >= 6 && hasRejectedSignedContractDocuments));
     const canInitiateEmbassyAppointment =
-      applicantStage === 6 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+      applicantStage === 6 && (isSuperUser || user?.role === "EMPLOYER");
     const hasPendingEmbassyAppointmentApproval = Boolean(
       workflowFlags.isEmbassyAppointmentPendingApproval ??
       String(embassyAppointment?.status || "").toUpperCase() === "PENDING"
@@ -91,7 +93,7 @@ function useApplicantWorkflowLabels({
     );
     const canAddTicket = applicantStage === 7 && user?.role === "AGENCY" && !hasTravelDetails;
     const canAddBiometricSlip = applicantStage === 7 && user?.role === "AGENCY" && hasTravelDetails && !hasBiometricSlip;
-    const canAddEmbassyInterview = applicantStage === 8 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+    const canAddEmbassyInterview = applicantStage === 8 && (isSuperUser || user?.role === "EMPLOYER");
     const hasPendingEmbassyInterviewApproval = Boolean(
       workflowFlags.isEmbassyInterviewPendingApproval ??
       (String(embassyInterview?.status || "").toUpperCase() === "PENDING" ||
@@ -117,7 +119,7 @@ function useApplicantWorkflowLabels({
       workflowFlags.isResidencePermitUploaded ??
       (residencePermit?.trpUrl || residencePermit?.fileUrl || (residencePermit?.frontUrl && residencePermit?.backUrl))
     );
-    const canAddVisaCollection = applicantStage === 10 && ["SUPER_USER", "EMPLOYER"].includes(user?.role);
+    const canAddVisaCollection = applicantStage === 10 && (isSuperUser || user?.role === "EMPLOYER");
     const hasPendingVisaCollectionApproval = Boolean(
       workflowFlags.isVisaCollectionPendingApproval ??
       String(visaCollection?.status || "").toUpperCase() === "PENDING"
@@ -131,10 +133,10 @@ function useApplicantWorkflowLabels({
     const shouldShowDocumentAction =
       !hasCompletedDocumentStage &&
       applicantStage >= 2 &&
-      (user?.role !== "SUPER_USER" || hasDocuments || uploadedRequired || pendingRequired);
+      (!isSuperUser || hasDocuments || uploadedRequired || pendingRequired);
     const documentsButtonLabel = !shouldShowDocumentAction
       ? ""
-      : user?.role === "SUPER_USER"
+      : isSuperUser
       ? "Verify Documents"
       : rejectedRequired
       ? "Reupload Document"
@@ -313,13 +315,13 @@ function useApplicantWorkflowLabels({
     );
     const headerActionLabel = canIssueContract
       ? isContractPendingApproval
-        ? user?.role === "SUPER_USER"
+        ? isSuperUser
           ? "Verify & Approve"
           : ""
         : "Issue Contract"
       : canUploadSignedContract
       ? "Upload Signed Contract"
-      : applicantStage === 12 && user?.role === "SUPER_USER" && hasVisaTravel
+      : applicantStage === 12 && isSuperUser && hasVisaTravel
       ? "Candidate Arrived"
       : canAddResidencePermit
       ? "Upload TRP Document"
@@ -330,7 +332,7 @@ function useApplicantWorkflowLabels({
       : canAddVisaCollectionTravel
       ? "Add Travel Details"
       : canAddVisaCollection
-      ? hasPendingVisaCollectionApproval && user?.role === "SUPER_USER"
+      ? hasPendingVisaCollectionApproval && isSuperUser
         ? "Verify & Approve"
         : hasVisaCollectionRecord && user?.role === "EMPLOYER"
         ? "Update visa collection details"
@@ -340,7 +342,7 @@ function useApplicantWorkflowLabels({
       : canAddInterviewTicket
       ? "Add Ticket"
       : canAddEmbassyInterview
-      ? hasPendingEmbassyInterviewApproval && user?.role === "SUPER_USER"
+      ? hasPendingEmbassyInterviewApproval && isSuperUser
         ? "Verify & Approve"
         : hasEmbassyInterviewRecord
         ? "Update Embassy Interview"
@@ -350,7 +352,7 @@ function useApplicantWorkflowLabels({
       : canAddTicket
       ? "Add Ticket"
       : canInitiateEmbassyAppointment
-      ? hasPendingEmbassyAppointmentApproval && user?.role === "SUPER_USER"
+      ? hasPendingEmbassyAppointmentApproval && isSuperUser
         ? "Verify & Approve"
         : hasEmbassyAppointmentRecord && user?.role === "EMPLOYER"
         ? "Update Embassy Appointment"
@@ -367,7 +369,7 @@ function useApplicantWorkflowLabels({
     const canHeaderAction =
       canIssueContract ||
       canUploadSignedContract ||
-      (applicantStage === 12 && user?.role === "SUPER_USER" && hasVisaTravel) ||
+      (applicantStage === 12 && isSuperUser && hasVisaTravel) ||
       canAddResidencePermit ||
       canAddVisaTravel ||
       canAddVisaCollectionTravel ||

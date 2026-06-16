@@ -90,6 +90,7 @@ function ApplicantSummaryCard({
     applicant?.photoUrl ||
     applicant?.passportPhotoUrl ||
     applicant?.passportSizePhotoUrl ||
+    applicant?.documents?.passport_photo_scan_standard?.fileUrl ||
     applicant?.documents?.passport_size_photo?.fileUrl ||
     "";
 

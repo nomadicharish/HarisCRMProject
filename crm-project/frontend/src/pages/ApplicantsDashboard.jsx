@@ -1,4 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import DatePicker from "react-datepicker";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ApplicantsTable, { resolveApplicantWorkflowMeta } from "../components/dashboard/ApplicantsTable";
@@ -10,8 +11,9 @@ import DashboardResultsHeader from "../components/dashboard/DashboardResultsHead
 import PageLoader from "../components/common/PageLoader";
 import { getCached, hasFreshCache, invalidateCache, prefetchCached } from "../services/cachedApi";
 import API from "../services/api";
-import { getStoredUser } from "../utils/auth";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
 const CountryManagerModal = lazy(() => import("../components/dashboard/CountryManagerModal"));
@@ -39,6 +41,21 @@ function formatDateInput(date) {
   return `${year}-${month}-${day}`;
 }
 
+function parseDateInput(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
 function getDefaultHomeRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -49,6 +66,25 @@ function getDefaultHomeRange() {
     toDate: formatDateInput(end)
   };
 }
+
+const HomeDatePickerInput = React.forwardRef(({ value, onClick, placeholder, ariaLabel }, ref) => (
+  <span className="homeDatePickerWrap">
+    <svg className="homeDatePickerIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 3v4m10-4v4M4 9h16M6 5h12a2 2 0 0 1 2 2v12H4V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+    <input
+      ref={ref}
+      className="homeDatePickerInput"
+      value={value || ""}
+      onClick={onClick}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
+      readOnly
+    />
+  </span>
+));
+
+HomeDatePickerInput.displayName = "HomeDatePickerInput";
 
 function HomeIcon({ type }) {
   const commonProps = { width: 24, height: 24, viewBox: "0 0 24 24", fill: "none", "aria-hidden": "true" };
@@ -89,11 +125,13 @@ function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
   );
 }
 
-function DashboardHome({ summary, fromDate, toDate, onDateChange, onApply, onOpenFilter, onViewAll }) {
+function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onApply, onOpenFilter, onViewAll }) {
   const upcoming = summary?.upcoming || {};
   const overdue = summary?.overdue || {};
   const payments = summary?.payments || {};
   const pendingByCurrency = payments.pendingByCurrency || {};
+  const selectedFromDate = parseDateInput(fromDate);
+  const selectedToDate = parseDateInput(toDate);
 
   return (
     <main className="dashboardHome">
@@ -115,11 +153,38 @@ function DashboardHome({ summary, fromDate, toDate, onDateChange, onApply, onOpe
       <section className="homeDateCard">
         <div>
           <div className="homeDateControls">
-            <input type="date" value={fromDate} onChange={(event) => onDateChange("fromDate", event.target.value)} aria-label="From date" />
+            <DatePicker
+              selected={selectedFromDate}
+              onChange={(date) => onDateChange("fromDate", date ? formatDateInput(date) : "")}
+              dateFormat="dd/MM/yyyy"
+              maxDate={selectedToDate || undefined}
+              selectsStart
+              startDate={selectedFromDate}
+              endDate={selectedToDate}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              isClearable
+              customInput={<HomeDatePickerInput placeholder="From date" ariaLabel="From date" />}
+            />
             <span className="homeDateSeparator">-</span>
-            <input type="date" value={toDate} onChange={(event) => onDateChange("toDate", event.target.value)} aria-label="To date" />
+            <DatePicker
+              selected={selectedToDate}
+              onChange={(date) => onDateChange("toDate", date ? formatDateInput(date) : "")}
+              dateFormat="dd/MM/yyyy"
+              minDate={selectedFromDate || undefined}
+              selectsEnd
+              startDate={selectedFromDate}
+              endDate={selectedToDate}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              isClearable
+              customInput={<HomeDatePickerInput placeholder="To date" ariaLabel="To date" />}
+            />
             <button type="button" className="dashboardPrimaryBtn" onClick={onApply}>Apply</button>
           </div>
+          {dateError ? <div className="homeDateError">{dateError}</div> : null}
         </div>
         <button type="button" className="homeViewAllBtn" onClick={onViewAll}>View All Applicants <span aria-hidden="true">&gt;</span></button>
       </section>
@@ -247,7 +312,8 @@ function ApplicantsDashboard() {
   const [homeSummary, setHomeSummary] = useState(null);
   const defaultHomeRange = useMemo(() => getDefaultHomeRange(), []);
   const [homeDateDraft, setHomeDateDraft] = useState(defaultHomeRange);
-  const isSuperUser = user?.role === "SUPER_USER";
+  const [homeDateError, setHomeDateError] = useState("");
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const isEmployer = user?.role === "EMPLOYER";
   const isAgency = user?.role === "AGENCY";
 
@@ -264,6 +330,7 @@ function ApplicantsDashboard() {
 
   useEffect(() => {
     setHomeDateDraft({ fromDate: homeFromDate, toDate: homeToDate });
+    setHomeDateError("");
   }, [homeFromDate, homeToDate]);
 
   useEffect(() => {
@@ -870,6 +937,7 @@ function ApplicantsDashboard() {
   };
 
   const handleHomeDateChange = (key, value) => {
+    setHomeDateError("");
     setHomeDateDraft((current) => ({
       ...current,
       [key]: value
@@ -877,9 +945,24 @@ function ApplicantsDashboard() {
   };
 
   const applyHomeDateRange = () => {
+    const nextFromDate = homeDateDraft.fromDate || defaultHomeRange.fromDate;
+    const nextToDate = homeDateDraft.toDate || defaultHomeRange.toDate;
+    const parsedFromDate = parseDateInput(nextFromDate);
+    const parsedToDate = parseDateInput(nextToDate);
+
+    if (!parsedFromDate || !parsedToDate) {
+      setHomeDateError("Select both from and to dates.");
+      return;
+    }
+
+    if (parsedFromDate > parsedToDate) {
+      setHomeDateError("From date must be before to date.");
+      return;
+    }
+
     const next = new URLSearchParams(searchParams);
-    next.set("fromDate", homeDateDraft.fromDate || defaultHomeRange.fromDate);
-    next.set("toDate", homeDateDraft.toDate || defaultHomeRange.toDate);
+    next.set("fromDate", nextFromDate);
+    next.set("toDate", nextToDate);
     invalidateCache("/dashboard");
     setSearchParams(next, { replace: true });
     setRefreshKey((value) => value + 1);
@@ -1127,6 +1210,7 @@ function ApplicantsDashboard() {
             summary={homeSummary}
             fromDate={homeDateDraft.fromDate}
             toDate={homeDateDraft.toDate}
+            dateError={homeDateError}
             onDateChange={handleHomeDateChange}
             onApply={applyHomeDateRange}
             onOpenFilter={openHomeFilter}

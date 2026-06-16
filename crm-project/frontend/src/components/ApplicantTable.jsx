@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { isSuperUserLikeRole } from "../utils/auth";
 
 function ApplicantTable({ applicants = [], user, onEdit }) {
 
@@ -56,7 +57,7 @@ const navigate = useNavigate();
               )}
             </td>
             <td>
-              {user?.role === "SUPER_USER" && (
+              {isSuperUserLikeRole(user?.role) && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation(); // Prevent row click

@@ -16,6 +16,7 @@ const {
   findLinkedUserByField,
   syncLinkedUserAccount
 } = require("./accountService");
+const { isSuperUserLikeRole } = require("../utils/roles");
 
 function buildNormalizedFields({ email = "", contactNumber = "" } = {}) {
   return {
@@ -650,7 +651,7 @@ async function listCountries() {
 }
 
 async function listAgencies({ role, query = {} }) {
-  if (role !== "SUPER_USER") return [];
+  if (!isSuperUserLikeRole(role)) return [];
   const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
@@ -727,7 +728,7 @@ async function listAgencies({ role, query = {} }) {
 }
 
 async function listEmployers({ role, query = {} }) {
-  if (role !== "SUPER_USER") return [];
+  if (!isSuperUserLikeRole(role)) return [];
   const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
@@ -794,7 +795,7 @@ async function listCompanies({ user, query: queryParams = {} }) {
   const companyFilters = parseCsv(queryParams?.company);
   const search = normalizeText(queryParams?.q);
 
-  if (userRole === "SUPER_USER" || userRole === "ACCOUNTANT") {
+  if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
     let companyQuery = db.collection("companies");
     if (countryId) {
       companyQuery = companyQuery.where("countryId", "==", countryId);

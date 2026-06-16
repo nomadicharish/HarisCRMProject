@@ -18,6 +18,7 @@ const {
   autoAdvanceStage,
   getRequiredDocumentTypes
 } = require("../../services/applicantWorkflowStageService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 async function addAppointmentUseCase(req) {
   const { applicantId, type } = req.params;
@@ -26,9 +27,9 @@ async function addAppointmentUseCase(req) {
 
   const allowedTypes = ["EMBASSY_APPOINTMENT", "EMBASSY_INTERVIEW", "VISA_COLLECTION", "BIOMETRIC", "INTERVIEW"];
   if (!allowedTypes.includes(type)) throw new AppError("Invalid appointment type", 400);
-  if (!["EMPLOYER", "SUPER_USER"].includes(userRole)) throw new AppError("Not allowed to add appointment", 403);
+  if (!(userRole === "EMPLOYER" || isSuperUserLikeRole(userRole))) throw new AppError("Not allowed to add appointment", 403);
 
-  const autoApprove = userRole === "SUPER_USER";
+  const autoApprove = isSuperUserLikeRole(userRole);
   const appointment = {
     type,
     date,
@@ -55,7 +56,7 @@ async function addAppointmentUseCase(req) {
 async function approveAppointmentUseCase(req) {
   const { applicantId, type } = req.params;
   const { userRole, userId } = getAuthenticatedUserFromReq(req);
-  if (userRole !== "SUPER_USER") throw new AppError("Only Super User can approve", 403);
+  if (!isSuperUserLikeRole(userRole)) throw new AppError("Only Super User can approve", 403);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   const appointmentRef = applicantRef.collection("appointments").doc(type);
@@ -107,7 +108,7 @@ async function approveAppointmentUseCase(req) {
 
 async function approveAndMoveStageUseCase(req) {
   const applicantId = req.params.id || req.params.applicantId;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve stages", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can approve stages", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();

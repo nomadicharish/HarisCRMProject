@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, validateDocumentFile } from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
 
 const ACCEPTED_FILE_TYPES = ALLOWED_DOCUMENT_ACCEPT;
@@ -81,7 +82,7 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
   const rejectedCount = documents.filter((document) => document.status === "REJECTED").length;
   const hasAnyUploaded = documents.some((document) => document.fileUrl || document.status === "REJECTED");
   const isAgent = user?.role === "AGENCY";
-  const isSuperUser = user?.role === "SUPER_USER";
+  const isSuperUser = isSuperUserLikeRole(user?.role);
   const canSubmit = isAgent && Object.keys(filesById).some((id) => filesById[id]);
 
   const loadSignedContract = useCallback(async () => {

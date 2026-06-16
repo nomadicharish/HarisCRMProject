@@ -12,10 +12,15 @@ const {
   resolveApplicantTotalEur,
   roundCurrency
 } = require("../../services/applicantDomainService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 async function getApplicantProfilePhotoUrl(applicantId) {
-  const doc = await db.collection("applicants").doc(applicantId).collection("documents").doc("passport_size_photo").get();
-  const data = doc.exists ? doc.data() || {} : {};
+  const docsRef = db.collection("applicants").doc(applicantId).collection("documents");
+  const [photoDoc, legacyPhotoDoc] = await Promise.all([
+    docsRef.doc("passport_photo_scan_standard").get(),
+    docsRef.doc("passport_size_photo").get()
+  ]);
+  const data = photoDoc.exists ? photoDoc.data() || {} : legacyPhotoDoc.exists ? legacyPhotoDoc.data() || {} : {};
   return data?.latestVersion?.fileUrl || data?.fileUrl || "";
 }
 
@@ -224,7 +229,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const visaCollection =
     applicantData.visaCollection &&
     (String(applicantData.visaCollection.status || "").toUpperCase() === "APPROVED" ||
-      ["SUPER_USER", "EMPLOYER"].includes(req.user?.role))
+      (isSuperUserLikeRole(req.user?.role) || req.user?.role === "EMPLOYER"))
       ? {
           ...applicantData.visaCollection,
           createdAt: normalizeDate(applicantData.visaCollection.createdAt),

@@ -10,6 +10,7 @@ const {
   resolveApplicantTotalEur,
   roundCurrency
 } = require("../../services/applicantDomainService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
 
 function sanitizeFileName(value = "document") {
   return String(value || "document")
@@ -39,8 +40,8 @@ async function addPaymentUseCase(req) {
   }
 
   if (
-    (type === "APPLICANT" && userRole !== "SUPER_USER") ||
-    (type === "EMPLOYER" && !["SUPER_USER", "ACCOUNTANT"].includes(userRole))
+    (type === "APPLICANT" && !isSuperUserLikeRole(userRole)) ||
+    (type === "EMPLOYER" && !(isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT"))
   ) {
     throw new AppError("Not allowed to add this payment", 403);
   }
