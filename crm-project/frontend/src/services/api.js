@@ -3,8 +3,10 @@ import { auth, authReady } from "../firebase";
 import { clearSession } from "../utils/auth";
 import { SESSION_DURATION_MS } from "../utils/auth";
 
+const defaultBaseURL = import.meta.env.PROD ? "/api" : "http://localhost:3000/api";
+
 const API = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api",
+  baseURL: import.meta.env.VITE_API_BASE_URL || defaultBaseURL,
 });
 
 const TOKEN_REUSE_MS = 55 * 1000;
