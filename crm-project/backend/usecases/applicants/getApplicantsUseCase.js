@@ -113,6 +113,7 @@ function canUseFirestorePaginatedPath({
 }) {
   if (!paginated) return false;
   if (searchQuery || typeFilters.length) return false;
+  if (userRole === "EMPLOYER") return false;
   if (agencyId && agencyId !== userId && userRole === "AGENCY") return false;
   if (hasMultipleMultiValueFilters(countryFilters, companyFilters, agencyFilters)) return false;
   return [countryFilters, companyFilters, agencyFilters].every((items) => items.length <= 10);
@@ -135,9 +136,12 @@ async function countQueryResults(query) {
   return Number(aggregateSnap.data()?.count || 0);
 }
 
-async function resolveEmployerCompanyId(userId) {
-  const userDoc = await db.collection("users").doc(userId).get();
-  const employerId = userDoc.exists ? userDoc.data()?.employerId : null;
+async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
+  let employerId = linkedEmployerId;
+  if (!employerId) {
+    const userDoc = await db.collection("users").doc(userId).get();
+    employerId = userDoc.exists ? userDoc.data()?.employerId : null;
+  }
   if (!employerId) throw new AppError("Employer profile not linked", 400);
 
   const employerDoc = await db.collection("employers").doc(employerId).get();
@@ -146,7 +150,13 @@ async function resolveEmployerCompanyId(userId) {
   return companyId;
 }
 
-async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId }) {
+function isApprovedApplicantForEmployer(doc) {
+  const data = doc.data() || {};
+  const status = String(data.approvalStatus || "").toLowerCase();
+  return status === "approved";
+}
+
+async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId, employerId }) {
   let query = db.collection("applicants").select(...APPLICANT_LIST_SELECT_FIELDS);
 
   if (userRole === "AGENCY") {
@@ -154,7 +164,7 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId }) {
   }
 
   if (userRole === "EMPLOYER") {
-    const companyId = await resolveEmployerCompanyId(userId);
+    const companyId = await resolveEmployerCompanyId(userId, employerId);
     return query.where("companyId", "==", companyId);
   }
 
@@ -165,7 +175,7 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId }) {
   throw new AppError("Unauthorized", 403);
 }
 
-async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId }) {
+async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId, employerId }) {
   let docs = [];
   let query = db.collection("applicants").select(...APPLICANT_LIST_SELECT_FIELDS);
 
@@ -183,9 +193,9 @@ async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId }) {
       docs = primarySnap.docs;
     }
   } else if (userRole === "EMPLOYER") {
-    const companyId = await resolveEmployerCompanyId(userId);
+    const companyId = await resolveEmployerCompanyId(userId, employerId);
     query = query.where("companyId", "==", companyId);
-    docs = (await query.get()).docs;
+    docs = (await query.get()).docs.filter(isApprovedApplicantForEmployer);
   } else if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
     docs = (await query.get()).docs;
   } else {
@@ -292,6 +302,9 @@ function mapApplicant({
 
   const hasPendingAppointmentApproval =
     Boolean(approvalFlags?.hasPendingAppointmentApproval) || Boolean(data?.hasPendingAppointmentApproval);
+  const hasPendingEmbassyAppointmentApproval =
+    hasPendingAppointmentApproval ||
+    String(data?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
   const hasPendingPipelineApproval =
     Boolean(approvalFlags?.hasPendingPipelineApproval) ||
     String(data?.approvalStatus || "").toLowerCase() !== "approved" ||
@@ -321,7 +334,17 @@ function mapApplicant({
   const hasInterviewTicket = Boolean(data?.interviewTicket?.date || data?.interviewTicket?.time || data?.interviewTicket?.fileUrl);
   const hasInterviewBiometric = Boolean(data?.interviewBiometric?.fileUrl);
   const hasVisaTravel = Boolean(data?.visaTravel?.date || data?.visaTravel?.time || data?.visaTravel?.fileUrl);
-  const hasResidencePermit = Boolean(data?.residencePermit?.frontFileUrl || data?.residencePermit?.backFileUrl || data?.residencePermit?.fileUrl);
+  const hasResidencePermit = Boolean(
+    data?.residencePermit?.trpUrl ||
+    data?.residencePermit?.frontUrl ||
+    data?.residencePermit?.backUrl ||
+    data?.residencePermit?.frontFileUrl ||
+    data?.residencePermit?.backFileUrl ||
+    data?.residencePermit?.fileUrl
+  );
+  const hasRejectedSignedContractDocuments =
+    String(data?.signedContract?.status || "").toUpperCase() === "REJECTED" ||
+    Number(data?.signedContract?.rejectedDocumentCount || 0) > 0;
   const hasCompletedDocumentStage = Number(data?.stage || 1) >= 3 && approvedRequired;
   const stageLabel = getApplicantStageLabel(data?.stage, data?.approvalStatus);
   const computedStatusText = getApplicantBannerStatusText(data, {
@@ -336,11 +359,13 @@ function mapApplicant({
     hasInterviewBiometric,
     hasVisaTravel,
     hasResidencePermit,
+    hasPendingEmbassyAppointmentApproval,
     hasPendingEmbassyInterviewApproval,
     hasPendingVisaCollectionApproval,
-    hasEmbassyAppointment
+    hasEmbassyAppointment,
+    hasRejectedSignedContractDocuments
   });
-  const applicantBannerStatus = String(data?.applicantBannerStatus || computedStatusText);
+  const applicantBannerStatus = String(computedStatusText || data?.applicantBannerStatus || "");
   const statusText = applicantBannerStatus;
 
   const workflowStatus =
@@ -409,6 +434,7 @@ async function getApplicantsFirestorePage({
   userRole,
   userId,
   agencyId,
+  employerId,
   liteMode,
   page,
   limit,
@@ -417,7 +443,7 @@ async function getApplicantsFirestorePage({
   companyFilters,
   agencyFilters
 }) {
-  let query = await buildRoleScopedApplicantQuery({ userRole, userId, agencyId });
+  let query = await buildRoleScopedApplicantQuery({ userRole, userId, agencyId, employerId });
   query = applyListFilter(query, "countryId", countryFilters);
   query = applyListFilter(query, "companyId", companyFilters);
   query = applyListFilter(query, "agencyId", agencyFilters);
@@ -519,6 +545,7 @@ function paginateApplicants(applicants, { paginated, page, limit, requestedField
 async function getApplicantsUseCase(req) {
   const { userRole, userId } = getAuthenticatedUserFromReq(req);
   const agencyId = req.user?.agencyId || null;
+  const employerId = req.user?.employerId || null;
   const liteMode = parseBooleanQuery(req.query?.lite, false);
   const paginated = parseBooleanQuery(req.query?.paginated, true);
   const page = Number(req.query?.page || 1);
@@ -556,6 +583,7 @@ async function getApplicantsUseCase(req) {
         userRole,
         userId,
         agencyId,
+        employerId,
         liteMode,
         page,
         limit,
@@ -571,7 +599,7 @@ async function getApplicantsUseCase(req) {
     }
   }
 
-  const docs = await resolveRoleScopedApplicantDocs({ userRole, userId, agencyId });
+  const docs = await resolveRoleScopedApplicantDocs({ userRole, userId, agencyId, employerId });
   const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
   const mapped = docs.map((doc) =>
     mapApplicant({

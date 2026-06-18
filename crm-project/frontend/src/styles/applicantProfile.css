@@ -512,10 +512,10 @@
 .pipeStageActionBtn{
   white-space:nowrap;
   background:#fff;
-  border:1px solid #e5e7eb;
+  border:1px solid #1767ea;
   color:#111827;
   padding:0 20px;
-  min-height:34px;
+  min-height:44px;
   font-weight:500;
   font-size:14px;
 }

@@ -9,12 +9,15 @@ const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 
 const DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpeg", "jpg", "png"];
+const CV_WORD_DOCUMENT_ID = "cv_word_format_with_photo";
+const CV_WORD_ALLOWED_EXTENSIONS = ["doc", "docx"];
 const MIME_TYPES_BY_EXTENSION = {
   pdf: ["application/pdf"],
   jpeg: ["image/jpeg"],
   jpg: ["image/jpeg"],
   png: ["image/png"],
-  doc: ["application/msword", "application/doc", "application/vnd.ms-word", "application/x-msword"]
+  doc: ["application/msword", "application/doc", "application/vnd.ms-word", "application/x-msword"],
+  docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"]
 };
 
 function normalizeDateValue(value) {
@@ -82,10 +85,19 @@ async function getLatestDocumentsMap(applicantId) {
   );
 }
 
-function validateUploadedFileForDocument(file, documentConfig = null) {
+function normalizeAllowedExtensionsForUpload(documentType, documentConfig = null) {
   const allowedExtensions = normalizeAllowedDocumentExtensions(
     documentConfig?.allowedExtensions?.length ? documentConfig.allowedExtensions : DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS
   );
+  const configDocumentId = String(documentConfig?.id || documentConfig?.key || documentConfig?.docType || documentType || "").trim();
+  if (configDocumentId === CV_WORD_DOCUMENT_ID) {
+    return Array.from(new Set([...allowedExtensions, ...CV_WORD_ALLOWED_EXTENSIONS]));
+  }
+  return allowedExtensions;
+}
+
+function validateUploadedFileForDocument(file, documentConfig = null, documentType = "") {
+  const allowedExtensions = normalizeAllowedExtensionsForUpload(documentType, documentConfig);
   const allowedExtensionSet = new Set(allowedExtensions);
   const allowedMimeTypes = new Set(allowedExtensions.flatMap((extension) => MIME_TYPES_BY_EXTENSION[extension] || []));
   const extension = String(file?.originalname || "").split(".").pop().toLowerCase();
@@ -111,7 +123,7 @@ async function uploadDocumentByTypeUseCase(req) {
   const { applicantId, docType } = req.params;
   const file = req.file;
   if (!file) throw new AppError("No file uploaded", 400);
-  validateUploadedFileForDocument(file, await getApplicantDocumentConfig(applicantId, docType));
+  validateUploadedFileForDocument(file, await getApplicantDocumentConfig(applicantId, docType), docType);
 
   const { userId } = getAuthenticatedUserFromReq(req);
   const bucket = admin.storage().bucket();
@@ -227,7 +239,7 @@ async function uploadDocumentGenericUseCase(req) {
   const { id } = req.params;
   const { documentType } = req.body;
   if (!req.file) throw new AppError("File required", 400);
-  validateUploadedFileForDocument(req.file, await getApplicantDocumentConfig(id, documentType));
+  validateUploadedFileForDocument(req.file, await getApplicantDocumentConfig(id, documentType), documentType);
 
   const bucket = admin.storage().bucket();
   const fileName = `applicants/${id}/${documentType}_${Date.now()}`;

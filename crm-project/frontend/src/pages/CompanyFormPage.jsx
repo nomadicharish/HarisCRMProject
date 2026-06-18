@@ -26,7 +26,7 @@ const DEFAULT_DOCUMENTS = [
     name: "CV in word format with photo",
     required: true,
     allowedExtensions: DOC_ONLY_EXTENSIONS,
-    uploadHelpText: "Upload DOC (Max 5 MB)"
+    uploadHelpText: "Upload DOC or DOCX (Max 5 MB)"
   },
   { id: "experience_reference_document", name: "Experience/reference document", required: false },
   { id: "additional_experience_reference_document", name: "Additional Experience/reference document", required: false },

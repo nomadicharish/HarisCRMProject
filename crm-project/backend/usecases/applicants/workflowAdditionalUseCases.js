@@ -10,6 +10,7 @@ const {
   recordAgencyTask,
   recordEmployerWorkflowInitiated
 } = require("../../services/notificationService");
+const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { ADMIN_ROLE, isSuperUserLikeRole } = require("../../utils/roles");
@@ -91,6 +92,21 @@ async function addEmbassyAppointmentUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  if (status === "APPROVED") {
+    await safeSendCalendarInvite({
+      applicantRef: docRef,
+      applicantId,
+      applicant: existingApplicant,
+      eventType: "embassyAppointment",
+      workflow: {
+        ...existingApplicant.embassyAppointment,
+        date: resolvedDate,
+        time: resolvedTime,
+        dateTime: appointmentDateTime
+      },
+      includeAgency: true
+    });
+  }
   await recordEmployerWorkflowInitiated({
     applicantId,
     applicant: existingApplicant,
@@ -139,6 +155,14 @@ async function approveEmbassyAppointmentUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await safeSendCalendarInvite({
+    applicantRef: docRef,
+    applicantId,
+    applicant,
+    eventType: "embassyAppointment",
+    workflow: applicant.embassyAppointment,
+    includeAgency: true
+  });
   await recordAdminApproval({
     applicantId,
     applicant,
@@ -194,17 +218,19 @@ async function addTravelDetailsUseCase(req) {
     throw new AppError("Cannot add travel details before embassy appointment completion stage", 400);
   }
 
-  const previousTravelFileUrl = applicantSnap.data()?.travelDetails?.fileUrl || "";
+  const previousTravelDetails = applicantSnap.data()?.travelDetails || {};
+  const previousTravelFileUrl = previousTravelDetails.fileUrl || "";
   await applicantRef.set(
     {
       travelDetails: {
         travelDate,
         time,
-        ticketNumber: ticketNumber || "",
-        fileUrl,
+        ticketNumber: ticketNumber || previousTravelDetails.ticketNumber || "",
+        fileUrl: fileUrl || previousTravelFileUrl,
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role,
-        createdAt: new Date()
+        createdAt: previousTravelDetails.createdAt || new Date(),
+        updatedAt: new Date()
       }
     },
     { merge: true }
@@ -434,6 +460,16 @@ async function addVisaCollectionUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  if (status === "APPROVED") {
+    await safeSendCalendarInvite({
+      applicantRef: docRef,
+      applicantId,
+      applicant: docSnap.data() || {},
+      eventType: "visaCollection",
+      workflow: { ...(docSnap.data()?.visaCollection || {}), date, time },
+      includeAgency: true
+    });
+  }
   await recordEmployerWorkflowInitiated({
     applicantId,
     applicant: docSnap.data() || {},
@@ -460,6 +496,14 @@ async function approveVisaCollectionUseCase(req) {
   });
 
   await refreshApplicantDocumentSummary(applicantId);
+  await safeSendCalendarInvite({
+    applicantRef: docRef,
+    applicantId,
+    applicant: docSnap.data() || {},
+    eventType: "visaCollection",
+    workflow: docSnap.data()?.visaCollection || {},
+    includeAgency: true
+  });
   await recordAdminApproval({
     applicantId,
     applicant: docSnap.data() || {},
@@ -742,6 +786,14 @@ async function addVisaTravelUseCase(req) {
   } catch (error) {
     console.error("Travel details email failed", error);
   }
+  await safeSendCalendarInvite({
+    applicantRef,
+    applicantId,
+    applicant: applicantData,
+    eventType: "applicantArrival",
+    workflow: arrivalDetails,
+    includeEmployers: true
+  });
   return { message: "Applicant arrival details saved" };
 }
 

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 import { getCached, invalidateCache, prefetchCached, readCached, writeCached } from "../services/cachedApi";
@@ -17,6 +17,14 @@ import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
 import { formatCurrencyAmount } from "../utils/currency";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
+
+const DASHBOARD_TAB_CONFIG = {
+  home: { label: "Home" },
+  applicants: { label: "Applicants" },
+  companies: { label: "Companies" },
+  employers: { label: "Employers" },
+  agencies: { label: "Agencies" }
+};
 
 function ApplicantProfile() {
   const { id } = useParams();
@@ -63,6 +71,19 @@ function ApplicantProfile() {
   const [approvingStage, setApprovingStage] = useState(false);
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 120000;
+  const profileDashboardTabs = useMemo(() => {
+    if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies", "employers", "agencies"];
+    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["applicants", "companies"];
+    return ["applicants"];
+  }, [user?.role]);
+  const handleDashboardTabChange = useCallback(
+    (tabKey) => {
+      if (!profileDashboardTabs.includes(tabKey)) return;
+      const query = tabKey === "home" ? "" : `?tab=${encodeURIComponent(tabKey)}`;
+      navigate(`/dashboard${query}`);
+    },
+    [navigate, profileDashboardTabs]
+  );
 
   const loadUser = useCallback(async () => {
     if (user) return;
@@ -388,7 +409,16 @@ function ApplicantProfile() {
 
   return (
     <div className="page-container dashboardPageContainer">
-      <DashboardTopbar user={user} />
+      <DashboardTopbar
+        user={user}
+        showTabs
+        tabs={profileDashboardTabs.map((key) => ({
+          key,
+          label: DASHBOARD_TAB_CONFIG[key].label
+        }))}
+        activeTab="applicants"
+        onTabChange={handleDashboardTabChange}
+      />
       <div className="page-content applicantProfilePage">
         <div className="applicantProfileLayout">
           <aside className="applicantProfileSidebar">

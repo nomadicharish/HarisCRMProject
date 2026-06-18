@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
-import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantContract.css";
@@ -56,8 +56,6 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
     !contract?.fileUrl &&
     contract?.status !== "APPROVED";
   const canApprove = isSuperUser && contract?.status === "PENDING";
-  const pendingAmount = applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0;
-  const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
 
   const loadContract = useCallback(async () => {
     try {
@@ -303,12 +301,7 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
             {canApprove ? (
               <>
               <div className="workflowModalBody">
-                <div className="contractInfoCard">
-                  <div className="contractInfoRow">
-                    <span>Pending Amount</span>
-                    <strong>{formatCurrencyAmount(pendingAmount, paymentCurrency, true)}</strong>
-                  </div>
-                </div>
+                <WorkflowPaymentStatus applicant={applicant} requiredPercent={20} user={user} />
               </div>
               <div className="workflowModalFooter">
                 <button

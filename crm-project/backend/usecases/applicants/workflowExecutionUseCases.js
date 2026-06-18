@@ -9,6 +9,7 @@ const {
   recordAgencyTask,
   recordEmployerWorkflowInitiated
 } = require("../../services/notificationService");
+const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
@@ -618,6 +619,19 @@ async function addEmbassyInterviewUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  if (isSuperUser) {
+    await safeSendCalendarInvite({
+      applicantRef: docRef,
+      applicantId,
+      applicant: existingApplicantSnap.data() || {},
+      eventType: "embassyInterview",
+      workflow: {
+        ...(existingApplicantSnap.data()?.embassyInterview || {}),
+        dateTime
+      },
+      includeAgency: true
+    });
+  }
   await recordEmployerWorkflowInitiated({
     applicantId,
     applicant: existingApplicantSnap.data() || {},
@@ -640,11 +654,20 @@ async function approveEmbassyInterviewUseCase(req) {
     "embassyInterview.approved": true,
     "embassyInterview.status": "APPROVED",
     "embassyInterview.approvedBy": req.user.uid,
+    "embassyInterview.approvedAt": new Date(),
     stage: Number(applicant.stage || 1) === 8 ? 9 : Number(applicant.stage || 1),
     stageUpdatedAt: new Date()
   });
 
   await refreshApplicantDocumentSummary(applicantId);
+  await safeSendCalendarInvite({
+    applicantRef: docRef,
+    applicantId,
+    applicant,
+    eventType: "embassyInterview",
+    workflow: applicant.embassyInterview,
+    includeAgency: true
+  });
   await recordAdminApproval({
     applicantId,
     applicant,
@@ -678,8 +701,8 @@ async function addInterviewTicketUseCase(req) {
   const currentStage = Number(applicantSnap.data()?.stage || 1);
   if (currentStage < 9) throw new AppError("Cannot add interview ticket before interview completion stage", 400);
 
-  let fileUrl = "";
   const existingTicket = applicantSnap.data()?.interviewTicket || {};
+  let fileUrl = existingTicket.fileUrl || "";
   if (req.file) {
     const bucket = admin.storage().bucket();
     const fileName = `interview-ticket/${applicantId}_${Date.now()}`;
@@ -700,7 +723,8 @@ async function addInterviewTicketUseCase(req) {
         fileUrl,
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role,
-        createdAt: new Date()
+        createdAt: existingTicket.createdAt || new Date(),
+        updatedAt: new Date()
       }
     },
     { merge: true }

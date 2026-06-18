@@ -1,17 +1,18 @@
 export const DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpeg", "jpg", "png"];
-export const DOC_ONLY_EXTENSIONS = ["doc"];
+export const DOC_ONLY_EXTENSIONS = ["doc", "docx"];
 export const ALLOWED_DOCUMENT_ACCEPT = ".pdf,.jpeg,.jpg,.png";
-export const DOC_ONLY_ACCEPT = ".doc";
+export const DOC_ONLY_ACCEPT = ".doc,.docx";
 export const MAX_DOCUMENT_FILE_SIZE_BYTES = 5 * 1024 * 1024;
 export const DOCUMENT_UPLOAD_HELP_TEXT = "Upload PDF, PNG, JPEG or JPG (Max 5 MB)";
-export const DOC_UPLOAD_HELP_TEXT = "Upload DOC (Max 5 MB)";
+export const DOC_UPLOAD_HELP_TEXT = "Upload DOC or DOCX (Max 5 MB)";
 
 const MIME_TYPES_BY_EXTENSION = {
   pdf: ["application/pdf"],
   jpeg: ["image/jpeg"],
   jpg: ["image/jpeg"],
   png: ["image/png"],
-  doc: ["application/msword", "application/doc", "application/vnd.ms-word", "application/x-msword"]
+  doc: ["application/msword", "application/doc", "application/vnd.ms-word", "application/x-msword"],
+  docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"]
 };
 
 export function normalizeAllowedExtensions(allowedExtensions = DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS) {
@@ -27,7 +28,7 @@ export function getAcceptForExtensions(allowedExtensions = DEFAULT_ALLOWED_DOCUM
 
 export function getUploadHelpText(allowedExtensions = DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS) {
   const normalized = normalizeAllowedExtensions(allowedExtensions);
-  if (normalized.length === 1 && normalized[0] === "doc") return DOC_UPLOAD_HELP_TEXT;
+  if (normalized.every((extension) => extension === "doc" || extension === "docx")) return DOC_UPLOAD_HELP_TEXT;
   return DOCUMENT_UPLOAD_HELP_TEXT;
 }
 

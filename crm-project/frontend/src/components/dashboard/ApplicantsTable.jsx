@@ -2,7 +2,11 @@ import React from "react";
 import VirtualizedRows from "./VirtualizedRows";
 
 export function resolveApplicantWorkflowMeta(applicant = {}) {
-  const statusText = applicant.statusText || applicant.applicantBannerStatus || applicant.stageLabel || "Candidate Created";
+  const statusText =
+    applicant.applicantBannerStatus ||
+    applicant.statusText ||
+    applicant.stageLabel ||
+    "Candidate Created";
   const parts = String(statusText).split(".").map((item) => item.trim()).filter(Boolean);
   const workflowStatus = String(applicant.workflowStatus || applicant.stageStatus || "").toLowerCase();
   const completed = workflowStatus === "completed" || Number(applicant.stage || 0) >= 13;

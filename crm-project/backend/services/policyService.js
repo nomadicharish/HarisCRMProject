@@ -36,7 +36,9 @@ async function canAccessApplicant(user = {}, applicantId = "") {
     if (!user.employerId) return false;
     const employerDoc = await db.collection("employers").doc(user.employerId).get();
     const employerCompanyId = employerDoc.exists ? employerDoc.data()?.companyId || "" : "";
-    return Boolean(employerCompanyId) && applicant.companyId === employerCompanyId;
+    return Boolean(employerCompanyId) &&
+      applicant.companyId === employerCompanyId &&
+      String(applicant.approvalStatus || "").toLowerCase() === "approved";
   }
 
   return false;

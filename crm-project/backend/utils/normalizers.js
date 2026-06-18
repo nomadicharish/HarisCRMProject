@@ -43,8 +43,10 @@ function normalizeCompanyDocuments(value) {
       documentToFillUrl: String(item.documentToFillUrl || item.fillDocumentUrl || item.templateFileUrl || "").trim(),
       referenceFileName: String(item.referenceFileName || item.referenceDocumentFileName || "").trim(),
       referenceUrl: String(item.referenceUrl || item.referenceDocumentUrl || "").trim(),
-      allowedExtensions: normalizeAllowedDocumentExtensions(item.allowedExtensions),
-      uploadHelpText: String(item.uploadHelpText || "").trim(),
+      allowedExtensions: normalizeDocumentAllowedExtensions(id, item.allowedExtensions),
+      uploadHelpText: id === CV_WORD_DOCUMENT_ID
+        ? "Upload DOC or DOCX (Max 5 MB)"
+        : String(item.uploadHelpText || "").trim(),
       updatedAt: new Date()
     });
 
@@ -53,7 +55,8 @@ function normalizeCompanyDocuments(value) {
 }
 
 const DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpeg", "jpg", "png"];
-const DOC_ONLY_EXTENSIONS = ["doc"];
+const CV_WORD_DOCUMENT_ID = "cv_word_format_with_photo";
+const WORD_DOCUMENT_EXTENSIONS = ["doc", "docx"];
 const DEFAULT_DOCUMENT_ASSET_PATH = "/default-documents/";
 
 function defaultDocumentAssetUrl(fileName) {
@@ -67,13 +70,21 @@ function normalizeAllowedDocumentExtensions(value) {
   return normalized.length ? Array.from(new Set(normalized)) : DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS;
 }
 
+function normalizeDocumentAllowedExtensions(documentId, allowedExtensions) {
+  const normalized = normalizeAllowedDocumentExtensions(allowedExtensions);
+  if (documentId === CV_WORD_DOCUMENT_ID && normalized.includes("doc") && !normalized.includes("docx")) {
+    return [...normalized, "docx"];
+  }
+  return normalized;
+}
+
 const DEFAULT_COMPANY_POSITION_DOCUMENTS = [
   {
-    id: "cv_word_format_with_photo",
+    id: CV_WORD_DOCUMENT_ID,
     name: "CV in word format with photo",
     required: true,
-    allowedExtensions: DOC_ONLY_EXTENSIONS,
-    uploadHelpText: "Upload DOC (Max 5 MB)"
+    allowedExtensions: WORD_DOCUMENT_EXTENSIONS,
+    uploadHelpText: "Upload DOC or DOCX (Max 5 MB)"
   },
   { id: "experience_reference_document", name: "Experience/reference document", required: false },
   { id: "additional_experience_reference_document", name: "Additional Experience/reference document", required: false },

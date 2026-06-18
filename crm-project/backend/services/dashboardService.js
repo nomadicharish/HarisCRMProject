@@ -64,6 +64,20 @@ async function resolvePayment(applicant, applicantId) {
   return { total, paid, pending, currency };
 }
 
+async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
+  let employerId = linkedEmployerId;
+  if (!employerId) {
+    const userDoc = await db.collection("users").doc(userId).get();
+    employerId = userDoc.exists ? userDoc.data()?.employerId : null;
+  }
+  if (!employerId) throw new AppError("Employer profile not linked", 400);
+
+  const employerDoc = await db.collection("employers").doc(employerId).get();
+  const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
+  if (!companyId) throw new AppError("Employer company not linked", 400);
+  return companyId;
+}
+
 function createMetric(key, label, filter, tone = "blue") {
   return { key, label, filter, tone, count: 0 };
 }
@@ -74,6 +88,7 @@ async function getDashboard({ user, query }) {
   const { companyId = "", agencyId = "", fromDate = "", toDate = "" } = query;
 
   let firestoreQuery = db.collection("applicants");
+  let filterApprovedForEmployer = false;
 
   if (role === "AGENCY") {
     if (!user.agencyId) {
@@ -81,7 +96,9 @@ async function getDashboard({ user, query }) {
     }
     firestoreQuery = firestoreQuery.where("agencyId", "==", user.agencyId);
   } else if (role === "EMPLOYER") {
-    firestoreQuery = firestoreQuery.where("employerIds", "array-contains", userId);
+    const linkedCompanyId = await resolveEmployerCompanyId(userId, user.employerId || null);
+    firestoreQuery = firestoreQuery.where("companyId", "==", linkedCompanyId);
+    filterApprovedForEmployer = true;
   }
 
   if (companyId) {
@@ -149,7 +166,15 @@ async function getDashboard({ user, query }) {
     home
   };
 
-  for (const doc of snapshot.docs) {
+  const docs = filterApprovedForEmployer
+    ? snapshot.docs.filter((doc) => {
+        const data = doc.data() || {};
+        const status = String(data.approvalStatus || "").toLowerCase();
+        return status === "approved";
+      })
+    : snapshot.docs;
+
+  for (const doc of docs) {
     const data = doc.data() || {};
     const payment = await resolvePayment(data, doc.id);
     const stage = Number(data.stage || 1);

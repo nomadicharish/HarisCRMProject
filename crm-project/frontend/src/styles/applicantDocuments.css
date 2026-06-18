@@ -281,7 +281,7 @@
 
 .docsRejectedNote {
   margin-top: 12px;
-  font-size: 10px;
+  font-size: 12px;
   color: #dc2626;
   font-weight: 600;
   line-height: 1.35;
@@ -1341,37 +1341,11 @@
 
 .docsPrepRow{
   display:grid;
-  grid-template-columns:minmax(0, 1fr) minmax(300px, 430px);
-  gap:72px;
+  grid-template-columns:minmax(300px, 430px);
+  justify-content:end;
+  gap:0;
   align-items:start;
   padding:18px 24px 24px;
-}
-
-.docsUploadInfo{
-  min-height:58px;
-  border:1px solid #dce7fb;
-  border-radius:6px;
-  background:#f6f9ff;
-  display:flex;
-  align-items:center;
-  gap:12px;
-  padding:0 18px;
-  color:#172554;
-  font-size:13px;
-}
-
-.docsInfoIcon{
-  width:22px;
-  height:22px;
-  border:2px solid #1767ea;
-  border-radius:50%;
-  color:#1767ea;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-size:14px;
-  font-weight:900;
-  flex:0 0 auto;
 }
 
 .docsStandardReference{
@@ -1426,21 +1400,23 @@
   border:1px solid #dfe7f3;
   border-radius:6px;
   box-shadow:none;
-  overflow:hidden;
+  overflow-x:auto;
+  overflow-y:hidden;
 }
 
 .docsUploadCard .docsRow{
   display:grid;
-  grid-template-columns:minmax(240px, 1.15fr) minmax(190px, 0.95fr) minmax(250px, 1.15fr) minmax(340px, 1.35fr) minmax(135px, 0.6fr);
+  grid-template-columns:minmax(170px, 1.15fr) minmax(120px, 0.75fr) minmax(160px, 1fr) minmax(230px, 1.35fr) minmax(92px, 0.55fr);
   gap:0;
   padding:0;
+  min-width:0;
   min-height:104px;
   border-bottom:1px solid #e8eef6;
   align-items:stretch;
 }
 
 .docsUploadCard .docsRowReview{
-  grid-template-columns:minmax(280px,1.25fr) minmax(430px,1.25fr) minmax(195px,.675fr);
+  grid-template-columns:minmax(220px,1.25fr) minmax(300px,1.25fr) minmax(150px,.675fr);
 }
 
 .docsUploadCard .docsRow:last-child{
@@ -1458,7 +1434,7 @@
 .docsUploadCard .docsRow > div{
   display:flex;
   align-items:center;
-  padding:20px 26px;
+  padding:20px 18px;
   border-right:1px solid #e8eef6;
   min-width:0;
 }
@@ -1473,7 +1449,7 @@
 }
 
 .docsUploadCard .docsDocCell{
-  padding-left:26px;
+  padding-left:18px;
 }
 
 .docsUploadCard .docsDocMeta{
@@ -1482,7 +1458,7 @@
 
 .docsUploadCard .docsDocTitle{
   color:#0b1538;
-  font-size:15px;
+  font-size:14px;
   font-weight:500;
 }
 
@@ -1505,7 +1481,7 @@
   align-items:center;
   gap:14px;
   color:#0052ff;
-  font-size:15px;
+  font-size:14px;
   font-weight:600;
 }
 
@@ -1536,12 +1512,12 @@
 
 .docsUploadCard .docsFileName{
   font-size:13px;
-  font-weight:500;
+  font-weight:600;
   color:#0b1538;
 }
 
 .docsUploadCard .docsFileMeta{
-  font-size:13px;
+  font-size:11px;
   color:#4d5d84;
 }
 

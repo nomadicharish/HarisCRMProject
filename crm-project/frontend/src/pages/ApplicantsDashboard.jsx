@@ -27,6 +27,7 @@ const SEARCH_DEBOUNCE_MS = 300;
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
+const HOME_DATE_RANGE_STORAGE_KEY = "crm_home_dashboard_date_range";
 const TAB_CONFIG = {
   home: { label: "Home", actionLabel: "" },
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
@@ -66,6 +67,29 @@ function getDefaultHomeRange() {
     fromDate: formatDateInput(start),
     toDate: formatDateInput(end)
   };
+}
+
+function readStoredHomeRange(fallbackRange) {
+  if (typeof window === "undefined") return fallbackRange;
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(HOME_DATE_RANGE_STORAGE_KEY) || "{}");
+    const fromDate = parseDateInput(parsed.fromDate) ? parsed.fromDate : fallbackRange.fromDate;
+    const toDate = parseDateInput(parsed.toDate) ? parsed.toDate : fallbackRange.toDate;
+    return { fromDate, toDate };
+  } catch {
+    return fallbackRange;
+  }
+}
+
+function writeStoredHomeRange(range) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(HOME_DATE_RANGE_STORAGE_KEY, JSON.stringify(range));
+  } catch {
+    // Local storage can be unavailable in private browsing modes.
+  }
 }
 
 const HomeDatePickerInput = React.forwardRef(({ value, onClick, placeholder, ariaLabel }, ref) => (
@@ -316,7 +340,9 @@ function ApplicantsDashboard() {
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const defaultHomeRange = useMemo(() => getDefaultHomeRange(), []);
-  const [homeDateDraft, setHomeDateDraft] = useState(defaultHomeRange);
+  const storedHomeRange = useMemo(() => readStoredHomeRange(defaultHomeRange), [defaultHomeRange]);
+  const [retainedHomeRange, setRetainedHomeRange] = useState(storedHomeRange);
+  const [homeDateDraft, setHomeDateDraft] = useState(storedHomeRange);
   const [homeDateError, setHomeDateError] = useState("");
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const isEmployer = user?.role === "EMPLOYER";
@@ -329,8 +355,8 @@ function ApplicantsDashboard() {
   const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParams]);
   const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParams]);
   const dashboardFilter = searchParams.get("dashboardFilter") || "";
-  const homeFromDate = searchParams.get("fromDate") || defaultHomeRange.fromDate;
-  const homeToDate = searchParams.get("toDate") || defaultHomeRange.toDate;
+  const homeFromDate = searchParams.get("fromDate") || retainedHomeRange.fromDate;
+  const homeToDate = searchParams.get("toDate") || retainedHomeRange.toDate;
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
 
   useEffect(() => {
@@ -967,6 +993,8 @@ function ApplicantsDashboard() {
     }
 
     setHomeApplyLoading(true);
+    setRetainedHomeRange({ fromDate: nextFromDate, toDate: nextToDate });
+    writeStoredHomeRange({ fromDate: nextFromDate, toDate: nextToDate });
     const next = new URLSearchParams(searchParams);
     next.set("fromDate", nextFromDate);
     next.set("toDate", nextToDate);
