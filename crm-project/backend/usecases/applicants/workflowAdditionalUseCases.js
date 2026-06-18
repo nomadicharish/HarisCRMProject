@@ -218,19 +218,17 @@ async function addTravelDetailsUseCase(req) {
     throw new AppError("Cannot add travel details before embassy appointment completion stage", 400);
   }
 
-  const previousTravelDetails = applicantSnap.data()?.travelDetails || {};
-  const previousTravelFileUrl = previousTravelDetails.fileUrl || "";
+  const previousTravelFileUrl = applicantSnap.data()?.travelDetails?.fileUrl || "";
   await applicantRef.set(
     {
       travelDetails: {
         travelDate,
         time,
-        ticketNumber: ticketNumber || previousTravelDetails.ticketNumber || "",
-        fileUrl: fileUrl || previousTravelFileUrl,
+        ticketNumber: ticketNumber || "",
+        fileUrl,
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role,
-        createdAt: previousTravelDetails.createdAt || new Date(),
-        updatedAt: new Date()
+        createdAt: new Date()
       }
     },
     { merge: true }
@@ -654,7 +652,7 @@ async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isU
   if (!recipients.length) return;
 
   const applicantName = getApplicantDisplayName(applicant);
-  const subject = `${isUpdate ? "Travel details changed" : "Travel details added"} for ${applicantName}`;
+  const subject = `${isUpdate ? "Arrival Travel details changed" : "Arrival Travel details added"} for ${applicantName}`;
   const attachments = [
     arrivalDetails.fileUrl ? { filename: "travel-ticket", path: arrivalDetails.fileUrl } : null,
     arrivalDetails.busTicketUrl ? { filename: "bus-ticket", path: arrivalDetails.busTicketUrl } : null
