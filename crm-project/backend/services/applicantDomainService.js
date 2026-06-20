@@ -73,6 +73,50 @@ function roundCurrency(value) {
   return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
 }
 
+function firstFinitePaymentNumber(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function resolveApplicantPaymentSnapshot(applicant = {}) {
+  const summary = applicant?.paymentSummary?.applicant || {};
+  const total = roundCurrency(firstFinitePaymentNumber(
+    summary.total,
+    applicant?.totalApplicantPayment,
+    applicant?.totalAmount,
+    applicant?.totalPayment
+  ));
+  const paid = roundCurrency(Math.max(
+    firstFinitePaymentNumber(summary.paid),
+    firstFinitePaymentNumber(applicant?.amountPaid),
+    firstFinitePaymentNumber(applicant?.paidAmount)
+  ));
+  const pending = Math.max(0, roundCurrency(total - paid));
+  const currency = resolveApplicantPaymentCurrency(applicant);
+
+  return {
+    total,
+    totalEur: total,
+    totalInr: total,
+    paid,
+    paidInr: paid,
+    pending,
+    pendingInr: pending,
+    currency,
+    sourceCurrency: currency,
+    confirmedAmount: roundCurrency(summary.confirmedAmount ?? paid),
+    awaitingJuniorAmount: roundCurrency(summary.awaitingJuniorAmount),
+    awaitingSeniorAmount: roundCurrency(summary.awaitingSeniorAmount),
+    hasPendingAcknowledgement: Boolean(summary.hasPendingAcknowledgement),
+    hasPendingConfirmation: Boolean(summary.hasPendingConfirmation),
+    paymentCompleted: Boolean(summary.paymentCompleted)
+  };
+}
+
 function normalizeDate(value) {
   if (!value) return null;
   if (typeof value?.toMillis === "function") return value.toMillis();
@@ -89,10 +133,9 @@ function normalizeTextForSearch(value) {
 
 function normalizePaymentMode(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  if (normalized === "check" || normalized === "cheque") return "Check";
   if (normalized === "bank transfer") return "Bank Transfer";
   if (normalized === "upi") return "UPI";
-  if (normalized === "cash") return "Cash";
+  if (normalized === "bh") return "BH";
   return "";
 }
 
@@ -325,6 +368,7 @@ module.exports = {
   buildApplicantListDerivedFields,
   projectApplicantFields,
   resolveApplicantReferenceFields,
+  resolveApplicantPaymentSnapshot,
   resolveApplicantPaymentCurrency,
   resolveApplicantTotalAmount,
   resolveApplicantTotalEur,

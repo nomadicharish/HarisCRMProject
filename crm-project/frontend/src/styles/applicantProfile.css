@@ -304,6 +304,14 @@
   font-weight:800;
 }
 
+.pendingStatusText{
+  margin-top:4px;
+  color:#b54708;
+  font-size:11px;
+  font-weight:600;
+  line-height:1.3;
+}
+
 .pendingChevron{
   font-size:18px;
   color:#6b7280;

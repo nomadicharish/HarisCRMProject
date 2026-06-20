@@ -16,7 +16,7 @@ const {
   findLinkedUserByField,
   syncLinkedUserAccount
 } = require("./accountService");
-const { isSuperUserLikeRole } = require("../utils/roles");
+const { isAccountantRole, isSuperUserLikeRole } = require("../utils/roles");
 
 function buildNormalizedFields({ email = "", contactNumber = "" } = {}) {
   return {
@@ -239,7 +239,11 @@ async function ensureUniqueEntityDetails({
       findDuplicateByNormalizedField("users", "normalizedContactNumber", normalizedPhone, excludeUserUid)
     ]);
 
-    if (agencyPhoneMatch || employerPhoneMatch || userPhoneMatch) {
+    if (
+      agencyPhoneMatch ||
+      employerPhoneMatch ||
+      (userPhoneMatch && userPhoneMatch.id !== excludeUserUid)
+    ) {
       throw new AppError("Contact number already exists in the system", 400);
     }
   }
@@ -795,7 +799,7 @@ async function listCompanies({ user, query: queryParams = {} }) {
   const companyFilters = parseCsv(queryParams?.company);
   const search = normalizeText(queryParams?.q);
 
-  if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
+  if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
     let companyQuery = db.collection("companies");
     if (countryId) {
       companyQuery = companyQuery.where("countryId", "==", countryId);

@@ -5,12 +5,15 @@ const { noStore } = require("../middleware/noStore");
 const allowRoles = require("../middleware/roleMiddleware");
 const { validate } = require("../middleware/validate");
 const authController = require("../controllers/authController");
-const adminAccountController = require("../controllers/adminAccountController");
+const accountantAccountController = require("../controllers/accountantAccountController");
+const bankAccountController = require("../controllers/bankAccountController");
 const { createAuthRateLimiter } = require("../config/security");
 const {
+  accountantSchema,
+  bankAccountParamsSchema,
+  bankAccountSchema,
   changePasswordSchema,
   checkEmailSchema,
-  createAdminSchema,
   disableUserParamsSchema,
   updateSettingsSchema
 } = require("../validators/authSchemas");
@@ -29,15 +32,63 @@ router.post("/check-email", noStore, createAuthRateLimiter(), validate(checkEmai
 router.post("/change-password", noStore, verifyToken, validate(changePasswordSchema), asyncHandler(authController.changePassword));
 router.get("/settings", noStore, verifyToken, asyncHandler(authController.getSettings));
 router.patch("/settings", noStore, verifyToken, validate(updateSettingsSchema), asyncHandler(authController.updateSettings));
-router.get("/admins", noStore, verifyToken, requireRootSuperUser, asyncHandler(adminAccountController.listAdmins));
-router.post("/admins", noStore, verifyToken, requireRootSuperUser, validate(createAdminSchema), asyncHandler(adminAccountController.createAdmin));
+router.get(
+  "/bank-accounts",
+  noStore,
+  verifyToken,
+  allowRoles("SUPER_USER", "AGENCY"),
+  asyncHandler(bankAccountController.listBankAccounts)
+);
+router.post(
+  "/bank-accounts",
+  noStore,
+  verifyToken,
+  requireRootSuperUser,
+  validate(bankAccountSchema),
+  asyncHandler(bankAccountController.createBankAccount)
+);
+router.patch(
+  "/bank-accounts/:id",
+  noStore,
+  verifyToken,
+  requireRootSuperUser,
+  validate(bankAccountParamsSchema, "params"),
+  validate(bankAccountSchema),
+  asyncHandler(bankAccountController.updateBankAccount)
+);
 router.delete(
-  "/admins/:uid",
+  "/bank-accounts/:id",
+  noStore,
+  verifyToken,
+  requireRootSuperUser,
+  validate(bankAccountParamsSchema, "params"),
+  asyncHandler(bankAccountController.deleteBankAccount)
+);
+router.get("/accountants", noStore, verifyToken, requireRootSuperUser, asyncHandler(accountantAccountController.listAccountants));
+router.post(
+  "/accountants",
+  noStore,
+  verifyToken,
+  requireRootSuperUser,
+  validate(accountantSchema),
+  asyncHandler(accountantAccountController.createAccountant)
+);
+router.patch(
+  "/accountants/:uid",
   noStore,
   verifyToken,
   requireRootSuperUser,
   validate(disableUserParamsSchema, "params"),
-  asyncHandler(adminAccountController.removeAdmin)
+  validate(accountantSchema),
+  asyncHandler(accountantAccountController.updateAccountant)
+);
+router.delete(
+  "/accountants/:uid",
+  noStore,
+  verifyToken,
+  requireRootSuperUser,
+  validate(disableUserParamsSchema, "params"),
+  asyncHandler(accountantAccountController.removeAccountant)
 );
 router.post("/password-updated", noStore, verifyToken, asyncHandler(authController.markPasswordUpdated));
 router.post(

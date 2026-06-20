@@ -57,7 +57,13 @@ export async function clearSession({ redirectTo = "/login" } = {}) {
 }
 
 export function getDashboardPathByRole(role) {
-  if (role === "SUPER_USER" || role === "ADMIN" || role === "AGENCY" || role === "EMPLOYER" || role === "ACCOUNTANT") {
+  if (
+    role === "SUPER_USER" ||
+    role === "AGENCY" ||
+    role === "EMPLOYER" ||
+    role === "JUNIOR_ACCOUNTANT" ||
+    role === "SENIOR_ACCOUNTANT"
+  ) {
     return "/dashboard";
   }
 
@@ -65,11 +71,15 @@ export function getDashboardPathByRole(role) {
 }
 
 export function isSuperUserLikeRole(role) {
-  return role === "SUPER_USER" || role === "ADMIN";
+  return role === "SUPER_USER";
 }
 
 export function isRootSuperUserRole(role) {
   return role === "SUPER_USER";
+}
+
+export function isAccountantRole(role) {
+  return role === "JUNIOR_ACCOUNTANT" || role === "SENIOR_ACCOUNTANT";
 }
 
 export function validatePassword(password) {

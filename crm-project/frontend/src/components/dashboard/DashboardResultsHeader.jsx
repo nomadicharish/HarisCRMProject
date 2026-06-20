@@ -11,12 +11,25 @@ function DashboardResultsHeader({
   currentActionLabel,
   showExportAction,
   onExport,
-  exportLoading
+  exportLoading,
+  showViewAllApplicants = false,
+  onViewAllApplicants
 }) {
   return (
     <div className="dashboardResultsHeader">
       <div>
-        <div className="dashboardResultsCount">{headerText}</div>
+        <div className="dashboardResultsCount">
+          <span>{headerText}</span>
+          {showViewAllApplicants ? (
+            <button
+              type="button"
+              className="dashboardViewAllApplicants"
+              onClick={onViewAllApplicants}
+            >
+              View all applicants
+            </button>
+          ) : null}
+        </div>
         {isRefreshing ? <div className="dashboardResultsSync">Syncing latest data...</div> : null}
       </div>
 

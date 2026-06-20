@@ -13,7 +13,7 @@ const {
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
-const { ADMIN_ROLE, isSuperUserLikeRole } = require("../../utils/roles");
+const { isSuperUserLikeRole, SUPER_USER_ROLE } = require("../../utils/roles");
 const { assertNoRejectedSignedDocuments } = require("./workflowExecutionUseCases");
 
 async function addEmbassyAppointmentUseCase(req) {
@@ -607,13 +607,8 @@ function getApplicantDisplayName(applicant = {}) {
 async function getTravelNotificationRecipients(applicant = {}) {
   const recipients = new Set();
 
-  const superUserSnap = await db.collection("users").where("role", "==", "SUPER_USER").get();
-  const adminSnap = await db.collection("users").where("role", "==", ADMIN_ROLE).get();
+  const superUserSnap = await db.collection("users").where("role", "==", SUPER_USER_ROLE).get();
   await Promise.all(superUserSnap.docs.map(async (doc) => {
-    const email = await readEncryptedUserEmail(doc.data());
-    if (email) recipients.add(email);
-  }));
-  await Promise.all(adminSnap.docs.map(async (doc) => {
     const email = await readEncryptedUserEmail(doc.data());
     if (email) recipients.add(email);
   }));

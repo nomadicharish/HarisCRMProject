@@ -19,12 +19,12 @@ function getApplicantTotalAmount(applicant, paymentSummary = null) {
 }
 
 function getApplicantPaidAmount(applicant) {
-  return toNumber(
-    applicant?.payment?.paid ??
-      applicant?.paymentsSummary?.applicant?.paid ??
-      applicant?.paidAmount ??
-      applicant?.amountPaid ??
-      applicant?.initialPaidAmount
+  return Math.max(
+    toNumber(applicant?.payment?.paid),
+    toNumber(applicant?.paymentsSummary?.applicant?.paid),
+    toNumber(applicant?.paidAmount),
+    toNumber(applicant?.amountPaid),
+    toNumber(applicant?.initialPaidAmount)
   );
 }
 
@@ -50,7 +50,15 @@ function useApplicantPaymentState({ applicant, paymentSummary }) {
       pending,
       currency,
       formattedPendingAmount: formatCurrencyAmount(pending, currency, true),
-      isTotalAmountMissing: total <= 0
+      isTotalAmountMissing: total <= 0,
+      hasPendingAcknowledgement: Boolean(
+        paymentSummary?.applicant?.hasPendingAcknowledgement ??
+        applicant?.payment?.hasPendingAcknowledgement
+      ),
+      hasPendingConfirmation: Boolean(
+        paymentSummary?.applicant?.hasPendingConfirmation ??
+        applicant?.payment?.hasPendingConfirmation
+      )
     };
   }, [applicant, paymentSummary]);
 }

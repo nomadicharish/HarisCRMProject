@@ -28,6 +28,16 @@ const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
 const HOME_DATE_RANGE_STORAGE_KEY = "crm_home_dashboard_date_range";
+const DASHBOARD_FILTER_DESCRIPTIONS = {
+  pending_payment: "having pending payment",
+  arriving: "arriving",
+  visa_collection: "for visa collection",
+  embassy_interview: "having embassy interviews",
+  embassy_appointment: "having embassy appointments",
+  trp_pending: "with TRP upload pending",
+  interview_biometric_pending: "with biometric upload pending after embassy interview",
+  appointment_biometric_pending: "with biometric upload pending after embassy appointment"
+};
 const TAB_CONFIG = {
   home: { label: "Home", actionLabel: "" },
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
@@ -150,7 +160,18 @@ function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
   );
 }
 
-function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onApply, onOpenFilter, onViewAll, applying }) {
+function DashboardHome({
+  summary,
+  fromDate,
+  toDate,
+  dateError,
+  onDateChange,
+  onApply,
+  onOpenFilter,
+  onViewAll,
+  applying,
+  showPaymentCard = true
+}) {
   const upcoming = summary?.upcoming || {};
   const overdue = summary?.overdue || {};
   const payments = summary?.payments || {};
@@ -161,20 +182,21 @@ function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onA
   return (
     <main className="dashboardHome">
       <BlockingLoader open={applying} label="Loading dashboard..." />
-      <section className="homeSection homePaymentSection">
-        {/* <h2>Pending Payment Overview</h2> */}
-        <button type="button" className="homePaymentCard" onClick={() => onOpenFilter("pending_payment", false)}>
-          <span className="homeMetricIcon homePaymentIcon"><HomeIcon type="payment" /></span>
-          <div className="homePaymentApplicants">
-            <div>Pending Payment</div>
-            <strong>{payments.applicantsWithPendingPayment || 0}</strong> <span>Applicants</span>
-          </div>
-          <div className="homePaymentAmount"><span>INR</span><strong>{formatCurrencyAmount(pendingByCurrency.INR || 0, "INR", true)}</strong></div>
-          <div className="homePaymentAmount"><span>EUR</span><strong>{formatCurrencyAmount(pendingByCurrency.EUR || 0, "EUR", true)}</strong></div>
-          <div className="homePaymentAmount"><span>USD</span><strong>{formatCurrencyAmount(pendingByCurrency.USD || 0, "USD", true)}</strong></div>
-          <div className="homePaymentAction">View Details <span aria-hidden="true">&gt;</span></div>
-        </button>
-      </section>
+      {showPaymentCard ? (
+        <section className="homeSection homePaymentSection">
+          <button type="button" className="homePaymentCard" onClick={() => onOpenFilter("pending_payment", false)}>
+            <span className="homeMetricIcon homePaymentIcon"><HomeIcon type="payment" /></span>
+            <div className="homePaymentApplicants">
+              <div>Pending Payment</div>
+              <strong>{payments.applicantsWithPendingPayment || 0}</strong> <span>Applicants</span>
+            </div>
+            <div className="homePaymentAmount"><span>INR</span><strong>{formatCurrencyAmount(pendingByCurrency.INR || 0, "INR", true)}</strong></div>
+            <div className="homePaymentAmount"><span>EUR</span><strong>{formatCurrencyAmount(pendingByCurrency.EUR || 0, "EUR", true)}</strong></div>
+            <div className="homePaymentAmount"><span>USD</span><strong>{formatCurrencyAmount(pendingByCurrency.USD || 0, "USD", true)}</strong></div>
+            <div className="homePaymentAction">View Details <span aria-hidden="true">&gt;</span></div>
+          </button>
+        </section>
+      ) : null}
 
       <section className="homeDateCard">
         <div>
@@ -347,8 +369,14 @@ function ApplicantsDashboard() {
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const isEmployer = user?.role === "EMPLOYER";
   const isAgency = user?.role === "AGENCY";
+  const isJuniorAccountant = user?.role === "JUNIOR_ACCOUNTANT";
+  const canViewHomeDashboard = isSuperUser || isEmployer || isAgency;
 
-  const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : isSuperUser ? "home" : "applicants";
+  const activeTab = TAB_CONFIG[searchParams.get("tab")]
+    ? searchParams.get("tab")
+    : canViewHomeDashboard
+      ? "home"
+      : "applicants";
   const searchText = searchParams.get("q") || "";
   const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParams]);
   const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParams]);
@@ -458,7 +486,7 @@ function ApplicantsDashboard() {
         totalPages: Number(applicantsData?.pagination?.totalPages || 1)
       });
 
-      if (activeTab === "home" && isSuperUser) {
+      if (activeTab === "home" && canViewHomeDashboard) {
         const dashboardData = await getCached("/dashboard", {
           params: {
             fromDate: homeFromDate,
@@ -586,6 +614,7 @@ function ApplicantsDashboard() {
     hasLoadedOnce,
     homeFromDate,
     homeToDate,
+    canViewHomeDashboard,
     isSuperUser,
     searchText,
     searchParams,
@@ -934,6 +963,10 @@ function ApplicantsDashboard() {
   };
 
   const handleOpenApplicant = (applicantId) => {
+    if (isJuniorAccountant) {
+      navigate(`/applicants/${applicantId}/payments${window.location.search || ""}`);
+      return;
+    }
     prefetchCached(`/applicants/${applicantId}/workflow-bundle`, {
       params: { includeDetails: "false" },
       ttlMs: 120000
@@ -943,7 +976,7 @@ function ApplicantsDashboard() {
 
   const visibleTabs = useMemo(() => {
     if (isSuperUser) return ["home", "applicants", "companies", "employers", "agencies"];
-    if (isAgency || isEmployer) return ["applicants", "companies"];
+    if (isAgency || isEmployer) return ["home", "applicants", "companies"];
     return ["applicants"];
   }, [isAgency, isEmployer, isSuperUser]);
 
@@ -1025,12 +1058,21 @@ function ApplicantsDashboard() {
     setSearchParams(next, { replace: true });
   };
 
+  const handleViewAllApplicants = () => {
+    const next = new URLSearchParams();
+    next.set("tab", "applicants");
+    setSearchParams(next, { replace: true });
+  };
+
   const headerText = useMemo(() => {
     if (activeTab === "companies") return `Showing ${totalRows} companies`;
     if (activeTab === "employers") return `Showing ${totalRows} employers`;
     if (activeTab === "agencies") return `Showing ${totalRows} agencies`;
+    if (activeTab === "applicants" && DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter]) {
+      return `Showing ${totalRows} applicants ${DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter]}`;
+    }
     return `Showing ${totalRows} applicants`;
-  }, [activeTab, totalRows]);
+  }, [activeTab, dashboardFilter, totalRows]);
 
   const searchPlaceholder = useMemo(() => {
     if (activeTab === "companies") return "Search by company name";
@@ -1041,7 +1083,7 @@ function ApplicantsDashboard() {
 
   const currentActionLabel = TAB_CONFIG[activeTab].actionLabel;
   const showHeaderAction =
-    (activeTab === "applicants" && !isEmployer) ||
+    (activeTab === "applicants" && (isSuperUser || isAgency)) ||
     (!["home", "applicants"].includes(activeTab) && isSuperUser);
 
   const openCurrentAction = () => {
@@ -1251,6 +1293,7 @@ function ApplicantsDashboard() {
             onOpenFilter={openHomeFilter}
             onViewAll={() => handleTabChange("applicants")}
             applying={homeApplyLoading}
+            showPaymentCard={!isEmployer}
           />
         ) : (
           <>
@@ -1296,6 +1339,11 @@ function ApplicantsDashboard() {
                 showExportAction={isSuperUser && activeTab === "applicants"}
                 onExport={handleExportApplicants}
                 exportLoading={isExporting}
+                showViewAllApplicants={
+                  activeTab === "applicants" &&
+                  Boolean(DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter])
+                }
+                onViewAllApplicants={handleViewAllApplicants}
               />
 
               <div className="dashboardTableCard">

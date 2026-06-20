@@ -25,7 +25,7 @@ const createUser = async (req, res) => {
       return res.status(403).json({ message: "Only Super User can create users" });
     }
 
-    if (!["SUPER_USER", "AGENCY", "EMPLOYER", "ACCOUNTANT"].includes(role)) {
+    if (!["SUPER_USER", "AGENCY", "EMPLOYER", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"].includes(role)) {
       return res.status(400).json({ message: "Invalid role" });
     }
 

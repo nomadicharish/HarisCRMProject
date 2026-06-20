@@ -1,5 +1,6 @@
 const { db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
+const { resolveApplicantPaymentSnapshot } = require("./applicantDomainService");
 const { isSuperUserLikeRole } = require("../utils/roles");
 
 function toTimestamp(value) {
@@ -42,26 +43,6 @@ function resolveWorkflowDate(...values) {
     if (date) return date;
   }
   return null;
-}
-
-async function resolvePayment(applicant, applicantId) {
-  const summary = applicant?.paymentSummary?.applicant || {};
-  const total = Number(summary.total ?? applicant?.totalApplicantPayment ?? applicant?.totalAmount ?? applicant?.totalPayment ?? 0);
-  const hasStoredPaid =
-    summary.paid !== undefined ||
-    applicant?.amountPaid !== undefined ||
-    applicant?.paidAmount !== undefined;
-  let paid = Number(summary.paid ?? applicant?.amountPaid ?? applicant?.paidAmount ?? 0);
-  if (!hasStoredPaid && applicantId) {
-    const paymentsSnap = await db.collection("applicants").doc(applicantId).collection("payments").get();
-    paymentsSnap.forEach((paymentDoc) => {
-      const payment = paymentDoc.data() || {};
-      if (payment.type === "APPLICANT") paid += Number(payment.amount || 0);
-    });
-  }
-  const pending = Math.max(0, total - paid);
-  const currency = String(summary.currency || applicant?.paymentCurrency || applicant?.currency || "INR").toUpperCase();
-  return { total, paid, pending, currency };
 }
 
 async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
@@ -121,6 +102,19 @@ async function getDashboard({ user, query }) {
   }
 
   const snapshot = await firestoreQuery.get();
+  let scopedDocs = snapshot.docs;
+
+  if (role === "AGENCY" && user.agencyId !== userId) {
+    let legacyAgencyQuery = db.collection("applicants").where("agencyId", "==", userId);
+    if (companyId) {
+      legacyAgencyQuery = legacyAgencyQuery.where("companyId", "==", companyId);
+    }
+    const legacyAgencySnapshot = await legacyAgencyQuery.get();
+    const docsById = new Map(scopedDocs.map((doc) => [doc.id, doc]));
+    legacyAgencySnapshot.docs.forEach((doc) => docsById.set(doc.id, doc));
+    scopedDocs = Array.from(docsById.values());
+  }
+
   const { from, to } = getDateRange(fromDate, toDate);
   const now = new Date();
 
@@ -167,16 +161,16 @@ async function getDashboard({ user, query }) {
   };
 
   const docs = filterApprovedForEmployer
-    ? snapshot.docs.filter((doc) => {
+    ? scopedDocs.filter((doc) => {
         const data = doc.data() || {};
         const status = String(data.approvalStatus || "").toLowerCase();
         return status === "approved";
       })
-    : snapshot.docs;
+    : scopedDocs;
 
   for (const doc of docs) {
     const data = doc.data() || {};
-    const payment = await resolvePayment(data, doc.id);
+    const payment = resolveApplicantPaymentSnapshot(data);
     const stage = Number(data.stage || 1);
     const appointmentDate = resolveWorkflowDate(data?.embassyAppointment?.dateTime, data?.embassyAppointment?.date, data?.embassyAppointment?.createdAt);
     const interviewDate = resolveWorkflowDate(data?.embassyInterview?.dateTime, data?.embassyInterview?.date, data?.embassyInterview?.createdAt);

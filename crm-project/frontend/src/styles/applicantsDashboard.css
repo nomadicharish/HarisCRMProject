@@ -951,6 +951,28 @@
   color:#6b778c;
 }
 
+.dashboardViewAllApplicants{
+  margin-left:8px;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#0052cc;
+  font:inherit;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.dashboardViewAllApplicants:hover{
+  color:#003d99;
+  text-decoration:underline;
+}
+
+.dashboardViewAllApplicants:focus-visible{
+  outline:2px solid #0052cc;
+  outline-offset:3px;
+  border-radius:2px;
+}
+
 .dashboardResultsSync{
   margin-top:4px;
   font-size:12px;

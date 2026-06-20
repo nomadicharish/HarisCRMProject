@@ -5,7 +5,6 @@ import "react-toastify/dist/ReactToastify.css";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { getStoredToken } from "./utils/auth";
 
-const ApplicantDispatchWorkspace = lazy(() => import("./pages/ApplicantDispatchWorkspace"));
 const ApplicantDocumentsWorkspace = lazy(() => import("./pages/ApplicantDocumentsWorkspace"));
 const ApplicantProfile = lazy(() => import("./pages/ApplicantProfile"));
 const ApplicantPayments = lazy(() => import("./pages/ApplicantPayments"));
@@ -57,14 +56,6 @@ function App() {
         />
 
         <Route
-          path="/admin-dashboard"
-          element={
-            <ProtectedRoute allowedRoles={["SUPER_USER"]}>
-              <Navigate to="/dashboard" replace />
-            </ProtectedRoute>
-          }
-        />
-        <Route
           path="/agency-dashboard"
           element={
             <ProtectedRoute allowedRoles={["AGENCY"]}>
@@ -83,7 +74,7 @@ function App() {
         <Route
           path="/accounts-dashboard"
           element={
-            <ProtectedRoute allowedRoles={["ACCOUNTANT"]}>
+            <ProtectedRoute allowedRoles={["JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]}>
               <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           }
@@ -109,7 +100,7 @@ function App() {
         <Route
           path="/create-applicant"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY"]}>
               <CreateApplicant />
             </ProtectedRoute>
           }
@@ -117,7 +108,7 @@ function App() {
         <Route
           path="/applicants/:id/edit"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY"]}>
               <CreateApplicant />
             </ProtectedRoute>
           }
@@ -141,7 +132,7 @@ function App() {
         <Route
           path="/applicants/:id"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "EMPLOYER", "SENIOR_ACCOUNTANT"]}>
               <ApplicantProfile />
             </ProtectedRoute>
           }
@@ -149,23 +140,15 @@ function App() {
         <Route
           path="/applicants/:id/documents"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY"]}>
               <ApplicantDocumentsWorkspace />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/applicants/:id/dispatch"
-          element={
-            <ProtectedRoute>
-              <ApplicantDispatchWorkspace />
             </ProtectedRoute>
           }
         />
         <Route
           path="/applicants/:id/payments"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "ACCOUNTANT"]}>
+            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]}>
               <ApplicantPayments />
             </ProtectedRoute>
           }

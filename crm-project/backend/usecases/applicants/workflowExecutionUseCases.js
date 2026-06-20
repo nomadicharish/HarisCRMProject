@@ -26,9 +26,13 @@ async function addDispatchUseCase(req) {
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
-  const applicantStage = Number(applicantSnap.data()?.stage || 1);
+  const applicant = applicantSnap.data() || {};
+  const applicantStage = Number(applicant.stage || 1);
   if (applicantStage < 3 || applicantStage >= 5) {
     throw new AppError("Dispatch can only be added during dispatch or contract stage", 400);
+  }
+  if (applicantStage === 4 && applicant.contract?.fileUrl) {
+    throw new AppError("Dispatch details cannot be added after the employer uploads the contract", 400);
   }
 
   const docRef = await applicantRef.collection("dispatches").add({

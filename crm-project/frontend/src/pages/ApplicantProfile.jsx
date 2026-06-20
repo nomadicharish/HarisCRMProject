@@ -184,7 +184,9 @@ function ApplicantProfile() {
     pending,
     currency,
     formattedPendingAmount,
-    isTotalAmountMissing
+    isTotalAmountMissing,
+    hasPendingAcknowledgement,
+    hasPendingConfirmation
   } = useApplicantPaymentState({
     applicant
   });
@@ -210,6 +212,7 @@ function ApplicantProfile() {
     canApproveProfile,
     isEmployer,
     canAccessDispatch,
+    canEditDispatch,
     canIssueContract,
     canUploadSignedContract,
     canInitiateEmbassyAppointment,
@@ -222,7 +225,6 @@ function ApplicantProfile() {
     canAddVisaTravel,
     canAddResidencePermit,
     canAddVisaCollectionTravel,
-    canShowDispatchHeaderButton,
     shouldShowDocumentAction,
     headerActionLabel,
     canHeaderAction,
@@ -316,6 +318,7 @@ function ApplicantProfile() {
 
   const isCandidateApprovalPending =
     Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
+  const isSeniorAccountant = user?.role === "SENIOR_ACCOUNTANT";
 
   const handleShowDocuments = () => {
     prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 120000 });
@@ -323,7 +326,7 @@ function ApplicantProfile() {
   };
 
   const handleShowDispatch = () => {
-    navigate(`/applicants/${id}/dispatch`);
+    setShowDispatchHistoryModal(true);
   };
 
   const handleShowProfileDetails = () => {
@@ -392,8 +395,6 @@ function ApplicantProfile() {
     ? openEmbassyAppointmentSection
     : canInitiateEmbassyAppointment
     ? openEmbassyAppointmentSection
-    : canShowDispatchHeaderButton
-    ? handleShowDispatch
     : applicantStage === 1 && canApproveProfile
     ? () => openEditProfile("stage1")
     : shouldShowDocumentAction
@@ -442,8 +443,20 @@ function ApplicantProfile() {
               } : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
-              showAgency={isSuperUserLikeRole(user?.role)}
+              showAgency={isSuperUserLikeRole(user?.role) || isSeniorAccountant}
               showPendingAmount={!isEmployer}
+              accountantView={isSeniorAccountant}
+              pendingStatusText={
+                user?.role === "EMPLOYER"
+                  ? ""
+                  : hasPendingAcknowledgement && hasPendingConfirmation
+                  ? "Acknowledgement & confirmation pending"
+                  : hasPendingAcknowledgement
+                  ? "Acknowledgement pending"
+                  : hasPendingConfirmation
+                  ? "Confirmation pending"
+                  : ""
+              }
             />
           </aside>
 
@@ -459,6 +472,8 @@ function ApplicantProfile() {
               canActiveStepAction={canHeaderAction && !approvingStage}
               documentRowSubtitle={documentRowSubtitle}
               dispatchRowTitle={dispatchRowTitle}
+              dispatchActionLabel={canEditDispatch ? "Dispatch Document" : ""}
+              canDispatchAction={canEditDispatch}
               contractRowTitle={contractRowTitle}
               contractRowStatus={contractRowStatus}
               signedContractRowTitle={signedContractRowTitle}
@@ -486,12 +501,13 @@ function ApplicantProfile() {
               applicantTravelRowStatus={applicantTravelRowStatus}
               bannerText={pipelineBannerText}
               documentRowStatus={documentRowStatus}
+              readOnly={isSeniorAccountant}
               onCandidateAccountCreation={handleShowProfileDetails}
               onDispatchDocuments={
-                applicantStage >= 4
-                  ? handleShowDispatchDetails
-                  : canAccessDispatch
+                canEditDispatch
                   ? handleShowDispatch
+                  : canAccessDispatch
+                  ? handleShowDispatchDetails
                   : undefined
               }
               onContractAction={applicantStage >= 4 ? openContractSection : undefined}
@@ -565,6 +581,7 @@ function ApplicantProfile() {
           setShowApplicantDetailsModal={setShowApplicantDetailsModal}
           showDispatchHistoryModal={showDispatchHistoryModal}
           setShowDispatchHistoryModal={setShowDispatchHistoryModal}
+          canEditDispatch={canEditDispatch}
           refreshWorkflowData={refreshWorkflowData}
           approveStage={approveStage}
           onSaved={() => {

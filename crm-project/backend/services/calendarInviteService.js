@@ -3,7 +3,7 @@ const { logger } = require("../lib/logger");
 const { readEncryptedUserEmail } = require("./accountService");
 const { sendEmail } = require("./emailService");
 const { decryptText } = require("../utils/crypto");
-const { ADMIN_ROLE, SUPER_USER_ROLE } = require("../utils/roles");
+const { SUPER_USER_ROLE } = require("../utils/roles");
 
 const DEFAULT_DURATION_MINUTES = Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 60);
 const DEFAULT_TIMEZONE_OFFSET_MINUTES = Number(process.env.CALENDAR_TIMEZONE_OFFSET_MINUTES || 330);
@@ -87,13 +87,10 @@ function resolveWorkflowDateTime(workflow = {}, config = {}) {
 }
 
 async function getAdminEmails() {
-  const [superUsers, admins] = await Promise.all([
-    db.collection("users").where("role", "==", SUPER_USER_ROLE).get(),
-    db.collection("users").where("role", "==", ADMIN_ROLE).get()
-  ]);
+  const superUsers = await db.collection("users").where("role", "==", SUPER_USER_ROLE).get();
 
   const recipients = new Set();
-  await Promise.all([...superUsers.docs, ...admins.docs].map(async (doc) => {
+  await Promise.all(superUsers.docs.map(async (doc) => {
     const email = await readEncryptedUserEmail(doc.data());
     if (email) recipients.add(email);
   }));

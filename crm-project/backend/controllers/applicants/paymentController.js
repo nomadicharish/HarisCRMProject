@@ -1,5 +1,7 @@
 const {
+  acknowledgePaymentUseCase,
   addPaymentUseCase,
+  confirmPaymentUseCase,
   getPaymentSummaryUseCase
 } = require("../../usecases/applicants/paymentUseCases");
 const { getApplicantPaymentsPageUseCase } = require("../../usecases/applicants/profileReadUseCases");
@@ -32,8 +34,28 @@ async function getApplicantPaymentsPage(req, res) {
   }
 }
 
+async function acknowledgePayment(req, res) {
+  try {
+    const payload = await acknowledgePaymentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Acknowledge Payment Error", error);
+  }
+}
+
+async function confirmPayment(req, res) {
+  try {
+    const payload = await confirmPaymentUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Confirm Payment Error", error);
+  }
+}
+
 module.exports = {
+  acknowledgePayment,
   addPayment,
+  confirmPayment,
   getApplicantPaymentsPage,
   getPaymentSummary
 };

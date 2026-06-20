@@ -9,11 +9,10 @@ const {
   parseBooleanQuery,
   parseProjectionFields,
   projectApplicantFields,
-  resolveApplicantPaymentCurrency,
-  roundCurrency,
-  toNumber
+  resolveApplicantPaymentSnapshot,
+  roundCurrency
 } = require("../../services/applicantDomainService");
-const { isSuperUserLikeRole } = require("../../utils/roles");
+const { isAccountantRole, isSuperUserLikeRole } = require("../../utils/roles");
 
 function parseList(value) {
   return String(value || "")
@@ -168,7 +167,7 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId, emplo
     return query.where("companyId", "==", companyId);
   }
 
-  if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
+  if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
     return query;
   }
 
@@ -196,7 +195,7 @@ async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId, empl
     const companyId = await resolveEmployerCompanyId(userId, employerId);
     query = query.where("companyId", "==", companyId);
     docs = (await query.get()).docs.filter(isApprovedApplicantForEmployer);
-  } else if (isSuperUserLikeRole(userRole) || userRole === "ACCOUNTANT") {
+  } else if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
     docs = (await query.get()).docs;
   } else {
     throw new AppError("Unauthorized", 403);
@@ -274,23 +273,10 @@ function mapApplicant({
     (data?.fullName ? data?.fullName.split(" ").slice(1).join(" ") : "") ||
     "";
 
-  const applicantPaid = roundCurrency(toNumber(data?.amountPaid ?? data?.paidAmount));
-  const paymentSummary = data?.paymentSummary || {};
   const docSummary = data?.docSummary || data?.documentSummary || {};
   const approvalFlags = data?.approvalFlags || {};
 
-  const storedTotalEur = roundCurrency(
-    paymentSummary?.applicant?.total ??
-    data?.totalApplicantPayment ??
-    data?.totalAmount ??
-    data?.totalPayment ??
-    0
-  );
-  const totalEur = storedTotalEur;
-  const paidInr = roundCurrency(paymentSummary?.applicant?.paid ?? applicantPaid);
-  const totalInr = roundCurrency(totalEur);
-  const pendingInr = Math.max(0, roundCurrency(totalInr - paidInr));
-  const paymentCurrency = resolveApplicantPaymentCurrency(data);
+  const payment = resolveApplicantPaymentSnapshot(data);
 
   const approvedRequired = Number(docSummary.approvedCount || 0) > 0 && Number(docSummary.pendingCount || 0) === 0;
   const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
@@ -374,18 +360,6 @@ function mapApplicant({
       : attentionRequired
       ? "attention_required"
       : "in_progress";
-
-  const payment = {
-    total: totalEur,
-    totalEur,
-    totalInr,
-    paid: paidInr,
-    paidInr,
-    pending: pendingInr,
-    pendingInr,
-    currency: paymentCurrency,
-    sourceCurrency: paymentCurrency
-  };
 
   if (liteMode) {
     return {

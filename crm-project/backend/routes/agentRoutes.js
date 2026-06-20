@@ -18,7 +18,7 @@ const agentController = require("../controllers/agentController");
 const router = express.Router();
 
 router.use(verifyToken);
-router.use(allowRoles("SUPER_USER", "ACCOUNTANT"));
+router.use(allowRoles("SUPER_USER"));
 
 router.get("/actions/catalog", requireAgentScope("agent.actions.read"), asyncHandler(agentController.listActionCatalog));
 router.post(

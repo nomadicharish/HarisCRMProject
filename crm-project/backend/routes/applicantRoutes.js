@@ -25,6 +25,7 @@ const {
   idDocTypeParamsSchema,
   idParamsSchema,
   interviewBodySchema,
+  paymentActionParamsSchema,
   rejectDocumentSchema,
   residencePermitBodySchema,
   signedContractDocumentParamsSchema,
@@ -56,7 +57,10 @@ router.patch("/:applicantId/documents/:docType/defer", validate(applicantDocPara
 // Add Payment
 router.post(
   "/:applicantId/payments",
-  upload.single("file"),
+  upload.fields([
+    { name: "documents", maxCount: 5 },
+    { name: "file", maxCount: 1 }
+  ]),
   validate(applicantIdParamsSchema, "params"),
   validate(addPaymentSchema),
   asyncHandler(applicantController.addPayment)
@@ -70,7 +74,6 @@ router.get(
 );
 router.get(
   "/:applicantId/payments-page",
-  readCache(15),
   validate(applicantIdParamsSchema, "params"),
   asyncHandler(applicantController.getApplicantPaymentsPage)
 );
@@ -170,6 +173,16 @@ router.post(
   ]),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.uploadContract)
+);
+router.patch(
+  "/:applicantId/payments/:paymentId/acknowledge",
+  validate(paymentActionParamsSchema, "params"),
+  asyncHandler(applicantController.acknowledgePayment)
+);
+router.patch(
+  "/:applicantId/payments/:paymentId/confirm",
+  validate(paymentActionParamsSchema, "params"),
+  asyncHandler(applicantController.confirmPayment)
 );
 
 // Approve Contract
