@@ -42,7 +42,12 @@ const DASHBOARD_FILTER_DESCRIPTIONS = {
   appointment_biometric_pending: "with biometric upload pending after embassy appointment",
   biometric_ticket_pending: "with biometric ticket pending",
   interview_ticket_pending: "with interview ticket pending",
-  trc_ticket_pending: "with TRC ticket pending"
+  trc_ticket_pending: "with TRC ticket pending",
+  payment_after_approval: "with payment pending after approval",
+  payment_after_embassy_appointment: "with payment pending after embassy appointment",
+  payment_after_embassy_interview: "with payment pending after embassy interview",
+  payment_after_visa_collection: "with payment pending after visa collection",
+  payment_after_trc: "with payment pending after TRC"
 };
 const TAB_CONFIG = {
   home: { label: "Home", actionLabel: "" },
@@ -170,6 +175,74 @@ function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
   );
 }
 
+const PAYMENT_STAGE_CONFIG = [
+  {
+    key: "afterApproval",
+    title: "After Applicant Approval",
+    description: "Pending 20%",
+    icon: "payment",
+    tone: "red",
+    filter: "payment_after_approval"
+  },
+  {
+    key: "afterEmbassyAppointment",
+    title: "After Embassy Appointment",
+    description: "Pending 60%",
+    icon: "calendar",
+    tone: "orange",
+    filter: "payment_after_embassy_appointment"
+  },
+  {
+    key: "afterEmbassyInterview",
+    title: "After Embassy Interview",
+    description: "Pending 60%",
+    icon: "people",
+    tone: "purple",
+    filter: "payment_after_embassy_interview"
+  },
+  {
+    key: "afterVisaCollection",
+    title: "After Visa Collection",
+    description: "Pending 100%",
+    icon: "visa",
+    tone: "blue",
+    note: "Approved by Super User",
+    filter: "payment_after_visa_collection"
+  },
+  {
+    key: "afterTrc",
+    title: "After TRC Added",
+    description: "Pending 100%",
+    icon: "document",
+    tone: "green",
+    note: "By Agent",
+    filter: "payment_after_trc"
+  }
+];
+
+function PaymentStageCard({ config, metric, onOpenFilter }) {
+  const pending = metric?.pendingByCurrency || {};
+  return (
+    <article className={`homePaymentStageCard homePaymentStage-${config.tone}`}>
+      <div className="homePaymentStageHeader">
+        <span className="homePaymentStageIcon"><HomeIcon type={config.icon} /></span>
+        <div>
+          <h3>{config.title}</h3>
+          <p>{config.description}</p>
+        </div>
+      </div>
+      <div className="homePaymentStageCurrencies">
+        <span>INR <strong className="homePaymentStageInr">{formatCurrencyAmount(pending.INR || 0, "INR", true)}</strong></span>
+        <span>EUR <strong className="homePaymentStageEur">{formatCurrencyAmount(pending.EUR || 0, "EUR", true)}</strong></span>
+        <span>USD <strong className="homePaymentStageUsd">{formatCurrencyAmount(pending.USD || 0, "USD", true)}</strong></span>
+      </div>
+      <button type="button" onClick={() => onOpenFilter(metric?.filter || config.filter, false)}>
+        View Applicants ({metric?.count || 0}) <span aria-hidden="true">→</span>
+      </button>
+    </article>
+  );
+}
+
 function DashboardHome({
   summary,
   fromDate,
@@ -187,6 +260,7 @@ function DashboardHome({
   const overdue = summary?.overdue || {};
   const payments = summary?.payments || {};
   const pendingByCurrency = payments.pendingByCurrency || {};
+  const paymentStages = payments.stages || {};
   const selectedFromDate = parseDateInput(fromDate);
   const selectedToDate = parseDateInput(toDate);
 
@@ -195,17 +269,53 @@ function DashboardHome({
       <BlockingLoader open={applying} label="Loading dashboard..." />
       {showPaymentCard ? (
         <section className="homeSection homePaymentSection">
-          <button type="button" className="homePaymentCard" onClick={() => onOpenFilter("pending_payment", false)}>
-            <span className="homeMetricIcon homePaymentIcon"><HomeIcon type="payment" /></span>
-            <div className="homePaymentApplicants">
-              <div>Pending Payment</div>
-              <strong>{payments.applicantsWithPendingPayment || 0}</strong> <span>Applicants</span>
+          <div className="homePaymentOverview">
+            <div className="homePaymentOverviewMain">
+              <div className="homePaymentOverviewTitle">
+                <span className="homePaymentOverviewIcon"><HomeIcon type="payment" /></span>
+                <div>
+                  <h2>Total Pending Payment Overview</h2>
+                </div>
+              </div>
+              <div className="homePaymentOverviewAmounts">
+                {["INR", "EUR", "USD"].map((currency) => (
+                  <div className={`homePaymentCurrency homePaymentCurrency-${currency.toLowerCase()}`} key={currency}>
+                    <span className="homePaymentCurrencySymbol">
+                      {currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$"}
+                    </span>
+                    <div>
+                      <span>{currency}</span>
+                      <strong>{formatCurrencyAmount(pendingByCurrency[currency] || 0, currency, true)}</strong>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="homePaymentAmount"><span>INR</span><strong>{formatCurrencyAmount(pendingByCurrency.INR || 0, "INR", true)}</strong></div>
-            <div className="homePaymentAmount"><span>EUR</span><strong>{formatCurrencyAmount(pendingByCurrency.EUR || 0, "EUR", true)}</strong></div>
-            <div className="homePaymentAmount"><span>USD</span><strong>{formatCurrencyAmount(pendingByCurrency.USD || 0, "USD", true)}</strong></div>
-            <div className="homePaymentAction">View Details <span aria-hidden="true">&gt;</span></div>
-          </button>
+            <div className="homePaymentOverviewApplicants">
+              <span className="homePaymentOverviewApplicantsIcon"><HomeIcon type="people" /></span>
+              <div>
+                <span>Applicants with Pending Payments</span>
+                <strong>{payments.applicantsWithPendingPayment || 0} <small>Applicants</small></strong>
+              </div>
+              <button type="button" onClick={() => onOpenFilter("pending_payment", false)}>
+                View Applicants <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="homePaymentStagesSection">
+            <h2>Pending Amount by Stage</h2>
+            <div className="homePaymentStageGrid">
+              {PAYMENT_STAGE_CONFIG.map((config) => (
+                <PaymentStageCard
+                  key={config.key}
+                  config={config}
+                  metric={paymentStages[config.key]}
+                  onOpenFilter={onOpenFilter}
+                />
+              ))}
+            </div>
+          </div>
         </section>
       ) : null}
 

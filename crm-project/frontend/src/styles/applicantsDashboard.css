@@ -2917,6 +2917,331 @@
   white-space:nowrap;
 }
 
+.homePaymentOverview{
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
+  gap:22px;
+  align-items:center;
+  padding:10px 24px;
+  border:1px solid #ff6b6b;
+  border-radius:12px;
+  background:linear-gradient(110deg,#fff 0%,#fff8f8 72%,#fff0f0 100%);
+  box-shadow:0 10px 26px rgba(218,32,32,.06);
+}
+
+.homePaymentOverviewMain{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:0px;
+}
+
+.homePaymentOverviewTitle{
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+}
+
+.homePaymentOverviewIcon,
+.homePaymentOverviewApplicantsIcon{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  background:#ef2020;
+  color:#fff;
+}
+
+.homePaymentOverviewTitle h2,
+.homePaymentStagesSection > h2{
+  margin:0;
+  text-transform:uppercase;
+  color:#0b1538;
+  font-size:15px;
+  font-weight:700;
+}
+
+.homePaymentOverviewTitle p{
+  margin:8px 0 0;
+  color:#22325d;
+  font-size:13px;
+}
+
+.homePaymentOverviewAmounts{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:20px;
+  padding-left:72px;
+  padding-right:16px;
+}
+
+.homePaymentCurrency{
+  min-height:64px;
+  padding:8px 8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid #f1caca;
+  border-radius:8px;
+  background:rgba(255,255,255,.88);
+}
+
+.homePaymentCurrencySymbol{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  font-size:27px;
+  background:#ffe8e8;
+  color:#dc1818;
+}
+
+.homePaymentCurrency > div{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+}
+
+.homePaymentCurrency > div > span{
+  color:#15234b;
+  font-size:12px;
+  font-weight:800;
+  flex:0 0 auto;
+}
+
+.homePaymentCurrency strong{
+  margin-top:0;
+  font-size:16px;
+  color:#dc1818;
+  white-space:nowrap;
+}
+
+.homePaymentCurrency-eur{
+  border-color:#cddcff;
+}
+
+.homePaymentCurrency-eur .homePaymentCurrencySymbol{
+  color:#075de5;
+  background:#e7efff;
+}
+
+.homePaymentCurrency-eur strong{
+  color:#075de5;
+}
+
+.homePaymentCurrency-usd{
+  border-color:#cde7d4;
+}
+
+.homePaymentCurrency-usd .homePaymentCurrencySymbol{
+  color:#087b2b;
+  background:#e6f5ea;
+}
+
+.homePaymentCurrency-usd strong{
+  color:#087b2b;
+}
+
+.homePaymentOverviewApplicants{
+  min-height:116px;
+  padding-left:22px;
+  border-left:1px solid #ff8b8b;
+  display:grid;
+  grid-template-columns:54px 1fr;
+  gap:12px;
+  align-items:center;
+}
+
+.homePaymentOverviewApplicantsIcon{
+  color:#dc1818;
+  background:#ffe3e3;
+}
+
+.homePaymentOverviewApplicants > div > span{
+  display:block;
+  color:#182650;
+  font-size:11px;
+  font-weight:700;
+}
+
+.homePaymentOverviewApplicants strong{
+  display:block;
+  margin-top:6px;
+  color:#dc1818;
+  font-size:24px;
+}
+
+.homePaymentOverviewApplicants small{
+  margin-left:6px;
+  color:#182650;
+  font-size:14px;
+  font-weight:700;
+}
+
+.homePaymentOverviewApplicants button{
+  grid-column:1 / -1;
+  min-height:38px;
+  border:0;
+  border-radius:6px;
+  background:#e91313;
+  color:#fff;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.homePaymentStagesSection{
+  margin-top:14px;
+  padding:16px;
+  border:1px solid #f2d3d3;
+  border-radius:10px;
+  background:#fffafa;
+}
+
+.homePaymentStagesSection > h2{
+  margin-bottom:6px;
+  font-size:14px;
+}
+
+.homePaymentStageGrid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:16px;
+}
+
+.homePaymentStageCard{
+  --stage-color:#dc1818;
+  --stage-pale:#ffe8e8;
+  min-width:0;
+  padding:12px 10px 8px;
+  border:1px solid color-mix(in srgb,var(--stage-color) 35%,white);
+  border-radius:8px;
+  background:#fff;
+}
+
+.homePaymentStage-orange{--stage-color:#f36a18;--stage-pale:#fff0e5}
+.homePaymentStage-purple{--stage-color:#6d28d9;--stage-pale:#f1e9ff}
+.homePaymentStage-blue{--stage-color:#075de5;--stage-pale:#e7efff}
+.homePaymentStage-green{--stage-color:#087b2b;--stage-pale:#e6f5ea}
+
+.homePaymentStageHeader{
+  min-height:64px;
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.homePaymentStageIcon{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:var(--stage-color);
+  background:var(--stage-pale);
+}
+
+.homePaymentStageHeader h3{
+  margin:2px 0 0;
+  color:#17234a;
+  font-size:13px;
+  font-weight:800;
+}
+
+.homePaymentStageNote{
+  margin-top:2px;
+  color:#17234a;
+  font-size:10px;
+  font-weight:700;
+}
+
+.homePaymentStageHeader p{
+  margin:4px 0 0;
+  color:#25335c;
+  font-size:11px;
+  line-height:1.45;
+}
+
+.homePaymentStageCurrencies{
+  min-height:100px;
+  padding:0 6px;
+  display:flex;
+  flex-direction:column;
+  border-top:1px solid #f2d6d6;
+}
+
+.homePaymentStageCurrencies span{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  min-height:32px;
+  border-bottom:1px solid #f2d6d6;
+  color:#26345d;
+  font-size:11px;
+  font-weight:800;
+}
+
+.homePaymentStageCurrencies strong{
+  font-size:12px;
+  font-weight:900;
+}
+
+.homePaymentStageInr{
+  color:#dc1818;
+}
+
+.homePaymentStageEur{
+  color:#075de5;
+}
+
+.homePaymentStageUsd{
+  color:#087b2b;
+}
+
+.homePaymentStageCard > button{
+  width:100%;
+  min-height:34px;
+  margin-top:8px;
+  border:1px solid color-mix(in srgb,var(--stage-color) 28%,white);
+  border-radius:6px;
+  background:#fff;
+  color:var(--stage-color);
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+@media (max-width:1350px){
+  .homePaymentOverview{
+    grid-template-columns:1fr;
+  }
+
+  .homePaymentOverviewAmounts{
+    padding-left:0;
+  }
+
+  .homePaymentOverviewApplicants{
+    padding-left:0;
+    padding-top:16px;
+    border-left:0;
+    border-top:1px solid #ffb3b3;
+  }
+
+  .homePaymentStageGrid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+
 @media (max-width: 1100px){
   .homeCardGridFour,
   .homeCardGridThree{
@@ -2925,6 +3250,15 @@
 
   .homePaymentCard{
     grid-template-columns:1fr 1fr;
+  }
+
+  .homePaymentOverviewAmounts{
+    grid-template-columns:repeat(3,minmax(180px,1fr));
+    overflow-x:auto;
+  }
+
+  .homePaymentStageGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
 
@@ -2965,5 +3299,14 @@
     border-top:1px solid #fecaca;
     padding-left:0;
     padding-top:16px;
+  }
+
+  .homePaymentOverview{
+    padding:16px;
+  }
+
+  .homePaymentOverviewAmounts,
+  .homePaymentStageGrid{
+    grid-template-columns:1fr;
   }
 }

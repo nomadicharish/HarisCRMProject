@@ -117,6 +117,41 @@ function resolveApplicantPaymentSnapshot(applicant = {}) {
   };
 }
 
+function resolveApplicantPaymentStage(applicant = {}, paymentSnapshot = null) {
+  const payment = paymentSnapshot || resolveApplicantPaymentSnapshot(applicant);
+  const stage = Number(applicant?.stage || 1);
+  const approved = String(applicant?.approvalStatus || "").toLowerCase() === "approved";
+  let key = "";
+  let label = "";
+  let percentage = 0;
+
+  if (stage >= 12) {
+    key = "after_trc";
+    label = "After TRC Added";
+    percentage = 100;
+  } else if (stage === 11) {
+    key = "after_visa_collection";
+    label = "After Visa Collection";
+    percentage = 100;
+  } else if (stage >= 9) {
+    key = "after_embassy_interview";
+    label = "After Embassy Interview";
+    percentage = 60;
+  } else if (stage >= 7) {
+    key = "after_embassy_appointment";
+    label = "After Embassy Appointment";
+    percentage = 60;
+  } else if (approved) {
+    key = "after_approval";
+    label = "After Approval";
+    percentage = 20;
+  }
+
+  const targetAmount = roundCurrency(payment.total * (percentage / 100));
+  const pending = Math.max(0, roundCurrency(targetAmount - payment.paid));
+  return { key, label, percentage, targetAmount, pending };
+}
+
 function normalizeDate(value) {
   if (!value) return null;
   if (typeof value?.toMillis === "function") return value.toMillis();
@@ -375,6 +410,7 @@ module.exports = {
   projectApplicantFields,
   resolveApplicantReferenceFields,
   resolveApplicantPaymentSnapshot,
+  resolveApplicantPaymentStage,
   resolveApplicantPaymentCurrency,
   resolveApplicantTotalAmount,
   resolveApplicantTotalEur,
