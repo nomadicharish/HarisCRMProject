@@ -8,6 +8,7 @@ import { getStoredToken } from "./utils/auth";
 const ApplicantDocumentsWorkspace = lazy(() => import("./pages/ApplicantDocumentsWorkspace"));
 const ApplicantProfile = lazy(() => import("./pages/ApplicantProfile"));
 const ApplicantPayments = lazy(() => import("./pages/ApplicantPayments"));
+const ApplicantQuickPrint = lazy(() => import("./pages/ApplicantQuickPrint"));
 const ApplicantsDashboard = lazy(() => import("./pages/ApplicantsDashboard"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const CompanyFormPage = lazy(() => import("./pages/CompanyFormPage"));
@@ -126,6 +127,14 @@ function App() {
           element={
             <ProtectedRoute allowedRoles={["SUPER_USER"]}>
               <CompanyFormPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/applicants/:id/quick-print"
+          element={
+            <ProtectedRoute allowedRoles={["EMPLOYER"]}>
+              <ApplicantQuickPrint />
             </ProtectedRoute>
           }
         />

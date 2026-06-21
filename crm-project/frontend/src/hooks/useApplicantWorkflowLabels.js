@@ -336,7 +336,7 @@ function useApplicantWorkflowLabels({
       : applicantStage === 12 && isSuperUser && hasVisaTravel
       ? "Candidate Arrived"
       : canAddResidencePermit
-      ? "Upload TRP Document"
+      ? "Upload TRC Document"
       : canAddVisaTravel
       ? hasVisaTravel
         ? "Update Arrival Details"

@@ -130,7 +130,7 @@ async function getDashboard({ user, query }) {
       embassyAppointment: createMetric("embassyAppointment", "Embassy Appointments", "embassy_appointment", "orange")
     },
     overdue: {
-      trpPending: createMetric("trpPending", "TRP Upload Pending", "trp_pending", "blue"),
+      trpPending: createMetric("trpPending", "TRC Upload Pending", "trp_pending", "blue"),
       interviewBiometricPending: createMetric("interviewBiometricPending", "Biometric Upload Pending", "interview_biometric_pending", "blue"),
       appointmentBiometricPending: createMetric("appointmentBiometricPending", "Biometric Upload Pending", "appointment_biometric_pending", "blue")
     },

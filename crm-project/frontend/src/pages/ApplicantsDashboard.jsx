@@ -33,7 +33,7 @@ const DASHBOARD_FILTER_DESCRIPTIONS = {
   visa_collection: "for visa collection",
   embassy_interview: "having embassy interviews",
   embassy_appointment: "having embassy appointments",
-  trp_pending: "with TRP upload pending",
+  trp_pending: "with TRC upload pending",
   interview_biometric_pending: "with biometric upload pending after embassy interview",
   appointment_biometric_pending: "with biometric upload pending after embassy appointment"
 };
@@ -249,7 +249,7 @@ function DashboardHome({
       <section className="homeSection">
         {/* <h2>Action Pending (Overdue)</h2> */}
         <div className="homeCardGrid homeCardGridThree">
-          <HomeMetricCard title="TRP Upload Pending" subtitle="Passed Visa Collection Date" count={overdue.trpPending?.count} tone="blue" icon="document" onClick={() => onOpenFilter("trp_pending", false)} />
+          <HomeMetricCard title="TRC Upload Pending" subtitle="Passed Visa Collection Date" count={overdue.trcPending?.count} tone="blue" icon="document" onClick={() => onOpenFilter("trc_pending", false)} />
           <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Interview Date" count={overdue.interviewBiometricPending?.count} tone="blue" icon="fingerprint" onClick={() => onOpenFilter("interview_biometric_pending", false)} />
           <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Appointment Date" count={overdue.appointmentBiometricPending?.count} tone="blue" icon="calendar" onClick={() => onOpenFilter("appointment_biometric_pending", false)} />
         </div>
@@ -1005,6 +1005,11 @@ function ApplicantsDashboard() {
     }));
   };
 
+  const handleQuickPrint = (applicant) => {
+    if (!isEmployer || Number(applicant?.stage || 0) !== 12) return;
+    navigate(`/applicants/${applicant.id}/quick-print`);
+  };
+
   const applyHomeDateRange = () => {
     const nextFromDate = homeDateDraft.fromDate || defaultHomeRange.fromDate;
     const nextToDate = homeDateDraft.toDate || defaultHomeRange.toDate;
@@ -1345,6 +1350,7 @@ function ApplicantsDashboard() {
                     rows={paginatedRows}
                     isEmployer={isEmployer}
                     onOpenApplicant={handleOpenApplicant}
+                    onQuickPrint={handleQuickPrint}
                     formatPendingAmount={formatApplicantPendingAmount}
                   />
                 ) : null}

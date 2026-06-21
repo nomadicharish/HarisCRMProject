@@ -465,7 +465,7 @@ function VisaCollectionModal({
 
                   {isCollectionMode && hasResidencePermit && !showCollectionForm ? (
                     <DetailCard
-                      title="TRP Details"
+                      title="TRC Details"
                       icon={(
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
                           <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
@@ -475,7 +475,7 @@ function VisaCollectionModal({
                     >
                       {residencePermitData?.trpUrl || residencePermitData?.fileUrl ? (
                         <DetailRow
-                          label="TRP Document"
+                          label="TRC Document"
                           action={(
                             <a href={residencePermitData.trpUrl || residencePermitData.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
                               View
