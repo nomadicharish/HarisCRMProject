@@ -39,12 +39,20 @@ function CreateApplicant() {
   }
 
   const shouldAutoApprove = Boolean(id) && searchParams.get("context") === "stage1";
+  const initialApplicationDetails = !id && searchParams.get("source") === "job-position-link"
+    ? {
+        countryId: searchParams.get("countryId") || "",
+        companyId: searchParams.get("companyId") || "",
+        jobPositionId: searchParams.get("jobPositionId") || ""
+      }
+    : null;
 
   return (
     <ApplicantFormModal
       asPage
       user={user}
       editData={editData}
+      initialApplicationDetails={initialApplicationDetails}
       autoApproveAfterSave={shouldAutoApprove}
       onApproveStage={
         shouldAutoApprove

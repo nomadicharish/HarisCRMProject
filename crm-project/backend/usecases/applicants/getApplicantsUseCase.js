@@ -52,6 +52,7 @@ function hasResidencePermit(applicant) {
 
 function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
   const now = new Date();
+  const stage = Number(applicant?.stage || 1);
   const appointmentDate = firstDate(applicant?.embassyAppointment?.dateTime, applicant?.embassyAppointment?.date, applicant?.embassyAppointment?.createdAt);
   const interviewDate = firstDate(applicant?.embassyInterview?.dateTime, applicant?.embassyInterview?.date, applicant?.embassyInterview?.createdAt);
   const visaCollectionDate = firstDate(applicant?.visaCollection?.dateTime, applicant?.visaCollection?.date, applicant?.visaCollection?.createdAt);
@@ -59,21 +60,21 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
 
   switch (filter) {
     case "arriving":
-      return isWithinRange(arrivalDate, fromDate, toDate);
+      return stage < 13 && isWithinRange(arrivalDate, fromDate, toDate);
     case "visa_collection":
-      return isWithinRange(visaCollectionDate, fromDate, toDate);
+      return stage < 12 && isWithinRange(visaCollectionDate, fromDate, toDate);
     case "embassy_interview":
-      return isWithinRange(interviewDate, fromDate, toDate);
+      return stage < 9 && isWithinRange(interviewDate, fromDate, toDate);
     case "embassy_appointment":
-      return isWithinRange(appointmentDate, fromDate, toDate);
+      return stage < 7 && isWithinRange(appointmentDate, fromDate, toDate);
     case "pending_payment":
       return Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0) > 0;
     case "trp_pending":
-      return Boolean(visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(applicant));
+      return Boolean(stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(applicant));
     case "interview_biometric_pending":
-      return Boolean(interviewDate && interviewDate < now && !applicant?.interviewBiometric?.fileUrl);
+      return Boolean(stage === 9 && interviewDate && interviewDate < now && !applicant?.interviewBiometric?.fileUrl);
     case "appointment_biometric_pending":
-      return Boolean(appointmentDate && appointmentDate < now && !applicant?.biometricSlip?.fileUrl);
+      return Boolean(stage === 7 && appointmentDate && appointmentDate < now && !applicant?.biometricSlip?.fileUrl);
     default:
       return true;
   }

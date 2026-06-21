@@ -188,18 +188,18 @@ async function getDashboard({ user, query }) {
     summary.payments.totalCollected += payment.paid;
     summary.payments.totalPending += payment.pending;
 
-    if (isWithinRange(arrivalDate, from, to)) summary.home.upcoming.arriving.count += 1;
-    if (isWithinRange(visaCollectionDate, from, to)) summary.home.upcoming.visaCollection.count += 1;
-    if (isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
-    if (isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
+    if (stage < 13 && isWithinRange(arrivalDate, from, to)) summary.home.upcoming.arriving.count += 1;
+    if (stage < 12 && isWithinRange(visaCollectionDate, from, to)) summary.home.upcoming.visaCollection.count += 1;
+    if (stage < 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
+    if (stage < 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
 
-    if (visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
+    if (stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
       summary.home.overdue.trpPending.count += 1;
     }
-    if (interviewDate && interviewDate < now && !data?.interviewBiometric?.fileUrl) {
+    if (stage === 9 && interviewDate && interviewDate < now && !data?.interviewBiometric?.fileUrl) {
       summary.home.overdue.interviewBiometricPending.count += 1;
     }
-    if (appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
+    if (stage === 7 && appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
       summary.home.overdue.appointmentBiometricPending.count += 1;
     }
     if (payment.pending > 0) {

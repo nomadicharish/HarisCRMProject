@@ -371,6 +371,37 @@ function CompanyFormPage() {
     }));
   };
 
+  const copyAddApplicantLink = async (position) => {
+    if (!isEdit) {
+      toast.info("Save the company before copying an applicant link.");
+      return;
+    }
+
+    const jobPositionId = position.id || buildId(position.title, "job_position");
+    const params = new URLSearchParams({
+      source: "job-position-link",
+      countryId: form.countryId,
+      companyId: id,
+      jobPositionId
+    });
+    const link = `${window.location.origin}/create-applicant?${params.toString()}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Add applicant link copied.");
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = link;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      toast.success("Add applicant link copied.");
+    }
+  };
+
   const addDocument = (positionKey) => {
     updatePosition(positionKey, (position) => ({
       ...position,
@@ -651,17 +682,28 @@ function CompanyFormPage() {
                     className="companyFormInput companyJobTitleInput"
                     onChange={(event) => updatePosition(position.rowKey, (item) => ({ ...item, title: event.target.value }))}
                   />
-                  <button
-                    type="button"
-                    className="companyDeleteIcon"
-                    aria-label="Remove job position"
-                    onClick={() => removePosition(position.rowKey)}
-                  >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    Delete
-                  </button>
+                  <div className="companyPositionActions">
+                    <button
+                      type="button"
+                      className="companyCopyApplicantLink"
+                      onClick={() => copyAddApplicantLink(position)}
+                      disabled={!isEdit}
+                      title={isEdit ? "Copy link to Add Applicants" : "Save the company to enable this link"}
+                    >
+                      Copy link to Add Applicants
+                    </button>
+                    <button
+                      type="button"
+                      className="companyDeleteIcon"
+                      aria-label="Remove job position"
+                      onClick={() => removePosition(position.rowKey)}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Delete
+                    </button>
+                  </div>
                 </div>
 
                 <div className="companyDocumentsBlock">
