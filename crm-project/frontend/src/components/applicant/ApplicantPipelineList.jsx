@@ -304,7 +304,7 @@ function ApplicantPipelineList({
             typeof onUpdateTravelAction === "function" &&
             Boolean(canActiveStepAction) &&
             isActiveRow &&
-            (activeStepActionLabel === "Add Biometric Slip" || activeStepActionLabel === "Upload TRP Document");
+            (activeStepActionLabel === "Add Biometric Slip" || activeStepActionLabel === "Upload TRC Document");
           const showRowArrow =
             canRowClick &&
             (isCompletedRow || item.id === 3);

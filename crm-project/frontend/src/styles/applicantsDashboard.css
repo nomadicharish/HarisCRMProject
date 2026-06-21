@@ -1008,6 +1008,246 @@
   border-radius:2px;
 }
 
+.dashboardQuickPrintBtn{
+  min-height:34px;
+  padding:0 12px;
+  border:1px solid #0052cc;
+  border-radius:6px;
+  background:#ffffff;
+  color:#0052cc;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+  cursor:pointer;
+}
+
+.dashboardQuickPrintBtn:hover{
+  background:#eaf2ff;
+}
+
+.quickPrintPage{
+  min-height:100vh;
+  padding:24px;
+  background:#f4f7fb;
+  color:#172b4d;
+  font-family:Arial, sans-serif;
+}
+
+.quickPrintToolbar{
+  max-width:900px;
+  margin:0 auto 14px;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.quickPrintToolbar button{
+  min-height:42px;
+  padding:0 18px;
+  border-radius:6px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.quickPrintBack{
+  border:1px solid #cfd8e6;
+  background:#fff;
+  color:#172b4d;
+}
+
+.quickPrintAction{
+  border:1px solid #0052cc;
+  background:#0052cc;
+  color:#fff;
+}
+
+.quickPrintAction:disabled{
+  opacity:.65;
+  cursor:wait;
+}
+
+.quickPrintSheet{
+  max-width:900px;
+  margin:0 auto;
+  padding:24px;
+  border:1px solid #dfe3e8;
+  border-radius:10px;
+  background:#fff;
+}
+
+.quickPrintHeader{
+  display:grid;
+  grid-template-columns:112px 1fr;
+  gap:18px;
+  align-items:center;
+  padding-bottom:16px;
+  border-bottom:2px solid #0052cc;
+}
+
+.quickPrintHeader h1{
+  margin:0 0 6px;
+  font-size:24px;
+}
+
+.quickPrintHeader p{
+  margin:0;
+  color:#667085;
+  font-size:13px;
+}
+
+.quickPrintPhoto,
+.quickPrintPhotoMissing{
+  width:112px;
+  height:132px;
+  border:1px solid #d8e2f0;
+  border-radius:8px;
+  background:#f4f7fb;
+}
+
+.quickPrintPhoto{
+  object-fit:cover;
+}
+
+.quickPrintPhotoMissing{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#667085;
+}
+
+.quickPrintDetails{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 24px;
+  margin-top:16px;
+}
+
+.quickPrintField{
+  display:grid;
+  grid-template-columns:145px 1fr;
+  gap:10px;
+  padding:8px 0;
+  border-bottom:1px solid #eef2f6;
+}
+
+.quickPrintLabel{
+  color:#667085;
+  font-weight:700;
+}
+
+.quickPrintValue{
+  color:#101828;
+  font-weight:600;
+  overflow-wrap:anywhere;
+}
+
+.quickPrintAttachments{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-top:18px;
+}
+
+.quickPrintAttachment{
+  break-inside:avoid;
+  padding:12px;
+  border:1px solid #dfe3e8;
+  border-radius:8px;
+}
+
+.quickPrintAttachment h2{
+  margin:0 0 10px;
+  font-size:14px;
+}
+
+.quickPrintAttachment img{
+  width:100%;
+  height:240px;
+  object-fit:contain;
+  border:1px solid #eef2f6;
+  background:#f8fafc;
+}
+
+.quickPrintAttachment a{
+  display:block;
+  margin-top:8px;
+  color:#0052cc;
+  overflow-wrap:anywhere;
+}
+
+.quickPrintPdfAttachment,
+.quickPrintMissing{
+  min-height:100px;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  text-align:center;
+  background:#f8fafc;
+  color:#667085;
+  overflow-wrap:anywhere;
+}
+
+.quickPrintError{
+  padding:40px;
+  color:#b42318;
+  text-align:center;
+  font-weight:700;
+}
+
+.quickPrintPdfNotice{
+  margin-top:18px;
+  padding:14px 16px;
+  border:1px solid #cfe0ff;
+  border-radius:8px;
+  background:#f4f8ff;
+  color:#344054;
+  font-size:13px;
+  line-height:1.5;
+}
+
+@media print{
+  @page{
+    size:A4;
+    margin:12mm;
+  }
+
+  .quickPrintPage{
+    min-height:0;
+    padding:0;
+    background:#fff;
+  }
+
+  .quickPrintToolbar{
+    display:none;
+  }
+
+  .quickPrintSheet{
+    max-width:none;
+    padding:0;
+    border:0;
+    border-radius:0;
+  }
+
+  .quickPrintAttachment a{
+    color:#172b4d;
+    text-decoration:none;
+  }
+}
+
+@media (max-width:700px){
+  .quickPrintPage{
+    padding:12px;
+  }
+
+  .quickPrintDetails,
+  .quickPrintAttachments{
+    grid-template-columns:1fr;
+  }
+}
+
 .dashboardResultsSync{
   margin-top:4px;
   font-size:12px;
@@ -2425,9 +2665,9 @@
   align-items:center;
   justify-content:space-between;
   gap:14px;
-  min-height:62px;
+  min-height:52px;
   margin-top: 18px;
-  padding:10px 26px;
+  padding:8px 16px;
   border:1px solid #edf1f7;
   border-radius:12px;
   background:#ffffff;
@@ -2471,22 +2711,24 @@
   pointer-events:none;
 }
 
-.homeDateControls input{
+.homeDateControls input.homeDatePickerInput{
   width:100%;
-  min-height:50px;
+  height:34px !important;
+  min-height:34px !important;
+  box-sizing:border-box;
   border:1px solid #d4ddea;
   border-radius:8px;
   padding:0 16px 0 46px;
   color:#0b1538;
   background:#ffffff;
-  font-size:16px;
-  font-weight:700;
+  font-size:14px;
+  font-weight:500;
   cursor:pointer;
 }
 
 .homeDateControls .dashboardPrimaryBtn{
   min-width:88px;
-  min-height:40px;
+  min-height:36px;
   border-radius:8px;
   box-shadow:0 8px 18px rgba(0,82,204,0.24);
 }
@@ -2677,6 +2919,333 @@
   white-space:nowrap;
 }
 
+.homePaymentOverview{
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
+  gap:22px;
+  align-items:center;
+  padding:10px 24px;
+  border:1px solid #ff6b6b;
+  border-radius:12px;
+  background:linear-gradient(110deg,#fff 0%,#fff8f8 72%,#fff0f0 100%);
+  box-shadow:0 10px 26px rgba(218,32,32,.06);
+}
+
+.homePaymentOverviewMain{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:0px;
+}
+
+.homePaymentOverviewTitle{
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+}
+
+.homePaymentOverviewIcon,
+.homePaymentOverviewApplicantsIcon{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  background:#ef2020;
+  color:#fff;
+}
+
+.homePaymentOverviewTitle h2,
+.homePaymentStagesSection > h2{
+  margin:0;
+  text-transform:uppercase;
+  color:#0b1538;
+  font-size:15px;
+  font-weight:700;
+}
+
+.homePaymentOverviewTitle p{
+  margin:8px 0 0;
+  color:#22325d;
+  font-size:13px;
+}
+
+.homePaymentOverviewAmounts{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:20px;
+  padding-left:62px;
+}
+
+.homePaymentCurrency{
+  min-height:44px;
+  padding:0px 8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid #f1caca;
+  border-radius:8px;
+  background:rgba(255,255,255,.88);
+}
+
+.homePaymentCurrencySymbol{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  font-size:17px;
+  background:#ffe8e8;
+  color:#dc1818;
+}
+
+.homePaymentCurrency > div{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+}
+
+.homePaymentCurrency > div > span{
+  color:#15234b;
+  font-size:12px;
+  font-weight:800;
+  flex:0 0 auto;
+}
+
+.homePaymentCurrency strong{
+  margin-top:0;
+  font-size:16px;
+  color:#dc1818;
+  white-space:nowrap;
+}
+
+.homePaymentCurrency-eur{
+  border-color:#cddcff;
+}
+
+.homePaymentCurrency-eur .homePaymentCurrencySymbol{
+  color:#075de5;
+  background:#e7efff;
+}
+
+.homePaymentCurrency-eur strong{
+  color:#075de5;
+}
+
+.homePaymentCurrency-usd{
+  border-color:#cde7d4;
+}
+
+.homePaymentCurrency-usd .homePaymentCurrencySymbol{
+  color:#087b2b;
+  background:#e6f5ea;
+}
+
+.homePaymentCurrency-usd strong{
+  color:#087b2b;
+}
+
+.homePaymentOverviewApplicants{
+  min-height:84px;
+  padding-left:22px;
+  border-left:1px solid #ff8b8b;
+  display:grid;
+  grid-template-columns:54px 1fr;
+  gap:8px;
+  align-items:center;
+}
+
+.homePaymentOverviewApplicants > div > span{
+  display:block;
+  color:#182650;
+  font-size:11px;
+  font-weight:700;
+}
+
+.homePaymentOverviewApplicants strong{
+  display:block;
+  margin-top:6px;
+  color:#dc1818;
+  font-size:24px;
+}
+
+.homePaymentOverviewApplicants small{
+  margin-left:6px;
+  color:#182650;
+  font-size:14px;
+  font-weight:700;
+}
+
+.homePaymentOverviewApplicants button{
+  grid-column:1 / -1;
+  justify-self:start;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#0052cc;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.homePaymentOverviewApplicants button:hover{
+  color:#003d99;
+  text-decoration:underline;
+}
+
+.homePaymentOverviewApplicants button:focus-visible{
+  outline:2px solid #0052cc;
+  outline-offset:3px;
+  border-radius:2px;
+}
+
+.homePaymentStagesSection{
+  margin-top:14px;
+  padding:12px 16px;
+  border:1px solid #f2d3d3;
+  border-radius:10px;
+  background:#fffafa;
+}
+
+.homePaymentStagesSection > h2{
+  margin-bottom:6px;
+  font-size:14px;
+}
+
+.homePaymentStageGrid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:16px;
+}
+
+.homePaymentStageCard{
+  --stage-color:#dc1818;
+  --stage-pale:#ffe8e8;
+  min-width:0;
+  padding:12px 10px 8px;
+  border:1px solid color-mix(in srgb,var(--stage-color) 35%,white);
+  border-radius:8px;
+  background:#fff;
+}
+
+.homePaymentStage-orange{--stage-color:#f36a18;--stage-pale:#fff0e5}
+.homePaymentStage-purple{--stage-color:#6d28d9;--stage-pale:#f1e9ff}
+.homePaymentStage-blue{--stage-color:#075de5;--stage-pale:#e7efff}
+.homePaymentStage-green{--stage-color:#087b2b;--stage-pale:#e6f5ea}
+
+.homePaymentStageHeader{
+  min-height:54px;
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.homePaymentStageIcon{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:var(--stage-color);
+  background:var(--stage-pale);
+}
+
+.homePaymentStageHeader h3{
+  margin:2px 0 0;
+  color:#17234a;
+  font-size:13px;
+  font-weight:800;
+}
+
+.homePaymentStageNote{
+  margin-top:2px;
+  color:#17234a;
+  font-size:10px;
+  font-weight:700;
+}
+
+.homePaymentStageHeader p{
+  margin:4px 0 0;
+  color:#25335c;
+  font-size:11px;
+  line-height:1.45;
+}
+
+.homePaymentStageCurrencies{
+  min-height:100px;
+  padding:0 6px;
+  display:flex;
+  flex-direction:column;
+  border-top:1px solid #f2d6d6;
+}
+
+.homePaymentStageCurrencies span{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  min-height:32px;
+  border-bottom:1px solid #f2d6d6;
+  color:#26345d;
+  font-size:11px;
+  font-weight:800;
+}
+
+.homePaymentStageCurrencies strong{
+  font-size:12px;
+  font-weight:900;
+}
+
+.homePaymentStageInr{
+  color:#dc1818;
+}
+
+.homePaymentStageEur{
+  color:#075de5;
+}
+
+.homePaymentStageUsd{
+  color:#087b2b;
+}
+
+.homePaymentStageCard > button{
+  width:100%;
+  min-height:24px;
+  background:#fff;
+  color:var(--stage-color);
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+@media (max-width:1350px){
+  .homePaymentOverview{
+    grid-template-columns:1fr;
+  }
+
+  .homePaymentOverviewAmounts{
+    padding-left:0;
+  }
+
+  .homePaymentOverviewApplicants{
+    padding-left:0;
+    padding-top:16px;
+    border-left:0;
+    border-top:1px solid #ffb3b3;
+  }
+
+  .homePaymentStageGrid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+}
+
 @media (max-width: 1100px){
   .homeCardGridFour,
   .homeCardGridThree{
@@ -2685,6 +3254,15 @@
 
   .homePaymentCard{
     grid-template-columns:1fr 1fr;
+  }
+
+  .homePaymentOverviewAmounts{
+    grid-template-columns:repeat(3,minmax(180px,1fr));
+    overflow-x:auto;
+  }
+
+  .homePaymentStageGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
   }
 }
 
@@ -2725,5 +3303,14 @@
     border-top:1px solid #fecaca;
     padding-left:0;
     padding-top:16px;
+  }
+
+  .homePaymentOverview{
+    padding:16px;
+  }
+
+  .homePaymentOverviewAmounts,
+  .homePaymentStageGrid{
+    grid-template-columns:1fr;
   }
 }

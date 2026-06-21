@@ -61,7 +61,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
 
   const uploadSelectedFiles = async () => {
     if (!trpFile) {
-      toast.error("Please select TRP document");
+      toast.error("Please select TRC document");
       return;
     }
     const fileValidation = validateDocumentFiles([trpFile]);
@@ -107,8 +107,8 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
             </svg>
           </div>
           <div className="workflowModalHeroText">
-            <h3 className="dashboardModalTitle">TRP Document</h3>
-            <div className="workflowModalSubtitle">Upload and view the TRP document below.</div>
+            <h3 className="dashboardModalTitle">TRC Document</h3>
+            <div className="workflowModalSubtitle">Upload and view the TRC document below.</div>
           </div>
           <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving}>
             x
@@ -133,7 +133,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
                           <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                         </svg>
                       </span>
-                      TRP Document
+                      TRC Document
                     </span>
                     <a href={resolvedResidencePermit.trpUrl || resolvedResidencePermit.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
                       View
@@ -207,7 +207,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
                         <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </span>
-                    <span>Upload TRP Document</span>
+                    <span>Upload TRC Document</span>
                   </div>
 
                   <div className="workflowDetailBody workflowTicketUploadBody">
@@ -239,7 +239,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
             {canUpload ? (
               <div className="workflowModalFooter">
                 <button type="button" className="btn btnPrimary" disabled={saving} onClick={uploadSelectedFiles}>
-                  {saving ? "Uploading..." : resolvedResidencePermit?.trpUrl || resolvedResidencePermit?.fileUrl ? "Update TRP Document" : "Upload TRP Document"}
+                  {saving ? "Uploading..." : resolvedResidencePermit?.trpUrl || resolvedResidencePermit?.fileUrl ? "Update TRC Document" : "Upload TRC Document"}
                 </button>
               </div>
             ) : null}

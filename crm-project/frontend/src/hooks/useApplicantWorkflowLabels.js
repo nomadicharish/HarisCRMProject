@@ -130,6 +130,14 @@ function useApplicantWorkflowLabels({
       (residencePermit?.trpUrl || residencePermit?.fileUrl || (residencePermit?.frontUrl && residencePermit?.backUrl))
     );
     const canAddVisaCollection = applicantStage === 10 && (isSuperUser || user?.role === "EMPLOYER");
+    const hasVisaCollection = Boolean(
+      visaCollection?.date ||
+      visaCollection?.time ||
+      visaCollection?.dateTime ||
+      applicant?.visaCollection?.date ||
+      applicant?.visaCollection?.time ||
+      applicant?.visaCollection?.dateTime
+    );
     const hasPendingVisaCollectionApproval = Boolean(
       workflowFlags.isVisaCollectionPendingApproval ??
       String(visaCollection?.status || "").toUpperCase() === "PENDING"
@@ -177,7 +185,9 @@ function useApplicantWorkflowLabels({
       : applicantStage === 11
       ? "Complete visa collection details"
       : applicantStage === 10
-      ? hasPendingVisaCollectionApproval
+      ? !hasVisaCollection
+        ? "Visa collection initiation pending."
+        : hasPendingVisaCollectionApproval
         ? "Visa collection Initiated. Pending admin approval"
         : "Visa Collection Initiated."
       : applicantStage === 9
@@ -297,14 +307,16 @@ function useApplicantWorkflowLabels({
     const visaCollectionRowTitle =
       applicantStage > 10 ? "Visa Collection Initiated" : "Initiate Visa Collection";
     const visaCollectionRowStatus =
-      applicantStage === 10 && hasPendingVisaCollectionApproval
+      applicantStage === 10 && (!hasVisaCollection || hasPendingVisaCollectionApproval)
         ? "warning"
         : applicantStage === 10
         ? "active"
         : "";
     const visaCollectionRowSubtitle =
-      applicantStage === 10 && hasPendingVisaCollectionApproval
-        ? "Visa collection Initiated. Pending admin approval"
+      applicantStage === 10 && !hasVisaCollection
+        ? "Visa collection initiation pending."
+        : applicantStage === 10 && hasPendingVisaCollectionApproval
+          ? "Visa collection Initiated. Pending admin approval"
         : "";
     const visaCollectionCompletedRowTitle =
       applicantStage > 11 ? "Visa Collection Completed" : "Complete Visa Collection";
@@ -336,7 +348,7 @@ function useApplicantWorkflowLabels({
       : applicantStage === 12 && isSuperUser && hasVisaTravel
       ? "Candidate Arrived"
       : canAddResidencePermit
-      ? "Upload TRP Document"
+      ? "Upload TRC Document"
       : canAddVisaTravel
       ? hasVisaTravel
         ? "Update Arrival Details"

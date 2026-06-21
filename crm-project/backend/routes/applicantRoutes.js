@@ -27,6 +27,7 @@ const {
   interviewBodySchema,
   paymentActionParamsSchema,
   rejectDocumentSchema,
+  quickPrintAssetParamsSchema,
   residencePermitBodySchema,
   signedContractDocumentParamsSchema,
   travelBodySchema,
@@ -97,6 +98,12 @@ router.patch(
 router.get("/", readCache(20), validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
 
 // Get Applicant by ID
+router.get(
+  "/:id/quick-print-assets/:assetType",
+  allowRoles("EMPLOYER"),
+  validate(quickPrintAssetParamsSchema, "params"),
+  asyncHandler(applicantController.getApplicantQuickPrintAsset)
+);
 router.get("/:id", readCache(20), validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantById));
 router.get(
   "/:id/workflow-bundle",

@@ -1,6 +1,6 @@
 const { db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
-const { resolveApplicantPaymentSnapshot } = require("./applicantDomainService");
+const { resolveApplicantPaymentSnapshot, resolveApplicantPaymentStage } = require("./applicantDomainService");
 const { isSuperUserLikeRole } = require("../utils/roles");
 
 function toTimestamp(value) {
@@ -61,6 +61,18 @@ async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
 
 function createMetric(key, label, filter, tone = "blue") {
   return { key, label, filter, tone, count: 0 };
+}
+
+function createPaymentStage(key, label, percentage, filter, tone) {
+  return {
+    key,
+    label,
+    percentage,
+    filter,
+    tone,
+    count: 0,
+    pendingByCurrency: { INR: 0, EUR: 0, USD: 0 }
+  };
 }
 
 async function getDashboard({ user, query }) {
@@ -132,7 +144,10 @@ async function getDashboard({ user, query }) {
     overdue: {
       trpPending: createMetric("trpPending", "TRP Upload Pending", "trp_pending", "blue"),
       interviewBiometricPending: createMetric("interviewBiometricPending", "Biometric Upload Pending", "interview_biometric_pending", "blue"),
-      appointmentBiometricPending: createMetric("appointmentBiometricPending", "Biometric Upload Pending", "appointment_biometric_pending", "blue")
+      appointmentBiometricPending: createMetric("appointmentBiometricPending", "Biometric Upload Pending", "appointment_biometric_pending", "blue"),
+      biometricTicketPending: createMetric("biometricTicketPending", "Biometric Ticket Pending", "biometric_ticket_pending", "orange"),
+      interviewTicketPending: createMetric("interviewTicketPending", "Interview Ticket Pending", "interview_ticket_pending", "purple"),
+      trcTicketPending: createMetric("trcTicketPending", "TRC Ticket Pending", "trc_ticket_pending", "green")
     },
     payments: {
       applicantsWithPendingPayment: 0,
@@ -140,6 +155,13 @@ async function getDashboard({ user, query }) {
         INR: 0,
         EUR: 0,
         USD: 0
+      },
+      stages: {
+        afterApproval: createPaymentStage("afterApproval", "After Approval", 20, "payment_after_approval", "red"),
+        afterEmbassyAppointment: createPaymentStage("afterEmbassyAppointment", "After Embassy Appointment", 60, "payment_after_embassy_appointment", "orange"),
+        afterEmbassyInterview: createPaymentStage("afterEmbassyInterview", "After Embassy Interview", 60, "payment_after_embassy_interview", "purple"),
+        afterVisaCollection: createPaymentStage("afterVisaCollection", "After Visa Collection", 100, "payment_after_visa_collection", "blue"),
+        afterTrc: createPaymentStage("afterTrc", "After TRC Added", 100, "payment_after_trc", "green")
       }
     }
   };
@@ -171,6 +193,7 @@ async function getDashboard({ user, query }) {
   for (const doc of docs) {
     const data = doc.data() || {};
     const payment = resolveApplicantPaymentSnapshot(data);
+    const paymentStage = resolveApplicantPaymentStage(data, payment);
     const stage = Number(data.stage || 1);
     const appointmentDate = resolveWorkflowDate(data?.embassyAppointment?.dateTime, data?.embassyAppointment?.date, data?.embassyAppointment?.createdAt);
     const interviewDate = resolveWorkflowDate(data?.embassyInterview?.dateTime, data?.embassyInterview?.date, data?.embassyInterview?.createdAt);
@@ -202,10 +225,54 @@ async function getDashboard({ user, query }) {
     if (stage === 7 && appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
       summary.home.overdue.appointmentBiometricPending.count += 1;
     }
-    if (payment.pending > 0) {
+    if (
+      stage === 7 &&
+      !(
+        data?.travelDetails?.travelDate ||
+        data?.travelDetails?.time ||
+        data?.travelDetails?.fileUrl
+      )
+    ) {
+      summary.home.overdue.biometricTicketPending.count += 1;
+    }
+    if (
+      stage === 9 &&
+      !(
+        data?.interviewTicket?.date ||
+        data?.interviewTicket?.time ||
+        data?.interviewTicket?.fileUrl
+      )
+    ) {
+      summary.home.overdue.interviewTicketPending.count += 1;
+    }
+    if (
+      stage === 11 &&
+      !(
+        data?.visaCollectionTravel?.date ||
+        data?.visaCollectionTravel?.time ||
+        data?.visaCollectionTravel?.fileUrl
+      )
+    ) {
+      summary.home.overdue.trcTicketPending.count += 1;
+    }
+    if (paymentStage.pending > 0 && paymentStage.key) {
       summary.home.payments.applicantsWithPendingPayment += 1;
       if (Object.prototype.hasOwnProperty.call(summary.home.payments.pendingByCurrency, payment.currency)) {
-        summary.home.payments.pendingByCurrency[payment.currency] += payment.pending;
+        summary.home.payments.pendingByCurrency[payment.currency] += paymentStage.pending;
+      }
+      const stageKeyMap = {
+        after_approval: "afterApproval",
+        after_embassy_appointment: "afterEmbassyAppointment",
+        after_embassy_interview: "afterEmbassyInterview",
+        after_visa_collection: "afterVisaCollection",
+        after_trc: "afterTrc"
+      };
+      const metric = summary.home.payments.stages[stageKeyMap[paymentStage.key]];
+      if (metric) {
+        metric.count += 1;
+        if (Object.prototype.hasOwnProperty.call(metric.pendingByCurrency, payment.currency)) {
+          metric.pendingByCurrency[payment.currency] += paymentStage.pending;
+        }
       }
     }
 

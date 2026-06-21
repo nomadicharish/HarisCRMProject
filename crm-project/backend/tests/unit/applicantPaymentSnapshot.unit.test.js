@@ -1,5 +1,8 @@
 const assert = require("node:assert/strict");
-const { resolveApplicantPaymentSnapshot } = require("../../services/applicantDomainService");
+const {
+  resolveApplicantPaymentSnapshot,
+  resolveApplicantPaymentStage
+} = require("../../services/applicantDomainService");
 
 module.exports = function runApplicantPaymentSnapshotUnitTest() {
   const standard = resolveApplicantPaymentSnapshot({
@@ -51,4 +54,32 @@ module.exports = function runApplicantPaymentSnapshotUnitTest() {
 
   assert.equal(overpaidLegacy.paid, 700);
   assert.equal(overpaidLegacy.pending, 0);
+
+  const approvalMilestone = resolveApplicantPaymentStage({
+    stage: 3,
+    approvalStatus: "approved",
+    totalApplicantPayment: 1000,
+    amountPaid: 50
+  });
+  assert.equal(approvalMilestone.key, "after_approval");
+  assert.equal(approvalMilestone.percentage, 20);
+  assert.equal(approvalMilestone.pending, 150);
+
+  const appointmentMilestone = resolveApplicantPaymentStage({
+    stage: 7,
+    approvalStatus: "approved",
+    totalApplicantPayment: 1000,
+    amountPaid: 200
+  });
+  assert.equal(appointmentMilestone.key, "after_embassy_appointment");
+  assert.equal(appointmentMilestone.pending, 400);
+
+  const trcMilestone = resolveApplicantPaymentStage({
+    stage: 12,
+    approvalStatus: "approved",
+    totalApplicantPayment: 1000,
+    amountPaid: 650
+  });
+  assert.equal(trcMilestone.key, "after_trc");
+  assert.equal(trcMilestone.pending, 350);
 };

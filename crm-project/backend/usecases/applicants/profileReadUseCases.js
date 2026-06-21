@@ -13,6 +13,8 @@ const {
   roundCurrency
 } = require("../../services/applicantDomainService");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+const { admin } = require("../../config/firebase");
+const { extractStoragePath } = require("../../utils/storageFiles");
 
 function projectAccountantApplicant(applicant = {}) {
   const personalDetails = applicant.personalDetails || {};
@@ -61,6 +63,62 @@ async function getApplicantProfilePhotoUrl(applicantId) {
   ]);
   const data = photoDoc.exists ? photoDoc.data() || {} : legacyPhotoDoc.exists ? legacyPhotoDoc.data() || {} : {};
   return data?.latestVersion?.fileUrl || data?.fileUrl || "";
+}
+
+async function assertEmployerApplicantAccess(req, applicant) {
+  if (req.user?.role !== "EMPLOYER") throw new AppError("Only Employer can access quick print assets", 403);
+  let employerId = req.user?.employerId || "";
+  if (!employerId) {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    employerId = userDoc.exists ? userDoc.data()?.employerId || "" : "";
+  }
+  if (!employerId) throw new AppError("Employer profile not linked", 403);
+  const employerDoc = await db.collection("employers").doc(employerId).get();
+  const employerCompanyId = employerDoc.exists ? employerDoc.data()?.companyId || "" : "";
+  if (!employerCompanyId || employerCompanyId !== applicant.companyId) {
+    throw new AppError("Applicant is outside employer scope", 403);
+  }
+}
+
+async function getApplicantQuickPrintAssetUseCase(req) {
+  const applicantId = req.params.id;
+  const assetType = String(req.params.assetType || "").toLowerCase();
+  const applicantDoc = await db.collection("applicants").doc(applicantId).get();
+  if (!applicantDoc.exists) throw new AppError("Applicant not found", 404);
+  const applicant = applicantDoc.data() || {};
+  await assertEmployerApplicantAccess(req, applicant);
+
+  const assetUrls = {
+    photo: await getApplicantProfilePhotoUrl(applicantId),
+    flight: applicant?.visaTravel?.fileUrl || "",
+    bus: applicant?.visaTravel?.busTicketUrl || ""
+  };
+  const fileUrl = assetUrls[assetType];
+  if (!Object.prototype.hasOwnProperty.call(assetUrls, assetType)) throw new AppError("Invalid quick print asset type", 400);
+  if (!fileUrl) throw new AppError("Quick print asset not found", 404);
+
+  const bucket = admin.storage().bucket();
+  const storagePath = extractStoragePath(fileUrl, bucket.name);
+  if (storagePath) {
+    const file = bucket.file(storagePath);
+    const [exists] = await file.exists();
+    if (!exists) throw new AppError("Quick print asset not found", 404);
+    const [[buffer], [metadata]] = await Promise.all([file.download(), file.getMetadata()]);
+    return {
+      buffer,
+      contentType: metadata?.contentType || "application/octet-stream",
+      fileName: metadata?.name?.split("/").pop() || `${assetType}-asset`
+    };
+  }
+
+  if (!/^https:\/\//i.test(fileUrl)) throw new AppError("Unsupported quick print asset URL", 400);
+  const response = await fetch(fileUrl);
+  if (!response.ok) throw new AppError("Unable to download quick print asset", 502);
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    contentType: response.headers.get("content-type") || "application/octet-stream",
+    fileName: `${assetType}-asset`
+  };
 }
 
 async function getApplicantByIdUseCase(req) {
@@ -583,5 +641,6 @@ module.exports = {
   getApplicantDocumentsPageUseCase,
   getApplicantDocumentsContextUseCase,
   getApplicantPaymentsPageUseCase,
-  getApplicantWorkflowBundleUseCase
+  getApplicantWorkflowBundleUseCase,
+  getApplicantQuickPrintAssetUseCase
 };

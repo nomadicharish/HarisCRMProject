@@ -9,6 +9,7 @@ const {
   parseBooleanQuery,
   parseProjectionFields,
   projectApplicantFields,
+  resolveApplicantPaymentStage,
   resolveApplicantPaymentSnapshot,
   roundCurrency
 } = require("../../services/applicantDomainService");
@@ -57,6 +58,7 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
   const interviewDate = firstDate(applicant?.embassyInterview?.dateTime, applicant?.embassyInterview?.date, applicant?.embassyInterview?.createdAt);
   const visaCollectionDate = firstDate(applicant?.visaCollection?.dateTime, applicant?.visaCollection?.date, applicant?.visaCollection?.createdAt);
   const arrivalDate = firstDate(applicant?.visaTravel?.dateTime, applicant?.visaTravel?.date, applicant?.visaTravel?.createdAt);
+  const paymentStage = resolveApplicantPaymentStage(applicant, applicant?.payment);
 
   switch (filter) {
     case "arriving":
@@ -68,13 +70,50 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
     case "embassy_appointment":
       return stage < 7 && isWithinRange(appointmentDate, fromDate, toDate);
     case "pending_payment":
-      return Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0) > 0;
+      return paymentStage.pending > 0;
+    case "payment_after_approval":
+      return paymentStage.key === "after_approval" && paymentStage.pending > 0;
+    case "payment_after_embassy_appointment":
+      return paymentStage.key === "after_embassy_appointment" && paymentStage.pending > 0;
+    case "payment_after_embassy_interview":
+      return paymentStage.key === "after_embassy_interview" && paymentStage.pending > 0;
+    case "payment_after_visa_collection":
+      return paymentStage.key === "after_visa_collection" && paymentStage.pending > 0;
+    case "payment_after_trc":
+      return paymentStage.key === "after_trc" && paymentStage.pending > 0;
     case "trp_pending":
       return Boolean(stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(applicant));
     case "interview_biometric_pending":
       return Boolean(stage === 9 && interviewDate && interviewDate < now && !applicant?.interviewBiometric?.fileUrl);
     case "appointment_biometric_pending":
       return Boolean(stage === 7 && appointmentDate && appointmentDate < now && !applicant?.biometricSlip?.fileUrl);
+    case "biometric_ticket_pending":
+      return Boolean(
+        stage === 7 &&
+        !(
+          applicant?.travelDetails?.travelDate ||
+          applicant?.travelDetails?.time ||
+          applicant?.travelDetails?.fileUrl
+        )
+      );
+    case "interview_ticket_pending":
+      return Boolean(
+        stage === 9 &&
+        !(
+          applicant?.interviewTicket?.date ||
+          applicant?.interviewTicket?.time ||
+          applicant?.interviewTicket?.fileUrl
+        )
+      );
+    case "trc_ticket_pending":
+      return Boolean(
+        stage === 11 &&
+        !(
+          applicant?.visaCollectionTravel?.date ||
+          applicant?.visaCollectionTravel?.time ||
+          applicant?.visaCollectionTravel?.fileUrl
+        )
+      );
     default:
       return true;
   }

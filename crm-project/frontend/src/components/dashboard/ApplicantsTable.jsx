@@ -30,9 +30,10 @@ function ApplicantsTable({
   rows = [],
   isEmployer = false,
   onOpenApplicant,
+  onQuickPrint,
   formatPendingAmount
 }) {
-  const gridTemplateColumns = isEmployer ? "2fr 2fr 2fr" : "2fr 2fr 1.5fr 1.5fr";
+  const gridTemplateColumns = isEmployer ? "2fr 2fr 2fr 1fr" : "2fr 2fr 1.5fr 1.5fr";
 
   if (!rows.length) {
     return (
@@ -42,12 +43,13 @@ function ApplicantsTable({
             <th>Name</th>
             <th>Status</th>
             <th>Company</th>
+            {isEmployer ? <th>Actions</th> : null}
             {!isEmployer ? <th>Payment Status</th> : null}
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td colSpan={isEmployer ? 3 : 4} className="dashboardEmptyState">
+            <td colSpan={4} className="dashboardEmptyState">
               No applicants found for the selected filters.
             </td>
           </tr>
@@ -62,9 +64,10 @@ function ApplicantsTable({
         <thead>
           <tr>
             <th>Name</th>
-            <th>Status</th>
-            <th>Company</th>
-            {!isEmployer ? <th>Payment Status</th> : null}
+              <th>Status</th>
+              <th>Company</th>
+              {isEmployer ? <th>Actions</th> : null}
+              {!isEmployer ? <th>Payment Status</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -89,6 +92,10 @@ function ApplicantsTable({
                 : "";
             const isCandidateApprovalPending =
               Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
+            const canQuickPrint =
+              isEmployer &&
+              Number(applicant.stage || 1) === 12 &&
+              String(workflow.title || "").toLowerCase() === "candidate arrival pending";
 
             return (
               <tr
@@ -112,6 +119,22 @@ function ApplicantsTable({
                   </div>
                 </td>
                 <td>{applicant.companyName || "-"}</td>
+                {isEmployer ? (
+                  <td>
+                    {canQuickPrint ? (
+                      <button
+                        type="button"
+                        className="dashboardQuickPrintBtn"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onQuickPrint?.(applicant);
+                        }}
+                      >
+                        Quick Print
+                      </button>
+                    ) : "-"}
+                  </td>
+                ) : null}
                 {!isEmployer ? (
                   <td>
                     {isCandidateApprovalPending ? (
@@ -145,6 +168,7 @@ function ApplicantsTable({
         <div>Name</div>
         <div>Status</div>
         <div>Company</div>
+        {isEmployer ? <div>Actions</div> : null}
         {!isEmployer ? <div>Payment Status</div> : null}
       </div>
       <VirtualizedRows
@@ -172,6 +196,10 @@ function ApplicantsTable({
               : "";
           const isCandidateApprovalPending =
             Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
+          const canQuickPrint =
+            isEmployer &&
+            Number(applicant.stage || 1) === 12 &&
+            String(workflow.title || "").toLowerCase() === "candidate arrival pending";
           return (
             <div
               className="dashboardVirtualRow"
@@ -192,6 +220,22 @@ function ApplicantsTable({
                 {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
               </div>
               <div>{applicant.companyName || "-"}</div>
+              {isEmployer ? (
+                <div>
+                  {canQuickPrint ? (
+                    <button
+                      type="button"
+                      className="dashboardQuickPrintBtn"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onQuickPrint?.(applicant);
+                      }}
+                    >
+                      Quick Print
+                    </button>
+                  ) : "-"}
+                </div>
+              ) : null}
               {!isEmployer ? (
                 <div className="dashboardStatusCell">
                   {isCandidateApprovalPending ? (
