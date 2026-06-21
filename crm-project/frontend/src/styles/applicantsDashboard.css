@@ -2927,7 +2927,7 @@
   padding:10px 24px;
   border:1px solid #ff6b6b;
   border-radius:12px;
-  background:linear-gradient(110deg,#fff 0%,#fff8f8 72%,#fff0f0 100%);
+  background:linear-gradient(110deg,#ff6b6b 0%,#fff0f0 100%);
   box-shadow:0 10px 26px rgba(218,32,32,.06);
 }
 
@@ -3109,7 +3109,8 @@
   padding:12px 16px;
   border:1px solid #f2d3d3;
   border-radius:10px;
-  background:#fffafa;
+   background:linear-gradient(110deg,#ff6b6b 0%,#fff 100%);
+  box-shadow:0 10px 26px rgba(218,32,32,.06);
 }
 
 .homePaymentStagesSection > h2{
@@ -3208,11 +3209,11 @@
 }
 
 .homePaymentStageEur{
-  color:#075de5;
+  color:#dc1818;
 }
 
 .homePaymentStageUsd{
-  color:#087b2b;
+  color:#dc1818;
 }
 
 .homePaymentStageCard > button{

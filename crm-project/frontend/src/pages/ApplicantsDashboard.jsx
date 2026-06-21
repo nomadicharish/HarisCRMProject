@@ -179,7 +179,7 @@ const PAYMENT_STAGE_CONFIG = [
   {
     key: "afterApproval",
     title: "Applicant Approved",
-    description: "Pending 20%",
+    description: "Completing 20% of payment not done",
     icon: "payment",
     tone: "red",
     filter: "payment_after_approval"
@@ -187,7 +187,7 @@ const PAYMENT_STAGE_CONFIG = [
   {
     key: "afterEmbassyAppointment",
     title: "Embassy Appointment",
-    description: "Pending 60%",
+    description: "Completing 60% of payment not done",
     icon: "calendar",
     tone: "orange",
     filter: "payment_after_embassy_appointment"
@@ -195,7 +195,7 @@ const PAYMENT_STAGE_CONFIG = [
   {
     key: "afterEmbassyInterview",
     title: "Embassy Interview",
-    description: "Pending 60%",
+    description: "Completing 60% of payment not done",
     icon: "people",
     tone: "purple",
     filter: "payment_after_embassy_interview"
@@ -203,7 +203,7 @@ const PAYMENT_STAGE_CONFIG = [
   {
     key: "afterVisaCollection",
     title: "Visa Collection",
-    description: "Pending 100%",
+    description: "Completing 100% of payment not done",
     icon: "visa",
     tone: "blue",
     note: "Approved by Super User",
@@ -212,7 +212,7 @@ const PAYMENT_STAGE_CONFIG = [
   {
     key: "afterTrc",
     title: "TRC Added",
-    description: "Pending 100%",
+    description: "Completing 100% of payment not done",
     icon: "document",
     tone: "green",
     note: "By Agent",
