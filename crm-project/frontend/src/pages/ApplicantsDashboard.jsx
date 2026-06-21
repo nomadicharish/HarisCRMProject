@@ -178,7 +178,7 @@ function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
 const PAYMENT_STAGE_CONFIG = [
   {
     key: "afterApproval",
-    title: "After Applicant Approval",
+    title: "Applicant Approved",
     description: "Pending 20%",
     icon: "payment",
     tone: "red",
@@ -186,7 +186,7 @@ const PAYMENT_STAGE_CONFIG = [
   },
   {
     key: "afterEmbassyAppointment",
-    title: "After Embassy Appointment",
+    title: "Embassy Appointment",
     description: "Pending 60%",
     icon: "calendar",
     tone: "orange",
@@ -194,7 +194,7 @@ const PAYMENT_STAGE_CONFIG = [
   },
   {
     key: "afterEmbassyInterview",
-    title: "After Embassy Interview",
+    title: "Embassy Interview",
     description: "Pending 60%",
     icon: "people",
     tone: "purple",
@@ -202,7 +202,7 @@ const PAYMENT_STAGE_CONFIG = [
   },
   {
     key: "afterVisaCollection",
-    title: "After Visa Collection",
+    title: "Visa Collection",
     description: "Pending 100%",
     icon: "visa",
     tone: "blue",
@@ -211,7 +211,7 @@ const PAYMENT_STAGE_CONFIG = [
   },
   {
     key: "afterTrc",
-    title: "After TRC Added",
+    title: "TRC Added",
     description: "Pending 100%",
     icon: "document",
     tone: "green",

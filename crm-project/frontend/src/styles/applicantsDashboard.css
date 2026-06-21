@@ -2665,9 +2665,9 @@
   align-items:center;
   justify-content:space-between;
   gap:14px;
-  min-height:62px;
+  min-height:52px;
   margin-top: 18px;
-  padding:10px 26px;
+  padding:8px 16px;
   border:1px solid #edf1f7;
   border-radius:12px;
   background:#ffffff;
@@ -2711,22 +2711,24 @@
   pointer-events:none;
 }
 
-.homeDateControls input{
+.homeDateControls input.homeDatePickerInput{
   width:100%;
-  min-height:50px;
+  height:34px !important;
+  min-height:34px !important;
+  box-sizing:border-box;
   border:1px solid #d4ddea;
   border-radius:8px;
   padding:0 16px 0 46px;
   color:#0b1538;
   background:#ffffff;
-  font-size:16px;
-  font-weight:700;
+  font-size:14px;
+  font-weight:500;
   cursor:pointer;
 }
 
 .homeDateControls .dashboardPrimaryBtn{
   min-width:88px;
-  min-height:40px;
+  min-height:36px;
   border-radius:8px;
   box-shadow:0 8px 18px rgba(0,82,204,0.24);
 }
@@ -2974,13 +2976,12 @@
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));
   gap:20px;
-  padding-left:72px;
-  padding-right:16px;
+  padding-left:62px;
 }
 
 .homePaymentCurrency{
-  min-height:64px;
-  padding:8px 8px;
+  min-height:44px;
+  padding:0px 8px;
   display:flex;
   align-items:center;
   gap:8px;
@@ -2990,14 +2991,14 @@
 }
 
 .homePaymentCurrencySymbol{
-  width:34px;
-  height:34px;
+  width:30px;
+  height:30px;
   border-radius:50%;
   display:inline-flex;
   align-items:center;
   justify-content:center;
   flex:0 0 auto;
-  font-size:27px;
+  font-size:17px;
   background:#ffe8e8;
   color:#dc1818;
 }
@@ -3050,18 +3051,13 @@
 }
 
 .homePaymentOverviewApplicants{
-  min-height:116px;
+  min-height:84px;
   padding-left:22px;
   border-left:1px solid #ff8b8b;
   display:grid;
   grid-template-columns:54px 1fr;
-  gap:12px;
+  gap:8px;
   align-items:center;
-}
-
-.homePaymentOverviewApplicantsIcon{
-  color:#dc1818;
-  background:#ffe3e3;
 }
 
 .homePaymentOverviewApplicants > div > span{
@@ -3087,19 +3083,30 @@
 
 .homePaymentOverviewApplicants button{
   grid-column:1 / -1;
-  min-height:38px;
+  justify-self:start;
+  padding:0;
   border:0;
-  border-radius:6px;
-  background:#e91313;
-  color:#fff;
-  font-size:13px;
-  font-weight:800;
+  background:transparent;
+  color:#0052cc;
+  font-size:14px;
+  font-weight:600;
   cursor:pointer;
+}
+
+.homePaymentOverviewApplicants button:hover{
+  color:#003d99;
+  text-decoration:underline;
+}
+
+.homePaymentOverviewApplicants button:focus-visible{
+  outline:2px solid #0052cc;
+  outline-offset:3px;
+  border-radius:2px;
 }
 
 .homePaymentStagesSection{
   margin-top:14px;
-  padding:16px;
+  padding:12px 16px;
   border:1px solid #f2d3d3;
   border-radius:10px;
   background:#fffafa;
@@ -3132,7 +3139,7 @@
 .homePaymentStage-green{--stage-color:#087b2b;--stage-pale:#e6f5ea}
 
 .homePaymentStageHeader{
-  min-height:64px;
+  min-height:54px;
   display:flex;
   align-items:flex-start;
   gap:12px;
@@ -3210,10 +3217,7 @@
 
 .homePaymentStageCard > button{
   width:100%;
-  min-height:34px;
-  margin-top:8px;
-  border:1px solid color-mix(in srgb,var(--stage-color) 28%,white);
-  border-radius:6px;
+  min-height:24px;
   background:#fff;
   color:var(--stage-color);
   font-size:11px;
