@@ -4,9 +4,6 @@ function DashboardResultsHeader({
   headerText,
   isRefreshing,
   showHeaderAction,
-  activeTab,
-  isSuperUser,
-  onShowCountryManager,
   onOpenCurrentAction,
   currentActionLabel,
   showExportAction,
@@ -35,16 +32,6 @@ function DashboardResultsHeader({
 
       {showHeaderAction ? (
         <div className="dashboardActionGroup">
-          {activeTab === "companies" && isSuperUser ? (
-            <button
-              type="button"
-              className="dashboardSecondaryBtn"
-              onClick={onShowCountryManager}
-            >
-              Add/Update Country
-            </button>
-          ) : null}
-
           <button type="button" className="dashboardSecondaryBtn" onClick={onOpenCurrentAction}>
             + {currentActionLabel}
           </button>

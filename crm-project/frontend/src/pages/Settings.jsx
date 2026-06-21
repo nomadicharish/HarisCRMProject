@@ -5,6 +5,10 @@ import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import PageLoader from "../components/common/PageLoader";
+import CountryManagerModal from "../components/dashboard/CountryManagerModal";
+import EntityFormModal from "../components/dashboard/EntityFormModal";
+import EmployersTable from "../components/dashboard/EmployersTable";
+import AgenciesTable from "../components/dashboard/AgenciesTable";
 import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
 import { getStoredUser, isRootSuperUserRole } from "../utils/auth";
 import "../styles/settings.css";
@@ -13,6 +17,12 @@ import "../styles/applicantsDashboard.css";
 function getInitials(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
   return parts.length ? parts.map((part) => part[0]).join("").toUpperCase() : "U";
+}
+
+function normalizeListResponse(response) {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.items)) return response.items;
+  return [];
 }
 
 function TrashIcon() {
@@ -49,6 +59,17 @@ function Settings() {
   const [successMessage, setSuccessMessage] = useState("");
   const [bankAccounts, setBankAccounts] = useState([]);
   const [accountants, setAccountants] = useState([]);
+  const [countries, setCountries] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [employers, setEmployers] = useState([]);
+  const [agencies, setAgencies] = useState([]);
+  const [organizationLoading, setOrganizationLoading] = useState(false);
+  const [organizationSearch, setOrganizationSearch] = useState("");
+  const [organizationCountryId, setOrganizationCountryId] = useState("");
+  const [organizationCompanyId, setOrganizationCompanyId] = useState("");
+  const [entityModalType, setEntityModalType] = useState("");
+  const [entityEditData, setEntityEditData] = useState(null);
+  const [showCountryManager, setShowCountryManager] = useState(false);
   const [showAddBankModal, setShowAddBankModal] = useState(false);
   const [bankAccountToRemove, setBankAccountToRemove] = useState(null);
   const [editingBankAccount, setEditingBankAccount] = useState(null);
@@ -116,12 +137,125 @@ function Settings() {
     }
   }, [canManageBankDetails]);
 
+  const loadOrganizationData = useCallback(async () => {
+    if (!canManageBankDetails) return;
+    try {
+      setOrganizationLoading(true);
+      setError("");
+      const [countriesData, companiesData, employersData, agenciesData] = await Promise.all([
+        getCached("/countries", { ttlMs: 120000 }),
+        getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
+        getCached("/employers", { params: { paginated: "false" }, ttlMs: 60000 }),
+        getCached("/agencies", { params: { paginated: "false" }, ttlMs: 60000 })
+      ]);
+      setCountries(normalizeListResponse(countriesData));
+      setCompanies(normalizeListResponse(companiesData));
+      setEmployers(normalizeListResponse(employersData));
+      setAgencies(normalizeListResponse(agenciesData));
+    } catch (loadError) {
+      setError(loadError?.response?.data?.message || "Unable to load organization settings");
+    } finally {
+      setOrganizationLoading(false);
+    }
+  }, [canManageBankDetails]);
+
   useEffect(() => {
     if (activeSection === "bank-details") loadBankAccounts();
     if (activeSection === "accountants") loadAccountants();
-  }, [activeSection, loadAccountants, loadBankAccounts]);
+    if (["countries", "employers", "agencies"].includes(activeSection)) loadOrganizationData();
+  }, [activeSection, loadAccountants, loadBankAccounts, loadOrganizationData]);
 
   const initials = useMemo(() => getInitials(form.name || storedUser?.name), [form.name, storedUser?.name]);
+  const companyMap = useMemo(
+    () => Object.fromEntries(companies.map((company) => [company.id, company])),
+    [companies]
+  );
+  const countryMap = useMemo(
+    () => Object.fromEntries(countries.map((country) => [country.id, country.name])),
+    [countries]
+  );
+  const filteredEmployers = useMemo(() => {
+    const query = organizationSearch.trim().toLowerCase();
+    return employers.filter((employer) => {
+      if (organizationCountryId && employer.countryId !== organizationCountryId) return false;
+      if (organizationCompanyId && employer.companyId !== organizationCompanyId) return false;
+      if (!query) return true;
+      return [
+        employer.name,
+        employer.email,
+        employer.contactNumber,
+        companyMap[employer.companyId]?.name,
+        countryMap[employer.countryId]
+      ].some((value) => String(value || "").toLowerCase().includes(query));
+    });
+  }, [
+    companyMap,
+    countryMap,
+    employers,
+    organizationCompanyId,
+    organizationCountryId,
+    organizationSearch
+  ]);
+  const filteredAgencies = useMemo(() => {
+    const query = organizationSearch.trim().toLowerCase();
+    return agencies.filter((agency) => {
+      const assignedCompanyIds = agency.assignedCompanyIds || [];
+      if (organizationCompanyId && !assignedCompanyIds.includes(organizationCompanyId)) return false;
+      if (
+        organizationCountryId &&
+        !assignedCompanyIds.some((id) => companyMap[id]?.countryId === organizationCountryId)
+      ) return false;
+      if (!query) return true;
+      const companyNames = assignedCompanyIds.map((id) => companyMap[id]?.name).filter(Boolean);
+      return [agency.name, agency.email, agency.contactNumber, ...companyNames]
+        .some((value) => String(value || "").toLowerCase().includes(query));
+    });
+  }, [
+    agencies,
+    companyMap,
+    organizationCompanyId,
+    organizationCountryId,
+    organizationSearch
+  ]);
+
+  const openEntityModal = (type, editData = null) => {
+    setEntityModalType(type);
+    setEntityEditData(editData);
+  };
+
+  const handleEntitySaved = async (change) => {
+    setEntityModalType("");
+    setEntityEditData(null);
+    invalidateCache("/employers");
+    invalidateCache("/agencies");
+    invalidateCache("/companies");
+
+    if (change?.type === "employer") {
+      setEmployers((current) => {
+        if (change.operation === "delete") return current.filter((item) => item.id !== change.id);
+        if (change.operation === "update") {
+          return current.map((item) => item.id === change.id ? { ...item, ...change.payload } : item);
+        }
+        if (change.operation === "create" && change.id) {
+          return [{ id: change.id, ...change.payload }, ...current];
+        }
+        return current;
+      });
+    }
+
+    if (change?.type === "agency") {
+      setAgencies((current) => {
+        if (change.operation === "delete") return current.filter((item) => item.id !== change.id);
+        if (change.operation === "update") {
+          return current.map((item) => item.id === change.id ? { ...item, ...change.payload } : item);
+        }
+        if (change.operation === "create" && change.id) {
+          return [{ id: change.id, ...change.payload }, ...current];
+        }
+        return current;
+      });
+    }
+  };
 
   const handleSave = async () => {
     if (!form.contactNumber.trim()) {
@@ -273,7 +407,7 @@ function Settings() {
     <div className="settingsPage">
       <DashboardTopbar user={{ name: form.name || storedUser?.name || "User", role: form.role || storedUser?.role }} />
       <div className="settingsShell">
-        <div className="settingsShellHeader"><h1 className="settingsShellTitle">Your profile settings</h1></div>
+        <div className="settingsShellHeader"><h1 className="settingsShellTitle">Settings</h1></div>
         <div className="settingsShellBody">
           <aside className="settingsSidebar">
             <button type="button" className={`settingsNavItem ${activeSection === "general" ? "settingsNavItemActive" : ""}`} onClick={() => setActiveSection("general")}>
@@ -287,6 +421,21 @@ function Settings() {
             {canManageBankDetails ? (
               <button type="button" className={`settingsNavItem ${activeSection === "accountants" ? "settingsNavItemActive" : ""}`} onClick={() => setActiveSection("accountants")}>
                 <span className="settingsNavIcon settingsNavIconAdmins" /><span>Accountants</span>
+              </button>
+            ) : null}
+            {canManageBankDetails ? (
+              <button type="button" className={`settingsNavItem ${activeSection === "countries" ? "settingsNavItemActive" : ""}`} onClick={() => { setActiveSection("countries"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
+                <span className="settingsNavIcon settingsNavIconOrganization" /><span>Countries</span>
+              </button>
+            ) : null}
+            {canManageBankDetails ? (
+              <button type="button" className={`settingsNavItem ${activeSection === "employers" ? "settingsNavItemActive" : ""}`} onClick={() => { setActiveSection("employers"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
+                <span className="settingsNavIcon settingsNavIconOrganization" /><span>Employers</span>
+              </button>
+            ) : null}
+            {canManageBankDetails ? (
+              <button type="button" className={`settingsNavItem ${activeSection === "agencies" ? "settingsNavItemActive" : ""}`} onClick={() => { setActiveSection("agencies"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
+                <span className="settingsNavIcon settingsNavIconOrganization" /><span>Agencies</span>
               </button>
             ) : null}
           </aside>
@@ -335,7 +484,7 @@ function Settings() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : activeSection === "accountants" ? (
               <div className="settingsAdminPanel">
                 <div className="settingsAdminHeader">
                   <h2 className="settingsSectionTitle">Accountants</h2>
@@ -363,10 +512,139 @@ function Settings() {
                   </div>
                 )}
               </div>
+            ) : (
+              <div className="settingsAdminPanel settingsOrganizationPanel">
+                <div className="settingsAdminHeader">
+                  <div>
+                    <h2 className="settingsSectionTitle">
+                      {activeSection === "countries"
+                        ? "Countries"
+                        : activeSection === "employers"
+                        ? "Employers"
+                        : "Agencies"}
+                    </h2>
+                    <p className="settingsSectionDescription">
+                      Manage {activeSection} used throughout the applicant workflow.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="settingsPrimaryBtn settingsAddAdminBtn"
+                    onClick={() => {
+                      if (activeSection === "countries") setShowCountryManager(true);
+                      else openEntityModal(activeSection === "employers" ? "employer" : "agency");
+                    }}
+                  >
+                    + {activeSection === "countries"
+                      ? "Add / Update Country"
+                      : activeSection === "employers"
+                      ? "Add Employer"
+                      : "Add Agency"}
+                  </button>
+                </div>
+
+                {activeSection !== "countries" ? (
+                  <div className="settingsOrganizationToolbar">
+                    <input
+                      className="settingsInput settingsOrganizationSearch"
+                      type="search"
+                      value={organizationSearch}
+                      onChange={(event) => setOrganizationSearch(event.target.value)}
+                      placeholder={`Search ${activeSection}`}
+                    />
+                    <select
+                      className="settingsInput settingsOrganizationSelect"
+                      value={organizationCountryId}
+                      onChange={(event) => {
+                        setOrganizationCountryId(event.target.value);
+                        setOrganizationCompanyId("");
+                      }}
+                    >
+                      <option value="">All countries</option>
+                      {countries.map((country) => (
+                        <option key={country.id} value={country.id}>{country.name}</option>
+                      ))}
+                    </select>
+                    <select
+                      className="settingsInput settingsOrganizationSelect"
+                      value={organizationCompanyId}
+                      onChange={(event) => setOrganizationCompanyId(event.target.value)}
+                    >
+                      <option value="">All companies</option>
+                      {companies
+                        .filter((company) => !organizationCountryId || company.countryId === organizationCountryId)
+                        .map((company) => (
+                          <option key={company.id} value={company.id}>{company.name}</option>
+                        ))}
+                    </select>
+                    <span className="settingsOrganizationCount">
+                      Showing {activeSection === "employers" ? filteredEmployers.length : filteredAgencies.length} {activeSection}
+                    </span>
+                  </div>
+                ) : null}
+
+                {error ? <div className="settingsError">{error}</div> : null}
+                {organizationLoading ? (
+                  <PageLoader label={`Loading ${activeSection}...`} />
+                ) : activeSection === "countries" ? (
+                  <div className="settingsCountrySummary">
+                    <strong>{countries.length}</strong>
+                    <span>{countries.length === 1 ? "country" : "countries"} configured</span>
+                    <div className="settingsCountryTags">
+                      {countries.map((country) => <span key={country.id}>{country.name}</span>)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="settingsOrganizationTable dashboardTableCard">
+                    {activeSection === "employers" ? (
+                      <EmployersTable
+                        rows={filteredEmployers}
+                        companyMap={companyMap}
+                        countryMap={countryMap}
+                        onOpenEmployer={(employer) => openEntityModal("employer", employer)}
+                      />
+                    ) : (
+                      <AgenciesTable
+                        rows={filteredAgencies}
+                        companyMap={companyMap}
+                        countryMap={countryMap}
+                        onOpenAgency={(agency) => openEntityModal("agency", agency)}
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </section>
         </div>
       </div>
+
+      {entityModalType ? (
+        <EntityFormModal
+          type={entityModalType}
+          countries={countries}
+          companies={companies}
+          employers={employers}
+          editData={entityEditData}
+          onClose={() => {
+            setEntityModalType("");
+            setEntityEditData(null);
+          }}
+          onSaved={handleEntitySaved}
+        />
+      ) : null}
+
+      {showCountryManager ? (
+        <CountryManagerModal
+          countries={countries}
+          onClose={() => setShowCountryManager(false)}
+          onSaved={async () => {
+            invalidateCache("/countries");
+            const countriesData = await getCached("/countries", { ttlMs: 0, force: true });
+            setCountries(normalizeListResponse(countriesData));
+          }}
+        />
+      ) : null}
 
       {showAddBankModal ? (
         <div className="settingsModalBackdrop"><div className="settingsModal settingsAddAdminModal">

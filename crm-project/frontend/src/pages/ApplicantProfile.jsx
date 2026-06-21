@@ -21,9 +21,7 @@ import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../util
 const DASHBOARD_TAB_CONFIG = {
   home: { label: "Home" },
   applicants: { label: "Applicants" },
-  companies: { label: "Companies" },
-  employers: { label: "Employers" },
-  agencies: { label: "Agencies" }
+  companies: { label: "Companies" }
 };
 
 function ApplicantProfile() {
@@ -72,7 +70,7 @@ function ApplicantProfile() {
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 120000;
   const profileDashboardTabs = useMemo(() => {
-    if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies", "employers", "agencies"];
+    if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
     if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["applicants", "companies"];
     return ["applicants"];
   }, [user?.role]);

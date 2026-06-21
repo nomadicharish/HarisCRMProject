@@ -17,7 +17,6 @@ import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
-const CountryManagerModal = lazy(() => import("../components/dashboard/CountryManagerModal"));
 const EntityFormModal = lazy(() => import("../components/dashboard/EntityFormModal"));
 
 const RIGHT_ICON_SRC = "/right.png";
@@ -41,9 +40,7 @@ const DASHBOARD_FILTER_DESCRIPTIONS = {
 const TAB_CONFIG = {
   home: { label: "Home", actionLabel: "" },
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
-  companies: { label: "Companies", actionLabel: "Add Company" },
-  employers: { label: "Employers", actionLabel: "Add Employer" },
-  agencies: { label: "Agencies", actionLabel: "Add Agency" }
+  companies: { label: "Companies", actionLabel: "Add Company" }
 };
 
 function formatDateInput(date) {
@@ -354,7 +351,6 @@ function ApplicantsDashboard() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [entityModalType, setEntityModalType] = useState("");
   const [entityEditData, setEntityEditData] = useState(null);
-  const [showCountryManager, setShowCountryManager] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState("");
@@ -975,7 +971,7 @@ function ApplicantsDashboard() {
   };
 
   const visibleTabs = useMemo(() => {
-    if (isSuperUser) return ["home", "applicants", "companies", "employers", "agencies"];
+    if (isSuperUser) return ["home", "applicants", "companies"];
     if (isAgency || isEmployer) return ["home", "applicants", "companies"];
     return ["applicants"];
   }, [isAgency, isEmployer, isSuperUser]);
@@ -1331,9 +1327,6 @@ function ApplicantsDashboard() {
                 agencyIds={agencyIds}
                 onToggleFilterValue={toggleFilterValue}
                 showHeaderAction={showHeaderAction}
-                activeTab={activeTab}
-                isSuperUser={isSuperUser}
-                onShowCountryManager={() => setShowCountryManager(true)}
                 onOpenCurrentAction={openCurrentAction}
                 currentActionLabel={currentActionLabel}
                 showExportAction={isSuperUser && activeTab === "applicants"}
@@ -1440,18 +1433,6 @@ function ApplicantsDashboard() {
         </Suspense>
       ) : null}
 
-      {showCountryManager ? (
-        <Suspense fallback={null}>
-          <CountryManagerModal
-            countries={countries}
-            onClose={() => setShowCountryManager(false)}
-            onSaved={async () => {
-              invalidateCache("/countries");
-              setRefreshKey((value) => value + 1);
-            }}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 }
