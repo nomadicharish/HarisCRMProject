@@ -12,7 +12,7 @@ router.get("/health", asyncHandler(observabilityController.getHealth));
 router.get(
   "/metrics",
   verifyToken,
-  allowRoles("SUPER_USER", "ACCOUNTANT"),
+  allowRoles("SUPER_USER"),
   validate(recentLimitQuerySchema, "query"),
   asyncHandler(observabilityController.getMetrics)
 );

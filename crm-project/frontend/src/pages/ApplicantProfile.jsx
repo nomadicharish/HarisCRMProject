@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 import { getCached, invalidateCache, prefetchCached, readCached, writeCached } from "../services/cachedApi";
@@ -17,6 +17,12 @@ import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
 import { formatCurrencyAmount } from "../utils/currency";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
+
+const DASHBOARD_TAB_CONFIG = {
+  home: { label: "Home" },
+  applicants: { label: "Applicants" },
+  companies: { label: "Companies" }
+};
 
 function ApplicantProfile() {
   const { id } = useParams();
@@ -63,6 +69,19 @@ function ApplicantProfile() {
   const [approvingStage, setApprovingStage] = useState(false);
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 120000;
+  const profileDashboardTabs = useMemo(() => {
+    if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
+    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["applicants", "companies"];
+    return ["applicants"];
+  }, [user?.role]);
+  const handleDashboardTabChange = useCallback(
+    (tabKey) => {
+      if (!profileDashboardTabs.includes(tabKey)) return;
+      const query = tabKey === "home" ? "" : `?tab=${encodeURIComponent(tabKey)}`;
+      navigate(`/dashboard${query}`);
+    },
+    [navigate, profileDashboardTabs]
+  );
 
   const loadUser = useCallback(async () => {
     if (user) return;
@@ -163,7 +182,9 @@ function ApplicantProfile() {
     pending,
     currency,
     formattedPendingAmount,
-    isTotalAmountMissing
+    isTotalAmountMissing,
+    hasPendingAcknowledgement,
+    hasPendingConfirmation
   } = useApplicantPaymentState({
     applicant
   });
@@ -189,6 +210,7 @@ function ApplicantProfile() {
     canApproveProfile,
     isEmployer,
     canAccessDispatch,
+    canEditDispatch,
     canIssueContract,
     canUploadSignedContract,
     canInitiateEmbassyAppointment,
@@ -201,7 +223,6 @@ function ApplicantProfile() {
     canAddVisaTravel,
     canAddResidencePermit,
     canAddVisaCollectionTravel,
-    canShowDispatchHeaderButton,
     shouldShowDocumentAction,
     headerActionLabel,
     canHeaderAction,
@@ -295,6 +316,7 @@ function ApplicantProfile() {
 
   const isCandidateApprovalPending =
     Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
+  const isSeniorAccountant = user?.role === "SENIOR_ACCOUNTANT";
 
   const handleShowDocuments = () => {
     prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 120000 });
@@ -302,7 +324,7 @@ function ApplicantProfile() {
   };
 
   const handleShowDispatch = () => {
-    navigate(`/applicants/${id}/dispatch`);
+    setShowDispatchHistoryModal(true);
   };
 
   const handleShowProfileDetails = () => {
@@ -371,8 +393,6 @@ function ApplicantProfile() {
     ? openEmbassyAppointmentSection
     : canInitiateEmbassyAppointment
     ? openEmbassyAppointmentSection
-    : canShowDispatchHeaderButton
-    ? handleShowDispatch
     : applicantStage === 1 && canApproveProfile
     ? () => openEditProfile("stage1")
     : shouldShowDocumentAction
@@ -388,7 +408,16 @@ function ApplicantProfile() {
 
   return (
     <div className="page-container dashboardPageContainer">
-      <DashboardTopbar user={user} />
+      <DashboardTopbar
+        user={user}
+        showTabs
+        tabs={profileDashboardTabs.map((key) => ({
+          key,
+          label: DASHBOARD_TAB_CONFIG[key].label
+        }))}
+        activeTab="applicants"
+        onTabChange={handleDashboardTabChange}
+      />
       <div className="page-content applicantProfilePage">
         <div className="applicantProfileLayout">
           <aside className="applicantProfileSidebar">
@@ -412,8 +441,20 @@ function ApplicantProfile() {
               } : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
-              showAgency={isSuperUserLikeRole(user?.role)}
+              showAgency={isSuperUserLikeRole(user?.role) || isSeniorAccountant}
               showPendingAmount={!isEmployer}
+              accountantView={isSeniorAccountant}
+              pendingStatusText={
+                user?.role === "EMPLOYER"
+                  ? ""
+                  : hasPendingAcknowledgement && hasPendingConfirmation
+                  ? "Acknowledgement & confirmation pending"
+                  : hasPendingAcknowledgement
+                  ? "Acknowledgement pending"
+                  : hasPendingConfirmation
+                  ? "Confirmation pending"
+                  : ""
+              }
             />
           </aside>
 
@@ -429,6 +470,8 @@ function ApplicantProfile() {
               canActiveStepAction={canHeaderAction && !approvingStage}
               documentRowSubtitle={documentRowSubtitle}
               dispatchRowTitle={dispatchRowTitle}
+              dispatchActionLabel={canEditDispatch ? "Dispatch Document" : ""}
+              canDispatchAction={canEditDispatch}
               contractRowTitle={contractRowTitle}
               contractRowStatus={contractRowStatus}
               signedContractRowTitle={signedContractRowTitle}
@@ -456,12 +499,13 @@ function ApplicantProfile() {
               applicantTravelRowStatus={applicantTravelRowStatus}
               bannerText={pipelineBannerText}
               documentRowStatus={documentRowStatus}
+              readOnly={isSeniorAccountant}
               onCandidateAccountCreation={handleShowProfileDetails}
               onDispatchDocuments={
-                applicantStage >= 4
-                  ? handleShowDispatchDetails
-                  : canAccessDispatch
+                canEditDispatch
                   ? handleShowDispatch
+                  : canAccessDispatch
+                  ? handleShowDispatchDetails
                   : undefined
               }
               onContractAction={applicantStage >= 4 ? openContractSection : undefined}
@@ -535,6 +579,7 @@ function ApplicantProfile() {
           setShowApplicantDetailsModal={setShowApplicantDetailsModal}
           showDispatchHistoryModal={showDispatchHistoryModal}
           setShowDispatchHistoryModal={setShowDispatchHistoryModal}
+          canEditDispatch={canEditDispatch}
           refreshWorkflowData={refreshWorkflowData}
           approveStage={approveStage}
           onSaved={() => {

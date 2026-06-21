@@ -27,7 +27,7 @@ async function getTransporter() {
   return transporterPromise;
 }
 
-async function sendEmail({ to = [], subject = "", text = "", html = "", attachments = [] } = {}) {
+async function sendEmail({ to = [], subject = "", text = "", html = "", attachments = [], icalEvent = null } = {}) {
   const recipients = [...new Set((Array.isArray(to) ? to : [to]).map((item) => String(item || "").trim()).filter(Boolean))];
   if (!recipients.length) return { skipped: true, reason: "no_recipients" };
 
@@ -43,7 +43,8 @@ async function sendEmail({ to = [], subject = "", text = "", html = "", attachme
     subject,
     text,
     html,
-    attachments
+    attachments,
+    ...(icalEvent ? { icalEvent } : {})
   });
 }
 

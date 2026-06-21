@@ -50,6 +50,7 @@ function ApplicantProfileModalStack({
   setShowApplicantDetailsModal,
   showDispatchHistoryModal,
   setShowDispatchHistoryModal,
+  canEditDispatch = false,
   refreshWorkflowData
 }) {
   const isSuperUser = isSuperUserLikeRole(user?.role);
@@ -158,6 +159,8 @@ function ApplicantProfileModalStack({
         applicantId={id}
         open={showDispatchHistoryModal}
         onClose={() => setShowDispatchHistoryModal(false)}
+        canEdit={canEditDispatch}
+        onSaved={refreshWorkflowData}
       />
     </Suspense>
   );

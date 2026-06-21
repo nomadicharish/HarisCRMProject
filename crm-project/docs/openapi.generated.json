@@ -439,7 +439,7 @@
                   "stage": {
                     "type": "integer",
                     "minimum": 1,
-                    "maximum": 12
+                    "maximum": 13
                   }
                 },
                 "required": [
@@ -767,6 +767,57 @@
                 }
               ]
             }
+          },
+          {
+            "in": "query",
+            "name": "dashboardFilter",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "fromDate",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "toDate",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
           }
         ]
       }
@@ -945,6 +996,54 @@
           "Applicants"
         ],
         "summary": "GET applicants :applicantId payments-page",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/:applicantId/payments/:paymentId/acknowledge": {
+      "patch": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "PATCH applicants :applicantId payments :paymentId acknowledge",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/:applicantId/payments/:paymentId/confirm": {
+      "patch": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "PATCH applicants :applicantId payments :paymentId confirm",
         "responses": {
           "200": {
             "description": "Success"
@@ -1433,6 +1532,30 @@
         ]
       }
     },
+    "/api/applicants/:id/embassy-appointment/approve": {
+      "patch": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "PATCH applicants :id embassy-appointment approve",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/applicants/:id/embassy-workflow": {
       "get": {
         "tags": [
@@ -1689,6 +1812,76 @@
         ]
       }
     },
+    "/api/applicants/:id/signed-contract": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :id signed-contract",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "POST applicants :id signed-contract",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/:id/signed-contract/:documentId/reject": {
+      "patch": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "PATCH applicants :id signed-contract :documentId reject",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/applicants/:id/travel": {
       "get": {
         "tags": [
@@ -1787,6 +1980,52 @@
           "Applicants"
         ],
         "summary": "POST applicants :id visa-collection",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/:id/visa-collection-travel": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :id visa-collection-travel",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "POST applicants :id visa-collection-travel",
         "responses": {
           "200": {
             "description": "Success"
@@ -1994,6 +2233,21 @@
                     "type": "string",
                     "minLength": 1
                   },
+                  "jobPositionId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "jobPositionName": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      }
+                    ]
+                  },
                   "agencyId": {
                     "anyOf": [
                       {
@@ -2039,6 +2293,17 @@
                     ]
                   },
                   "currency": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "const": ""
+                      }
+                    ]
+                  },
+                  "paymentCurrency": {
                     "anyOf": [
                       {
                         "type": "string"
@@ -2203,6 +2468,7 @@
                 "required": [
                   "countryId",
                   "companyId",
+                  "jobPositionId",
                   "personalDetails"
                 ],
                 "additionalProperties": false
@@ -2212,12 +2478,172 @@
         }
       }
     },
-    "/api/applicants/exchange-rate": {
+    "/api/auth/accountants": {
       "get": {
         "tags": [
-          "Applicants"
+          "Auth"
         ],
-        "summary": "GET applicants exchange-rate",
+        "summary": "GET auth accountants",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "POST auth accountants",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/accountants/:uid": {
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "DELETE auth accountants :uid",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "PATCH auth accountants :uid",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/bank-accounts": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "GET auth bank-accounts",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "POST auth bank-accounts",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/auth/bank-accounts/:id": {
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "DELETE auth bank-accounts :id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "PATCH auth bank-accounts :id",
         "responses": {
           "200": {
             "description": "Success"

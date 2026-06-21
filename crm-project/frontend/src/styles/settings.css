@@ -138,6 +138,15 @@
   bottom:-6px;
 }
 
+.settingsNavIconBank{
+  border-radius:2px;
+  transform:rotate(45deg);
+}
+
+.settingsNavIconBank::after{
+  display:none;
+}
+
 .settingsContent{
   padding:14px 28px 28px;
 }
@@ -392,6 +401,10 @@
   font-size:13px;
 }
 
+.settingsBankTable{
+  min-width:680px;
+}
+
 .settingsAdminTable th{
   background:#f8fbff;
   color:#0f1f3d;
@@ -444,6 +457,25 @@
   background:transparent;
   color:#ef4444;
   padding:0;
+}
+
+.settingsAdminEditBtn{
+  width:34px;
+  height:34px;
+  min-height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:none;
+  background:transparent;
+  color:#0052cc;
+  padding:0;
+}
+
+.settingsRowActions{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
 }
 
 .settingsAdminEmpty{
@@ -538,6 +570,24 @@
   color:#334c76;
 }
 
+.settingsModalField select{
+  width:100%;
+  min-height:40px;
+  border:1px solid #d8dfeb;
+  border-radius:5px;
+  padding:0 12px;
+  background:#fff;
+  color:#334c76;
+}
+
+.settingsPhoneField .react-tel-input .form-control{
+  width:100%;
+  min-height:40px;
+  height:40px;
+  border-color:#d8dfeb;
+  color:#334c76;
+}
+
 .settingsModalHelp,
 .settingsInlineError{
   margin-top:6px;
@@ -614,6 +664,91 @@
 .settingsSuccessIcon{
   border:2px solid #0f8a2c;
   color:#0f8a2c;
+}
+
+.settingsNavIconOrganization::before{
+  content:"";
+  width:14px;
+  height:14px;
+  border:1.8px solid currentColor;
+  border-radius:3px;
+  box-shadow:5px 5px 0 -3px #ffffff, 5px 5px 0 -1.8px currentColor;
+}
+
+.settingsOrganizationPanel{
+  min-width:0;
+}
+
+.settingsSectionDescription{
+  margin:6px 0 0;
+  color:#667085;
+  font-size:14px;
+}
+
+.settingsOrganizationToolbar{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:16px;
+  margin:20px 0 14px;
+}
+
+.settingsOrganizationSearch{
+  width:min(300px, 100%);
+}
+
+.settingsOrganizationSelect{
+  width:auto;
+  min-width:170px;
+}
+
+.settingsOrganizationCount{
+  margin-left:auto;
+  color:#667085;
+  font-size:14px;
+  white-space:nowrap;
+}
+
+.settingsOrganizationTable{
+  padding:0;
+  overflow:auto;
+  box-shadow:none;
+}
+
+.settingsCountrySummary{
+  margin-top:22px;
+  padding:24px;
+  border:1px solid #e4e9f3;
+  border-radius:12px;
+  background:#f8faff;
+}
+
+.settingsCountrySummary > strong{
+  display:block;
+  color:#101828;
+  font-size:30px;
+}
+
+.settingsCountrySummary > span{
+  color:#667085;
+  font-size:14px;
+}
+
+.settingsCountryTags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:18px;
+}
+
+.settingsCountryTags span{
+  padding:7px 11px;
+  border:1px solid #d8e3f5;
+  border-radius:999px;
+  background:#ffffff;
+  color:#253858;
+  font-size:13px;
+  font-weight:600;
 }
 
 @media (max-width: 900px){
@@ -708,6 +843,15 @@
   .settingsInlineActions{
     flex-direction:column;
     align-items:stretch;
+  }
+
+  .settingsOrganizationToolbar{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .settingsOrganizationCount{
+    white-space:normal;
   }
 
   .settingsBlock,

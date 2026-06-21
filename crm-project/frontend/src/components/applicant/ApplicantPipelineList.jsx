@@ -107,6 +107,8 @@ function ApplicantPipelineList({
   canActiveStepAction = true,
   documentRowSubtitle = "",
   dispatchRowTitle = "Dispatch Documents",
+  dispatchActionLabel = "",
+  canDispatchAction = true,
   contractRowTitle = "Issue of the Contract",
   contractRowSubtitle = "",
   contractRowStatus = "",
@@ -134,13 +136,14 @@ function ApplicantPipelineList({
   candidateArrivalRowTitle = "Arrival of Candidate",
   candidateArrivalRowSubtitle = "",
   bannerText = "Complete the document uploading for admin to approve the candidate",
-  documentRowStatus = ""
+  documentRowStatus = "",
+  readOnly = false
 }) {
   const resolvedCurrentStep = Number(currentStep || 1);
 
   return (
     <div className="pipelineCard">
-      <div className="pipelineBannerCard">
+      {!readOnly ? <div className="pipelineBannerCard">
         <div className="pipelineBanner">
           <div className="pipelineBannerLeft">
             <div className="pipelineStepPill">
@@ -158,7 +161,7 @@ function ApplicantPipelineList({
             </button>
           ) : null}
         </div>
-      </div>
+      </div> : null}
 
       <div className="pipelineHeaderRow">
         <h3 className="pipelineTitle">Application Pipeline</h3>
@@ -224,7 +227,9 @@ function ApplicantPipelineList({
               : item.id === 13
               ? onCandidateArrivalAction
               : undefined;
-          const canRowClick = typeof rowAction === "function";
+          const canRowClick =
+            typeof rowAction === "function" &&
+            (!readOnly || item.id === 3);
           const isCompletedRow = resolvedStatus === "completed";
           const isActiveRow = item.id === resolvedCurrentStep;
           const resolvedSubtitle =
@@ -273,6 +278,7 @@ function ApplicantPipelineList({
               : item.id === 13
               ? candidateArrivalRowTitle
               : item.title;
+          const displayTitle = readOnly ? item.title : resolvedTitle;
           const isSignedContractRejectedRow =
             item.id === 5 &&
             signedContractRowStatus === "danger" &&
@@ -299,7 +305,14 @@ function ApplicantPipelineList({
             Boolean(canActiveStepAction) &&
             isActiveRow &&
             (activeStepActionLabel === "Add Biometric Slip" || activeStepActionLabel === "Upload TRP Document");
-          const showCompletedArrow = isCompletedRow && canRowClick;
+          const showRowArrow =
+            canRowClick &&
+            (isCompletedRow || item.id === 3);
+          const showDispatchButton =
+            item.id === 3 &&
+            dispatchActionLabel &&
+            typeof onDispatchDocuments === "function" &&
+            Boolean(canDispatchAction);
           const isLastRow = item.id === totalSteps;
 
           return (
@@ -312,32 +325,42 @@ function ApplicantPipelineList({
               <div className="pipeLeft">
                 <StatusIcon status={resolvedStatus} />
                 <div className="pipeText">
-                  <div className="pipeTitle">{resolvedTitle}</div>
-                  {resolvedSubtitle ? (
+                  <div className="pipeTitle">{displayTitle}</div>
+                  {!readOnly && resolvedSubtitle ? (
                     <div className={`pipeMeta pipeMeta-${resolvedStatus}`}>{resolvedSubtitle}</div>
                   ) : null}
                 </div>
               </div>
 
               <div className="pipeRight">
-                {showUpdateTravelButton ? (
+                {!readOnly && showDispatchButton ? (
+                  <button
+                    className="btn bannerBtn btnSm pipeStageActionBtn"
+                    type="button"
+                    onClick={onDispatchDocuments}
+                  >
+                    {dispatchActionLabel}
+                  </button>
+                ) : null}
+
+                {!readOnly && showUpdateTravelButton ? (
                   <button className="btn btnSecondary btnSm pipeStageActionBtn" type="button" onClick={onUpdateTravelAction}>
                     {updateTravelActionLabel}
                   </button>
                 ) : null}
 
-                {showActiveButton ? (
+                {!readOnly && showActiveButton ? (
                   <button className="btn bannerBtn btnSm pipeStageActionBtn" type="button" onClick={onHeaderAction}>
                     {activeStepActionLabel}
                   </button>
                 ) : null}
 
-                {showCompletedArrow ? (
+                {showRowArrow && !showDispatchButton ? (
                   <button
                     className="pipeChevronBtn"
                     type="button"
                     onClick={rowAction}
-                    aria-label={`Open ${resolvedTitle}`}
+                    aria-label={`Open ${displayTitle}`}
                   >
                     <IconChevron />
                   </button>

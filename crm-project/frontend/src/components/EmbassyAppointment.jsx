@@ -112,7 +112,11 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
     !hasBiometricSlip &&
     (!appointment || isAppointmentPending);
   const canApprove = isSuperUser && appointment && isAppointmentPending && !hasBiometricSlip;
-  const canAddTicket = user?.role === "AGENCY" && appointment && !hasBiometricSlip && (!travelDetails || editingTravel);
+  const canAddTicket =
+    user?.role === "AGENCY" &&
+    appointment &&
+    ((!travelDetails && !hasBiometricSlip) || editingTravel);
+  const canUpdateTravel = user?.role === "AGENCY" && appointment && Boolean(travelDetails);
   const isBusy = savingAppointment || savingTicket || approvingAppointment;
   const showAppointmentForm = canEditAppointment && (!appointment || editingAppointment);
 
@@ -378,7 +382,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                       />
                     </DetailCard>
                   ) : null}
-                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
+                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={60} user={user} /> : null}
                 </div>
               </div>
             ) : null}
@@ -442,7 +446,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
-                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
+                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={60} user={user} /> : null}
 
                 <div className="contractActionRow">
                   {appointment ? (
@@ -524,7 +528,9 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                   </span>
                   <span className="workflowUploadBoxText">
                     <span className="workflowUploadBoxTitle">Choose file</span>
-                    <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
+                    <span className="workflowUploadBoxName">
+                      {travelFile ? travelFile.name : travelDetails?.fileUrl ? "Keep current ticket or choose a replacement" : "No file chosen"}
+                    </span>
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
@@ -545,6 +551,11 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
 
             {!showAppointmentForm ? (
               <div className="workflowModalFooter">
+                {canUpdateTravel && !editingTravel ? (
+                  <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingTravel(true)}>
+                    Update Travel
+                  </button>
+                ) : null}
                 {appointment && canEditAppointment ? (
                   <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingAppointment(true)}>
                     Edit

@@ -27,6 +27,9 @@ async function buildPaymentSummary(applicantId, applicantData = {}) {
   let applicantPaid = 0;
   let employerPaid = 0;
   let applicantInstallments = 0;
+  let confirmedAmount = 0;
+  let awaitingJuniorAmount = 0;
+  let awaitingSeniorAmount = 0;
 
   paymentsSnap.forEach((paymentDoc) => {
     const payment = paymentDoc.data() || {};
@@ -34,6 +37,19 @@ async function buildPaymentSummary(applicantId, applicantData = {}) {
     if (payment.type === "APPLICANT") {
       applicantPaid += amount;
       applicantInstallments += 1;
+      let status = String(payment.verificationStatus || payment.status || "").toUpperCase();
+      if (!["PENDING_JUNIOR", "PENDING_SENIOR", "CONFIRMED"].includes(status)) {
+        status = payment.requiresVerification === true
+          ? payment.seniorConfirmed === true || payment.seniorConfirmedAt
+            ? "CONFIRMED"
+            : payment.juniorAcknowledged === true || payment.juniorAcknowledgedAt
+            ? "PENDING_SENIOR"
+            : "PENDING_JUNIOR"
+          : "CONFIRMED";
+      }
+      if (status === "PENDING_JUNIOR") awaitingJuniorAmount += amount;
+      else if (status === "PENDING_SENIOR") awaitingSeniorAmount += amount;
+      else confirmedAmount += amount;
     }
     if (payment.type === "EMPLOYER") {
       employerPaid += amount;
@@ -41,7 +57,11 @@ async function buildPaymentSummary(applicantId, applicantData = {}) {
   });
 
   const legacyPaid = roundCurrency(applicantData.amountPaid ?? applicantData.paidAmount ?? 0);
+  const trackedAmount = roundCurrency(confirmedAmount + awaitingJuniorAmount + awaitingSeniorAmount);
   applicantPaid = Math.max(roundCurrency(applicantPaid), legacyPaid);
+  if (legacyPaid > trackedAmount) {
+    confirmedAmount = roundCurrency(confirmedAmount + Math.max(0, legacyPaid - trackedAmount));
+  }
 
   const totalApplicant = roundCurrency(
     applicantData.totalApplicantPayment ?? applicantData.totalAmount ?? applicantData.totalPayment ?? 0
@@ -59,7 +79,13 @@ async function buildPaymentSummary(applicantId, applicantData = {}) {
       pendingInr: Math.max(0, roundCurrency(totalApplicant - applicantPaid)),
       currency: applicantCurrency,
       installmentCount: applicantInstallments,
-      remainingInstallments: Math.max(0, 5 - applicantInstallments)
+      remainingInstallments: Math.max(0, 5 - applicantInstallments),
+      confirmedAmount: roundCurrency(confirmedAmount),
+      awaitingJuniorAmount: roundCurrency(awaitingJuniorAmount),
+      awaitingSeniorAmount: roundCurrency(awaitingSeniorAmount),
+      hasPendingAcknowledgement: awaitingJuniorAmount > 0,
+      hasPendingConfirmation: awaitingSeniorAmount > 0,
+      paymentCompleted: totalApplicant > 0 && roundCurrency(confirmedAmount) >= totalApplicant
     },
     employer: {
       total: totalEmployer,
@@ -264,7 +290,15 @@ async function updatePaymentSummaryAfterPayment(applicantId, payment = {}, appli
       pendingInr: Math.max(0, roundCurrency(totalApplicant - nextApplicantPaid)),
       currency: applicantCurrency,
       installmentCount: nextApplicantInstallments,
-      remainingInstallments: Math.max(0, 5 - nextApplicantInstallments)
+      remainingInstallments: Math.max(0, 5 - nextApplicantInstallments),
+      confirmedAmount: roundCurrency(applicantSummary.confirmedAmount || 0),
+      awaitingJuniorAmount: payment.type === "APPLICANT"
+        ? roundCurrency((applicantSummary.awaitingJuniorAmount || 0) + amount)
+        : roundCurrency(applicantSummary.awaitingJuniorAmount || 0),
+      awaitingSeniorAmount: roundCurrency(applicantSummary.awaitingSeniorAmount || 0),
+      hasPendingAcknowledgement: payment.type === "APPLICANT" || Boolean(applicantSummary.hasPendingAcknowledgement),
+      hasPendingConfirmation: Boolean(applicantSummary.hasPendingConfirmation),
+      paymentCompleted: Boolean(applicantSummary.paymentCompleted)
     },
     employer: {
       total: totalEmployer,

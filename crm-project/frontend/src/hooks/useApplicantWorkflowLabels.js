@@ -56,9 +56,19 @@ function useApplicantWorkflowLabels({
     const rejectedRequired = hasRejectedDocumentsFromFlags || (hasAnyDocStateFromFlags || hasAnyDocumentsPayload ? docReviewState.rejectedRequired : false);
     const uploadedRequired = approvedRequired || pendingRequired || rejectedRequired || (hasAnyDocStateFromFlags || hasAnyDocumentsPayload ? docReviewState.uploadedRequired : false);
     const hasCompletedDocumentStage = applicantStage >= 3 && approvedRequired;
-    const canAccessDispatch = applicantStage >= 3 && applicantStage < 5;
-    const canEditDispatch = user?.role === "AGENCY" && applicantStage >= 3 && applicantStage < 5;
-    const canShowDispatchHeaderButton = canEditDispatch;
+    const employerContractStatus = String(contract?.status || applicant?.contract?.status || "").toUpperCase();
+    const hasEmployerContract = Boolean(
+      contract?.fileUrl ||
+      applicant?.contract?.fileUrl ||
+      workflowFlags.isContractPendingApproval === true ||
+      workflowFlags.isContractIssued === true ||
+      employerContractStatus === "PENDING" ||
+      employerContractStatus === "APPROVED"
+    );
+    const canAccessDispatch = applicantStage >= 3;
+    const canEditDispatch =
+      user?.role === "AGENCY" &&
+      (applicantStage === 3 || (applicantStage === 4 && !hasEmployerContract));
     const canIssueContract = applicantStage === 4 && (isSuperUser || user?.role === "EMPLOYER");
     const isContractPendingApproval =
       applicantStage === 4 &&
@@ -130,7 +140,9 @@ function useApplicantWorkflowLabels({
     const canAddVisaCollectionTravel =
       applicantStage === 11 && user?.role === "AGENCY" && !hasVisaCollectionTravel;
     const hasDocuments = hasAnyDocumentsPayload;
+    const canManageDocuments = isSuperUser || user?.role === "AGENCY";
     const shouldShowDocumentAction =
+      canManageDocuments &&
       !hasCompletedDocumentStage &&
       applicantStage >= 2 &&
       (!isSuperUser || hasDocuments || uploadedRequired || pendingRequired);
@@ -210,7 +222,7 @@ function useApplicantWorkflowLabels({
       : applicantStage === 2
       ? "active"
       : "";
-    const dispatchRowTitle = applicantStage >= 4 ? "Document Dispatched" : "Dispatch Documents";
+    const dispatchRowTitle = "Document Dispatched";
     const contractRowTitle = isContractCompleted
       ? "Contract Issued"
       : isContractPendingApproval
@@ -357,10 +369,6 @@ function useApplicantWorkflowLabels({
         : hasEmbassyAppointmentRecord && user?.role === "EMPLOYER"
         ? "Update Embassy Appointment"
         : "Initiate Embassy Appointment"
-      : canShowDispatchHeaderButton
-      ? canEditDispatch
-        ? "Dispatch Document"
-        : "Documents Dispatched"
       : applicantStage >= 13
       ? ""
       : applicantStage === 1 && canApproveProfile
@@ -380,7 +388,6 @@ function useApplicantWorkflowLabels({
       canAddBiometricSlip ||
       canAddTicket ||
       canInitiateEmbassyAppointment ||
-      (canShowDispatchHeaderButton && applicantStage >= 3 && applicantStage < 5) ||
       (applicantStage === 1 ? canApproveProfile : shouldShowDocumentAction);
 
     return {
@@ -388,6 +395,7 @@ function useApplicantWorkflowLabels({
       canApproveProfile,
       isEmployer,
       canAccessDispatch,
+      canEditDispatch,
       canIssueContract,
       canUploadSignedContract,
       canInitiateEmbassyAppointment,
@@ -400,7 +408,6 @@ function useApplicantWorkflowLabels({
       canAddVisaTravel,
       canAddResidencePermit,
       canAddVisaCollectionTravel,
-      canShowDispatchHeaderButton,
       shouldShowDocumentAction,
       hasTravelDetails,
       hasInterviewTicket,

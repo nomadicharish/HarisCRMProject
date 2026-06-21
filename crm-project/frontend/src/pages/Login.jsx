@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { auth, authReady } from "../firebase";
 import BrandLogo from "../components/common/BrandLogo";
@@ -64,6 +64,10 @@ function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedPath = location.state?.from
+    ? `${location.state.from.pathname}${location.state.from.search || ""}${location.state.from.hash || ""}`
+    : "";
 
   useEffect(() => {
     if (isSessionExpired()) return;
@@ -75,8 +79,8 @@ function Login() {
       return;
     }
 
-    navigate(getDashboardPathByRole(storedUser.role), { replace: true });
-  }, [navigate]);
+    navigate(requestedPath || getDashboardPathByRole(storedUser.role), { replace: true });
+  }, [navigate, requestedPath]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -110,7 +114,7 @@ function Login() {
         return;
       }
 
-      navigate(getDashboardPathByRole(userData.role), { replace: true });
+      navigate(requestedPath || getDashboardPathByRole(userData.role), { replace: true });
     } catch (err) {
       console.error(err);
       setError(getLoginErrorMessage(err));

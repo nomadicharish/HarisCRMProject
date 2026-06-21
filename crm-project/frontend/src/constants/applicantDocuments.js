@@ -1,3 +1,18 @@
+const CV_WORD_DOCUMENT_KEY = "cv_word_format_with_photo";
+const CV_WORD_ALLOWED_EXTENSIONS = ["doc", "docx"];
+
+function normalizeAllowedExtensionsForDocument(key, extensions) {
+  const normalized = Array.isArray(extensions) && extensions.length
+    ? extensions.map((extension) => String(extension || "").replace(".", "").trim().toLowerCase()).filter(Boolean)
+    : [];
+
+  if (key === CV_WORD_DOCUMENT_KEY) {
+    return Array.from(new Set([...normalized, ...CV_WORD_ALLOWED_EXTENSIONS]));
+  }
+
+  return normalized;
+}
+
 function normalizeApplicantDocumentConfigs(value) {
   if (!Array.isArray(value)) return [];
 
@@ -19,10 +34,10 @@ function normalizeApplicantDocumentConfigs(value) {
       documentToFillUrl: String(item.documentToFillUrl || item.fillDocumentUrl || item.templateFileUrl || "").trim(),
       referenceFileName: String(item.referenceFileName || item.referenceDocumentFileName || "").trim(),
       referenceUrl: String(item.referenceUrl || item.referenceDocumentUrl || "").trim(),
-      allowedExtensions: Array.isArray(item.allowedExtensions) && item.allowedExtensions.length
-        ? item.allowedExtensions.map((extension) => String(extension || "").replace(".", "").trim().toLowerCase()).filter(Boolean)
-        : [],
-      uploadHelpText: String(item.uploadHelpText || "").trim()
+      allowedExtensions: normalizeAllowedExtensionsForDocument(key, item.allowedExtensions),
+      uploadHelpText: key === CV_WORD_DOCUMENT_KEY
+        ? "Upload DOC or DOCX (Max 5 MB)"
+        : String(item.uploadHelpText || "").trim()
     });
 
     return documents;

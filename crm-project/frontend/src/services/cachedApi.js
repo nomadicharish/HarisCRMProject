@@ -90,10 +90,13 @@ export function invalidateCache(prefix = "") {
     return;
   }
 
+  const prefixes = [prefix];
+  if (prefix.startsWith("/applicants")) prefixes.push("/dashboard");
+
   queryClient.invalidateQueries({
     predicate: (query) => {
       const key = Array.isArray(query.queryKey) ? query.queryKey[1] : "";
-      return typeof key === "string" && key.startsWith(prefix);
+      return typeof key === "string" && prefixes.some((candidate) => key.startsWith(candidate));
     }
   });
 }

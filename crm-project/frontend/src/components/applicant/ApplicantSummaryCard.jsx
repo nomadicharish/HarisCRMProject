@@ -76,7 +76,10 @@ function ApplicantSummaryCard({
   countryName: countryNameOverride,
   showAgency = false,
   showPendingAmount = true,
-  pendingStyle = "default"
+  pendingStyle = "default",
+  accountantView = false,
+  pendingStatusText = "",
+  headerOnly = false
 }) {
   const fullName =
     applicant?.fullName ||
@@ -100,7 +103,7 @@ function ApplicantSummaryCard({
   const employer = applicant?.companyName || "-";
   const jobPosition = applicant?.jobPositionName || "";
   const country = countryNameOverride || applicant?.countryName || applicant?.country || "";
-  const employerDisplay = country ? `${employer}, ${country}` : employer;
+  const employerDisplay = accountantView ? employer : country ? `${employer}, ${country}` : employer;
   const agency =
     agencyNameOverride ||
     applicant?.agencyName ||
@@ -137,7 +140,7 @@ function ApplicantSummaryCard({
         <div className="sideTopMeta">
           <div className="sideName">{fullName}</div>
           <div className="sideAge">Age {age ?? "-"}</div>
-          {createdText ? <div className="sideCreated">{createdText}</div> : null}
+          {!accountantView && createdText ? <div className="sideCreated">{createdText}</div> : null}
         </div>
 
         {canEdit ? (
@@ -157,7 +160,9 @@ function ApplicantSummaryCard({
         ) : null}
       </div>
 
-      <div className="sideSection sideSectionCard">
+      {!headerOnly ? (
+        <>
+      {!accountantView ? <div className="sideSection sideSectionCard">
         <div className="sideLabelRow">
           <div className="sideSectionIcon"><InfoIcon type="phone" /></div>
           <div className="sideSectionMeta">
@@ -165,7 +170,7 @@ function ApplicantSummaryCard({
             <div className="sideValue">{phone || "-"}</div>
           </div>
         </div>
-      </div>
+      </div> : null}
 
       {jobPosition ? (
         <div className="sideSection sideSectionCard">
@@ -179,7 +184,7 @@ function ApplicantSummaryCard({
         </div>
       ) : null}
 
-      <div className="sideSection sideSectionCard">
+      {!accountantView ? <div className="sideSection sideSectionCard">
         <div className="sideLabelRow">
           <div className="sideSectionIcon"><InfoIcon type="email" /></div>
           <div className="sideSectionMeta">
@@ -187,9 +192,9 @@ function ApplicantSummaryCard({
             <div className="sideValue">{email}</div>
           </div>
         </div>
-      </div>
+      </div> : null}
 
-      <div className="sideSection sideSectionCard">
+      {!accountantView ? <div className="sideSection sideSectionCard">
         <div className="sideLabelRow">
           <div className="sideSectionIcon"><InfoIcon type="address" /></div>
           <div className="sideSectionMeta">
@@ -197,7 +202,7 @@ function ApplicantSummaryCard({
             <div className="sideValue">{address}</div>
           </div>
         </div>
-      </div>
+      </div> : null}
 
       <div className="sideSection sideSectionCard">
         <div className="sideLabelRow">
@@ -246,11 +251,14 @@ function ApplicantSummaryCard({
           <div className="pendingText">
             <div className="pendingLabel">Pending Amount</div>
             <div className="pendingValue">{pendingValue}</div>
+            {pendingStatusText ? <div className="pendingStatusText">{pendingStatusText}</div> : null}
           </div>
           <div className="pendingChevron" aria-hidden="true">
             &gt;
           </div>
         </PendingContainer>
+      ) : null}
+        </>
       ) : null}
     </div>
   );

@@ -14,6 +14,45 @@ const {
 } = require("../../services/applicantDomainService");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 
+function projectAccountantApplicant(applicant = {}) {
+  const personalDetails = applicant.personalDetails || {};
+  return {
+    id: applicant.id || "",
+    firstName: applicant.firstName || personalDetails.firstName || "",
+    lastName: applicant.lastName || personalDetails.lastName || "",
+    fullName:
+      applicant.fullName ||
+      [applicant.firstName || personalDetails.firstName, applicant.lastName || personalDetails.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+    age: applicant.age ?? personalDetails.age ?? null,
+    personalDetails: {
+      age: personalDetails.age ?? applicant.age ?? null
+    },
+    jobPositionName: applicant.jobPositionName || "",
+    companyName: applicant.companyName || "",
+    agencyName: applicant.agencyName || "",
+    stage: Number(applicant.stage || 1),
+    approvalStatus: applicant.approvalStatus || "",
+    stageLabel: applicant.stageLabel || "",
+    applicantBannerStatus: applicant.applicantBannerStatus || "",
+    statusText: applicant.statusText || "",
+    workflowFlags: applicant.workflowFlags || {},
+    payment: applicant.payment || {},
+    paymentCurrency: applicant.paymentCurrency || applicant.currency || "",
+    currency: applicant.currency || applicant.paymentCurrency || "",
+    totalApplicantPayment: applicant.totalApplicantPayment ?? applicant.totalAmount ?? 0,
+    totalAmount: applicant.totalAmount ?? applicant.totalApplicantPayment ?? 0,
+    amountPaid: applicant.amountPaid ?? applicant.paidAmount ?? 0,
+    paidAmount: applicant.paidAmount ?? applicant.amountPaid ?? 0
+  };
+}
+
+function shouldProjectAccountantApplicant(role) {
+  return role === "JUNIOR_ACCOUNTANT" || role === "SENIOR_ACCOUNTANT";
+}
+
 async function getApplicantProfilePhotoUrl(applicantId) {
   const docsRef = db.collection("applicants").doc(applicantId).collection("documents");
   const [photoDoc, legacyPhotoDoc] = await Promise.all([
@@ -112,7 +151,7 @@ async function getApplicantByIdUseCase(req) {
     )
   });
 
-  return {
+  const response = {
     id: doc.id,
     ...applicantData,
     companyName,
@@ -137,9 +176,18 @@ async function getApplicantByIdUseCase(req) {
       pending: Math.max(0, totalApplicantPayment - applicantPaid),
       pendingInr: Math.max(0, totalApplicantPayment - applicantPaid),
       currency: paymentCurrency,
-      sourceCurrency: paymentCurrency
+      sourceCurrency: paymentCurrency,
+      confirmedAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.confirmedAmount ?? applicantPaid),
+      awaitingJuniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingJuniorAmount),
+      awaitingSeniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingSeniorAmount),
+      hasPendingAcknowledgement: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingAcknowledgement),
+      hasPendingConfirmation: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingConfirmation),
+      paymentCompleted: Boolean(applicantData?.paymentSummary?.applicant?.paymentCompleted)
     }
   };
+  return shouldProjectAccountantApplicant(req.user?.role)
+    ? projectAccountantApplicant(response)
+    : response;
 }
 
 async function getApplicantWorkflowBundleUseCase(req) {
@@ -370,7 +418,6 @@ async function getApplicantWorkflowBundleUseCase(req) {
     isVisaTravelUploaded: Boolean(hasVisaTravel),
     isResidencePermitUploaded: Boolean(hasResidencePermit)
   };
-
   const {
     contract: _contract,
     biometricSlip: _biometricSlip,
@@ -425,11 +472,22 @@ async function getApplicantWorkflowBundleUseCase(req) {
         pending,
         pendingInr: pending,
         currency: paymentCurrency,
-        sourceCurrency: paymentCurrency
+        sourceCurrency: paymentCurrency,
+        confirmedAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.confirmedAmount ?? paid),
+        awaitingJuniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingJuniorAmount),
+        awaitingSeniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingSeniorAmount),
+        hasPendingAcknowledgement: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingAcknowledgement),
+        hasPendingConfirmation: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingConfirmation),
+        paymentCompleted: Boolean(applicantData?.paymentSummary?.applicant?.paymentCompleted)
       }
     },
     currency: paymentCurrency
   };
+
+  if (shouldProjectAccountantApplicant(req.user?.role)) {
+    response.applicant = projectAccountantApplicant(response.applicant);
+    return response;
+  }
 
   if (includeDetails) {
     return {

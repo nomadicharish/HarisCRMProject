@@ -1,5 +1,6 @@
 const { db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
+const { resolveApplicantPaymentSnapshot } = require("./applicantDomainService");
 const { isSuperUserLikeRole } = require("../utils/roles");
 
 function toTimestamp(value) {
@@ -44,24 +45,18 @@ function resolveWorkflowDate(...values) {
   return null;
 }
 
-async function resolvePayment(applicant, applicantId) {
-  const summary = applicant?.paymentSummary?.applicant || {};
-  const total = Number(summary.total ?? applicant?.totalApplicantPayment ?? applicant?.totalAmount ?? applicant?.totalPayment ?? 0);
-  const hasStoredPaid =
-    summary.paid !== undefined ||
-    applicant?.amountPaid !== undefined ||
-    applicant?.paidAmount !== undefined;
-  let paid = Number(summary.paid ?? applicant?.amountPaid ?? applicant?.paidAmount ?? 0);
-  if (!hasStoredPaid && applicantId) {
-    const paymentsSnap = await db.collection("applicants").doc(applicantId).collection("payments").get();
-    paymentsSnap.forEach((paymentDoc) => {
-      const payment = paymentDoc.data() || {};
-      if (payment.type === "APPLICANT") paid += Number(payment.amount || 0);
-    });
+async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
+  let employerId = linkedEmployerId;
+  if (!employerId) {
+    const userDoc = await db.collection("users").doc(userId).get();
+    employerId = userDoc.exists ? userDoc.data()?.employerId : null;
   }
-  const pending = Math.max(0, total - paid);
-  const currency = String(summary.currency || applicant?.paymentCurrency || applicant?.currency || "INR").toUpperCase();
-  return { total, paid, pending, currency };
+  if (!employerId) throw new AppError("Employer profile not linked", 400);
+
+  const employerDoc = await db.collection("employers").doc(employerId).get();
+  const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
+  if (!companyId) throw new AppError("Employer company not linked", 400);
+  return companyId;
 }
 
 function createMetric(key, label, filter, tone = "blue") {
@@ -74,6 +69,7 @@ async function getDashboard({ user, query }) {
   const { companyId = "", agencyId = "", fromDate = "", toDate = "" } = query;
 
   let firestoreQuery = db.collection("applicants");
+  let filterApprovedForEmployer = false;
 
   if (role === "AGENCY") {
     if (!user.agencyId) {
@@ -81,7 +77,9 @@ async function getDashboard({ user, query }) {
     }
     firestoreQuery = firestoreQuery.where("agencyId", "==", user.agencyId);
   } else if (role === "EMPLOYER") {
-    firestoreQuery = firestoreQuery.where("employerIds", "array-contains", userId);
+    const linkedCompanyId = await resolveEmployerCompanyId(userId, user.employerId || null);
+    firestoreQuery = firestoreQuery.where("companyId", "==", linkedCompanyId);
+    filterApprovedForEmployer = true;
   }
 
   if (companyId) {
@@ -104,6 +102,19 @@ async function getDashboard({ user, query }) {
   }
 
   const snapshot = await firestoreQuery.get();
+  let scopedDocs = snapshot.docs;
+
+  if (role === "AGENCY" && user.agencyId !== userId) {
+    let legacyAgencyQuery = db.collection("applicants").where("agencyId", "==", userId);
+    if (companyId) {
+      legacyAgencyQuery = legacyAgencyQuery.where("companyId", "==", companyId);
+    }
+    const legacyAgencySnapshot = await legacyAgencyQuery.get();
+    const docsById = new Map(scopedDocs.map((doc) => [doc.id, doc]));
+    legacyAgencySnapshot.docs.forEach((doc) => docsById.set(doc.id, doc));
+    scopedDocs = Array.from(docsById.values());
+  }
+
   const { from, to } = getDateRange(fromDate, toDate);
   const now = new Date();
 
@@ -149,9 +160,17 @@ async function getDashboard({ user, query }) {
     home
   };
 
-  for (const doc of snapshot.docs) {
+  const docs = filterApprovedForEmployer
+    ? scopedDocs.filter((doc) => {
+        const data = doc.data() || {};
+        const status = String(data.approvalStatus || "").toLowerCase();
+        return status === "approved";
+      })
+    : scopedDocs;
+
+  for (const doc of docs) {
     const data = doc.data() || {};
-    const payment = await resolvePayment(data, doc.id);
+    const payment = resolveApplicantPaymentSnapshot(data);
     const stage = Number(data.stage || 1);
     const appointmentDate = resolveWorkflowDate(data?.embassyAppointment?.dateTime, data?.embassyAppointment?.date, data?.embassyAppointment?.createdAt);
     const interviewDate = resolveWorkflowDate(data?.embassyInterview?.dateTime, data?.embassyInterview?.date, data?.embassyInterview?.createdAt);
@@ -169,18 +188,18 @@ async function getDashboard({ user, query }) {
     summary.payments.totalCollected += payment.paid;
     summary.payments.totalPending += payment.pending;
 
-    if (isWithinRange(arrivalDate, from, to)) summary.home.upcoming.arriving.count += 1;
-    if (isWithinRange(visaCollectionDate, from, to)) summary.home.upcoming.visaCollection.count += 1;
-    if (isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
-    if (isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
+    if (stage < 13 && isWithinRange(arrivalDate, from, to)) summary.home.upcoming.arriving.count += 1;
+    if (stage < 12 && isWithinRange(visaCollectionDate, from, to)) summary.home.upcoming.visaCollection.count += 1;
+    if (stage < 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
+    if (stage < 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
 
-    if (visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
+    if (stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
       summary.home.overdue.trpPending.count += 1;
     }
-    if (interviewDate && interviewDate < now && !data?.interviewBiometric?.fileUrl) {
+    if (stage === 9 && interviewDate && interviewDate < now && !data?.interviewBiometric?.fileUrl) {
       summary.home.overdue.interviewBiometricPending.count += 1;
     }
-    if (appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
+    if (stage === 7 && appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
       summary.home.overdue.appointmentBiometricPending.count += 1;
     }
     if (payment.pending > 0) {

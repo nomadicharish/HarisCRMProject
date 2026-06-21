@@ -92,7 +92,17 @@ const addPaymentSchema = z.object({
   currency: optionalTrimmedString,
   note: optionalTrimmedString,
   paidDate: optionalTrimmedString,
-  paymentMode: optionalTrimmedString
+  paymentMode: optionalTrimmedString,
+  bankAccountId: optionalTrimmedString,
+  utrNumber: optionalTrimmedString,
+  payeeName: optionalTrimmedString,
+  payeeBankName: optionalTrimmedString,
+  payeeBankBranch: optionalTrimmedString
+});
+
+const paymentActionParamsSchema = z.object({
+  applicantId: idSchema,
+  paymentId: idSchema
 });
 
 const appointmentBodySchema = z.object({
@@ -200,6 +210,7 @@ module.exports = {
   idParamsSchema,
   interviewBodySchema,
   interviewOrStageParamsSchema,
+  paymentActionParamsSchema,
   rejectDocumentSchema,
   residencePermitBodySchema,
   signedContractDocumentParamsSchema,

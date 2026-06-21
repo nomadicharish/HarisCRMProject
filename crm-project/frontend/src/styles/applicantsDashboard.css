@@ -216,6 +216,34 @@
   padding:0 6px;
 }
 
+.companyPositionActions{
+  justify-self:end;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.companyCopyApplicantLink{
+  min-height:34px;
+  padding:0 12px;
+  border:1px solid #2563eb;
+  border-radius:6px;
+  background:#eff6ff;
+  color:#0b55d9;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyCopyApplicantLink:disabled{
+  border-color:#d0d5dd;
+  background:#f2f4f7;
+  color:#98a2b3;
+  cursor:not-allowed;
+}
+
 .companyDocumentsBlock{
   padding:10px 28px 24px;
 }
@@ -516,6 +544,7 @@
   }
 
   .companyDeleteIcon,
+  .companyPositionActions,
   .companySectionFooter{
     justify-self:stretch;
     justify-content:flex-end;
@@ -949,6 +978,34 @@
   font-size:14px;
   font-weight:500;
   color:#6b778c;
+}
+
+.dashboardViewAllApplicants{
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#0052cc;
+  font:inherit;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.dashboardHeaderSoloAction{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+}
+
+.dashboardViewAllApplicants:hover{
+  color:#003d99;
+  text-decoration:underline;
+}
+
+.dashboardViewAllApplicants:focus-visible{
+  outline:2px solid #0052cc;
+  outline-offset:3px;
+  border-radius:2px;
 }
 
 .dashboardResultsSync{

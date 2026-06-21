@@ -9,7 +9,7 @@ const changeFeedController = require("../controllers/changeFeedController");
 const router = express.Router();
 
 router.use(verifyToken);
-router.use(allowRoles("SUPER_USER", "ACCOUNTANT"));
+router.use(allowRoles("SUPER_USER"));
 
 router.get("/events", validate(listChangeFeedQuerySchema, "query"), asyncHandler(changeFeedController.getEvents));
 router.post("/webhooks", validate(createWebhookSchema), asyncHandler(changeFeedController.registerWebhook));

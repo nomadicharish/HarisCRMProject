@@ -16,7 +16,6 @@ import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import {
   ALLOWED_DOCUMENT_ACCEPT,
   DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
-  DOCUMENT_UPLOAD_HELP_TEXT,
   getAcceptForExtensions,
   getUploadHelpText,
   getValidatedDocumentFile,
@@ -533,12 +532,6 @@ function ApplicantDocumentsWorkspace() {
             </div>
 
             <div className={`docsPrepRow${canReview ? " docsPrepRowReview" : ""}`}>
-              {!canReview ? (
-                <div className="docsUploadInfo">
-                  <span className="docsInfoIcon" aria-hidden="true">i</span>
-                  <span>{DOCUMENT_UPLOAD_HELP_TEXT}.</span>
-                </div>
-              ) : null}
               {!canReview && standardReference ? (
                 <div className="docsStandardReference">
                   <a
@@ -548,7 +541,7 @@ function ApplicantDocumentsWorkspace() {
                     rel="noreferrer"
                   >
                     <DownloadIcon />
-                    Download Standard Reference
+                    Standard Reference Document
                   </a>
                   <div className="docsStandardReferenceText">Kindly refer this document before preparing your documents.</div>
                 </div>

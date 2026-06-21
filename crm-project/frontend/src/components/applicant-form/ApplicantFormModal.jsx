@@ -54,7 +54,8 @@ function ApplicantFormModal({
   onApproveStage,
   autoApproveAfterSave = false,
   asPage = false,
-  readOnly = false
+  readOnly = false,
+  initialApplicationDetails = null
 }) {
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -155,7 +156,7 @@ function ApplicantFormModal({
     async function loadDropdowns() {
       try {
         const [companiesData, countriesData, agenciesData] = await Promise.all([
-          getCached("/companies", { ttlMs: 60000 }),
+          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
           getCached("/countries", { ttlMs: 120000 }),
           getCached("/agencies", { ttlMs: 60000 })
         ]);
@@ -292,6 +293,31 @@ function ApplicantFormModal({
       setFilteredCompanies(companies.filter((company) => company.countryId === resolvedCountryId));
     }
   }, [editData, companies, user?.role]);
+
+  useEffect(() => {
+    if (editData || !initialApplicationDetails || !companies.length) return;
+
+    const selectedCompany = companies.find(
+      (company) => company.id === initialApplicationDetails.companyId
+    );
+    if (!selectedCompany) return;
+
+    const positions = Array.isArray(selectedCompany.jobPositions) && selectedCompany.jobPositions.length
+      ? selectedCompany.jobPositions
+      : selectedCompany.jobSpecifications || [];
+    const selectedPosition = positions.find(
+      (position) => position.id === initialApplicationDetails.jobPositionId
+    );
+    const resolvedCountryId = selectedCompany.countryId || initialApplicationDetails.countryId || "";
+
+    setFilteredCompanies(companies.filter((company) => company.countryId === resolvedCountryId));
+    setForm((prev) => ({
+      ...prev,
+      countryId: resolvedCountryId,
+      companyId: selectedCompany.id,
+      jobPositionId: selectedPosition?.id || ""
+    }));
+  }, [companies, editData, initialApplicationDetails]);
 
   const handleSubmit = async () => {
     if (!validateStep2()) return;

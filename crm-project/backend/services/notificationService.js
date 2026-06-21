@@ -3,7 +3,7 @@ const { logger } = require("../lib/logger");
 const { readEncryptedUserEmail } = require("./accountService");
 const { sendEmail } = require("./emailService");
 const { decryptText } = require("../utils/crypto");
-const { ADMIN_ROLE, SUPER_USER_ROLE } = require("../utils/roles");
+const { SUPER_USER_ROLE } = require("../utils/roles");
 
 const DAILY_NOTIFICATION_COLLECTION = "dailyNotificationEvents";
 const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
@@ -103,12 +103,9 @@ async function getEmployerName(user = {}) {
 }
 
 async function getAdminRecipientEmails() {
-  const [superUsers, admins] = await Promise.all([
-    db.collection("users").where("role", "==", SUPER_USER_ROLE).get(),
-    db.collection("users").where("role", "==", ADMIN_ROLE).get()
-  ]);
+  const superUsers = await db.collection("users").where("role", "==", SUPER_USER_ROLE).get();
   const recipients = new Set();
-  await Promise.all([...superUsers.docs, ...admins.docs].map(async (doc) => {
+  await Promise.all(superUsers.docs.map(async (doc) => {
     const email = await readEncryptedUserEmail(doc.data());
     if (email) recipients.add(email);
   }));

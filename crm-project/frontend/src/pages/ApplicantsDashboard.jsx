@@ -17,7 +17,6 @@ import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
-const CountryManagerModal = lazy(() => import("../components/dashboard/CountryManagerModal"));
 const EntityFormModal = lazy(() => import("../components/dashboard/EntityFormModal"));
 
 const RIGHT_ICON_SRC = "/right.png";
@@ -27,12 +26,21 @@ const SEARCH_DEBOUNCE_MS = 300;
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
+const HOME_DATE_RANGE_STORAGE_KEY = "crm_home_dashboard_date_range";
+const DASHBOARD_FILTER_DESCRIPTIONS = {
+  pending_payment: "having pending payment",
+  arriving: "arriving",
+  visa_collection: "for visa collection",
+  embassy_interview: "having embassy interviews",
+  embassy_appointment: "having embassy appointments",
+  trp_pending: "with TRP upload pending",
+  interview_biometric_pending: "with biometric upload pending after embassy interview",
+  appointment_biometric_pending: "with biometric upload pending after embassy appointment"
+};
 const TAB_CONFIG = {
   home: { label: "Home", actionLabel: "" },
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
-  companies: { label: "Companies", actionLabel: "Add Company" },
-  employers: { label: "Employers", actionLabel: "Add Employer" },
-  agencies: { label: "Agencies", actionLabel: "Add Agency" }
+  companies: { label: "Companies", actionLabel: "Add Company" }
 };
 
 function formatDateInput(date) {
@@ -66,6 +74,29 @@ function getDefaultHomeRange() {
     fromDate: formatDateInput(start),
     toDate: formatDateInput(end)
   };
+}
+
+function readStoredHomeRange(fallbackRange) {
+  if (typeof window === "undefined") return fallbackRange;
+
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(HOME_DATE_RANGE_STORAGE_KEY) || "{}");
+    const fromDate = parseDateInput(parsed.fromDate) ? parsed.fromDate : fallbackRange.fromDate;
+    const toDate = parseDateInput(parsed.toDate) ? parsed.toDate : fallbackRange.toDate;
+    return { fromDate, toDate };
+  } catch {
+    return fallbackRange;
+  }
+}
+
+function writeStoredHomeRange(range) {
+  if (typeof window === "undefined") return;
+
+  try {
+    window.localStorage.setItem(HOME_DATE_RANGE_STORAGE_KEY, JSON.stringify(range));
+  } catch {
+    // Local storage can be unavailable in private browsing modes.
+  }
 }
 
 const HomeDatePickerInput = React.forwardRef(({ value, onClick, placeholder, ariaLabel }, ref) => (
@@ -126,7 +157,18 @@ function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
   );
 }
 
-function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onApply, onOpenFilter, onViewAll, applying }) {
+function DashboardHome({
+  summary,
+  fromDate,
+  toDate,
+  dateError,
+  onDateChange,
+  onApply,
+  onOpenFilter,
+  onViewAll,
+  applying,
+  showPaymentCard = true
+}) {
   const upcoming = summary?.upcoming || {};
   const overdue = summary?.overdue || {};
   const payments = summary?.payments || {};
@@ -137,20 +179,21 @@ function DashboardHome({ summary, fromDate, toDate, dateError, onDateChange, onA
   return (
     <main className="dashboardHome">
       <BlockingLoader open={applying} label="Loading dashboard..." />
-      <section className="homeSection homePaymentSection">
-        {/* <h2>Pending Payment Overview</h2> */}
-        <button type="button" className="homePaymentCard" onClick={() => onOpenFilter("pending_payment", false)}>
-          <span className="homeMetricIcon homePaymentIcon"><HomeIcon type="payment" /></span>
-          <div className="homePaymentApplicants">
-            <div>Pending Payment</div>
-            <strong>{payments.applicantsWithPendingPayment || 0}</strong> <span>Applicants</span>
-          </div>
-          <div className="homePaymentAmount"><span>INR</span><strong>{formatCurrencyAmount(pendingByCurrency.INR || 0, "INR", true)}</strong></div>
-          <div className="homePaymentAmount"><span>EUR</span><strong>{formatCurrencyAmount(pendingByCurrency.EUR || 0, "EUR", true)}</strong></div>
-          <div className="homePaymentAmount"><span>USD</span><strong>{formatCurrencyAmount(pendingByCurrency.USD || 0, "USD", true)}</strong></div>
-          <div className="homePaymentAction">View Details <span aria-hidden="true">&gt;</span></div>
-        </button>
-      </section>
+      {showPaymentCard ? (
+        <section className="homeSection homePaymentSection">
+          <button type="button" className="homePaymentCard" onClick={() => onOpenFilter("pending_payment", false)}>
+            <span className="homeMetricIcon homePaymentIcon"><HomeIcon type="payment" /></span>
+            <div className="homePaymentApplicants">
+              <div>Pending Payment</div>
+              <strong>{payments.applicantsWithPendingPayment || 0}</strong> <span>Applicants</span>
+            </div>
+            <div className="homePaymentAmount"><span>INR</span><strong>{formatCurrencyAmount(pendingByCurrency.INR || 0, "INR", true)}</strong></div>
+            <div className="homePaymentAmount"><span>EUR</span><strong>{formatCurrencyAmount(pendingByCurrency.EUR || 0, "EUR", true)}</strong></div>
+            <div className="homePaymentAmount"><span>USD</span><strong>{formatCurrencyAmount(pendingByCurrency.USD || 0, "USD", true)}</strong></div>
+            <div className="homePaymentAction">View Details <span aria-hidden="true">&gt;</span></div>
+          </button>
+        </section>
+      ) : null}
 
       <section className="homeDateCard">
         <div>
@@ -308,7 +351,6 @@ function ApplicantsDashboard() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [entityModalType, setEntityModalType] = useState("");
   const [entityEditData, setEntityEditData] = useState(null);
-  const [showCountryManager, setShowCountryManager] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState("");
@@ -316,21 +358,29 @@ function ApplicantsDashboard() {
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const defaultHomeRange = useMemo(() => getDefaultHomeRange(), []);
-  const [homeDateDraft, setHomeDateDraft] = useState(defaultHomeRange);
+  const storedHomeRange = useMemo(() => readStoredHomeRange(defaultHomeRange), [defaultHomeRange]);
+  const [retainedHomeRange, setRetainedHomeRange] = useState(storedHomeRange);
+  const [homeDateDraft, setHomeDateDraft] = useState(storedHomeRange);
   const [homeDateError, setHomeDateError] = useState("");
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const isEmployer = user?.role === "EMPLOYER";
   const isAgency = user?.role === "AGENCY";
+  const isJuniorAccountant = user?.role === "JUNIOR_ACCOUNTANT";
+  const canViewHomeDashboard = isSuperUser || isEmployer || isAgency;
 
-  const activeTab = TAB_CONFIG[searchParams.get("tab")] ? searchParams.get("tab") : isSuperUser ? "home" : "applicants";
+  const activeTab = TAB_CONFIG[searchParams.get("tab")]
+    ? searchParams.get("tab")
+    : canViewHomeDashboard
+      ? "home"
+      : "applicants";
   const searchText = searchParams.get("q") || "";
   const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParams]);
   const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParams]);
   const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParams]);
   const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParams]);
   const dashboardFilter = searchParams.get("dashboardFilter") || "";
-  const homeFromDate = searchParams.get("fromDate") || defaultHomeRange.fromDate;
-  const homeToDate = searchParams.get("toDate") || defaultHomeRange.toDate;
+  const homeFromDate = searchParams.get("fromDate") || retainedHomeRange.fromDate;
+  const homeToDate = searchParams.get("toDate") || retainedHomeRange.toDate;
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
 
   useEffect(() => {
@@ -432,7 +482,7 @@ function ApplicantsDashboard() {
         totalPages: Number(applicantsData?.pagination?.totalPages || 1)
       });
 
-      if (activeTab === "home" && isSuperUser) {
+      if (activeTab === "home" && canViewHomeDashboard) {
         const dashboardData = await getCached("/dashboard", {
           params: {
             fromDate: homeFromDate,
@@ -560,6 +610,7 @@ function ApplicantsDashboard() {
     hasLoadedOnce,
     homeFromDate,
     homeToDate,
+    canViewHomeDashboard,
     isSuperUser,
     searchText,
     searchParams,
@@ -908,6 +959,10 @@ function ApplicantsDashboard() {
   };
 
   const handleOpenApplicant = (applicantId) => {
+    if (isJuniorAccountant) {
+      navigate(`/applicants/${applicantId}/payments${window.location.search || ""}`);
+      return;
+    }
     prefetchCached(`/applicants/${applicantId}/workflow-bundle`, {
       params: { includeDetails: "false" },
       ttlMs: 120000
@@ -916,8 +971,8 @@ function ApplicantsDashboard() {
   };
 
   const visibleTabs = useMemo(() => {
-    if (isSuperUser) return ["home", "applicants", "companies", "employers", "agencies"];
-    if (isAgency || isEmployer) return ["applicants", "companies"];
+    if (isSuperUser) return ["home", "applicants", "companies"];
+    if (isAgency || isEmployer) return ["home", "applicants", "companies"];
     return ["applicants"];
   }, [isAgency, isEmployer, isSuperUser]);
 
@@ -967,6 +1022,8 @@ function ApplicantsDashboard() {
     }
 
     setHomeApplyLoading(true);
+    setRetainedHomeRange({ fromDate: nextFromDate, toDate: nextToDate });
+    writeStoredHomeRange({ fromDate: nextFromDate, toDate: nextToDate });
     const next = new URLSearchParams(searchParams);
     next.set("fromDate", nextFromDate);
     next.set("toDate", nextToDate);
@@ -997,12 +1054,21 @@ function ApplicantsDashboard() {
     setSearchParams(next, { replace: true });
   };
 
+  const handleViewAllApplicants = () => {
+    const next = new URLSearchParams();
+    next.set("tab", "applicants");
+    setSearchParams(next, { replace: true });
+  };
+
   const headerText = useMemo(() => {
     if (activeTab === "companies") return `Showing ${totalRows} companies`;
     if (activeTab === "employers") return `Showing ${totalRows} employers`;
     if (activeTab === "agencies") return `Showing ${totalRows} agencies`;
+    if (activeTab === "applicants" && DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter]) {
+      return `Showing ${totalRows} applicants ${DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter]}`;
+    }
     return `Showing ${totalRows} applicants`;
-  }, [activeTab, totalRows]);
+  }, [activeTab, dashboardFilter, totalRows]);
 
   const searchPlaceholder = useMemo(() => {
     if (activeTab === "companies") return "Search by company name";
@@ -1013,7 +1079,7 @@ function ApplicantsDashboard() {
 
   const currentActionLabel = TAB_CONFIG[activeTab].actionLabel;
   const showHeaderAction =
-    (activeTab === "applicants" && !isEmployer) ||
+    (activeTab === "applicants" && (isSuperUser || isAgency)) ||
     (!["home", "applicants"].includes(activeTab) && isSuperUser);
 
   const openCurrentAction = () => {
@@ -1223,6 +1289,7 @@ function ApplicantsDashboard() {
             onOpenFilter={openHomeFilter}
             onViewAll={() => handleTabChange("applicants")}
             applying={homeApplyLoading}
+            showPaymentCard={!isEmployer}
           />
         ) : (
           <>
@@ -1260,14 +1327,16 @@ function ApplicantsDashboard() {
                 agencyIds={agencyIds}
                 onToggleFilterValue={toggleFilterValue}
                 showHeaderAction={showHeaderAction}
-                activeTab={activeTab}
-                isSuperUser={isSuperUser}
-                onShowCountryManager={() => setShowCountryManager(true)}
                 onOpenCurrentAction={openCurrentAction}
                 currentActionLabel={currentActionLabel}
                 showExportAction={isSuperUser && activeTab === "applicants"}
                 onExport={handleExportApplicants}
                 exportLoading={isExporting}
+                showViewAllApplicants={
+                  activeTab === "applicants" &&
+                  Boolean(DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter])
+                }
+                onViewAllApplicants={handleViewAllApplicants}
               />
 
               <div className="dashboardTableCard">
@@ -1364,18 +1433,6 @@ function ApplicantsDashboard() {
         </Suspense>
       ) : null}
 
-      {showCountryManager ? (
-        <Suspense fallback={null}>
-          <CountryManagerModal
-            countries={countries}
-            onClose={() => setShowCountryManager(false)}
-            onSaved={async () => {
-              invalidateCache("/countries");
-              setRefreshKey((value) => value + 1);
-            }}
-          />
-        </Suspense>
-      ) : null}
     </div>
   );
 }

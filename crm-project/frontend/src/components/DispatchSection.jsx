@@ -132,41 +132,44 @@ function DispatchSection({
         ) : null}
 
         {canEdit ? (
-          <div className="dispatchFormGrid">
-            <div className="input-field">
-              <label htmlFor="dispatch-note">Dispatch Note</label>
-              <input
-                id="dispatch-note"
-                name="note"
-                placeholder="Enter dispatch note"
-                value={form.note}
-                onChange={handleChange}
-                disabled={saving}
-              />
-            </div>
+          <div className="dispatchEntryBlock">
+            <h4 className="dispatchEntryTitle">Enter Dispatch Details</h4>
+            <div className="dispatchFormGrid">
+              <div className="input-field">
+                <label htmlFor="dispatch-note">Dispatch Note <span className="dispatchRequired">*</span></label>
+                <input
+                  id="dispatch-note"
+                  name="note"
+                  placeholder="Enter dispatch note"
+                  value={form.note}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
 
-            <div className="input-field">
-              <label htmlFor="dispatch-tracking-url">Tracking URL</label>
-              <input
-                id="dispatch-tracking-url"
-                name="trackingUrl"
-                placeholder="Enter tracking URL"
-                value={form.trackingUrl}
-                onChange={handleChange}
-                disabled={saving}
-              />
-            </div>
+              <div className="input-field">
+                <label htmlFor="dispatch-awb">AWB Number <span className="dispatchRequired">*</span></label>
+                <input
+                  id="dispatch-awb"
+                  name="awbNumber"
+                  placeholder="Enter AWB number"
+                  value={form.awbNumber}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
 
-            <div className="input-field">
-              <label htmlFor="dispatch-awb">AWB Number</label>
-              <input
-                id="dispatch-awb"
-                name="awbNumber"
-                placeholder="Enter AWB Number"
-                value={form.awbNumber}
-                onChange={handleChange}
-                disabled={saving}
-              />
+              <div className="input-field">
+                <label htmlFor="dispatch-tracking-url">Tracking URL (Optional)</label>
+                <input
+                  id="dispatch-tracking-url"
+                  name="trackingUrl"
+                  placeholder="Enter tracking URL"
+                  value={form.trackingUrl}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
             </div>
 
             <div className="dispatchFormActions">
@@ -176,13 +179,13 @@ function DispatchSection({
                 disabled={saving}
                 onClick={handleSubmit}
               >
-                {saving ? "Saving..." : "Add Dispatch"}
+                {saving ? "Saving..." : "Save Dispatch"}
               </button>
             </div>
           </div>
         ) : null}
 
-        {(loading || dispatches.length > 0) ? (
+        {(canEdit || loading || dispatches.length > 0) ? (
           <>
             {showHistoryHeader ? (
               <div className="dispatchHistoryHeader">
@@ -208,7 +211,7 @@ function DispatchSection({
                         Loading dispatch history...
                       </td>
                     </tr>
-                  ) : (
+                  ) : dispatches.length > 0 ? (
                     dispatches.map((dispatch) => (
                       <tr key={dispatch.id}>
                         <td>{dispatch.note || "-"}</td>
@@ -227,6 +230,12 @@ function DispatchSection({
                         <td>{formatDispatchDate(dispatch.createdAt)}</td>
                       </tr>
                     ))
+                  ) : (
+                    <tr>
+                      <td colSpan="4" className="dispatchEmptyCell">
+                        No dispatch history available yet.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>

@@ -124,7 +124,11 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
     !interview?.approved &&
     String(interview?.status || "").toUpperCase() !== "APPROVED";
   const canApprove = isSuperUser && interview && !interview.approved && !hasInterviewBiometric;
-  const canAddTicket = user?.role === "AGENCY" && interview && !hasInterviewBiometric && (!interviewTicket || editingTravel);
+  const canAddTicket =
+    user?.role === "AGENCY" &&
+    interview &&
+    ((!interviewTicket && !hasInterviewBiometric) || editingTravel);
+  const canUpdateTravel = user?.role === "AGENCY" && interview && Boolean(interviewTicket);
   const isBusy = savingInterview || savingTicket;
   const showInterviewForm = canEditInterview && (!interview || editingInterview);
 
@@ -375,7 +379,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                       <DetailRow label="Uploaded On" value={formatDateTime(resolvedInterviewBiometric.uploadedAt)} />
                     </DetailCard>
                   ) : null}
-                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
+                  {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={60} user={user} /> : null}
                 </div>
               </div>
             ) : null}
@@ -437,7 +441,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
-                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={65} user={user} /> : null}
+                {canApprove ? <WorkflowPaymentStatus applicant={applicant} requiredPercent={60} user={user} /> : null}
 
                 <div className="contractActionRow">
                   {interview ? (
@@ -519,7 +523,9 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                   </span>
                   <span className="workflowUploadBoxText">
                     <span className="workflowUploadBoxTitle">Choose file</span>
-                    <span className="workflowUploadBoxName">{travelFile ? travelFile.name : "No file chosen"}</span>
+                    <span className="workflowUploadBoxName">
+                      {travelFile ? travelFile.name : interviewTicket?.fileUrl ? "Keep current ticket or choose a replacement" : "No file chosen"}
+                    </span>
                     <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
                   </span>
                 </label>
@@ -540,6 +546,11 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
 
             {!showInterviewForm ? (
               <div className="workflowModalFooter">
+                {canUpdateTravel && !editingTravel ? (
+                  <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingTravel(true)}>
+                    Update Travel
+                  </button>
+                ) : null}
                 {interview && canEditInterview ? (
                   <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingInterview(true)}>
                     Edit

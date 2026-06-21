@@ -10,9 +10,10 @@ const {
   recordAgencyTask,
   recordEmployerWorkflowInitiated
 } = require("../../services/notificationService");
+const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
-const { ADMIN_ROLE, isSuperUserLikeRole } = require("../../utils/roles");
+const { isSuperUserLikeRole, SUPER_USER_ROLE } = require("../../utils/roles");
 const { assertNoRejectedSignedDocuments } = require("./workflowExecutionUseCases");
 
 async function addEmbassyAppointmentUseCase(req) {
@@ -91,6 +92,21 @@ async function addEmbassyAppointmentUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  if (status === "APPROVED") {
+    await safeSendCalendarInvite({
+      applicantRef: docRef,
+      applicantId,
+      applicant: existingApplicant,
+      eventType: "embassyAppointment",
+      workflow: {
+        ...existingApplicant.embassyAppointment,
+        date: resolvedDate,
+        time: resolvedTime,
+        dateTime: appointmentDateTime
+      },
+      includeAgency: true
+    });
+  }
   await recordEmployerWorkflowInitiated({
     applicantId,
     applicant: existingApplicant,
@@ -139,6 +155,14 @@ async function approveEmbassyAppointmentUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await safeSendCalendarInvite({
+    applicantRef: docRef,
+    applicantId,
+    applicant,
+    eventType: "embassyAppointment",
+    workflow: applicant.embassyAppointment,
+    includeAgency: true
+  });
   await recordAdminApproval({
     applicantId,
     applicant,
@@ -434,6 +458,16 @@ async function addVisaCollectionUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  if (status === "APPROVED") {
+    await safeSendCalendarInvite({
+      applicantRef: docRef,
+      applicantId,
+      applicant: docSnap.data() || {},
+      eventType: "visaCollection",
+      workflow: { ...(docSnap.data()?.visaCollection || {}), date, time },
+      includeAgency: true
+    });
+  }
   await recordEmployerWorkflowInitiated({
     applicantId,
     applicant: docSnap.data() || {},
@@ -460,6 +494,14 @@ async function approveVisaCollectionUseCase(req) {
   });
 
   await refreshApplicantDocumentSummary(applicantId);
+  await safeSendCalendarInvite({
+    applicantRef: docRef,
+    applicantId,
+    applicant: docSnap.data() || {},
+    eventType: "visaCollection",
+    workflow: docSnap.data()?.visaCollection || {},
+    includeAgency: true
+  });
   await recordAdminApproval({
     applicantId,
     applicant: docSnap.data() || {},
@@ -565,13 +607,8 @@ function getApplicantDisplayName(applicant = {}) {
 async function getTravelNotificationRecipients(applicant = {}) {
   const recipients = new Set();
 
-  const superUserSnap = await db.collection("users").where("role", "==", "SUPER_USER").get();
-  const adminSnap = await db.collection("users").where("role", "==", ADMIN_ROLE).get();
+  const superUserSnap = await db.collection("users").where("role", "==", SUPER_USER_ROLE).get();
   await Promise.all(superUserSnap.docs.map(async (doc) => {
-    const email = await readEncryptedUserEmail(doc.data());
-    if (email) recipients.add(email);
-  }));
-  await Promise.all(adminSnap.docs.map(async (doc) => {
     const email = await readEncryptedUserEmail(doc.data());
     if (email) recipients.add(email);
   }));
@@ -610,7 +647,7 @@ async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isU
   if (!recipients.length) return;
 
   const applicantName = getApplicantDisplayName(applicant);
-  const subject = `${isUpdate ? "Travel details changed" : "Travel details added"} for ${applicantName}`;
+  const subject = `${isUpdate ? "Arrival Travel details changed" : "Arrival Travel details added"} for ${applicantName}`;
   const attachments = [
     arrivalDetails.fileUrl ? { filename: "travel-ticket", path: arrivalDetails.fileUrl } : null,
     arrivalDetails.busTicketUrl ? { filename: "bus-ticket", path: arrivalDetails.busTicketUrl } : null
@@ -742,6 +779,14 @@ async function addVisaTravelUseCase(req) {
   } catch (error) {
     console.error("Travel details email failed", error);
   }
+  await safeSendCalendarInvite({
+    applicantRef,
+    applicantId,
+    applicant: applicantData,
+    eventType: "applicantArrival",
+    workflow: arrivalDetails,
+    includeEmployers: true
+  });
   return { message: "Applicant arrival details saved" };
 }
 
