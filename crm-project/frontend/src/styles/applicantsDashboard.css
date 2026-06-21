@@ -1061,6 +1061,11 @@
   color:#fff;
 }
 
+.quickPrintAction:disabled{
+  opacity:.65;
+  cursor:wait;
+}
+
 .quickPrintSheet{
   max-width:900px;
   margin:0 auto;
@@ -1190,6 +1195,17 @@
   color:#b42318;
   text-align:center;
   font-weight:700;
+}
+
+.quickPrintPdfNotice{
+  margin-top:18px;
+  padding:14px 16px;
+  border:1px solid #cfe0ff;
+  border-radius:8px;
+  background:#f4f8ff;
+  color:#344054;
+  font-size:13px;
+  line-height:1.5;
 }
 
 @media print{

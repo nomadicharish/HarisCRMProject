@@ -3,7 +3,8 @@ const {
   getApplicantByIdUseCase,
   getApplicantDocumentsPageUseCase,
   getApplicantDocumentsContextUseCase,
-  getApplicantWorkflowBundleUseCase
+  getApplicantWorkflowBundleUseCase,
+  getApplicantQuickPrintAssetUseCase
 } = require("../../usecases/applicants/profileReadUseCases");
 const {
   addAppointmentUseCase,
@@ -163,6 +164,17 @@ async function getContract(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Get Contract Error", error);
+  }
+}
+
+async function getApplicantQuickPrintAsset(req, res) {
+  try {
+    const asset = await getApplicantQuickPrintAssetUseCase(req);
+    res.setHeader("Content-Type", asset.contentType);
+    res.setHeader("Content-Disposition", `inline; filename="${String(asset.fileName || "asset").replace(/"/g, "")}"`);
+    return res.send(asset.buffer);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get Applicant Quick Print Asset Error", error);
   }
 }
 
@@ -421,6 +433,7 @@ async function getResidencePermit(req, res) {
 module.exports = {
   getApplicants,
   getApplicantById,
+  getApplicantQuickPrintAsset,
   getApplicantDocumentsPage,
   getApplicantDocumentsContext,
   getApplicantWorkflowBundle,

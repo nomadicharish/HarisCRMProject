@@ -2,6 +2,7 @@ import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
 
 export const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
+export const HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY = "crm_home_dashboard_date_range";
 
 export function getStoredUser() {
   try {
@@ -22,7 +23,11 @@ export function getSessionExpiresAt() {
 
 export function isSessionExpired() {
   const expiresAt = getSessionExpiresAt();
-  return Boolean(expiresAt) && Date.now() > expiresAt;
+  const expired = Boolean(expiresAt) && Date.now() > expiresAt;
+  if (expired) {
+    localStorage.removeItem(HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY);
+  }
+  return expired;
 }
 
 export function storeSession({ token, user }) {
@@ -44,6 +49,7 @@ export async function clearSession({ redirectTo = "/login" } = {}) {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   localStorage.removeItem("session_expires_at");
+  localStorage.removeItem(HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY);
 
   try {
     await signOut(auth);

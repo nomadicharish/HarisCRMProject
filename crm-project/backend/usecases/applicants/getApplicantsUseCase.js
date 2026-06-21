@@ -75,6 +75,33 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
       return Boolean(stage === 9 && interviewDate && interviewDate < now && !applicant?.interviewBiometric?.fileUrl);
     case "appointment_biometric_pending":
       return Boolean(stage === 7 && appointmentDate && appointmentDate < now && !applicant?.biometricSlip?.fileUrl);
+    case "biometric_ticket_pending":
+      return Boolean(
+        stage === 7 &&
+        !(
+          applicant?.travelDetails?.travelDate ||
+          applicant?.travelDetails?.time ||
+          applicant?.travelDetails?.fileUrl
+        )
+      );
+    case "interview_ticket_pending":
+      return Boolean(
+        stage === 9 &&
+        !(
+          applicant?.interviewTicket?.date ||
+          applicant?.interviewTicket?.time ||
+          applicant?.interviewTicket?.fileUrl
+        )
+      );
+    case "trc_ticket_pending":
+      return Boolean(
+        stage === 11 &&
+        !(
+          applicant?.visaCollectionTravel?.date ||
+          applicant?.visaCollectionTravel?.time ||
+          applicant?.visaCollectionTravel?.fileUrl
+        )
+      );
     default:
       return true;
   }

@@ -12,7 +12,12 @@ import PageLoader from "../components/common/PageLoader";
 import BlockingLoader from "../components/common/BlockingLoader";
 import { getCached, hasFreshCache, invalidateCache, prefetchCached } from "../services/cachedApi";
 import API from "../services/api";
-import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import {
+  getSessionExpiresAt,
+  getStoredUser,
+  HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY,
+  isSuperUserLikeRole
+} from "../utils/auth";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
@@ -26,16 +31,18 @@ const SEARCH_DEBOUNCE_MS = 300;
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
-const HOME_DATE_RANGE_STORAGE_KEY = "crm_home_dashboard_date_range";
 const DASHBOARD_FILTER_DESCRIPTIONS = {
   pending_payment: "having pending payment",
   arriving: "arriving",
   visa_collection: "for visa collection",
   embassy_interview: "having embassy interviews",
   embassy_appointment: "having embassy appointments",
-  trp_pending: "with TRC upload pending",
+  trp_pending: "with TRP upload pending",
   interview_biometric_pending: "with biometric upload pending after embassy interview",
-  appointment_biometric_pending: "with biometric upload pending after embassy appointment"
+  appointment_biometric_pending: "with biometric upload pending after embassy appointment",
+  biometric_ticket_pending: "with biometric ticket pending",
+  interview_ticket_pending: "with interview ticket pending",
+  trc_ticket_pending: "with TRC ticket pending"
 };
 const TAB_CONFIG = {
   home: { label: "Home", actionLabel: "" },
@@ -68,8 +75,9 @@ function parseDateInput(value) {
 function getDefaultHomeRange() {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(start.getDate() + 13);
+  const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
+  const lastDayOfTargetMonth = new Date(start.getFullYear(), start.getMonth() + 2, 0).getDate();
+  end.setDate(Math.min(start.getDate(), lastDayOfTargetMonth));
   return {
     fromDate: formatDateInput(start),
     toDate: formatDateInput(end)
@@ -80,7 +88,12 @@ function readStoredHomeRange(fallbackRange) {
   if (typeof window === "undefined") return fallbackRange;
 
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(HOME_DATE_RANGE_STORAGE_KEY) || "{}");
+    const sessionExpiresAt = getSessionExpiresAt();
+    if (!sessionExpiresAt || Date.now() > sessionExpiresAt) {
+      window.localStorage.removeItem(HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY);
+      return fallbackRange;
+    }
+    const parsed = JSON.parse(window.localStorage.getItem(HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY) || "{}");
     const fromDate = parseDateInput(parsed.fromDate) ? parsed.fromDate : fallbackRange.fromDate;
     const toDate = parseDateInput(parsed.toDate) ? parsed.toDate : fallbackRange.toDate;
     return { fromDate, toDate };
@@ -93,7 +106,7 @@ function writeStoredHomeRange(range) {
   if (typeof window === "undefined") return;
 
   try {
-    window.localStorage.setItem(HOME_DATE_RANGE_STORAGE_KEY, JSON.stringify(range));
+    window.localStorage.setItem(HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY, JSON.stringify(range));
   } catch {
     // Local storage can be unavailable in private browsing modes.
   }
@@ -167,7 +180,8 @@ function DashboardHome({
   onOpenFilter,
   onViewAll,
   applying,
-  showPaymentCard = true
+  showPaymentCard = true,
+  showWorkflowTicketCards = false
 }) {
   const upcoming = summary?.upcoming || {};
   const overdue = summary?.overdue || {};
@@ -249,11 +263,21 @@ function DashboardHome({
       <section className="homeSection">
         {/* <h2>Action Pending (Overdue)</h2> */}
         <div className="homeCardGrid homeCardGridThree">
-          <HomeMetricCard title="TRC Upload Pending" subtitle="Passed Visa Collection Date" count={overdue.trcPending?.count} tone="blue" icon="document" onClick={() => onOpenFilter("trc_pending", false)} />
+          <HomeMetricCard title="TRP Upload Pending" subtitle="Passed Visa Collection Date" count={overdue.trpPending?.count} tone="blue" icon="document" onClick={() => onOpenFilter("trp_pending", false)} />
           <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Interview Date" count={overdue.interviewBiometricPending?.count} tone="blue" icon="fingerprint" onClick={() => onOpenFilter("interview_biometric_pending", false)} />
           <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Appointment Date" count={overdue.appointmentBiometricPending?.count} tone="blue" icon="calendar" onClick={() => onOpenFilter("appointment_biometric_pending", false)} />
         </div>
       </section>
+
+      {showWorkflowTicketCards ? (
+        <section className="homeSection">
+          <div className="homeCardGrid homeCardGridThree">
+            <HomeMetricCard title="Biometric Ticket Pending" count={overdue.biometricTicketPending?.count} tone="orange" icon="calendar" onClick={() => onOpenFilter("biometric_ticket_pending", false)} />
+            <HomeMetricCard title="Interview Ticket Pending" count={overdue.interviewTicketPending?.count} tone="purple" icon="people" onClick={() => onOpenFilter("interview_ticket_pending", false)} />
+            <HomeMetricCard title="TRC Ticket Pending" count={overdue.trcTicketPending?.count} tone="green" icon="visa" onClick={() => onOpenFilter("trc_ticket_pending", false)} />
+          </div>
+        </section>
+      ) : null}
 
     </main>
   );
@@ -1295,6 +1319,7 @@ function ApplicantsDashboard() {
             onViewAll={() => handleTabChange("applicants")}
             applying={homeApplyLoading}
             showPaymentCard={!isEmployer}
+            showWorkflowTicketCards={isSuperUser || isAgency}
           />
         ) : (
           <>

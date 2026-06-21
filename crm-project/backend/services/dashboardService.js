@@ -130,9 +130,12 @@ async function getDashboard({ user, query }) {
       embassyAppointment: createMetric("embassyAppointment", "Embassy Appointments", "embassy_appointment", "orange")
     },
     overdue: {
-      trpPending: createMetric("trpPending", "TRC Upload Pending", "trp_pending", "blue"),
+      trpPending: createMetric("trpPending", "TRP Upload Pending", "trp_pending", "blue"),
       interviewBiometricPending: createMetric("interviewBiometricPending", "Biometric Upload Pending", "interview_biometric_pending", "blue"),
-      appointmentBiometricPending: createMetric("appointmentBiometricPending", "Biometric Upload Pending", "appointment_biometric_pending", "blue")
+      appointmentBiometricPending: createMetric("appointmentBiometricPending", "Biometric Upload Pending", "appointment_biometric_pending", "blue"),
+      biometricTicketPending: createMetric("biometricTicketPending", "Biometric Ticket Pending", "biometric_ticket_pending", "orange"),
+      interviewTicketPending: createMetric("interviewTicketPending", "Interview Ticket Pending", "interview_ticket_pending", "purple"),
+      trcTicketPending: createMetric("trcTicketPending", "TRC Ticket Pending", "trc_ticket_pending", "green")
     },
     payments: {
       applicantsWithPendingPayment: 0,
@@ -201,6 +204,36 @@ async function getDashboard({ user, query }) {
     }
     if (stage === 7 && appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
       summary.home.overdue.appointmentBiometricPending.count += 1;
+    }
+    if (
+      stage === 7 &&
+      !(
+        data?.travelDetails?.travelDate ||
+        data?.travelDetails?.time ||
+        data?.travelDetails?.fileUrl
+      )
+    ) {
+      summary.home.overdue.biometricTicketPending.count += 1;
+    }
+    if (
+      stage === 9 &&
+      !(
+        data?.interviewTicket?.date ||
+        data?.interviewTicket?.time ||
+        data?.interviewTicket?.fileUrl
+      )
+    ) {
+      summary.home.overdue.interviewTicketPending.count += 1;
+    }
+    if (
+      stage === 11 &&
+      !(
+        data?.visaCollectionTravel?.date ||
+        data?.visaCollectionTravel?.time ||
+        data?.visaCollectionTravel?.fileUrl
+      )
+    ) {
+      summary.home.overdue.trcTicketPending.count += 1;
     }
     if (payment.pending > 0) {
       summary.home.payments.applicantsWithPendingPayment += 1;

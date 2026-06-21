@@ -16,6 +16,11 @@ const idParamsSchema = z.object({
   id: idSchema
 });
 
+const quickPrintAssetParamsSchema = z.object({
+  id: idSchema,
+  assetType: z.enum(["photo", "flight", "bus"])
+});
+
 const applicantDocParamsSchema = z.object({
   applicantId: idSchema,
   docType: idSchema
@@ -212,6 +217,7 @@ module.exports = {
   interviewOrStageParamsSchema,
   paymentActionParamsSchema,
   rejectDocumentSchema,
+  quickPrintAssetParamsSchema,
   residencePermitBodySchema,
   signedContractDocumentParamsSchema,
   travelBodySchema,

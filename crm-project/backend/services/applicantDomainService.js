@@ -317,6 +317,12 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   if (applicantStage === 12) return hasVisaTravel ? "Candidate arrival pending" : "Applicant arrival details pending";
   if (applicantStage === 11) return "Complete visa collection details";
   if (applicantStage === 10) {
+    const hasVisaCollection = Boolean(
+      applicant?.visaCollection?.date ||
+      applicant?.visaCollection?.time ||
+      applicant?.visaCollection?.dateTime
+    );
+    if (!hasVisaCollection) return "Visa collection initiation pending.";
     if (hasPendingVisaCollectionApproval) return "Visa collection Initiated. Pending admin approval";
     return "Visa Collection Initiated.";
   }
