@@ -245,6 +245,98 @@ function PaymentStageCard({ config, metric, onOpenFilter }) {
   );
 }
 
+function HomePaymentStageModal({ open, paymentStages, onClose, onOpenFilter }) {
+  if (!open) return null;
+
+  return (
+    <div className="homePaymentModalOverlay" role="presentation">
+      <div className="homePaymentModal homePaymentStageModal" role="dialog" aria-modal="true" aria-labelledby="payment-stage-modal-title">
+        <div className="homePaymentModalHeader">
+          <div className="homePaymentModalTitleRow">
+            <span className="homePaymentModalIcon"><HomeIcon type="calendar" /></span>
+            <div>
+              <h2 id="payment-stage-modal-title">Pending Amount by Stage</h2>
+              <p>View pending payment totals by workflow stage.</p>
+            </div>
+          </div>
+          <button type="button" className="homePaymentModalClose" onClick={onClose} aria-label="Close pending payment by stage">
+            x
+          </button>
+        </div>
+
+        <div className="homePaymentStageGrid homePaymentStageGridModal">
+          {PAYMENT_STAGE_CONFIG.map((config) => (
+            <PaymentStageCard
+              key={config.key}
+              config={config}
+              metric={paymentStages[config.key]}
+              onOpenFilter={onOpenFilter}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HomePaymentAgencyModal({ open, agencies, onClose }) {
+  if (!open) return null;
+
+  return (
+    <div className="homePaymentModalOverlay" role="presentation">
+      <div className="homePaymentModal homePaymentAgencyModal" role="dialog" aria-modal="true" aria-labelledby="payment-agency-modal-title">
+        <div className="homePaymentModalHeader">
+          <div className="homePaymentModalTitleRow">
+            <span className="homePaymentModalIcon"><HomeIcon type="people" /></span>
+            <div>
+              <h2 id="payment-agency-modal-title">Pending Payment by Agencies</h2>
+              <p>Showing agencies with their pending payment amounts.</p>
+            </div>
+          </div>
+          <button type="button" className="homePaymentModalClose" onClick={onClose} aria-label="Close pending payment by agencies">
+            x
+          </button>
+        </div>
+
+        <div className="homeAgencyPaymentTableWrap">
+          <table className="homeAgencyPaymentTable">
+            <thead>
+              <tr>
+                <th rowSpan="2">Agency</th>
+                <th colSpan="3">Pending Amount</th>
+              </tr>
+              <tr>
+                <th>INR</th>
+                <th>EUR</th>
+                <th>USD</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agencies.length ? (
+                agencies.map((agency) => {
+                  const pending = agency.pendingByCurrency || {};
+                  return (
+                    <tr key={agency.agencyId || agency.agencyName}>
+                      <td>{agency.agencyName || "Unknown Agency"}</td>
+                      <td className="homeAgencyAmount homeAgencyAmountInr">{formatCurrencyAmount(pending.INR || 0, "INR", true)}</td>
+                      <td className="homeAgencyAmount homeAgencyAmountEur">{formatCurrencyAmount(pending.EUR || 0, "EUR", true)}</td>
+                      <td className="homeAgencyAmount homeAgencyAmountUsd">{formatCurrencyAmount(pending.USD || 0, "USD", true)}</td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="4" className="homeAgencyEmpty">No agency payment data available.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const bulkDispatchSelectStyles = {
   control: (base, state) => ({
     ...base,
@@ -586,13 +678,17 @@ function DashboardHome({
   onViewAll,
   applying,
   showPaymentCard = true,
+  showAgencyPaymentBreakdown = false,
   showWorkflowTicketCards = false
 }) {
+  const [showStagePaymentModal, setShowStagePaymentModal] = useState(false);
+  const [showAgencyPaymentModal, setShowAgencyPaymentModal] = useState(false);
   const upcoming = summary?.upcoming || {};
   const overdue = summary?.overdue || {};
   const payments = summary?.payments || {};
   const pendingByCurrency = payments.pendingByCurrency || {};
   const paymentStages = payments.stages || {};
+  const paymentAgencies = Array.isArray(payments.agencies) ? payments.agencies : [];
   const selectedFromDate = parseDateInput(fromDate);
   const selectedToDate = parseDateInput(toDate);
 
@@ -633,21 +729,38 @@ function DashboardHome({
                 View Applicants <span aria-hidden="true">→</span>
               </button>
             </div>
-          </div>
-
-          <div className="homePaymentStagesSection">
-            <h2>Pending Amount by Stage</h2>
-            <div className="homePaymentStageGrid">
-              {PAYMENT_STAGE_CONFIG.map((config) => (
-                <PaymentStageCard
-                  key={config.key}
-                  config={config}
-                  metric={paymentStages[config.key]}
-                  onOpenFilter={onOpenFilter}
-                />
-              ))}
+            <div className="homePaymentOverviewActions">
+              <button type="button" onClick={() => setShowStagePaymentModal(true)}>
+                <span className="homePaymentActionLabel">
+                  <span className="homePaymentActionIcon"><HomeIcon type="calendar" /></span>
+                  <span>View Pending Payment by stage</span>
+                </span>
+                <span className="homePaymentActionMeta">View details -&gt;</span>
+              </button>
+              {showAgencyPaymentBreakdown ? (
+                <button type="button" onClick={() => setShowAgencyPaymentModal(true)}>
+                  <span className="homePaymentActionLabel">
+                    <span className="homePaymentActionIcon"><HomeIcon type="people" /></span>
+                    <span>View Pending payment by Agencies</span>
+                  </span>
+                  <span className="homePaymentActionMeta">View details -&gt;</span>
+                </button>
+              ) : null}
             </div>
           </div>
+
+          <HomePaymentStageModal
+            open={showStagePaymentModal}
+            paymentStages={paymentStages}
+            onClose={() => setShowStagePaymentModal(false)}
+            onOpenFilter={onOpenFilter}
+          />
+          <HomePaymentAgencyModal
+            open={showAgencyPaymentModal}
+            agencies={paymentAgencies}
+            onClose={() => setShowAgencyPaymentModal(false)}
+          />
+
         </section>
       ) : null}
 
@@ -1769,6 +1882,7 @@ function ApplicantsDashboard() {
             onViewAll={() => handleTabChange("applicants")}
             applying={homeApplyLoading}
             showPaymentCard={!isEmployer}
+            showAgencyPaymentBreakdown={isSuperUser || isJuniorAccountant}
             showWorkflowTicketCards={isSuperUser || isAgency}
           />
         ) : (
