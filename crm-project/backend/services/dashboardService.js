@@ -75,6 +75,52 @@ function createPaymentStage(key, label, percentage, filter, tone) {
   };
 }
 
+async function buildAgencyPaymentRows({ role, userId, agencyId, docs }) {
+  const agencyIds = new Set();
+  docs.forEach((doc) => {
+    const data = doc.data() || {};
+    if (data.agencyId) agencyIds.add(data.agencyId);
+  });
+
+  let agencyDocs = [];
+  if (isSuperUserLikeRole(role)) {
+    agencyDocs = (await db.collection("agencies").get()).docs;
+  } else if (role === "AGENCY") {
+    const currentAgencyId = agencyId || userId;
+    if (currentAgencyId) {
+      const agencyDoc = await db.collection("agencies").doc(currentAgencyId).get();
+      agencyDocs = agencyDoc.exists ? [agencyDoc] : [];
+    }
+  }
+
+  agencyDocs.forEach((doc) => agencyIds.add(doc.id));
+
+  const agencyNameById = new Map();
+  agencyDocs.forEach((doc) => {
+    agencyNameById.set(doc.id, doc.data()?.name || "");
+  });
+
+  const missingAgencyIds = [...agencyIds].filter((id) => id && !agencyNameById.has(id));
+  if (missingAgencyIds.length) {
+    const missingDocs = await db.getAll(...missingAgencyIds.map((id) => db.collection("agencies").doc(id)));
+    missingDocs.forEach((doc) => {
+      agencyNameById.set(doc.id, doc.exists ? doc.data()?.name || "" : "");
+    });
+  }
+
+  const rows = new Map();
+  [...agencyIds].forEach((id) => {
+    if (!id) return;
+    rows.set(id, {
+      agencyId: id,
+      agencyName: agencyNameById.get(id) || "Unknown Agency",
+      pendingByCurrency: { INR: 0, EUR: 0, USD: 0 }
+    });
+  });
+
+  return { rows, agencyNameById };
+}
+
 async function getDashboard({ user, query }) {
   const role = user.role;
   const userId = user.uid;
@@ -189,6 +235,13 @@ async function getDashboard({ user, query }) {
         return status === "approved";
       })
     : scopedDocs;
+  const agencyPaymentData = await buildAgencyPaymentRows({
+    role,
+    userId,
+    agencyId: user.agencyId || "",
+    docs
+  });
+  const agencyPaymentRows = agencyPaymentData.rows;
 
   for (const doc of docs) {
     const data = doc.data() || {};
@@ -260,6 +313,10 @@ async function getDashboard({ user, query }) {
       if (Object.prototype.hasOwnProperty.call(summary.home.payments.pendingByCurrency, payment.currency)) {
         summary.home.payments.pendingByCurrency[payment.currency] += paymentStage.pending;
       }
+      const agencyRow = agencyPaymentRows.get(data.agencyId || "");
+      if (agencyRow && Object.prototype.hasOwnProperty.call(agencyRow.pendingByCurrency, payment.currency)) {
+        agencyRow.pendingByCurrency[payment.currency] += paymentStage.pending;
+      }
       const stageKeyMap = {
         after_approval: "afterApproval",
         after_embassy_appointment: "afterEmbassyAppointment",
@@ -277,6 +334,18 @@ async function getDashboard({ user, query }) {
     }
 
   }
+
+  summary.home.payments.agencies = [...agencyPaymentRows.values()]
+    .sort((a, b) => {
+      const left = a.pendingByCurrency || {};
+      const right = b.pendingByCurrency || {};
+      return (
+        Number(right.INR || 0) - Number(left.INR || 0) ||
+        Number(right.EUR || 0) - Number(left.EUR || 0) ||
+        Number(right.USD || 0) - Number(left.USD || 0) ||
+        String(a.agencyName || "").localeCompare(String(b.agencyName || ""))
+      );
+    });
 
   return summary;
 }
