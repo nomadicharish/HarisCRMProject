@@ -9,10 +9,12 @@ function DashboardResultsHeader({
   showExportAction,
   onExport,
   exportLoading,
+  showBulkDispatchAction = false,
+  onOpenBulkDispatch,
   showViewAllApplicants = false,
   onViewAllApplicants
 }) {
-  const hasRightActions = showHeaderAction || showViewAllApplicants;
+  const hasRightActions = showHeaderAction || showBulkDispatchAction || showExportAction || showViewAllApplicants;
 
   return (
     <div className="dashboardResultsHeader">
@@ -41,7 +43,13 @@ function DashboardResultsHeader({
             </button>
           ) : null}
 
-          {showHeaderAction && showExportAction ? (
+          {showBulkDispatchAction ? (
+            <button type="button" className="dashboardSecondaryBtn" onClick={onOpenBulkDispatch}>
+              Add Bulk Dispatch
+            </button>
+          ) : null}
+
+          {showExportAction ? (
             <button type="button" className="dashboardPrimaryBtn" onClick={onExport} disabled={exportLoading}>
               {exportLoading ? "Exporting..." : "Export to Excel"}
             </button>

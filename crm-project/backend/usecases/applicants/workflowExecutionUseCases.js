@@ -16,12 +16,72 @@ const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 
 async function addDispatchUseCase(req) {
   const applicantId = req.params.id;
-  const { note, trackingUrl, awbNumber } = req.body;
+  const { note, trackingUrl, awbNumber, dispatchDate } = req.body;
   const userRole = req.user?.role || "";
 
   if (userRole !== "AGENCY") throw new AppError("Only agency can add dispatch details", 403);
   if (!note || !awbNumber) throw new AppError("Note and AWB Number are required", 400);
 
+  const result = await addDispatchForApplicant({
+    applicantId,
+    note,
+    trackingUrl,
+    awbNumber,
+    dispatchDate,
+    user: req.user
+  });
+
+  return { message: "Dispatch added successfully", id: result.id };
+}
+
+async function addBulkDispatchUseCase(req) {
+  const { note, trackingUrl, awbNumber, dispatchDate, applicantIds = [] } = req.body;
+  const userRole = req.user?.role || "";
+
+  if (userRole !== "AGENCY") throw new AppError("Only agency can add dispatch details", 403);
+  if (!awbNumber || !trackingUrl || !dispatchDate) {
+    throw new AppError("AWB Number, Tracking URL and Dispatch Date are required", 400);
+  }
+
+  const uniqueApplicantIds = [...new Set(applicantIds.filter(Boolean))];
+  if (!uniqueApplicantIds.length) throw new AppError("Select at least one applicant", 400);
+
+  const saved = [];
+  const skipped = [];
+
+  for (const applicantId of uniqueApplicantIds) {
+    try {
+      const result = await addDispatchForApplicant({
+        applicantId,
+        note,
+        trackingUrl,
+        awbNumber,
+        dispatchDate,
+        user: req.user
+      });
+      saved.push(result);
+    } catch (error) {
+      skipped.push({
+        applicantId,
+        message: error?.message || "Failed to save dispatch"
+      });
+    }
+  }
+
+  if (!saved.length) {
+    throw new AppError(skipped[0]?.message || "No dispatch details were saved", 400);
+  }
+
+  return {
+    message: "Bulk dispatch added successfully",
+    savedCount: saved.length,
+    skippedCount: skipped.length,
+    skipped
+  };
+}
+
+async function addDispatchForApplicant({ applicantId, note, trackingUrl, awbNumber, dispatchDate, user }) {
+  const userRole = user?.role || "";
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
@@ -36,10 +96,11 @@ async function addDispatchUseCase(req) {
   }
 
   const docRef = await applicantRef.collection("dispatches").add({
-    note,
+    note: note || "",
     trackingUrl: trackingUrl || "",
     awbNumber,
-    createdBy: req.user.uid,
+    dispatchDate: dispatchDate || "",
+    createdBy: user.uid,
     createdByRole: userRole,
     createdAt: new Date()
   });
@@ -51,11 +112,11 @@ async function addDispatchUseCase(req) {
   await recordAgencyTask({
     applicantId,
     applicant: applicantSnap.data() || {},
-    user: req.user,
+    user,
     actionKey: "DOCUMENT_DISPATCHED"
   });
 
-  return { message: "Dispatch added successfully", id: docRef.id };
+  return { applicantId, id: docRef.id };
 }
 
 async function getDispatchesUseCase(req) {
@@ -69,6 +130,7 @@ async function getDispatchesUseCase(req) {
   return snapshot.docs.map((doc) => ({
     id: doc.id,
     ...doc.data(),
+    dispatchDate: doc.data()?.dispatchDate || null,
     createdAt: normalizeDate(doc.data()?.createdAt)
   }));
 }
@@ -843,6 +905,7 @@ async function getInterviewWorkflowUseCase(req) {
 }
 
 module.exports = {
+  addBulkDispatchUseCase,
   addDispatchUseCase,
   addEmbassyInterviewUseCase,
   addInterviewTicketUseCase,
