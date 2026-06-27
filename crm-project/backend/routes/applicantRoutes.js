@@ -16,6 +16,7 @@ const {
   applicantIdParamsSchema,
   appointmentBodySchema,
   appointmentParamsSchema,
+  bulkDispatchBodySchema,
   createApplicantSchema,
   dateTimeBodySchema,
   deferDocumentSchema,
@@ -164,6 +165,9 @@ router.patch(
   validate(documentVersionParamsSchema, "params"),
   asyncHandler(applicantController.approveDocument)
 );
+
+// Add bulk dispatch
+router.post("/bulk-dispatch", allowRoles("AGENCY"), validate(bulkDispatchBodySchema), asyncHandler(applicantController.addBulkDispatch));
 
 // Add dispatch
 router.post("/:id/dispatch", allowRoles("AGENCY"), validate(idParamsSchema, "params"), validate(dispatchBodySchema), asyncHandler(applicantController.addDispatch));

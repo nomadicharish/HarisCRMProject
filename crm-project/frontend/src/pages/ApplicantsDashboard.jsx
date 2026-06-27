@@ -1,5 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
 import DatePicker from "react-datepicker";
+import Select from "react-select";
+import { toast } from "react-toastify";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ApplicantsTable, { resolveApplicantWorkflowMeta } from "../components/dashboard/ApplicantsTable";
@@ -240,6 +242,336 @@ function PaymentStageCard({ config, metric, onOpenFilter }) {
         View Applicants ({metric?.count || 0}) <span aria-hidden="true">→</span>
       </button>
     </article>
+  );
+}
+
+const bulkDispatchSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 44,
+    borderRadius: 8,
+    borderColor: state.isFocused ? "#2563eb" : "#d0d5dd",
+    boxShadow: state.isFocused ? "0 0 0 3px rgba(37,99,235,.12)" : "none",
+    "&:hover": {
+      borderColor: state.isFocused ? "#2563eb" : "#b8c4d6"
+    }
+  }),
+  menu: (base) => ({
+    ...base,
+    zIndex: 1600
+  }),
+  multiValue: (base) => ({
+    ...base,
+    borderRadius: 6,
+    background: "#eef4ff"
+  }),
+  multiValueLabel: (base) => ({
+    ...base,
+    color: "#0052cc",
+    fontWeight: 600
+  })
+};
+
+function getApplicantDisplayName(applicant) {
+  return (
+    applicant.fullName ||
+    [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
+    applicant.name ||
+    "Unnamed applicant"
+  );
+}
+
+const BulkDispatchDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <button type="button" className="bulkDispatchDateInput" onClick={onClick} ref={ref}>
+    <span>{value || placeholder}</span>
+    <span aria-hidden="true">v</span>
+  </button>
+));
+
+BulkDispatchDateInput.displayName = "BulkDispatchDateInput";
+
+function RequiredMark() {
+  return <span className="bulkDispatchRequired">*</span>;
+}
+
+function BulkDispatchModal({
+  open,
+  countries,
+  companies,
+  onClose,
+  onSaved
+}) {
+  const [form, setForm] = useState({
+    awbNumber: "",
+    trackingUrl: "",
+    dispatchDate: "",
+    note: ""
+  });
+  const [countryId, setCountryId] = useState("");
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState([]);
+  const [selectedApplicantIds, setSelectedApplicantIds] = useState([]);
+  const [applicantOptions, setApplicantOptions] = useState([]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const resetState = useCallback(() => {
+    setForm({ awbNumber: "", trackingUrl: "", dispatchDate: "", note: "" });
+    setCountryId("");
+    setSelectedCompanyIds([]);
+    setSelectedApplicantIds([]);
+    setApplicantOptions([]);
+    setLoadingApplicants(false);
+    setSaving(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) resetState();
+  }, [open, resetState]);
+
+  const countryOptions = useMemo(
+    () => countries.map((country) => ({ value: country.id, label: country.name })),
+    [countries]
+  );
+
+  const companyOptions = useMemo(
+    () =>
+      companies
+        .filter((company) => !countryId || company.countryId === countryId)
+        .map((company) => ({ value: company.id, label: company.name })),
+    [companies, countryId]
+  );
+
+  const selectedDate = parseDateInput(form.dispatchDate);
+
+  useEffect(() => {
+    setSelectedCompanyIds((current) =>
+      current.filter((id) => companyOptions.some((option) => option.value === id))
+    );
+  }, [companyOptions]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadApplicantsForCompanies() {
+      if (!selectedCompanyIds.length) {
+        setApplicantOptions([]);
+        setSelectedApplicantIds([]);
+        return;
+      }
+
+      try {
+        setLoadingApplicants(true);
+        const response = await API.get("/applicants", {
+          params: {
+            lite: "true",
+            paginated: "false",
+            country: countryId,
+            company: selectedCompanyIds.join(",")
+          }
+        });
+        const records = Array.isArray(response.data) ? response.data : normalizeListResponse(response.data);
+        const options = records.map((applicant) => ({
+          value: applicant.id,
+          label: getApplicantDisplayName(applicant),
+          meta: [
+            applicant.companyName,
+            applicant.workflowStatus ? resolveApplicantWorkflowMeta(applicant).title : ""
+          ].filter(Boolean).join(" - ")
+        }));
+
+        if (isActive) {
+          setApplicantOptions(options);
+          setSelectedApplicantIds((current) =>
+            current.filter((id) => options.some((option) => option.value === id))
+          );
+        }
+      } catch (error) {
+        console.error(error);
+        if (isActive) {
+          setApplicantOptions([]);
+          setSelectedApplicantIds([]);
+          toast.error("Failed to load applicants");
+        }
+      } finally {
+        if (isActive) setLoadingApplicants(false);
+      }
+    }
+
+    loadApplicantsForCompanies();
+    return () => {
+      isActive = false;
+    };
+  }, [countryId, selectedCompanyIds]);
+
+  if (!open) return null;
+
+  const handleFieldChange = (event) => {
+    const { name, value } = event.target;
+    setForm((current) => ({ ...current, [name]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!form.awbNumber.trim() || !form.trackingUrl.trim() || !form.dispatchDate) {
+      toast.error("AWB number, tracking URL and dispatch date are required");
+      return;
+    }
+    if (!countryId || !selectedCompanyIds.length || !selectedApplicantIds.length) {
+      toast.error("Select country, companies and applicants");
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const response = await API.post("/applicants/bulk-dispatch", {
+        awbNumber: form.awbNumber.trim(),
+        trackingUrl: form.trackingUrl.trim(),
+        dispatchDate: form.dispatchDate,
+        note: form.note.trim(),
+        applicantIds: selectedApplicantIds
+      });
+      const savedCount = Number(response.data?.savedCount || selectedApplicantIds.length);
+      const skippedCount = Number(response.data?.skippedCount || 0);
+      toast.success(
+        skippedCount
+          ? `Dispatch saved for ${savedCount} applicants. ${skippedCount} skipped.`
+          : `Dispatch saved for ${savedCount} applicants.`
+      );
+      if (typeof onSaved === "function") await onSaved();
+      resetState();
+      onClose();
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to save bulk dispatch");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const selectedCountry = countryOptions.find((option) => option.value === countryId) || null;
+  const selectedCompanies = companyOptions.filter((option) => selectedCompanyIds.includes(option.value));
+  const selectedApplicants = applicantOptions.filter((option) => selectedApplicantIds.includes(option.value));
+
+  return (
+    <div className="bulkDispatchOverlay" role="presentation">
+      <div className="bulkDispatchModal" role="dialog" aria-modal="true" aria-labelledby="bulk-dispatch-title">
+        <div className="bulkDispatchHeader">
+          <div>
+            <h2 id="bulk-dispatch-title">Add Bulk Dispatch</h2>
+            <p>Add dispatch details and apply to multiple applicants.</p>
+          </div>
+          <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close bulk dispatch">
+            x
+          </button>
+        </div>
+
+        <div className="bulkDispatchSection">
+          <h3>1. Dispatch Details</h3>
+          <div className="bulkDispatchGrid bulkDispatchGridThree">
+            <label>
+              <span>AWB Number <RequiredMark /></span>
+              <input name="awbNumber" value={form.awbNumber} onChange={handleFieldChange} placeholder="Enter AWB number" disabled={saving} />
+            </label>
+            <label>
+              <span>Tracking URL <RequiredMark /></span>
+              <input name="trackingUrl" value={form.trackingUrl} onChange={handleFieldChange} placeholder="Enter tracking URL" disabled={saving} />
+            </label>
+            <label>
+              <span>Dispatch Date <RequiredMark /></span>
+              <DatePicker
+                selected={selectedDate}
+                onChange={(date) => setForm((current) => ({ ...current, dispatchDate: date ? formatDateInput(date) : "" }))}
+                dateFormat="dd/MM/yyyy"
+                showMonthDropdown
+                showYearDropdown
+                dropdownMode="select"
+                customInput={<BulkDispatchDateInput placeholder="Select date" />}
+                disabled={saving}
+              />
+            </label>
+          </div>
+
+          <label className="bulkDispatchNoteField">
+            <span>Dispatch Note</span>
+            <textarea
+              name="note"
+              value={form.note}
+              maxLength={500}
+              onChange={handleFieldChange}
+              placeholder="Enter dispatch note"
+              disabled={saving}
+            />
+            <small>{form.note.length}/500</small>
+          </label>
+        </div>
+
+        <div className="bulkDispatchSection">
+          <h3>2. Select Recipients</h3>
+          <div className="bulkDispatchGrid bulkDispatchRecipientGrid">
+            <label>
+              <span>Country <RequiredMark /></span>
+              <Select
+                options={countryOptions}
+                value={selectedCountry}
+                onChange={(option) => {
+                  setCountryId(option?.value || "");
+                  setSelectedCompanyIds([]);
+                  setSelectedApplicantIds([]);
+                }}
+                isDisabled={saving}
+                placeholder="Select country"
+                styles={bulkDispatchSelectStyles}
+              />
+            </label>
+            <label>
+              <span>Companies <RequiredMark /></span>
+              <Select
+                isMulti
+                options={companyOptions}
+                value={selectedCompanies}
+                onChange={(options) => {
+                  setSelectedCompanyIds((options || []).map((option) => option.value));
+                  setSelectedApplicantIds([]);
+                }}
+                isDisabled={saving || !countryId}
+                placeholder="Select companies"
+                styles={bulkDispatchSelectStyles}
+              />
+            </label>
+            <label className="bulkDispatchFullField">
+              <span>Applicants <RequiredMark /></span>
+              <Select
+                isMulti
+                options={applicantOptions}
+                value={selectedApplicants}
+                onChange={(options) => setSelectedApplicantIds((options || []).map((option) => option.value))}
+                isDisabled={saving || !selectedCompanyIds.length || loadingApplicants}
+                isLoading={loadingApplicants}
+                placeholder="Select applicants"
+                formatOptionLabel={(option) => (
+                  <div className="bulkDispatchApplicantOption">
+                    <span>{option.label}</span>
+                    {option.meta ? <small>{option.meta}</small> : null}
+                  </div>
+                )}
+                styles={bulkDispatchSelectStyles}
+              />
+            </label>
+          </div>
+
+          <div className="bulkDispatchInfo">
+            <strong>{selectedApplicantIds.length} applicants selected</strong>
+            <span>Applicants are loaded from the selected country and companies.</span>
+          </div>
+        </div>
+
+        <div className="bulkDispatchFooter">
+          <button type="button" className="dashboardSecondaryBtn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="dashboardPrimaryBtn" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Add Dispatch"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -489,6 +821,7 @@ function ApplicantsDashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [isExporting, setIsExporting] = useState(false);
+  const [showBulkDispatchModal, setShowBulkDispatchModal] = useState(false);
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const defaultHomeRange = useMemo(() => getDefaultHomeRange(), []);
@@ -1188,8 +1521,10 @@ function ApplicantsDashboard() {
   };
 
   const handleOpenApplicantsForCompany = (companyId) => {
-    const next = new URLSearchParams();
+    const next = new URLSearchParams(searchParams);
+    next.set("tab", "applicants");
     next.set("company", companyId);
+    next.delete("page");
     setSearchParams(next, { replace: true });
   };
 
@@ -1236,6 +1571,11 @@ function ApplicantsDashboard() {
       activeTab === "employers" ? "employer" : "agency"
     );
   };
+
+  const handleBulkDispatchSaved = useCallback(async () => {
+    invalidateCache("/applicants");
+    setRefreshKey((value) => value + 1);
+  }, []);
 
   const handleExportApplicants = useCallback(async () => {
     try {
@@ -1469,6 +1809,8 @@ function ApplicantsDashboard() {
                 showHeaderAction={showHeaderAction}
                 onOpenCurrentAction={openCurrentAction}
                 currentActionLabel={currentActionLabel}
+                showBulkDispatchAction={isAgency && activeTab === "applicants"}
+                onOpenBulkDispatch={() => setShowBulkDispatchModal(true)}
                 showExportAction={isSuperUser && activeTab === "applicants"}
                 onExport={handleExportApplicants}
                 exportLoading={isExporting}
@@ -1546,6 +1888,14 @@ function ApplicantsDashboard() {
           </>
         )}
       </div>
+
+      <BulkDispatchModal
+        open={showBulkDispatchModal}
+        countries={countries}
+        companies={companies}
+        onClose={() => setShowBulkDispatchModal(false)}
+        onSaved={handleBulkDispatchSaved}
+      />
 
       {entityModalType ? (
         <Suspense fallback={null}>

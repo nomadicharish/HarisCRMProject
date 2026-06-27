@@ -122,7 +122,16 @@ const rejectDocumentSchema = z.object({
 const dispatchBodySchema = z.object({
   note: trimmedString.min(1, "Note is required"),
   trackingUrl: optionalTrimmedString,
-  awbNumber: optionalTrimmedString
+  awbNumber: optionalTrimmedString,
+  dispatchDate: optionalTrimmedString
+});
+
+const bulkDispatchBodySchema = z.object({
+  note: optionalTrimmedString,
+  trackingUrl: trimmedString.min(1, "Tracking URL is required"),
+  awbNumber: trimmedString.min(1, "AWB Number is required"),
+  dispatchDate: trimmedString.min(1, "Dispatch date is required"),
+  applicantIds: z.array(idSchema).min(1, "Select at least one applicant")
 });
 
 const embassyAppointmentBodySchema = z.object({
@@ -203,6 +212,7 @@ module.exports = {
   applicantIdParamsSchema,
   appointmentBodySchema,
   appointmentParamsSchema,
+  bulkDispatchBodySchema,
   createApplicantSchema,
   applicantsListQuerySchema,
   dashboardQuerySchema,

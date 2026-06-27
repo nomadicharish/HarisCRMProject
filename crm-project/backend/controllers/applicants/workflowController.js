@@ -12,6 +12,7 @@ const {
   approveAppointmentUseCase
 } = require("../../usecases/applicants/workflowStageUseCases");
 const {
+  addBulkDispatchUseCase,
   addDispatchUseCase,
   addEmbassyInterviewUseCase,
   addInterviewTicketUseCase,
@@ -128,6 +129,15 @@ async function addDispatch(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Add Dispatch Error", error);
+  }
+}
+
+async function addBulkDispatch(req, res) {
+  try {
+    const payload = await addBulkDispatchUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Add Bulk Dispatch Error", error);
   }
 }
 
@@ -431,6 +441,7 @@ async function getResidencePermit(req, res) {
 }
 
 module.exports = {
+  addBulkDispatch,
   getApplicants,
   getApplicantById,
   getApplicantQuickPrintAsset,
