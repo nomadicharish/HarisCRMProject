@@ -175,7 +175,7 @@ async function countQueryResults(query) {
   return Number(aggregateSnap.data()?.count || 0);
 }
 
-async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
+async function resolveEmployerCompanyIds(userId, linkedEmployerId = null) {
   let employerId = linkedEmployerId;
   if (!employerId) {
     const userDoc = await db.collection("users").doc(userId).get();
@@ -184,9 +184,14 @@ async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
   if (!employerId) throw new AppError("Employer profile not linked", 400);
 
   const employerDoc = await db.collection("employers").doc(employerId).get();
-  const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
-  if (!companyId) throw new AppError("Employer company not linked", 400);
-  return companyId;
+  const data = employerDoc.exists ? employerDoc.data() || {} : {};
+  const companyIds = Array.isArray(data.companyIds) && data.companyIds.length
+    ? data.companyIds
+    : data.companyId
+      ? [data.companyId]
+      : [];
+  if (!companyIds.length) throw new AppError("Employer company not linked", 400);
+  return companyIds.map((value) => String(value || "").trim()).filter(Boolean);
 }
 
 function isApprovedApplicantForEmployer(doc) {
@@ -203,8 +208,9 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId, emplo
   }
 
   if (userRole === "EMPLOYER") {
-    const companyId = await resolveEmployerCompanyId(userId, employerId);
-    return query.where("companyId", "==", companyId);
+    const companyIds = await resolveEmployerCompanyIds(userId, employerId);
+    if (companyIds.length === 1) return query.where("companyId", "==", companyIds[0]);
+    return query.where("companyId", "in", companyIds.slice(0, 10));
   }
 
   if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
@@ -232,8 +238,10 @@ async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId, empl
       docs = primarySnap.docs;
     }
   } else if (userRole === "EMPLOYER") {
-    const companyId = await resolveEmployerCompanyId(userId, employerId);
-    query = query.where("companyId", "==", companyId);
+    const companyIds = await resolveEmployerCompanyIds(userId, employerId);
+    query = companyIds.length === 1
+      ? query.where("companyId", "==", companyIds[0])
+      : query.where("companyId", "in", companyIds.slice(0, 10));
     docs = (await query.get()).docs.filter(isApprovedApplicantForEmployer);
   } else if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
     docs = (await query.get()).docs;

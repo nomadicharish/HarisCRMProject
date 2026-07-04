@@ -45,7 +45,7 @@ function resolveWorkflowDate(...values) {
   return null;
 }
 
-async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
+async function resolveEmployerCompanyIds(userId, linkedEmployerId = null) {
   let employerId = linkedEmployerId;
   if (!employerId) {
     const userDoc = await db.collection("users").doc(userId).get();
@@ -54,9 +54,15 @@ async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
   if (!employerId) throw new AppError("Employer profile not linked", 400);
 
   const employerDoc = await db.collection("employers").doc(employerId).get();
-  const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
-  if (!companyId) throw new AppError("Employer company not linked", 400);
-  return companyId;
+  const data = employerDoc.exists ? employerDoc.data() || {} : {};
+  const companyIds = Array.isArray(data.companyIds) && data.companyIds.length
+    ? data.companyIds
+    : data.companyId
+      ? [data.companyId]
+      : [];
+  const normalized = companyIds.map((value) => String(value || "").trim()).filter(Boolean);
+  if (!normalized.length) throw new AppError("Employer company not linked", 400);
+  return normalized;
 }
 
 function createMetric(key, label, filter, tone = "blue") {
@@ -135,8 +141,10 @@ async function getDashboard({ user, query }) {
     }
     firestoreQuery = firestoreQuery.where("agencyId", "==", user.agencyId);
   } else if (role === "EMPLOYER") {
-    const linkedCompanyId = await resolveEmployerCompanyId(userId, user.employerId || null);
-    firestoreQuery = firestoreQuery.where("companyId", "==", linkedCompanyId);
+    const linkedCompanyIds = await resolveEmployerCompanyIds(userId, user.employerId || null);
+    firestoreQuery = linkedCompanyIds.length === 1
+      ? firestoreQuery.where("companyId", "==", linkedCompanyIds[0])
+      : firestoreQuery.where("companyId", "in", linkedCompanyIds.slice(0, 10));
     filterApprovedForEmployer = true;
   }
 

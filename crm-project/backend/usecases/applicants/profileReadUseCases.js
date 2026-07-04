@@ -74,8 +74,13 @@ async function assertEmployerApplicantAccess(req, applicant) {
   }
   if (!employerId) throw new AppError("Employer profile not linked", 403);
   const employerDoc = await db.collection("employers").doc(employerId).get();
-  const employerCompanyId = employerDoc.exists ? employerDoc.data()?.companyId || "" : "";
-  if (!employerCompanyId || employerCompanyId !== applicant.companyId) {
+  const employer = employerDoc.exists ? employerDoc.data() || {} : {};
+  const employerCompanyIds = Array.isArray(employer.companyIds) && employer.companyIds.length
+    ? employer.companyIds
+    : employer.companyId
+      ? [employer.companyId]
+      : [];
+  if (!employerCompanyIds.includes(applicant.companyId)) {
     throw new AppError("Applicant is outside employer scope", 403);
   }
 }

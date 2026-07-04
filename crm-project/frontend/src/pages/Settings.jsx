@@ -25,6 +25,19 @@ function normalizeListResponse(response) {
   return [];
 }
 
+function getEmployerCompanyIds(employer = {}) {
+  if (Array.isArray(employer.companyIds) && employer.companyIds.length) return employer.companyIds;
+  return employer.companyId ? [employer.companyId] : [];
+}
+
+function getEmployerCountryIds(employer = {}, companyMap = {}) {
+  if (Array.isArray(employer.countryIds) && employer.countryIds.length) return employer.countryIds;
+  const companyCountryIds = getEmployerCompanyIds(employer)
+    .map((companyId) => companyMap[companyId]?.countryId)
+    .filter(Boolean);
+  return companyCountryIds.length ? Array.from(new Set(companyCountryIds)) : employer.countryId ? [employer.countryId] : [];
+}
+
 function TrashIcon() {
   return (
     <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -177,15 +190,19 @@ function Settings() {
   const filteredEmployers = useMemo(() => {
     const query = organizationSearch.trim().toLowerCase();
     return employers.filter((employer) => {
-      if (organizationCountryId && employer.countryId !== organizationCountryId) return false;
-      if (organizationCompanyId && employer.companyId !== organizationCompanyId) return false;
+      const employerCompanyIds = getEmployerCompanyIds(employer);
+      const employerCountryIds = getEmployerCountryIds(employer, companyMap);
+      if (organizationCountryId && !employerCountryIds.includes(organizationCountryId)) return false;
+      if (organizationCompanyId && !employerCompanyIds.includes(organizationCompanyId)) return false;
       if (!query) return true;
+      const companyNames = employerCompanyIds.map((id) => companyMap[id]?.name).filter(Boolean);
+      const countryNames = employerCountryIds.map((id) => countryMap[id]).filter(Boolean);
       return [
         employer.name,
         employer.email,
         employer.contactNumber,
-        companyMap[employer.companyId]?.name,
-        countryMap[employer.countryId]
+        ...companyNames,
+        ...countryNames
       ].some((value) => String(value || "").toLowerCase().includes(query));
     });
   }, [

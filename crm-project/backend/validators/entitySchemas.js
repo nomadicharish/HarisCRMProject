@@ -65,7 +65,9 @@ const employerPayloadSchema = z.object({
   contactNumber: trimmedString.min(1, "Contact number is required"),
   whatsappNumber: optionalTrimmedString,
   companyId: optionalTrimmedString,
-  countryId: optionalTrimmedString
+  countryId: optionalTrimmedString,
+  companyIds: z.array(trimmedString).optional().default([]),
+  countryIds: z.array(trimmedString).optional().default([])
 });
 
 const agencyPayloadSchema = z.object({
