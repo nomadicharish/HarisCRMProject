@@ -20,7 +20,9 @@ const {
 } = require("../../services/applicantWorkflowStageService");
 const {
   recordAdminApproval,
-  recordEmployerWorkflowInitiated
+  recordEmployerWorkflowInitiated,
+  recordNotificationAction,
+  getUserName
 } = require("../../services/notificationService");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 
@@ -35,6 +37,30 @@ const GENERIC_ADMIN_ACTIONS = {
   EMBASSY_INTERVIEW: "EMBASSY_INTERVIEW_APPROVED",
   VISA_COLLECTION: "VISA_COLLECTION_APPROVED"
 };
+
+async function notifyApplicantApproval({ applicantId, applicant = {}, user = {} }) {
+  await recordNotificationAction({
+    actionKey: "APPLICANT_APPROVED",
+    applicantId,
+    applicant,
+    user,
+    recipientRoles: ["AGENCY"],
+    recipientAgencyId: applicant.agencyId || ""
+  });
+
+  if (!applicant?.createdBy) return;
+  const creatorName = await getUserName(applicant.createdBy);
+  await recordNotificationAction({
+    actionKey: "APPLICANT_ADDED",
+    applicantId,
+    applicant: { ...applicant, approvalStatus: "approved" },
+    user: { uid: applicant.createdBy },
+    actorName: creatorName || "",
+    recipientRoles: ["EMPLOYER"],
+    recipientCompanyId: applicant.companyId || "",
+    recipientEmployerId: applicant.employerId || ""
+  });
+}
 
 async function addAppointmentUseCase(req) {
   const { applicantId, type } = req.params;
@@ -218,6 +244,18 @@ async function approveAndMoveStageUseCase(req) {
     ...applicant,
     ...updatePayload
   });
+
+  if (currentStage === 1) {
+    try {
+      await notifyApplicantApproval({
+        applicantId,
+        applicant: { ...applicant, ...updatePayload },
+        user: req.user
+      });
+    } catch (err) {
+      // Notification failure should not block stage approval.
+    }
+  }
 
   const finalApplicant = await docRef.get();
   const finalStage = finalApplicant.exists ? finalApplicant.data().stage : nextStage;

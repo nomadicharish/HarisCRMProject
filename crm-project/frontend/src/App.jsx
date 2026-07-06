@@ -16,6 +16,7 @@ const CreateApplicant = lazy(() => import("./pages/CreateApplicant"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
 const Login = lazy(() => import("./pages/Login"));
+const Notifications = lazy(() => import("./pages/Notifications"));
 const Settings = lazy(() => import("./pages/Settings"));
 const SettingsChangePassword = lazy(() => import("./pages/SettingsChangePassword"));
 
@@ -162,6 +163,15 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
+            </ProtectedRoute>
+          }
+        />
+
         <Route
           path="/settings"
           element={

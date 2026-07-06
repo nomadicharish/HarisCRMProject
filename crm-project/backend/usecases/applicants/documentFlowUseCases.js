@@ -2,8 +2,11 @@ const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { getAuthenticatedUserFromReq } = require("../../services/applicantDomainService");
-const { recordAgencyTask } = require("../../services/notificationService");
-const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
+const { recordAgencyTask, recordNotificationAction } = require("../../services/notificationService");
+const {
+  areLatestRequiredDocumentsApproved,
+  syncApplicantDocumentStage
+} = require("../../services/applicantWorkflowStageService");
 const { getCompanyDocumentsForApplicant, normalizeAllowedDocumentExtensions } = require("../../utils/normalizers");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
@@ -354,6 +357,13 @@ async function rejectDocumentUseCase(req) {
   }, { merge: true });
 
   await refreshApplicantDocumentSummary(id);
+  const applicantSnap = await db.collection("applicants").doc(id).get();
+  await recordNotificationAction({
+    actionKey: "DOCUMENT_REJECTED",
+    applicantId: id,
+    applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+    user: req.user
+  });
   return { message: "Rejected" };
 }
 
@@ -370,6 +380,10 @@ async function approveDocumentUseCase(req) {
     .doc(docType)
     .collection("versions")
     .doc(versionId);
+  const applicantRef = db.collection("applicants").doc(id);
+  const applicantSnap = await applicantRef.get();
+  const applicant = applicantSnap.exists ? applicantSnap.data() : null;
+  const hadAllRequiredApproved = await areLatestRequiredDocumentsApproved(id, applicant || {});
   const versionSnap = await versionRef.get();
   const previousVersionData = versionSnap.exists ? versionSnap.data() || {} : {};
   const reviewedAt = new Date();
@@ -392,11 +406,17 @@ async function approveDocumentUseCase(req) {
     updatedAt: reviewedAt
   }, { merge: true });
 
-  const applicantRef = db.collection("applicants").doc(id);
-  const applicantSnap = await applicantRef.get();
-  const applicant = applicantSnap.exists ? applicantSnap.data() : null;
   await syncApplicantDocumentStage(id, applicant, req.user.uid, req.user.role);
   await refreshApplicantDocumentSummary(id);
+  const hasAllRequiredApproved = await areLatestRequiredDocumentsApproved(id, applicant || {});
+  if (!hadAllRequiredApproved && hasAllRequiredApproved) {
+    await recordNotificationAction({
+      actionKey: "DOCUMENT_APPROVED",
+      applicantId: id,
+      applicant: applicant || {},
+      user: req.user
+    });
+  }
   return { message: "Document approved" };
 }
 

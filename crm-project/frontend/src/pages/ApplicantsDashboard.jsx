@@ -958,6 +958,8 @@ function ApplicantsDashboard() {
   const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParams]);
   const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParams]);
   const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParams]);
+  const notificationApplicantIds = useMemo(() => getMultiParam(searchParams, "notificationApplicants"), [searchParams]);
+  const notificationTitle = searchParams.get("notificationTitle") || "";
   const dashboardFilter = searchParams.get("dashboardFilter") || "";
   const homeFromDate = searchParams.get("fromDate") || retainedHomeRange.fromDate;
   const homeToDate = searchParams.get("toDate") || retainedHomeRange.toDate;
@@ -1015,6 +1017,8 @@ function ApplicantsDashboard() {
         country: countryIds.join(","),
         company: companyIds.join(","),
         agency: agencyIds.join(","),
+        notificationApplicants: notificationApplicantIds.join(","),
+        markNotificationsRead: searchParams.get("markNotificationsRead") || "",
         dashboardFilter,
         fromDate: searchParams.get("fromDate") || "",
         toDate: searchParams.get("toDate") || ""
@@ -1192,6 +1196,7 @@ function ApplicantsDashboard() {
     homeToDate,
     canViewHomeDashboard,
     isSuperUser,
+    notificationApplicantIds,
     searchText,
     searchParams,
     user
@@ -1651,11 +1656,16 @@ function ApplicantsDashboard() {
     if (activeTab === "companies") return `Showing ${totalRows} companies`;
     if (activeTab === "employers") return `Showing ${totalRows} employers`;
     if (activeTab === "agencies") return `Showing ${totalRows} agencies`;
+    if (activeTab === "applicants" && notificationApplicantIds.length) {
+      return notificationTitle
+        ? `${notificationTitle}: ${totalRows} applicants`
+        : `Showing ${totalRows} notification applicants`;
+    }
     if (activeTab === "applicants" && DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter]) {
       return `Showing ${totalRows} applicants ${DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter]}`;
     }
     return `Showing ${totalRows} applicants`;
-  }, [activeTab, dashboardFilter, totalRows]);
+  }, [activeTab, dashboardFilter, notificationApplicantIds.length, notificationTitle, totalRows]);
 
   const searchPlaceholder = useMemo(() => {
     if (activeTab === "companies") return "Search by company name";

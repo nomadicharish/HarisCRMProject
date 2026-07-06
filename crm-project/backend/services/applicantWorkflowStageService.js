@@ -119,6 +119,7 @@ module.exports = {
   MANUAL_STAGE_IDS,
   MAX_STAGE,
   addStageLog,
+  areLatestRequiredDocumentsApproved,
   autoAdvanceStage,
   getRequiredDocumentTypes,
   syncApplicantDocumentStage

@@ -503,8 +503,12 @@ async function getApplicantsFirestorePage({
   };
 }
 
-function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate }) {
+function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate, notificationApplicantIds }) {
   let applicants = [...items];
+  if (notificationApplicantIds.length) {
+    const allowedIds = new Set(notificationApplicantIds);
+    applicants = applicants.filter((applicant) => allowedIds.has(applicant.id));
+  }
   if (searchQuery) {
     applicants = applicants.filter((applicant) =>
       normalizeTextForSearch(
@@ -578,6 +582,7 @@ async function getApplicantsUseCase(req) {
   const companyFilters = parseList(req.query?.company);
   const agencyFilters = parseList(req.query?.agency);
   const typeFilters = parseList(req.query?.type);
+  const notificationApplicantIds = parseList(req.query?.notificationApplicants);
   const dashboardFilter = String(req.query?.dashboardFilter || "").trim();
   const fromDate = parseDateBoundary(req.query?.fromDate, false);
   const toDate = parseDateBoundary(req.query?.toDate, true);
@@ -590,7 +595,7 @@ async function getApplicantsUseCase(req) {
   const canUseFirestorePage = canUseFirestorePaginatedPath({
     paginated,
     searchQuery,
-    typeFilters: dashboardFilter || fromDate || toDate ? ["dashboard"] : typeFilters,
+    typeFilters: dashboardFilter || fromDate || toDate || notificationApplicantIds.length ? ["dashboard"] : typeFilters,
     countryFilters,
     companyFilters,
     agencyFilters,
@@ -644,7 +649,8 @@ async function getApplicantsUseCase(req) {
     typeFilters,
     dashboardFilter,
     fromDate,
-    toDate
+    toDate,
+    notificationApplicantIds
   });
 
   return paginateApplicants(filtered, {

@@ -239,6 +239,12 @@ async function addTravelDetailsUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantSnap.data() || {},
+    user: req.user,
+    actionKey: "TRAVEL_DETAILS_ADDED"
+  });
   return { message: "Travel details saved" };
 }
 
@@ -571,6 +577,12 @@ async function addVisaCollectionTravelUseCase(req) {
 
   const advancedToArrival = await advanceToApplicantArrivalIfReady(applicantRef, applicantId);
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAgencyTask({
+    applicantId,
+    applicant,
+    user: req.user,
+    actionKey: "VISA_COLLECTION_TRAVEL_ADDED"
+  });
   if (advancedToArrival) {
     await recordAgencyTask({
       applicantId,
@@ -861,6 +873,12 @@ async function uploadResidencePermitUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantData,
+    user: req.user,
+    actionKey: "TRC_ADDED"
+  });
   if (advancedToArrival) {
     await recordAgencyTask({
       applicantId,

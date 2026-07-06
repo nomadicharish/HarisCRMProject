@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { clearSession } from "../../utils/auth";
 import BrandLogo from "./BrandLogo";
+import NotificationBell from "./NotificationBell";
 import "../../styles/applicantsDashboard.css";
 
 const DOWN_ICON_SRC = "/down.png";
@@ -52,6 +53,7 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
         )}
 
         <div className="dashboardTopbarRight">
+          <NotificationBell />
           <button
             type="button"
             className="dashboardUserMenuBtn"

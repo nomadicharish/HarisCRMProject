@@ -7,7 +7,8 @@ const { addStageLog, autoAdvanceStage } = require("../../services/applicantWorkf
 const {
   recordAdminApproval,
   recordAgencyTask,
-  recordEmployerWorkflowInitiated
+  recordEmployerWorkflowInitiated,
+  recordNotificationAction
 } = require("../../services/notificationService");
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
@@ -401,6 +402,12 @@ async function rejectSignedContractDocumentUseCase(req) {
 
   await deleteStorageFileIfExists(bucket, rejectedUrl);
   await safeRefreshApplicantDocumentSummary(applicantId);
+  await recordNotificationAction({
+    actionKey: "SIGNED_CONTRACT_REJECTED",
+    applicantId,
+    applicant,
+    user: req.user
+  });
   return { message: "Signed document rejected" };
 }
 
@@ -795,6 +802,12 @@ async function addInterviewTicketUseCase(req) {
     },
     { merge: true }
   );
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantSnap.data() || {},
+    user: req.user,
+    actionKey: "TRAVEL_DETAILS_ADDED"
+  });
   return { message: "Interview ticket saved" };
 }
 

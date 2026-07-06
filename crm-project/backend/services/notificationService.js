@@ -3,10 +3,12 @@ const { logger } = require("../lib/logger");
 const { readEncryptedUserEmail } = require("./accountService");
 const { sendEmail } = require("./emailService");
 const { decryptText } = require("../utils/crypto");
-const { SUPER_USER_ROLE } = require("../utils/roles");
+const { JUNIOR_ACCOUNTANT_ROLE, SENIOR_ACCOUNTANT_ROLE, SUPER_USER_ROLE } = require("../utils/roles");
 
 const DAILY_NOTIFICATION_COLLECTION = "dailyNotificationEvents";
 const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
+const APP_NOTIFICATION_COLLECTION = "notificationEvents";
+const NOTIFICATION_READ_COLLECTION = "notificationReadStates";
 const DEFAULT_TIME_ZONE = process.env.DAILY_EMAIL_TIMEZONE || "Asia/Kolkata";
 const DEFAULT_SEND_HOUR = Number(process.env.DAILY_EMAIL_SEND_HOUR || 8);
 
@@ -34,6 +36,62 @@ const AGENCY_ACTIONS = {
   VISA_COLLECTION_COMPLETED: "Visa collection completed",
   ARRIVAL_DETAILS_ADDED: "Arrival details added"
 };
+
+const ACTION_META = {
+  APPLICANT_ADDED: { title: "Applicant Created", tone: "blue", icon: "document", verb: "created applicant" },
+  APPLICANT_APPROVED: { title: "Applicant Approved", tone: "cyan", icon: "shield", verb: "approved applicant" },
+  DOCUMENT_UPLOADED: { title: "Document Uploaded", tone: "pink", icon: "document", verb: "uploaded document" },
+  DOCUMENT_APPROVED: { title: "Document Approved", tone: "green", icon: "document", verb: "approved document" },
+  DOCUMENT_REJECTED: { title: "Document Rejected", tone: "pink", icon: "document", verb: "rejected document" },
+  DOCUMENT_DISPATCHED: { title: "Dispatch Details Added", tone: "orange", icon: "calendar", verb: "added dispatch details" },
+  CONTRACT_ISSUED: { title: "Contract Issued", tone: "blue", icon: "document", verb: "issued contract" },
+  CONTRACT_APPROVED: { title: "Contract Approved", tone: "green", icon: "shield", verb: "approved contract" },
+  SIGNED_CONTRACT_UPLOADED: { title: "Signed Contract Uploaded", tone: "purple", icon: "document", verb: "uploaded signed contract" },
+  SIGNED_CONTRACT_REJECTED: { title: "Signed Contract Rejected", tone: "pink", icon: "document", verb: "rejected signed contract" },
+  TRAVEL_DETAILS_ADDED: { title: "Travel Details Added", tone: "blue", icon: "calendar", verb: "added travel details" },
+  VISA_COLLECTION_TRAVEL_ADDED: { title: "Visa Collection Travel Added", tone: "blue", icon: "calendar", verb: "added visa collection travel details" },
+  PAYMENT_ADDED: { title: "Payment Added", tone: "blue", icon: "wallet", verb: "added payment details" },
+  PAYMENT_ACKNOWLEDGED: { title: "Payment Acknowledged", tone: "blue", icon: "wallet", verb: "acknowledged payment" },
+  PAYMENT_CONFIRMED: { title: "Payment Confirmation", tone: "green", icon: "wallet", verb: "confirmed payment" },
+  BIOMETRIC_SLIP_UPLOADED: { title: "Biometric Slip Uploaded", tone: "purple", icon: "fingerprint", verb: "uploaded biometric slip" },
+  BIOMETRIC_UPDATED: { title: "Biometric Updated", tone: "green", icon: "fingerprint", verb: "updated biometric" },
+  EMBASSY_APPOINTMENT_INITIATED: { title: "Embassy Appointment Added", tone: "orange", icon: "calendar", verb: "added embassy appointment" },
+  EMBASSY_APPOINTMENT_APPROVED: { title: "Embassy Appointment Approved", tone: "orange", icon: "calendar", verb: "approved embassy appointment" },
+  EMBASSY_APPOINTMENT_COMPLETED: { title: "Biometric Slip Uploaded", tone: "purple", icon: "fingerprint", verb: "uploaded biometric slip" },
+  EMBASSY_INTERVIEW_INITIATED: { title: "Embassy Interview Scheduled", tone: "purple", icon: "building", verb: "scheduled embassy interview" },
+  EMBASSY_INTERVIEW_APPROVED: { title: "Embassy Interview Approved", tone: "purple", icon: "building", verb: "approved embassy interview" },
+  EMBASSY_INTERVIEW_COMPLETED: { title: "Biometric Updated", tone: "green", icon: "fingerprint", verb: "updated biometric" },
+  VISA_COLLECTION_INITIATED: { title: "Visa Collection Added", tone: "green", icon: "document", verb: "added visa collection" },
+  VISA_COLLECTION_APPROVED: { title: "Visa Collection Approved", tone: "green", icon: "document", verb: "approved visa collection" },
+  VISA_COLLECTION_COMPLETED: { title: "Visa Collection Travel Added", tone: "blue", icon: "calendar", verb: "added visa collection travel" },
+  ARRIVAL_DETAILS_ADDED: { title: "Arrival Details Added", tone: "blue", icon: "send", verb: "added arrival details" },
+  PROCESS_COMPLETED: { title: "Candidate Arrival Completed", tone: "green", icon: "send", verb: "marked candidate arrival and completion" },
+  TRC_ADDED: { title: "TRC Added", tone: "green", icon: "document", verb: "added TRC" }
+};
+
+const EMPLOYER_VISIBLE_AGENCY_ACTIONS = new Set([
+  "DOCUMENT_DISPATCHED",
+  "SIGNED_CONTRACT_UPLOADED",
+  "TRAVEL_DETAILS_ADDED",
+  "VISA_COLLECTION_TRAVEL_ADDED",
+  "ARRIVAL_DETAILS_ADDED",
+  "EMBASSY_APPOINTMENT_COMPLETED",
+  "EMBASSY_INTERVIEW_COMPLETED",
+  "VISA_COLLECTION_COMPLETED"
+]);
+
+const AGENCY_VISIBLE_ADMIN_ACTIONS = new Set([
+  "APPLICANT_ADDED",
+  "APPLICANT_APPROVED",
+  "DOCUMENT_APPROVED",
+  "DOCUMENT_REJECTED",
+  "CONTRACT_APPROVED",
+  "SIGNED_CONTRACT_REJECTED",
+  "EMBASSY_APPOINTMENT_APPROVED",
+  "EMBASSY_INTERVIEW_APPROVED",
+  "VISA_COLLECTION_APPROVED",
+  "PROCESS_COMPLETED"
+]);
 
 function escapeHtml(value) {
   return String(value || "")
@@ -81,6 +139,10 @@ async function getUserName(uid = "") {
   return doc.exists ? doc.data()?.name || "" : "";
 }
 
+async function resolveActorName(user = {}, fallback = "") {
+  return user?.name || user?.displayName || (user?.uid ? await getUserName(user.uid) : "") || fallback || "";
+}
+
 async function getAgency(agencyId = "") {
   if (!agencyId) return null;
   const doc = await db.collection("agencies").doc(agencyId).get();
@@ -125,6 +187,7 @@ async function addDailyEvent(payload = {}) {
 async function safeAddDailyEvent(payload = {}) {
   try {
     await addDailyEvent(payload);
+    await addAppNotificationEvent(payload);
   } catch (error) {
     logger.error("Daily notification event logging failed", {
       type: payload?.type || "",
@@ -133,6 +196,115 @@ async function safeAddDailyEvent(payload = {}) {
       stack: error?.stack
     });
   }
+}
+
+function normalizeTimestampMs(value) {
+  if (!value) return 0;
+  if (typeof value?.toMillis === "function") return value.toMillis();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return value;
+  if (typeof value === "object" && value._seconds) return value._seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isNaN(parsed) ? 0 : parsed;
+}
+
+function actorLabel(payload = {}) {
+  if (payload.actorName) return payload.actorName;
+  if (payload.agencyName) return payload.agencyName;
+  if (payload.actorRole === "SUPER_USER") return "Super User";
+  if (payload.actorRole === "EMPLOYER") return "Employer";
+  if (payload.actorRole === "AGENCY") return "Agency";
+  if (payload.actorRole === "JUNIOR_ACCOUNTANT") return "Junior Accountant";
+  if (payload.actorRole === "SENIOR_ACCOUNTANT") return "Senior Accountant";
+  return "User";
+}
+
+async function addAppNotificationEvent(payload = {}) {
+  const actionKey = payload.actionKey || "";
+  if (!actionKey) return;
+  const meta = ACTION_META[actionKey] || { title: payload.actionLabel || actionKey, tone: "blue", icon: "document", verb: payload.actionLabel || "updated" };
+  const now = new Date();
+  await db.collection(APP_NOTIFICATION_COLLECTION).add({
+    actionKey,
+    actionLabel: payload.actionLabel || meta.title,
+    title: meta.title,
+    tone: meta.tone,
+    icon: meta.icon,
+    verb: meta.verb,
+    applicantId: payload.applicantId || "",
+    applicantName: payload.applicantName || "",
+    actorId: payload.actorId || "",
+    actorRole: payload.actorRole || "",
+    actorName: actorLabel(payload),
+    agencyId: payload.agencyId || "",
+    agencyName: payload.agencyName || "",
+    companyId: payload.companyId || "",
+    employerId: payload.employerId || "",
+    recipientRoles: Array.isArray(payload.recipientRoles) ? payload.recipientRoles.filter(Boolean) : [],
+    recipientAgencyId: payload.recipientAgencyId || "",
+    recipientCompanyId: payload.recipientCompanyId || "",
+    recipientEmployerId: payload.recipientEmployerId || "",
+    createdAt: now
+  });
+}
+
+function defaultRecipientRoles({ actionKey, applicant = {}, user = {} } = {}) {
+  if (actionKey === "PAYMENT_ADDED") return [SUPER_USER_ROLE, JUNIOR_ACCOUNTANT_ROLE, SENIOR_ACCOUNTANT_ROLE];
+  if (actionKey === "PAYMENT_ACKNOWLEDGED" || actionKey === "PAYMENT_CONFIRMED") return [SUPER_USER_ROLE, SENIOR_ACCOUNTANT_ROLE];
+  if (user?.role === "EMPLOYER") return [SUPER_USER_ROLE];
+  if (user?.role === "AGENCY") {
+    return [
+      SUPER_USER_ROLE,
+      ...(EMPLOYER_VISIBLE_AGENCY_ACTIONS.has(actionKey) ? ["EMPLOYER"] : [])
+    ];
+  }
+  if (user?.role === SUPER_USER_ROLE) {
+    return [
+      ...(AGENCY_VISIBLE_ADMIN_ACTIONS.has(actionKey) ? ["AGENCY"] : []),
+      ...(actionKey === "PROCESS_COMPLETED" ? ["EMPLOYER"] : [])
+    ];
+  }
+  if (actionKey === "APPLICANT_ADDED" && applicant?.approvalStatus === "approved") return ["EMPLOYER"];
+  return [SUPER_USER_ROLE];
+}
+
+async function recordNotificationAction({
+  actionKey,
+  applicantId,
+  applicant = {},
+  user = {},
+  actorName = "",
+  agencyName = "",
+  employerId: employerIdOverride,
+  recipientRoles,
+  recipientAgencyId,
+  recipientCompanyId,
+  recipientEmployerId
+} = {}) {
+  const resolvedActorName = await resolveActorName(user, actorName);
+  const resolvedRecipientRoles = Array.isArray(recipientRoles) && recipientRoles.length
+    ? recipientRoles
+    : defaultRecipientRoles({ actionKey, applicant, user });
+  await safeAddDailyEvent({
+    type: "APP_NOTIFICATION",
+    actionKey,
+    actionLabel: ACTION_META[actionKey]?.title || actionKey,
+    applicantId,
+    applicantName: getApplicantDisplayName(applicant),
+    actorId: user.uid || "",
+    actorRole: user.role || "",
+    actorName: resolvedActorName,
+    agencyId: user.role === "AGENCY" ? user.agencyId || applicant.agencyId || "" : applicant.agencyId || "",
+    agencyName,
+    companyId: applicant.companyId || "",
+    employerId: typeof employerIdOverride !== "undefined" ? employerIdOverride : (user.employerId || applicant.employerId || ""),
+    recipientRoles: resolvedRecipientRoles,
+    recipientAgencyId: recipientAgencyId || applicant.agencyId || "",
+    recipientCompanyId: recipientCompanyId || applicant.companyId || "",
+    recipientEmployerId: typeof recipientEmployerId !== "undefined"
+      ? recipientEmployerId
+      : (typeof employerIdOverride !== "undefined" ? employerIdOverride : (user.employerId || applicant.employerId || ""))
+  });
 }
 
 async function recordEmployerWorkflowInitiated({ applicantId, applicant = {}, user = {}, actionKey }) {
@@ -147,7 +319,11 @@ async function recordEmployerWorkflowInitiated({ applicantId, applicant = {}, us
     actorRole: user.role || "",
     actorName: await getEmployerName(user),
     agencyId: applicant.agencyId || "",
-    companyId: applicant.companyId || ""
+    companyId: applicant.companyId || "",
+    recipientRoles: [SUPER_USER_ROLE],
+    recipientAgencyId: applicant.agencyId || "",
+    recipientCompanyId: applicant.companyId || "",
+    recipientEmployerId: applicant.employerId || ""
   });
 }
 
@@ -162,7 +338,12 @@ async function recordAdminApproval({ applicantId, applicant = {}, user = {}, act
     actorRole: user.role || "",
     actorName: await getUserName(user.uid),
     agencyId: applicant.agencyId || "",
-    companyId: applicant.companyId || ""
+    companyId: applicant.companyId || "",
+    employerId: applicant.employerId || "",
+    recipientRoles: ["AGENCY"],
+    recipientAgencyId: applicant.agencyId || "",
+    recipientCompanyId: applicant.companyId || "",
+    recipientEmployerId: applicant.employerId || ""
   });
 }
 
@@ -170,18 +351,193 @@ async function recordAgencyTask({ applicantId, applicant = {}, user = {}, action
   if (user?.role !== "AGENCY") return;
   const agencyId = user.agencyId || applicant.agencyId || "";
   const agency = await getAgency(agencyId);
+  const normalizedActionKey = actionKey === "DOCUMENT_DISPATCHED"
+    ? "DOCUMENT_DISPATCHED"
+    : actionKey === "SIGNED_CONTRACT_UPLOADED"
+      ? "SIGNED_CONTRACT_UPLOADED"
+      : actionKey === "DOCUMENT_UPLOADED"
+        ? "DOCUMENT_UPLOADED"
+        : actionKey;
   await safeAddDailyEvent({
     type: "AGENCY_DAILY_TASK",
-    actionKey,
-    actionLabel: AGENCY_ACTIONS[actionKey] || actionKey,
+    actionKey: normalizedActionKey,
+    actionLabel: AGENCY_ACTIONS[actionKey] || ACTION_META[normalizedActionKey]?.title || actionKey,
     applicantId,
     applicantName: getApplicantDisplayName(applicant),
     actorId: user.uid || "",
     actorRole: user.role || "",
+    actorName: await resolveActorName(user, agency?.name || applicant.agencyName || ""),
     agencyId,
     agencyName: agency?.name || applicant.agencyName || "",
-    companyId: applicant.companyId || ""
+    companyId: applicant.companyId || "",
+    employerId: applicant.employerId || "",
+    recipientRoles: defaultRecipientRoles({ actionKey: normalizedActionKey, applicant, user }),
+    recipientAgencyId: agencyId,
+    recipientCompanyId: applicant.companyId || "",
+    recipientEmployerId: applicant.employerId || ""
   });
+}
+
+async function getEmployerCompanyIds(employerId = "") {
+  if (!employerId) return [];
+  const employerDoc = await db.collection("employers").doc(employerId).get();
+  if (!employerDoc.exists) return [];
+  const employer = employerDoc.data() || {};
+  return Array.isArray(employer.companyIds) && employer.companyIds.length
+    ? employer.companyIds
+    : employer.companyId
+      ? [employer.companyId]
+      : [];
+}
+
+async function isEmployerTaggedToCompany(employerId = "", companyId = "") {
+  if (!employerId || !companyId) return false;
+  const companyDoc = await db.collection("companies").doc(companyId).get();
+  if (!companyDoc.exists) return false;
+  const company = companyDoc.data() || {};
+  return Array.isArray(company.employerIds) && company.employerIds.includes(employerId);
+}
+
+async function getScopedEventsForUser(user = {}) {
+  const since = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
+  const snap = await db
+    .collection(APP_NOTIFICATION_COLLECTION)
+    .where("createdAt", ">=", since)
+    .orderBy("createdAt", "desc")
+    .limit(500)
+    .get();
+  let events = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const hasExplicitRecipients = (event) => Array.isArray(event.recipientRoles) && event.recipientRoles.length > 0;
+  const isExplicitRecipient = async (event) => {
+    if (!hasExplicitRecipients(event)) return null;
+    if (!event.recipientRoles.includes(user.role)) return false;
+    if (user.role === "AGENCY") {
+      const agencyId = user.agencyId || user.uid || "";
+      return !event.recipientAgencyId || event.recipientAgencyId === agencyId || event.agencyId === agencyId;
+    }
+    if (user.role === "EMPLOYER") {
+      const companyIds = await getEmployerCompanyIds(user.employerId);
+      const isTaggedToCompany = await isEmployerTaggedToCompany(user.employerId, event.recipientCompanyId || event.companyId || "");
+      return (
+        !event.recipientEmployerId && !event.recipientCompanyId
+      ) || event.recipientEmployerId === user.employerId || companyIds.includes(event.recipientCompanyId || "") || isTaggedToCompany;
+    }
+    return true;
+  };
+
+  const explicitChecks = await Promise.all(events.map((event) => isExplicitRecipient(event)));
+  events = events.filter((event, index) => explicitChecks[index] === true || explicitChecks[index] === null);
+  if (user.role === "AGENCY") {
+    const agencyId = user.agencyId || user.uid || "";
+    events = events.filter((event) => event.agencyId === agencyId);
+    // Agents shouldn't receive notifications about their own document uploads; only admins should
+    events = events.filter((event) => !(event.actionKey === "DOCUMENT_UPLOADED"));
+  } else if (user.role === "EMPLOYER") {
+    const companyIds = await getEmployerCompanyIds(user.employerId);
+    const employerChecks = await Promise.all(events.map(async (event) => (
+      companyIds.includes(event.companyId || "") ||
+      event.employerId === user.employerId ||
+      await isEmployerTaggedToCompany(user.employerId, event.companyId || event.recipientCompanyId || "")
+    )));
+    events = events.filter((event, index) => employerChecks[index]);
+  }
+  return events;
+}
+
+function buildNotificationMessage(group) {
+  const actor = group.actorName || "User";
+  const verb = group.verb || "updated";
+  const count = group.count || group.applicantIds?.size || 0;
+  // For creation verbs prefer "{Actor} created {n} applicants." phrasing
+  if (/created applicant/i.test(verb) || /applicants added/i.test(group.title || "")) {
+    return `${actor} created ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  }
+  if (group.actionKey === "APPLICANT_APPROVED") return `${actor} approved ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "DOCUMENT_APPROVED") return `${actor} approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "DOCUMENT_REJECTED") return `${actor} rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "EMBASSY_APPOINTMENT_COMPLETED") return `${actor} uploaded biometric of embassy appointment for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "EMBASSY_INTERVIEW_COMPLETED") return `${actor} uploaded biometric of embassy interview for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "PROCESS_COMPLETED") return `${actor} marked candidate arrival and completion for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  return `${actor} ${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+}
+
+function aggregateNotificationEvents(events = [], lastReadAtMs = 0) {
+  const groups = new Map();
+  events.forEach((event) => {
+    const key = [event.actionKey, event.actorId || event.actorName || "", event.agencyId || "", event.companyId || ""].join("__");
+    const createdAtMs = normalizeTimestampMs(event.createdAt);
+    const current = groups.get(key) || {
+      id: key,
+      actionKey: event.actionKey || "",
+      title: event.title || event.actionLabel || event.actionKey || "Notification",
+      tone: event.tone || "blue",
+      icon: event.icon || "document",
+      verb: event.verb || "updated",
+      actorName: event.actorName || "User",
+      agencyId: event.agencyId || "",
+      companyId: event.companyId || "",
+      applicantIds: new Set(),
+      unreadApplicantIds: new Set(),
+      latestAt: createdAtMs,
+      unread: false
+    };
+    if (event.applicantId) current.applicantIds.add(event.applicantId);
+    if (event.applicantId && createdAtMs > lastReadAtMs) current.unreadApplicantIds.add(event.applicantId);
+    current.latestAt = Math.max(current.latestAt, createdAtMs);
+    current.unread = current.unread || createdAtMs > lastReadAtMs;
+    groups.set(key, current);
+  });
+
+  return Array.from(groups.values())
+    .sort((a, b) => b.latestAt - a.latestAt)
+    .map((group) => {
+      const applicantIds = Array.from(group.unread ? group.unreadApplicantIds : group.applicantIds);
+      const { unreadApplicantIds, ...serializableGroup } = group;
+      const item = {
+        ...serializableGroup,
+        applicantIds,
+        count: applicantIds.length,
+        latestAt: group.latestAt
+      };
+      return {
+        ...item,
+        message: buildNotificationMessage(item)
+      };
+    });
+}
+
+async function getNotificationReadState(userId = "") {
+  if (!userId) return { lastReadAtMs: 0 };
+  const doc = await db.collection(NOTIFICATION_READ_COLLECTION).doc(userId).get();
+  return { lastReadAtMs: normalizeTimestampMs(doc.exists ? doc.data()?.lastReadAt : null) };
+}
+
+async function listNotificationsForUser(user = {}, { limit = 10, page = 1 } = {}) {
+  const [{ lastReadAtMs }, events] = await Promise.all([
+    getNotificationReadState(user.uid),
+    getScopedEventsForUser(user)
+  ]);
+  const groups = aggregateNotificationEvents(events, lastReadAtMs);
+  const safeLimit = Math.max(1, Math.min(100, Number(limit || 10)));
+  const safePage = Math.max(1, Number(page || 1));
+  const offset = (safePage - 1) * safeLimit;
+  return {
+    items: groups.slice(offset, offset + safeLimit),
+    unreadCount: groups.filter((item) => item.unread).length,
+    total: groups.length,
+    page: safePage,
+    limit: safeLimit,
+    totalPages: Math.max(1, Math.ceil(groups.length / safeLimit))
+  };
+}
+
+async function markNotificationsRead(user = {}) {
+  await db.collection(NOTIFICATION_READ_COLLECTION).doc(user.uid).set({
+    userId: user.uid,
+    lastReadAt: new Date(),
+    updatedAt: new Date()
+  }, { merge: true });
+  return { message: "Notifications marked as read" };
 }
 
 function buildRowsHtml(rows = []) {
@@ -341,9 +697,13 @@ function startDailyNotificationScheduler() {
 }
 
 module.exports = {
+  listNotificationsForUser,
+  markNotificationsRead,
   recordAdminApproval,
   recordAgencyTask,
   recordEmployerWorkflowInitiated,
+  recordNotificationAction,
+  getUserName,
   runDailyNotificationSummaries,
   startDailyNotificationScheduler
 };

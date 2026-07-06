@@ -1,0 +1,345 @@
+.notificationTopbar{
+  position: relative;
+}
+
+.notificationBellBtn{
+  width: 46px;
+  height: 46px;
+  border: 0;
+  background: transparent;
+  color: #06164f;
+  display: grid;
+  place-items: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.notificationBellBtn svg{
+  width: 29px;
+  height: 29px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notificationBadge{
+  position: absolute;
+  top: 4px;
+  right: 3px;
+  min-width: 21px;
+  height: 21px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #f01425;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 21px;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.notificationOverlayPanel{
+  position: absolute;
+  top: 58px;
+  right: -8px;
+  width: min(460px, calc(100vw - 28px));
+  background: #fff;
+  border: 1px solid #d5e1f2;
+  border-radius: 10px;
+  box-shadow: 0 24px 60px rgba(10, 33, 76, 0.18);
+  z-index: 1200;
+}
+
+.notificationOverlayArrow{
+  position: absolute;
+  top: -13px;
+  right: 19px;
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  border-left: 1px solid #d5e1f2;
+  border-top: 1px solid #d5e1f2;
+  transform: rotate(45deg);
+}
+
+.notificationOverlayHeader,
+.notificationsHeader{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.notificationOverlayHeader{
+  padding: 14px 30px 6px;
+}
+
+.notificationOverlayHeader h2,
+.notificationsHeader h1{
+  margin: 0;
+  color: #07134d;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.notificationOverlayHeader h2{
+  font-size: 16px;
+}
+
+.notificationOverlayHeader button{
+  border: 0;
+  background: transparent;
+  color: #005dfd;
+  font-weight: 400;
+  cursor: pointer;
+}
+
+.notificationOverlayList{
+  padding: 0 18px;
+  max-height: 620px;
+  overflow: auto;
+}
+
+.notificationItem{
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 16px 50px 1fr;
+  align-items: center;
+  gap: 12px;
+  border: 0;
+  border-top: 1px solid #e4ebf5;
+  background: linear-gradient(90deg, rgba(0, 93, 253, 0.04), rgba(255, 255, 255, 0));
+  text-align: left;
+  padding: 10px 10px;
+  cursor: pointer;
+}
+
+.notificationItemFull{
+  grid-template-columns: 22px 62px 1fr 28px;
+  min-height: 64px;
+  border: 1px solid #d5e1f2;
+  border-radius: 8px;
+  padding: 8px 6px;
+  margin-bottom: 12px;
+}
+
+.notificationItemUnread.notificationItemFull{
+  border-left: 4px solid #005dfd;
+}
+
+.notificationUnreadDot{
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: #8d91a3;
+  justify-self: center;
+}
+
+.notificationItemUnread .notificationUnreadDot{
+  background: #005dfd;
+}
+
+.notificationGlyph{
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+}
+
+.notificationGlyph svg{
+  width: 34px;
+  height: 34px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.notificationGlyph-blue{ background: #e9f2ff; color: #005dfd; }
+.notificationGlyph-purple{ background: #efe0ff; color: #8514e8; }
+.notificationGlyph-orange{ background: #ffe8da; color: #ff5a00; }
+.notificationGlyph-green{ background: #daf5e6; color: #0d9b55; }
+.notificationGlyph-pink{ background: #ffe0ec; color: #e91e63; }
+.notificationGlyph-cyan{ background: #dff8fb; color: #0992a0; }
+
+.notificationCopy{
+  display: grid;
+  gap: 8px;
+  color: #10235d;
+  min-width: 0;
+}
+
+.notificationCopy strong{
+  color: #07134d;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.notificationCopy span{
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.notificationChevron{
+  color: #06164f;
+  font-size: 24px;
+  line-height: 1;
+  justify-self: end;
+}
+
+.notificationViewAllBtn{
+  width: 100%;
+  border: 0;
+  background: #fff;
+  color: #005dfd;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 10px 20px 10px;
+  cursor: pointer;
+}
+
+.notificationViewAllBtn span{
+  margin-left: 8px;
+}
+
+.notificationEmpty{
+  padding: 34px 18px;
+  text-align: center;
+  color: #607098;
+  font-weight: 700;
+}
+
+.notificationsPage{
+  min-height: 100vh;
+  background: #fff;
+}
+
+.notificationsShell{
+  max-width: 1220px;
+  margin: 0 auto;
+  padding: 86px 32px 44px;
+}
+
+.notificationsHeader{
+  margin-bottom: 16px;
+}
+
+.notificationsHeader h1{
+  font-size: 16px;
+}
+
+.notificationsHeader p{
+  margin: 12px 0 0;
+  color: #24386f;
+  font-size: 17px;
+}
+
+.notificationsMarkBtn{
+  min-height: 44px;
+  padding: 0 8px;
+  border: 1px solid #005dfd;
+  border-radius: 7px;
+  background: #fff;
+  color: #005dfd;
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.notificationsMarkBtn:disabled{
+  opacity: .7;
+  cursor: wait;
+}
+
+.notificationsList{
+  display: grid;
+}
+
+.notificationEmptyFull{
+  border: 1px solid #d5e1f2;
+  border-radius: 8px;
+}
+
+.notificationsFooter{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 8px;
+  color: #24386f;
+  font-size: 12px;
+}
+
+.notificationsPager{
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.notificationsPager button,
+.notificationsPager span{
+  width: 30px;
+  height: 30px;
+  border: 1px solid #d5e1f2;
+  border-radius: 7px;
+  background: #fff;
+  color: #06164f;
+  font-size: 12px;
+  font-weight: 400;
+  display: grid;
+  place-items: center;
+}
+
+.notificationsPager span{
+  background: #005dfd;
+  border-color: #005dfd;
+  color: #fff;
+}
+
+.notificationsPager button:disabled{
+  opacity: .45;
+}
+
+@media (max-width: 760px){
+  .notificationOverlayPanel{
+    right: -92px;
+  }
+
+  .notificationOverlayArrow{
+    right: 103px;
+  }
+
+  .notificationItem,
+  .notificationItemFull{
+    grid-template-columns: 14px 58px 1fr;
+    gap: 12px;
+    padding: 16px 10px;
+  }
+
+  .notificationItemFull .notificationChevron{
+    display: none;
+  }
+
+  .notificationGlyph{
+    width: 54px;
+    height: 54px;
+  }
+
+  .notificationsShell{
+    padding: 34px 16px;
+  }
+
+  .notificationsHeader,
+  .notificationsFooter{
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
