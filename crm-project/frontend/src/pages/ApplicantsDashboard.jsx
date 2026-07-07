@@ -39,12 +39,12 @@ const DASHBOARD_FILTER_DESCRIPTIONS = {
   visa_collection: "for visa collection",
   embassy_interview: "having embassy interviews",
   embassy_appointment: "having embassy appointments",
-  trp_pending: "with TRP upload pending",
+  trp_pending: "with TRC upload pending",
   interview_biometric_pending: "with biometric upload pending after embassy interview",
   appointment_biometric_pending: "with biometric upload pending after embassy appointment",
-  biometric_ticket_pending: "with biometric ticket pending",
-  interview_ticket_pending: "with interview ticket pending",
-  trc_ticket_pending: "with TRC ticket pending",
+  arrival_ticket_pending: "with arrival ticket upload pending",
+  document_dispatch_pending: "with document dispatch pending",
+  payment_received: "with payment received in the selected date range",
   payment_after_approval: "with payment pending after approval",
   payment_after_embassy_appointment: "with payment pending after embassy appointment",
   payment_after_embassy_interview: "with payment pending after embassy interview",
@@ -79,9 +79,20 @@ function parseDateInput(value) {
   return date;
 }
 
-function getDefaultHomeRange() {
+function isAccountantDashboardRole(role) {
+  return role === "JUNIOR_ACCOUNTANT" || role === "SENIOR_ACCOUNTANT";
+}
+
+function getDefaultHomeRange(role = "") {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
+  if (isAccountantDashboardRole(role)) {
+    start.setDate(start.getDate() - 6);
+    return {
+      fromDate: formatDateInput(start),
+      toDate: formatDateInput(new Date())
+    };
+  }
   const end = new Date(start.getFullYear(), start.getMonth() + 1, 1);
   const lastDayOfTargetMonth = new Date(start.getFullYear(), start.getMonth() + 2, 0).getDate();
   end.setDate(Math.min(start.getDate(), lastDayOfTargetMonth));
@@ -161,7 +172,7 @@ function HomeIcon({ type }) {
   return <svg {...commonProps}><path d="M7 3h8l4 4v14H7zM15 3v4h4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
-function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
+function HomeMetricCard({ title, count, tone, icon, onClick }) {
   return (
     <button type="button" className={`homeMetricCard homeTone-${tone}`} onClick={onClick}>
       <div className="homeMetricBody">
@@ -169,7 +180,6 @@ function HomeMetricCard({ title, subtitle, count, tone, icon, onClick }) {
         <div>
           <div className="homeMetricTitle">{title}</div>
           <div className="homeMetricCount"><strong>{count || 0}</strong><span>Applicants</span></div>
-          {subtitle ? <div className="homeMetricSubtitle">{subtitle}</div> : null}
         </div>
       </div>
       <div className="homeMetricFooter"><span>View Details</span><span aria-hidden="true">&gt;</span></div>
@@ -337,6 +347,92 @@ function HomePaymentAgencyModal({ open, agencies, onClose }) {
   );
 }
 
+function AccountantCurrencyTile({ currency, amount }) {
+  const symbol = currency === "INR" ? "₹" : currency === "EUR" ? "€" : "$";
+  return (
+    <div className={`accountantCurrencyTile accountantCurrencyTile-${currency.toLowerCase()}`}>
+      <span className="accountantCurrencyIcon">{symbol}</span>
+      <div>
+        <span>{currency}</span>
+        <strong>{formatCurrencyAmount(amount || 0, currency, true)}</strong>
+      </div>
+    </div>
+  );
+}
+
+function AccountantPaymentsHome({ summary, onOpenFilter }) {
+  const payments = summary?.accountantPayments || {};
+  const totals = payments.totalByCurrency || {};
+  const agencies = Array.isArray(payments.agencies) ? payments.agencies : [];
+
+  return (
+    <section className="accountantHomeSections">
+      <article className="accountantPaymentPanel accountantPaymentPanelTotal">
+        <div className="accountantPaymentPanelHeader">
+          <div className="accountantPaymentPanelTitle">
+            <span className="accountantPanelIcon"><HomeIcon type="payment" /></span>
+            <div>
+              <h2>Total Payment Received</h2>
+              <p>For selected date range</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => onOpenFilter("payment_received", true)}>
+            View Details <span aria-hidden="true">-&gt;</span>
+          </button>
+        </div>
+        <div className="accountantCurrencyGrid">
+          {["INR", "EUR", "USD"].map((currency) => (
+            <AccountantCurrencyTile key={currency} currency={currency} amount={totals[currency] || 0} />
+          ))}
+        </div>
+      </article>
+
+      <article className="accountantPaymentPanel accountantPaymentPanelAgents">
+        <div className="accountantPaymentPanelHeader">
+          <div className="accountantPaymentPanelTitle">
+            <span className="accountantPanelIcon accountantPanelIconGreen"><HomeIcon type="people" /></span>
+            <div>
+              <h2>Total Payment Received Agent Wise</h2>
+              <p>For selected date range</p>
+            </div>
+          </div>
+        </div>
+        <div className="accountantAgentTableWrap">
+          <table className="accountantAgentTable">
+            <thead>
+              <tr>
+                <th>Agent Name</th>
+                <th>INR (₹)</th>
+                <th>EUR (€)</th>
+                <th>USD ($)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {agencies.length ? (
+                agencies.map((agency) => {
+                  const received = agency.receivedByCurrency || {};
+                  return (
+                    <tr key={agency.agencyId || agency.agencyName}>
+                      <td>{agency.agencyName || "Unknown Agent"}</td>
+                      <td className="accountantAmountInr">{formatCurrencyAmount(received.INR || 0, "INR", true)}</td>
+                      <td className="accountantAmountEur">{formatCurrencyAmount(received.EUR || 0, "EUR", true)}</td>
+                      <td className="accountantAmountUsd">{formatCurrencyAmount(received.USD || 0, "USD", true)}</td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="4" className="accountantAgentEmpty">No received payments found for the selected date range.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </article>
+    </section>
+  );
+}
+
 const bulkDispatchSelectStyles = {
   control: (base, state) => ({
     ...base,
@@ -376,7 +472,6 @@ function getApplicantDisplayName(applicant) {
 const BulkDispatchDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
   <button type="button" className="bulkDispatchDateInput" onClick={onClick} ref={ref}>
     <span>{value || placeholder}</span>
-    <span aria-hidden="true">v</span>
   </button>
 ));
 
@@ -462,14 +557,16 @@ function BulkDispatchModal({
           }
         });
         const records = Array.isArray(response.data) ? response.data : normalizeListResponse(response.data);
-        const options = records.map((applicant) => ({
-          value: applicant.id,
-          label: getApplicantDisplayName(applicant),
-          meta: [
-            applicant.companyName,
-            applicant.workflowStatus ? resolveApplicantWorkflowMeta(applicant).title : ""
-          ].filter(Boolean).join(" - ")
-        }));
+        const options = records
+          .filter((applicant) => Number(applicant.stage || 1) < 7)
+          .map((applicant) => ({
+            value: applicant.id,
+            label: getApplicantDisplayName(applicant),
+            meta: [
+              applicant.companyName,
+              applicant.workflowStatus ? resolveApplicantWorkflowMeta(applicant).title : ""
+            ].filter(Boolean).join(" - ")
+          }));
 
         if (isActive) {
           setApplicantOptions(options);
@@ -679,7 +776,9 @@ function DashboardHome({
   applying,
   showPaymentCard = true,
   showAgencyPaymentBreakdown = false,
-  showWorkflowTicketCards = false
+  showUploadPendingCards = true,
+  showWorkflowPendingCards = false,
+  isAccountantHome = false
 }) {
   const [showStagePaymentModal, setShowStagePaymentModal] = useState(false);
   const [showAgencyPaymentModal, setShowAgencyPaymentModal] = useState(false);
@@ -805,34 +904,42 @@ function DashboardHome({
         <button type="button" className="homeViewAllBtn" onClick={onViewAll}>View All Applicants <span aria-hidden="true">&gt;</span></button>
       </section>
 
+      {isAccountantHome ? (
+        <AccountantPaymentsHome summary={summary} onOpenFilter={onOpenFilter} />
+      ) : (
+        <>
+
       <section className="homeSection">
         {/* <h2>Upcoming Actions</h2> */}
         <div className="homeCardGrid homeCardGridFour">
-          <HomeMetricCard title="Applicants Arriving" count={upcoming.arriving?.count} tone="blue" icon="plane" onClick={() => onOpenFilter("arriving", true)} />
-          <HomeMetricCard title="Visa Collection" count={upcoming.visaCollection?.count} tone="green" icon="visa" onClick={() => onOpenFilter("visa_collection", true)} />
-          <HomeMetricCard title="Embassy Interviews" count={upcoming.embassyInterview?.count} tone="purple" icon="people" onClick={() => onOpenFilter("embassy_interview", true)} />
           <HomeMetricCard title="Embassy Appointments" count={upcoming.embassyAppointment?.count} tone="orange" icon="calendar" onClick={() => onOpenFilter("embassy_appointment", true)} />
+          <HomeMetricCard title="Embassy Interviews" count={upcoming.embassyInterview?.count} tone="purple" icon="people" onClick={() => onOpenFilter("embassy_interview", true)} />
+          <HomeMetricCard title="TRC Collection" count={upcoming.visaCollection?.count} tone="green" icon="visa" onClick={() => onOpenFilter("visa_collection", true)} />
+          <HomeMetricCard title="Applicants Arriving" count={upcoming.arriving?.count} tone="blue" icon="plane" onClick={() => onOpenFilter("arriving", true)} />
         </div>
       </section>
 
+      {showUploadPendingCards ? (
       <section className="homeSection">
         {/* <h2>Action Pending (Overdue)</h2> */}
         <div className="homeCardGrid homeCardGridThree">
-          <HomeMetricCard title="TRP Upload Pending" subtitle="Passed Visa Collection Date" count={overdue.trpPending?.count} tone="blue" icon="document" onClick={() => onOpenFilter("trp_pending", false)} />
-          <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Interview Date" count={overdue.interviewBiometricPending?.count} tone="blue" icon="fingerprint" onClick={() => onOpenFilter("interview_biometric_pending", false)} />
-          <HomeMetricCard title="Biometric Upload Pending" subtitle="Passed Embassy Appointment Date" count={overdue.appointmentBiometricPending?.count} tone="blue" icon="calendar" onClick={() => onOpenFilter("appointment_biometric_pending", false)} />
+          <HomeMetricCard title="Biometric Upload Pending - Embassy Appointment" count={overdue.appointmentBiometricPending?.count} tone="blue" icon="calendar" onClick={() => onOpenFilter("appointment_biometric_pending", false)} />
+          <HomeMetricCard title="Biometric Upload Pending - Embassy Interview" count={overdue.interviewBiometricPending?.count} tone="blue" icon="fingerprint" onClick={() => onOpenFilter("interview_biometric_pending", false)} />
+          <HomeMetricCard title="TRC Upload Pending" count={overdue.trpPending?.count} tone="blue" icon="document" onClick={() => onOpenFilter("trp_pending", false)} />
         </div>
       </section>
+      ) : null}
 
-      {showWorkflowTicketCards ? (
+      {showWorkflowPendingCards ? (
         <section className="homeSection">
-          <div className="homeCardGrid homeCardGridThree">
-            <HomeMetricCard title="Biometric Ticket Pending" count={overdue.biometricTicketPending?.count} tone="orange" icon="calendar" onClick={() => onOpenFilter("biometric_ticket_pending", false)} />
-            <HomeMetricCard title="Interview Ticket Pending" count={overdue.interviewTicketPending?.count} tone="purple" icon="people" onClick={() => onOpenFilter("interview_ticket_pending", false)} />
-            <HomeMetricCard title="TRC Ticket Pending" count={overdue.trcTicketPending?.count} tone="green" icon="visa" onClick={() => onOpenFilter("trc_ticket_pending", false)} />
+          <div className="homeCardGrid homeCardGridTwo">
+            <HomeMetricCard title="Arrival Ticket Upload Pending" count={overdue.arrivalTicketPending?.count} tone="orange" icon="plane" onClick={() => onOpenFilter("arrival_ticket_pending", false)} />
+            <HomeMetricCard title="Document Dispatch Pending" count={overdue.documentDispatchPending?.count} tone="purple" icon="document" onClick={() => onOpenFilter("document_dispatch_pending", false)} />
           </div>
         </section>
       ) : null}
+        </>
+      )}
 
     </main>
   );
@@ -937,16 +1044,21 @@ function ApplicantsDashboard() {
   const [showBulkDispatchModal, setShowBulkDispatchModal] = useState(false);
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
-  const defaultHomeRange = useMemo(() => getDefaultHomeRange(), []);
-  const storedHomeRange = useMemo(() => readStoredHomeRange(defaultHomeRange), [defaultHomeRange]);
-  const [retainedHomeRange, setRetainedHomeRange] = useState(storedHomeRange);
-  const [homeDateDraft, setHomeDateDraft] = useState(storedHomeRange);
-  const [homeDateError, setHomeDateError] = useState("");
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const isEmployer = user?.role === "EMPLOYER";
   const isAgency = user?.role === "AGENCY";
   const isJuniorAccountant = user?.role === "JUNIOR_ACCOUNTANT";
-  const canViewHomeDashboard = isSuperUser || isEmployer || isAgency;
+  const isSeniorAccountant = user?.role === "SENIOR_ACCOUNTANT";
+  const isAccountantHomeUser = isJuniorAccountant || isSeniorAccountant;
+  const defaultHomeRange = useMemo(() => getDefaultHomeRange(user?.role), [user?.role]);
+  const storedHomeRange = useMemo(
+    () => (isAccountantHomeUser ? defaultHomeRange : readStoredHomeRange(defaultHomeRange)),
+    [defaultHomeRange, isAccountantHomeUser]
+  );
+  const [retainedHomeRange, setRetainedHomeRange] = useState(storedHomeRange);
+  const [homeDateDraft, setHomeDateDraft] = useState(storedHomeRange);
+  const [homeDateError, setHomeDateError] = useState("");
+  const canViewHomeDashboard = isSuperUser || isEmployer || isAgency || isAccountantHomeUser;
 
   const activeTab = TAB_CONFIG[searchParams.get("tab")]
     ? searchParams.get("tab")
@@ -964,6 +1076,12 @@ function ApplicantsDashboard() {
   const homeFromDate = searchParams.get("fromDate") || retainedHomeRange.fromDate;
   const homeToDate = searchParams.get("toDate") || retainedHomeRange.toDate;
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
+
+  useEffect(() => {
+    if (searchParams.get("fromDate") || searchParams.get("toDate")) return;
+    setRetainedHomeRange(storedHomeRange);
+    setHomeDateDraft(storedHomeRange);
+  }, [searchParams, storedHomeRange]);
 
   useEffect(() => {
     setHomeDateDraft({ fromDate: homeFromDate, toDate: homeToDate });
@@ -1558,8 +1676,9 @@ function ApplicantsDashboard() {
   const visibleTabs = useMemo(() => {
     if (isSuperUser) return ["home", "applicants", "companies"];
     if (isAgency || isEmployer) return ["home", "applicants", "companies"];
+    if (isAccountantHomeUser) return ["home", "applicants"];
     return ["applicants"];
-  }, [isAgency, isEmployer, isSuperUser]);
+  }, [isAccountantHomeUser, isAgency, isEmployer, isSuperUser]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
@@ -1697,6 +1816,7 @@ function ApplicantsDashboard() {
 
   const handleBulkDispatchSaved = useCallback(async () => {
     invalidateCache("/applicants");
+    invalidateCache("/dashboard");
     setRefreshKey((value) => value + 1);
   }, []);
 
@@ -1891,9 +2011,11 @@ function ApplicantsDashboard() {
             onOpenFilter={openHomeFilter}
             onViewAll={() => handleTabChange("applicants")}
             applying={homeApplyLoading}
-            showPaymentCard={!isEmployer}
+            showPaymentCard={!isEmployer && !isAccountantHomeUser}
             showAgencyPaymentBreakdown={isSuperUser || isJuniorAccountant}
-            showWorkflowTicketCards={isSuperUser || isAgency}
+            showUploadPendingCards={!isEmployer}
+            showWorkflowPendingCards={isSuperUser || isAgency}
+            isAccountantHome={isAccountantHomeUser}
           />
         ) : (
           <>
@@ -1950,6 +2072,7 @@ function ApplicantsDashboard() {
                   <ApplicantsTable
                     rows={paginatedRows}
                     isEmployer={isEmployer}
+                    showAgencyColumn={isSuperUser || isSeniorAccountant}
                     onOpenApplicant={handleOpenApplicant}
                     onQuickPrint={handleQuickPrint}
                     formatPendingAmount={formatApplicantPendingAmount}

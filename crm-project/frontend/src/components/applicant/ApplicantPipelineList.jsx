@@ -109,6 +109,7 @@ function ApplicantPipelineList({
   dispatchRowTitle = "Dispatch Documents",
   dispatchActionLabel = "",
   canDispatchAction = true,
+  hasDispatchHistory = false,
   contractRowTitle = "Issue of the Contract",
   contractRowSubtitle = "",
   contractRowStatus = "",
@@ -307,7 +308,7 @@ function ApplicantPipelineList({
             (activeStepActionLabel === "Add Biometric Slip" || activeStepActionLabel === "Upload TRC Document");
           const showRowArrow =
             canRowClick &&
-            (isCompletedRow || item.id === 3);
+            (item.id === 3 ? hasDispatchHistory : isCompletedRow);
           const showDispatchButton =
             item.id === 3 &&
             dispatchActionLabel &&

@@ -29,11 +29,17 @@ export function resolveApplicantWorkflowMeta(applicant = {}) {
 function ApplicantsTable({
   rows = [],
   isEmployer = false,
+  showAgencyColumn = false,
   onOpenApplicant,
   onQuickPrint,
   formatPendingAmount
 }) {
-  const gridTemplateColumns = isEmployer ? "2fr 2fr 2fr 1fr" : "2fr 2fr 1.5fr 1.5fr";
+  const gridTemplateColumns = isEmployer
+    ? "2fr 2fr 2fr 1fr"
+    : showAgencyColumn
+    ? "2fr 2fr 1.4fr 1.2fr 1.5fr"
+    : "2fr 2fr 1.5fr 1.5fr";
+  const tableColumnCount = isEmployer ? 4 : showAgencyColumn ? 5 : 4;
 
   if (!rows.length) {
     return (
@@ -43,13 +49,14 @@ function ApplicantsTable({
             <th>Name</th>
             <th>Status</th>
             <th>Company</th>
+            {showAgencyColumn ? <th>Agent</th> : null}
             {isEmployer ? <th>Actions</th> : null}
             {!isEmployer ? <th>Payment Status</th> : null}
           </tr>
         </thead>
         <tbody>
           <tr>
-            <td colSpan={4} className="dashboardEmptyState">
+            <td colSpan={tableColumnCount} className="dashboardEmptyState">
               No applicants found for the selected filters.
             </td>
           </tr>
@@ -66,6 +73,7 @@ function ApplicantsTable({
             <th>Name</th>
               <th>Status</th>
               <th>Company</th>
+              {showAgencyColumn ? <th>Agent</th> : null}
               {isEmployer ? <th>Actions</th> : null}
               {!isEmployer ? <th>Payment Status</th> : null}
           </tr>
@@ -119,6 +127,7 @@ function ApplicantsTable({
                   </div>
                 </td>
                 <td>{applicant.companyName || "-"}</td>
+                {showAgencyColumn ? <td>{applicant.agencyName || "-"}</td> : null}
                 {isEmployer ? (
                   <td>
                     {canQuickPrint ? (
@@ -168,6 +177,7 @@ function ApplicantsTable({
         <div>Name</div>
         <div>Status</div>
         <div>Company</div>
+        {showAgencyColumn ? <div>Agent</div> : null}
         {isEmployer ? <div>Actions</div> : null}
         {!isEmployer ? <div>Payment Status</div> : null}
       </div>
@@ -220,6 +230,7 @@ function ApplicantsTable({
                 {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
               </div>
               <div>{applicant.companyName || "-"}</div>
+              {showAgencyColumn ? <div>{applicant.agencyName || "-"}</div> : null}
               {isEmployer ? (
                 <div>
                   {canQuickPrint ? (

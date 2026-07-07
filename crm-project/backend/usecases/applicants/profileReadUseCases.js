@@ -35,6 +35,10 @@ function projectAccountantApplicant(applicant = {}) {
     jobPositionName: applicant.jobPositionName || "",
     companyName: applicant.companyName || "",
     agencyName: applicant.agencyName || "",
+    profilePhotoUrl: applicant.profilePhotoUrl || "",
+    photoUrl: applicant.photoUrl || "",
+    passportPhotoUrl: applicant.passportPhotoUrl || "",
+    passportSizePhotoUrl: applicant.passportSizePhotoUrl || "",
     stage: Number(applicant.stage || 1),
     approvalStatus: applicant.approvalStatus || "",
     stageLabel: applicant.stageLabel || "",
@@ -449,7 +453,10 @@ async function getApplicantWorkflowBundleUseCase(req) {
     isDocumentsApproved: Boolean(hasCompletedDocumentStage),
     hasRejectedDocuments: Boolean(rejectedRequired),
     hasPendingDocumentsApproval: Boolean(pendingRequired),
-    isDispatchCompleted: Number(applicantData?.stage || 1) >= 4,
+    isDispatchCompleted:
+      Boolean(applicantData?.documentDispatch?.hasDispatch) ||
+      Number(applicantData?.dispatchSummary?.count || 0) > 0 ||
+      Number(applicantData?.stage || 1) >= 4,
     isContractIssued: Number(applicantData?.stage || 1) >= 5 || String(applicantData?.contract?.status || "").toUpperCase() === "APPROVED",
     isSignedContractUploaded:
       !hasRejectedSignedContractDocuments &&

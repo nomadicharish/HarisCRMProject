@@ -65,10 +65,14 @@ function useApplicantWorkflowLabels({
       employerContractStatus === "PENDING" ||
       employerContractStatus === "APPROVED"
     );
-    const canAccessDispatch = applicantStage >= 3;
+    const hasDispatchMarker = Boolean(
+      applicant?.documentDispatch?.hasDispatch === true ||
+      Number(applicant?.dispatchSummary?.count || 0) > 0
+    );
+    const canAccessDispatch = applicantStage >= 1;
     const canEditDispatch =
       user?.role === "AGENCY" &&
-      (applicantStage === 3 || (applicantStage === 4 && !hasEmployerContract));
+      applicantStage < 7;
     const canIssueContract = applicantStage === 4 && (isSuperUser || user?.role === "EMPLOYER");
     const isContractPendingApproval =
       applicantStage === 4 &&
@@ -232,7 +236,10 @@ function useApplicantWorkflowLabels({
       : applicantStage === 2
       ? "active"
       : "";
-    const dispatchRowTitle = "Document Dispatched";
+    const hasDocumentDispatch = Boolean(
+      hasDispatchMarker || (workflowFlags.isDispatchCompleted ?? applicantStage >= 4)
+    );
+    const dispatchRowTitle = hasDocumentDispatch ? "Document Dispatched" : "Document Dispatch";
     const contractRowTitle = isContractCompleted
       ? "Contract Issued"
       : isContractPendingApproval
@@ -408,6 +415,7 @@ function useApplicantWorkflowLabels({
       isEmployer,
       canAccessDispatch,
       canEditDispatch,
+      hasDocumentDispatch,
       canIssueContract,
       canUploadSignedContract,
       canInitiateEmbassyAppointment,

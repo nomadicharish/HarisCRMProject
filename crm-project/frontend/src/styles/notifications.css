@@ -106,7 +106,7 @@
   width: 100%;
   min-height: 64px;
   display: grid;
-  grid-template-columns: 16px 50px 1fr;
+  grid-template-columns: 16px 30px 1fr;
   align-items: center;
   gap: 12px;
   border: 0;
@@ -115,14 +115,15 @@
   text-align: left;
   padding: 10px 10px;
   cursor: pointer;
+  border-radius: 0px;
 }
 
 .notificationItemFull{
-  grid-template-columns: 22px 62px 1fr 28px;
+  grid-template-columns: 22px 42px 1fr 28px;
   min-height: 64px;
   border: 1px solid #d5e1f2;
-  border-radius: 8px;
-  padding: 8px 6px;
+  border-radius: 0px;
+  padding: 8px 16px 8px 6px;
   margin-bottom: 12px;
 }
 
@@ -143,16 +144,16 @@
 }
 
 .notificationGlyph{
-  width: 44px;
-  height: 44px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: grid;
   place-items: center;
 }
 
 .notificationGlyph svg{
-  width: 34px;
-  height: 34px;
+  width: 21px;
+  height: 21px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
@@ -240,7 +241,7 @@
 }
 
 .notificationsMarkBtn{
-  min-height: 44px;
+  min-height: 34px;
   padding: 0 8px;
   border: 1px solid #005dfd;
   border-radius: 7px;
@@ -329,8 +330,8 @@
   }
 
   .notificationGlyph{
-    width: 54px;
-    height: 54px;
+    width: 28px;
+    height: 28px;
   }
 
   .notificationsShell{

@@ -61,13 +61,13 @@
 }
 
 .dispatchEntryBlock{
-  padding-bottom:28px;
+  padding-bottom:14px;
   margin-bottom:26px;
   border-bottom:1px solid #e8eef6;
 }
 
 .dispatchEntryTitle{
-  margin:0 0 22px;
+  margin:0 0 12px;
   color:#111827;
   font-size:16px;
   font-weight:800;
@@ -80,7 +80,7 @@
 .dispatchFormActions{
   display:flex;
   justify-content:flex-end;
-  margin-top:22px;
+  margin-top:12px;
 }
 
 .dispatchHistoryHeader{
@@ -174,7 +174,7 @@
 }
 
 .dispatchSectionCompact{
-  padding:26px 30px 20px;
+  padding:16px 30px 10px;
 }
 
 .dispatchSectionCompact .dispatchCard{

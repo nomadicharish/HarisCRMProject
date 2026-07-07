@@ -71,7 +71,6 @@ function formatDispatchDate(createdAt) {
 const DispatchDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
   <button type="button" className="dispatchDateInput" onClick={onClick} ref={ref}>
     <span>{value || placeholder}</span>
-    <span aria-hidden="true">v</span>
   </button>
 ));
 
@@ -157,6 +156,7 @@ function DispatchSection({
   }
 
   const selectedDispatchDate = parseDateInput(form.dispatchDate);
+  const shouldShowHistory = dispatches.length > 0;
 
   return (
     <div className={`dispatchSection ${compact ? "dispatchSectionCompact" : ""}`}>
@@ -242,7 +242,7 @@ function DispatchSection({
           </div>
         ) : null}
 
-        {(canEdit || loading || dispatches.length > 0) ? (
+        {shouldShowHistory ? (
           <>
             {showHistoryHeader ? (
               <div className="dispatchHistoryHeader">
@@ -262,14 +262,7 @@ function DispatchSection({
                 </thead>
 
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan="4" className="dispatchEmptyCell">
-                        Loading dispatch history...
-                      </td>
-                    </tr>
-                  ) : dispatches.length > 0 ? (
-                    dispatches.map((dispatch) => (
+                  {dispatches.map((dispatch) => (
                       <tr key={dispatch.id}>
                         <td>{dispatch.note || "-"}</td>
                         <td>{dispatch.awbNumber || "-"}</td>
@@ -286,14 +279,7 @@ function DispatchSection({
                         </td>
                         <td>{formatDispatchDate(dispatch.dispatchDate || dispatch.createdAt)}</td>
                       </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="4" className="dispatchEmptyCell">
-                        No dispatch history available yet.
-                      </td>
-                    </tr>
-                  )}
+                    ))}
                 </tbody>
               </table>
             </div>

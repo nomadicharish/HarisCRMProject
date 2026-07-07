@@ -51,6 +51,47 @@ function hasResidencePermit(applicant) {
   return Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl || permit.frontFileUrl || permit.backFileUrl);
 }
 
+function hasArrivalTicketDetails(applicant) {
+  return Boolean(
+    applicant?.visaTravel?.date ||
+    applicant?.visaTravel?.time ||
+    applicant?.visaTravel?.dateTime ||
+    applicant?.visaTravel?.fileUrl
+  );
+}
+
+function hasDocumentDispatch(applicant) {
+  if (applicant?.documentDispatch?.hasDispatch === true) return true;
+  if (Number(applicant?.dispatchSummary?.count || 0) > 0) return true;
+  return Number(applicant?.stage || 1) >= 4;
+}
+
+function isPaymentInRange(payment, fromDate, toDate) {
+  const candidateDates = [
+    toDateValue(payment?.createdAt),
+    toDateValue(payment?.paidDate)
+  ].filter(Boolean);
+  return candidateDates.some((date) => isWithinRange(date, fromDate, toDate));
+}
+
+function toDateValue(value) {
+  return toDate(value);
+}
+
+async function resolvePaymentApplicantIdsByDate({ applicantDocs, fromDate, toDate }) {
+  const ids = new Set();
+  await Promise.all(applicantDocs.map(async (applicantDoc) => {
+    const paymentsSnapshot = await applicantDoc.ref.collection("payments").get();
+    paymentsSnapshot.docs.forEach((paymentDoc) => {
+      const payment = paymentDoc.data() || {};
+      if (payment.type !== "APPLICANT") return;
+      if (!isPaymentInRange(payment, fromDate, toDate)) return;
+      ids.add(applicantDoc.id);
+    });
+  }));
+  return [...ids];
+}
+
 function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
   const now = new Date();
   const stage = Number(applicant?.stage || 1);
@@ -71,6 +112,8 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
       return stage < 7 && isWithinRange(appointmentDate, fromDate, toDate);
     case "pending_payment":
       return paymentStage.pending > 0;
+    case "payment_received":
+      return true;
     case "payment_after_approval":
       return paymentStage.key === "after_approval" && paymentStage.pending > 0;
     case "payment_after_embassy_appointment":
@@ -87,32 +130,14 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
       return Boolean(stage === 9 && interviewDate && interviewDate < now && !applicant?.interviewBiometric?.fileUrl);
     case "appointment_biometric_pending":
       return Boolean(stage === 7 && appointmentDate && appointmentDate < now && !applicant?.biometricSlip?.fileUrl);
-    case "biometric_ticket_pending":
+    case "arrival_ticket_pending":
+      return Boolean(stage === 12 && visaCollectionDate && visaCollectionDate < now && !hasArrivalTicketDetails(applicant));
+    case "document_dispatch_pending":
       return Boolean(
-        stage === 7 &&
-        !(
-          applicant?.travelDetails?.travelDate ||
-          applicant?.travelDetails?.time ||
-          applicant?.travelDetails?.fileUrl
-        )
-      );
-    case "interview_ticket_pending":
-      return Boolean(
-        stage === 9 &&
-        !(
-          applicant?.interviewTicket?.date ||
-          applicant?.interviewTicket?.time ||
-          applicant?.interviewTicket?.fileUrl
-        )
-      );
-    case "trc_ticket_pending":
-      return Boolean(
-        stage === 11 &&
-        !(
-          applicant?.visaCollectionTravel?.date ||
-          applicant?.visaCollectionTravel?.time ||
-          applicant?.visaCollectionTravel?.fileUrl
-        )
+        stage >= 2 &&
+        stage < 7 &&
+        String(applicant?.approvalStatus || "").toLowerCase() === "approved" &&
+        !hasDocumentDispatch(applicant)
       );
     default:
       return true;
@@ -503,10 +528,14 @@ async function getApplicantsFirestorePage({
   };
 }
 
-function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate, notificationApplicantIds }) {
+function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate, notificationApplicantIds, dashboardApplicantIds }) {
   let applicants = [...items];
   if (notificationApplicantIds.length) {
     const allowedIds = new Set(notificationApplicantIds);
+    applicants = applicants.filter((applicant) => allowedIds.has(applicant.id));
+  }
+  if (dashboardApplicantIds) {
+    const allowedIds = new Set(dashboardApplicantIds);
     applicants = applicants.filter((applicant) => allowedIds.has(applicant.id));
   }
   if (searchQuery) {
@@ -627,6 +656,9 @@ async function getApplicantsUseCase(req) {
   }
 
   const docs = await resolveRoleScopedApplicantDocs({ userRole, userId, agencyId, employerId });
+  const dashboardApplicantIds = dashboardFilter === "payment_received"
+    ? await resolvePaymentApplicantIdsByDate({ applicantDocs: docs, fromDate, toDate })
+    : null;
   const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
   const mapped = docs.map((doc) =>
     mapApplicant({
@@ -650,7 +682,8 @@ async function getApplicantsUseCase(req) {
     dashboardFilter,
     fromDate,
     toDate,
-    notificationApplicantIds
+    notificationApplicantIds,
+    dashboardApplicantIds
   });
 
   return paginateApplicants(filtered, {

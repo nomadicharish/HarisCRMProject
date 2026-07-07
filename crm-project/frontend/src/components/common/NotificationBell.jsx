@@ -67,18 +67,16 @@ function NotificationBell() {
   const navigate = useNavigate();
   const panelRef = useRef(null);
   const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      setLoading(true);
       const response = await API.get("/notifications", { params: { limit: 5 } });
       setNotifications(Array.isArray(response.data?.items) ? response.data.items : []);
       setUnreadCount(Number(response.data?.unreadCount || 0));
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error(error);
     }
   }, []);
 
@@ -118,8 +116,7 @@ function NotificationBell() {
             <button type="button" onClick={markAllRead}>Mark all as read</button>
           </div>
           <div className="notificationOverlayList">
-            {loading ? <div className="notificationEmpty">Loading notifications...</div> : null}
-            {!loading && notifications.length === 0 ? <div className="notificationEmpty">No notifications yet.</div> : null}
+            {notifications.length === 0 ? <div className="notificationEmpty">No notifications yet.</div> : null}
             {notifications.map((item) => (
               <NotificationListItem
                 key={item.id}
@@ -127,7 +124,7 @@ function NotificationBell() {
                 onOpen={(notification) => {
                   setOpen(false);
                   openNotification(navigate, notification);
-                }}
+                }} 
               />
             ))}
           </div>

@@ -445,17 +445,17 @@
   display:grid;
   grid-template-columns:repeat(4, minmax(0, 1fr));
   gap:12px;
-  margin-bottom:24px;
+  margin-bottom:12px;
 }
 
 .paymentStatusCard{
-  min-height:82px;
-  padding:16px;
+  min-height:64px;
+  padding:8px;
   border:1px solid #e5e7eb;
   border-radius:12px;
   display:flex;
   flex-direction:column;
-  gap:10px;
+  gap:6px;
   background:#fff;
 }
 
@@ -467,7 +467,7 @@
 
 .paymentStatusCard strong{
   color:#101828;
-  font-size:18px;
+  font-size:16px;
 }
 
 .paymentStatusConfirmed{ background:#f4fbf6; border-color:#d4f0dc; }
@@ -516,7 +516,7 @@
 
 .paymentReviewModalCard .contractActionRow{
   margin:12px 0 0;
-  padding:16px 24px 20px;
+  padding:8px 0px 20px;
   border-top:1px solid #e4e7ec;
 }
 
@@ -543,8 +543,8 @@
   display:grid;
   grid-template-columns:repeat(4, minmax(0, 1fr));
   gap:12px;
-  padding:16px;
-  margin:18px 0;
+  padding:10px 16px;
+  margin:8px 0;
   border:1px solid #e4e7ec;
   border-radius:10px;
   background:#f9fafb;
@@ -874,11 +874,11 @@
 }
 
 .paymentHistoryTable thead th{
-  padding:16px 0;
+  padding:8px 0;
 }
 
 .paymentHistoryTable tbody td{
-  padding:18px 0;
+  padding:8px 0;
   border-bottom:1px solid #eef2f7;
 }
 
@@ -889,7 +889,7 @@
 }
 
 .paymentBackLink{
-  margin-top:22px;
+  margin-top:8px;
   font-weight:700;
 }
 

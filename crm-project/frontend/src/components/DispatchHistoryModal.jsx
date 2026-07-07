@@ -5,6 +5,13 @@ import "../styles/applicantContract.css";
 function DispatchHistoryModal({ applicantId, open, onClose, canEdit = false, onSaved }) {
   if (!open) return null;
 
+  const handleSaved = async () => {
+    if (typeof onSaved === "function") {
+      await onSaved();
+    }
+    onClose?.();
+  };
+
   return (
     <div className="contractModalOverlay dispatchModalOverlay" role="presentation">
       <div
@@ -39,7 +46,7 @@ function DispatchHistoryModal({ applicantId, open, onClose, canEdit = false, onS
           showTitle={false}
           compact={true}
           truncateTrackingUrl={true}
-          onSaved={onSaved}
+          onSaved={handleSaved}
         />
 
         <div className="dispatchModalFooter">

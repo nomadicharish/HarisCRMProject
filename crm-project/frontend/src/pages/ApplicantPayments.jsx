@@ -441,7 +441,6 @@ function ApplicantPayments() {
       setSelectedPayment(null);
       setReviewConfirmed(false);
       await loadData({ force: true });
-      toast.success(isJuniorAction ? "Payment acknowledged" : "Payment confirmed");
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to update payment");
