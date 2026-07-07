@@ -7,7 +7,8 @@ const { addStageLog, autoAdvanceStage } = require("../../services/applicantWorkf
 const {
   recordAdminApproval,
   recordAgencyTask,
-  recordEmployerWorkflowInitiated
+  recordEmployerWorkflowInitiated,
+  recordNotificationAction
 } = require("../../services/notificationService");
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
@@ -88,11 +89,8 @@ async function addDispatchForApplicant({ applicantId, note, trackingUrl, awbNumb
 
   const applicant = applicantSnap.data() || {};
   const applicantStage = Number(applicant.stage || 1);
-  if (applicantStage < 3 || applicantStage >= 5) {
-    throw new AppError("Dispatch can only be added during dispatch or contract stage", 400);
-  }
-  if (applicantStage === 4 && applicant.contract?.fileUrl) {
-    throw new AppError("Dispatch details cannot be added after the employer uploads the contract", 400);
+  if (applicantStage >= 7) {
+    throw new AppError("Dispatch can only be added before embassy appointment approval", 400);
   }
 
   const docRef = await applicantRef.collection("dispatches").add({
@@ -104,6 +102,23 @@ async function addDispatchForApplicant({ applicantId, note, trackingUrl, awbNumb
     createdByRole: userRole,
     createdAt: new Date()
   });
+
+  await applicantRef.set(
+    {
+      documentDispatch: {
+        hasDispatch: true,
+        lastDispatchId: docRef.id,
+        lastDispatchAt: new Date(),
+        lastAwbNumber: awbNumber || "",
+        lastTrackingUrl: trackingUrl || ""
+      },
+      dispatchSummary: {
+        count: admin.firestore.FieldValue.increment(1),
+        updatedAt: new Date()
+      }
+    },
+    { merge: true }
+  );
 
   if (applicantStage === 3) {
     await autoAdvanceStage(applicantId, 3, "AUTO_AFTER_DISPATCH");
@@ -401,6 +416,12 @@ async function rejectSignedContractDocumentUseCase(req) {
 
   await deleteStorageFileIfExists(bucket, rejectedUrl);
   await safeRefreshApplicantDocumentSummary(applicantId);
+  await recordNotificationAction({
+    actionKey: "SIGNED_CONTRACT_REJECTED",
+    applicantId,
+    applicant,
+    user: req.user
+  });
   return { message: "Signed document rejected" };
 }
 
@@ -795,6 +816,12 @@ async function addInterviewTicketUseCase(req) {
     },
     { merge: true }
   );
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantSnap.data() || {},
+    user: req.user,
+    actionKey: "TRAVEL_DETAILS_ADDED"
+  });
   return { message: "Interview ticket saved" };
 }
 

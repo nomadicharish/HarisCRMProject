@@ -37,6 +37,21 @@ function hasResidencePermit(applicant) {
   return Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl || permit.frontFileUrl || permit.backFileUrl);
 }
 
+function hasArrivalTicketDetails(applicant) {
+  return Boolean(
+    applicant?.visaTravel?.date ||
+    applicant?.visaTravel?.time ||
+    applicant?.visaTravel?.dateTime ||
+    applicant?.visaTravel?.fileUrl
+  );
+}
+
+function hasDocumentDispatch(applicant) {
+  if (applicant?.documentDispatch?.hasDispatch === true) return true;
+  if (Number(applicant?.dispatchSummary?.count || 0) > 0) return true;
+  return Number(applicant?.stage || 1) >= 4;
+}
+
 function resolveWorkflowDate(...values) {
   for (const value of values) {
     const date = toDate(value);
@@ -45,7 +60,7 @@ function resolveWorkflowDate(...values) {
   return null;
 }
 
-async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
+async function resolveEmployerCompanyIds(userId, linkedEmployerId = null) {
   let employerId = linkedEmployerId;
   if (!employerId) {
     const userDoc = await db.collection("users").doc(userId).get();
@@ -54,9 +69,15 @@ async function resolveEmployerCompanyId(userId, linkedEmployerId = null) {
   if (!employerId) throw new AppError("Employer profile not linked", 400);
 
   const employerDoc = await db.collection("employers").doc(employerId).get();
-  const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
-  if (!companyId) throw new AppError("Employer company not linked", 400);
-  return companyId;
+  const data = employerDoc.exists ? employerDoc.data() || {} : {};
+  const companyIds = Array.isArray(data.companyIds) && data.companyIds.length
+    ? data.companyIds
+    : data.companyId
+      ? [data.companyId]
+      : [];
+  const normalized = companyIds.map((value) => String(value || "").trim()).filter(Boolean);
+  if (!normalized.length) throw new AppError("Employer company not linked", 400);
+  return normalized;
 }
 
 function createMetric(key, label, filter, tone = "blue") {
@@ -72,6 +93,97 @@ function createPaymentStage(key, label, percentage, filter, tone) {
     tone,
     count: 0,
     pendingByCurrency: { INR: 0, EUR: 0, USD: 0 }
+  };
+}
+
+function emptyCurrencyTotals() {
+  return { INR: 0, EUR: 0, USD: 0 };
+}
+
+function normalizeCurrency(value) {
+  const currency = String(value || "").trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(emptyCurrencyTotals(), currency) ? currency : "INR";
+}
+
+function isPaymentInRange(payment, from, to) {
+  const candidateDates = [
+    toDate(payment?.createdAt),
+    toDate(payment?.paidDate)
+  ].filter(Boolean);
+  return candidateDates.some((date) => isWithinRange(date, from, to));
+}
+
+async function buildAccountantPaymentDashboard({ applicantDocs, from, to }) {
+  const paymentRows = [];
+  const applicantById = new Map();
+  const missingAgencyIds = new Set();
+
+  applicantDocs.forEach((doc) => {
+    const data = doc.exists ? doc.data() || {} : {};
+    applicantById.set(doc.id, data);
+    if (data.agencyId && !data.agencyName) missingAgencyIds.add(data.agencyId);
+  });
+
+  await Promise.all(applicantDocs.map(async (applicantDoc) => {
+    const paymentsSnapshot = await applicantDoc.ref.collection("payments").get();
+    paymentsSnapshot.docs.forEach((paymentDoc) => {
+      const payment = paymentDoc.data() || {};
+      if (payment.type !== "APPLICANT") return;
+      if (!isPaymentInRange(payment, from, to)) return;
+      paymentRows.push({
+        applicantId: applicantDoc.id,
+        payment
+      });
+    });
+  }));
+
+  const agencyNameById = new Map();
+  if (missingAgencyIds.size) {
+    const agencyDocs = await db.getAll(...[...missingAgencyIds].map((id) => db.collection("agencies").doc(id)));
+    agencyDocs.forEach((doc) => {
+      agencyNameById.set(doc.id, doc.exists ? doc.data()?.name || "" : "");
+    });
+  }
+
+  const totalByCurrency = emptyCurrencyTotals();
+  const agencyRows = new Map();
+  const applicantIds = new Set();
+
+  paymentRows.forEach(({ applicantId, payment }) => {
+    const applicant = applicantById.get(applicantId) || {};
+    const currency = normalizeCurrency(payment.currency || applicant.paymentCurrency || applicant.currency);
+    const amount = Number(payment.amount || 0);
+    if (!Number.isFinite(amount) || amount <= 0) return;
+
+    applicantIds.add(applicantId);
+    totalByCurrency[currency] += amount;
+
+    const agencyId = applicant.agencyId || "unknown";
+    if (!agencyRows.has(agencyId)) {
+      agencyRows.set(agencyId, {
+        agencyId,
+        agencyName: applicant.agencyName || agencyNameById.get(agencyId) || "Unknown Agent",
+        receivedByCurrency: emptyCurrencyTotals()
+      });
+    }
+    agencyRows.get(agencyId).receivedByCurrency[currency] += amount;
+  });
+
+  return {
+    totalByCurrency,
+    applicantCount: applicantIds.size,
+    paymentCount: paymentRows.length,
+    applicantIds: [...applicantIds],
+    agencies: [...agencyRows.values()].sort((a, b) => {
+      const left = a.receivedByCurrency || {};
+      const right = b.receivedByCurrency || {};
+      return (
+        Number(right.INR || 0) - Number(left.INR || 0) ||
+        Number(right.EUR || 0) - Number(left.EUR || 0) ||
+        Number(right.USD || 0) - Number(left.USD || 0) ||
+        String(a.agencyName || "").localeCompare(String(b.agencyName || ""))
+      );
+    })
   };
 }
 
@@ -135,8 +247,10 @@ async function getDashboard({ user, query }) {
     }
     firestoreQuery = firestoreQuery.where("agencyId", "==", user.agencyId);
   } else if (role === "EMPLOYER") {
-    const linkedCompanyId = await resolveEmployerCompanyId(userId, user.employerId || null);
-    firestoreQuery = firestoreQuery.where("companyId", "==", linkedCompanyId);
+    const linkedCompanyIds = await resolveEmployerCompanyIds(userId, user.employerId || null);
+    firestoreQuery = linkedCompanyIds.length === 1
+      ? firestoreQuery.where("companyId", "==", linkedCompanyIds[0])
+      : firestoreQuery.where("companyId", "in", linkedCompanyIds.slice(0, 10));
     filterApprovedForEmployer = true;
   }
 
@@ -175,6 +289,10 @@ async function getDashboard({ user, query }) {
 
   const { from, to } = getDateRange(fromDate, toDate);
   const now = new Date();
+  const canSeeUploadPendingCards = role !== "EMPLOYER";
+  const canSeeWorkflowPendingCards = role === "AGENCY" || isSuperUserLikeRole(role);
+  const shouldBuildPaymentData = role !== "EMPLOYER";
+  const isAccountant = role === "JUNIOR_ACCOUNTANT" || role === "SENIOR_ACCOUNTANT";
 
   const home = {
     dateRange: {
@@ -187,14 +305,7 @@ async function getDashboard({ user, query }) {
       embassyInterview: createMetric("embassyInterview", "Embassy Interviews", "embassy_interview", "purple"),
       embassyAppointment: createMetric("embassyAppointment", "Embassy Appointments", "embassy_appointment", "orange")
     },
-    overdue: {
-      trpPending: createMetric("trpPending", "TRP Upload Pending", "trp_pending", "blue"),
-      interviewBiometricPending: createMetric("interviewBiometricPending", "Biometric Upload Pending", "interview_biometric_pending", "blue"),
-      appointmentBiometricPending: createMetric("appointmentBiometricPending", "Biometric Upload Pending", "appointment_biometric_pending", "blue"),
-      biometricTicketPending: createMetric("biometricTicketPending", "Biometric Ticket Pending", "biometric_ticket_pending", "orange"),
-      interviewTicketPending: createMetric("interviewTicketPending", "Interview Ticket Pending", "interview_ticket_pending", "purple"),
-      trcTicketPending: createMetric("trcTicketPending", "TRC Ticket Pending", "trc_ticket_pending", "green")
-    },
+    overdue: {},
     payments: {
       applicantsWithPendingPayment: 0,
       pendingByCurrency: {
@@ -212,6 +323,17 @@ async function getDashboard({ user, query }) {
     }
   };
 
+  if (canSeeUploadPendingCards) {
+    home.overdue.trpPending = createMetric("trpPending", "TRC Upload Pending", "trp_pending", "blue");
+    home.overdue.interviewBiometricPending = createMetric("interviewBiometricPending", "Biometric Upload Pending", "interview_biometric_pending", "blue");
+    home.overdue.appointmentBiometricPending = createMetric("appointmentBiometricPending", "Biometric Upload Pending", "appointment_biometric_pending", "blue");
+  }
+
+  if (canSeeWorkflowPendingCards) {
+    home.overdue.arrivalTicketPending = createMetric("arrivalTicketPending", "Arrival Ticket Upload Pending", "arrival_ticket_pending", "orange");
+    home.overdue.documentDispatchPending = createMetric("documentDispatchPending", "Document Dispatch Pending", "document_dispatch_pending", "purple");
+  }
+
   const summary = {
     totalApplicants: 0,
     completed: 0,
@@ -228,6 +350,11 @@ async function getDashboard({ user, query }) {
     home
   };
 
+  if (isAccountant) {
+    summary.home.accountantPayments = await buildAccountantPaymentDashboard({ applicantDocs: scopedDocs, from, to });
+    return summary;
+  }
+
   const docs = filterApprovedForEmployer
     ? scopedDocs.filter((doc) => {
         const data = doc.data() || {};
@@ -235,18 +362,19 @@ async function getDashboard({ user, query }) {
         return status === "approved";
       })
     : scopedDocs;
-  const agencyPaymentData = await buildAgencyPaymentRows({
-    role,
-    userId,
-    agencyId: user.agencyId || "",
-    docs
-  });
-  const agencyPaymentRows = agencyPaymentData.rows;
+  const agencyPaymentRows = shouldBuildPaymentData
+    ? (await buildAgencyPaymentRows({
+        role,
+        userId,
+        agencyId: user.agencyId || "",
+        docs
+      })).rows
+    : new Map();
 
   for (const doc of docs) {
     const data = doc.data() || {};
-    const payment = resolveApplicantPaymentSnapshot(data);
-    const paymentStage = resolveApplicantPaymentStage(data, payment);
+    const payment = shouldBuildPaymentData ? resolveApplicantPaymentSnapshot(data) : { paid: 0, pending: 0 };
+    const paymentStage = shouldBuildPaymentData ? resolveApplicantPaymentStage(data, payment) : { pending: 0, key: "" };
     const stage = Number(data.stage || 1);
     const appointmentDate = resolveWorkflowDate(data?.embassyAppointment?.dateTime, data?.embassyAppointment?.date, data?.embassyAppointment?.createdAt);
     const interviewDate = resolveWorkflowDate(data?.embassyInterview?.dateTime, data?.embassyInterview?.date, data?.embassyInterview?.createdAt);
@@ -269,44 +397,26 @@ async function getDashboard({ user, query }) {
     if (stage < 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
     if (stage < 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
 
-    if (stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
+    if (canSeeUploadPendingCards && stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
       summary.home.overdue.trpPending.count += 1;
     }
-    if (stage === 9 && interviewDate && interviewDate < now && !data?.interviewBiometric?.fileUrl) {
+    if (canSeeUploadPendingCards && stage === 9 && interviewDate && interviewDate < now && !data?.interviewBiometric?.fileUrl) {
       summary.home.overdue.interviewBiometricPending.count += 1;
     }
-    if (stage === 7 && appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
+    if (canSeeUploadPendingCards && stage === 7 && appointmentDate && appointmentDate < now && !data?.biometricSlip?.fileUrl) {
       summary.home.overdue.appointmentBiometricPending.count += 1;
     }
-    if (
-      stage === 7 &&
-      !(
-        data?.travelDetails?.travelDate ||
-        data?.travelDetails?.time ||
-        data?.travelDetails?.fileUrl
-      )
-    ) {
-      summary.home.overdue.biometricTicketPending.count += 1;
+    if (canSeeWorkflowPendingCards && stage === 12 && visaCollectionDate && visaCollectionDate < now && !hasArrivalTicketDetails(data)) {
+      summary.home.overdue.arrivalTicketPending.count += 1;
     }
     if (
-      stage === 9 &&
-      !(
-        data?.interviewTicket?.date ||
-        data?.interviewTicket?.time ||
-        data?.interviewTicket?.fileUrl
-      )
+      canSeeWorkflowPendingCards &&
+      stage >= 2 &&
+      stage < 7 &&
+      String(data.approvalStatus || "").toLowerCase() === "approved" &&
+      !hasDocumentDispatch(data)
     ) {
-      summary.home.overdue.interviewTicketPending.count += 1;
-    }
-    if (
-      stage === 11 &&
-      !(
-        data?.visaCollectionTravel?.date ||
-        data?.visaCollectionTravel?.time ||
-        data?.visaCollectionTravel?.fileUrl
-      )
-    ) {
-      summary.home.overdue.trcTicketPending.count += 1;
+      summary.home.overdue.documentDispatchPending.count += 1;
     }
     if (paymentStage.pending > 0 && paymentStage.key) {
       summary.home.payments.applicantsWithPendingPayment += 1;

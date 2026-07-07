@@ -2851,7 +2851,7 @@
   justify-content:space-between;
   gap:14px;
   min-height:52px;
-  margin-top: 18px;
+  margin-top: 8px;
   padding:8px 16px;
   border:1px solid #edf1f7;
   border-radius:12px;
@@ -2941,7 +2941,7 @@
 }
 
 .homeSection{
-  margin-top:18px;
+  margin-top:8px;
   margin-bottom:0;
 }
 
@@ -2954,7 +2954,7 @@
 
 .homeCardGrid{
   display:grid;
-  gap:24px;
+  gap:12px;
 }
 
 .homeCardGridFour{
@@ -2963,6 +2963,10 @@
 
 .homeCardGridThree{
   grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.homeCardGridTwo{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
 }
 
 .homeMetricCard{
@@ -2986,8 +2990,8 @@
 }
 
 .homeMetricIcon{
-  width:60px;
-  height:60px;
+  width:50px;
+  height:50px;
   border-radius:50%;
   display:inline-flex;
   align-items:center;
@@ -3005,13 +3009,6 @@
   font-size:14px;
   padding:0px 0 0;
   font-weight:500;
-}
-
-.homeMetricSubtitle{
-  margin-top:8px;  
-  color:#30436f;
-  font-size:12px;
-  line-height:1.35;
 }
 
 .homeMetricCount{
@@ -3107,7 +3104,7 @@
 .homePaymentOverview{
   display:grid;
   grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
-  gap:22px;
+  gap:10px;
   align-items:center;
   padding:10px 24px 10px;
   border:1px solid #ff6b6b;
@@ -3422,6 +3419,185 @@
   font-size:14px;
 }
 
+.accountantHomeSections{
+  display:grid;
+  gap:12px;
+  padding-top: 12px;
+}
+
+.accountantPaymentPanel{
+  border:1px solid #d9e4f7;
+  border-radius:8px;
+  background:#fff;
+  padding:22px;
+  box-shadow:0 12px 28px rgba(15,23,42,.04);
+}
+
+.accountantPaymentPanelAgents{
+  border-color:#cfe8dc;
+}
+
+.accountantPaymentPanelHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:18px;
+}
+
+.accountantPaymentPanelTitle{
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+
+.accountantPanelIcon{
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:#005eea;
+  background:#eef5ff;
+}
+
+.accountantPanelIconGreen{
+  color:#0f9f4a;
+  background:#e6f7ed;
+}
+
+.accountantPaymentPanelTitle h2{
+  margin:0;
+  color:#0b1538;
+  font-size:16px;
+  font-weight:600;
+}
+
+.accountantPaymentPanelTitle p{
+  margin:8px 0 0;
+  color:#30436f;
+  font-size:12px;
+  font-weight:400;
+}
+
+.accountantPaymentPanelHeader button{
+  border:0;
+  background:transparent;
+  color:#005eea;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  white-space:nowrap;
+}
+
+.accountantPaymentPanelHeader button:hover{
+  text-decoration:underline;
+}
+
+.accountantCurrencyGrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:24px;
+}
+
+.accountantCurrencyTile{
+  min-height:64px;
+  border:1px solid #dfe7f3;
+  border-radius:8px;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+}
+
+.accountantCurrencyIcon{
+  width:45px;
+  height:45px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:#ef0000;
+  background:#ffe7e7;
+  font-size:22px;
+  font-weight:600;
+}
+
+.accountantCurrencyTile > div > span{
+  display:block;
+  color:#30436f;
+  font-size:14px;
+  font-weight:800;
+}
+
+.accountantCurrencyTile strong{
+  display:block;
+  margin-top:12px;
+  color:#ef0000;
+  font-size:18px;
+  line-height:1;
+  white-space:nowrap;
+}
+
+.accountantCurrencyTile-eur .accountantCurrencyIcon{
+  color:#005eea;
+  background:#eef5ff;
+}
+
+.accountantCurrencyTile-eur strong,
+.accountantAmountEur{
+  color:#005eea;
+}
+
+.accountantCurrencyTile-usd .accountantCurrencyIcon{
+  color:#0aa344;
+  background:#e6f7ed;
+}
+
+.accountantCurrencyTile-usd strong,
+.accountantAmountUsd{
+  color:#0aa344;
+}
+
+.accountantAgentTableWrap{
+  overflow:auto;
+  border:1px solid #e0e7f1;
+  border-radius:8px;
+}
+
+.accountantAgentTable{
+  width:100%;
+  border-collapse:collapse;
+  color:#0b1538;
+  font-size:14px;
+}
+
+.accountantAgentTable th{
+  padding:13px 14px;
+  background:#f8faff;
+  text-align:left;
+  font-weight:600;
+}
+
+.accountantAgentTable td{
+  padding:13px 14px;
+  border-top:1px solid #e5ebf3;
+  font-weight:700;
+}
+
+.accountantAmountInr{
+  color:#ef0000;
+}
+
+.accountantAgentEmpty{
+  color:#667085;
+  text-align:center;
+}
+
 .homePaymentModalClose{
   border:0;
   background:transparent;
@@ -3642,7 +3818,8 @@
 
 @media (max-width: 1100px){
   .homeCardGridFour,
-  .homeCardGridThree{
+  .homeCardGridThree,
+  .homeCardGridTwo{
     grid-template-columns:repeat(2, minmax(0, 1fr));
   }
 
@@ -3718,8 +3895,30 @@
   }
 
   .homeCardGridFour,
-  .homeCardGridThree{
+  .homeCardGridThree,
+  .homeCardGridTwo{
     grid-template-columns:1fr;
+  }
+
+  .accountantPaymentPanel{
+    padding:16px;
+  }
+
+  .accountantPaymentPanelHeader{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .accountantPaymentPanelTitle{
+    align-items:flex-start;
+  }
+
+  .accountantCurrencyGrid{
+    grid-template-columns:1fr;
+  }
+
+  .accountantAgentTable{
+    min-width:680px;
   }
 
   .homeDateControls input,

@@ -256,12 +256,18 @@ async function syncCompanyEmployerLinks(companyId, countryId, nextEmployerIds = 
   const nextSet = new Set(nextEmployerIds);
 
   nextEmployerIds.forEach((employerId) => {
+    const update = {
+      companyId,
+      countryId: countryId || null,
+      companyIds: admin.firestore.FieldValue.arrayUnion(companyId)
+    };
+    if (countryId) {
+      update.countryIds = admin.firestore.FieldValue.arrayUnion(countryId);
+    }
+
     batch.set(
       db.collection("employers").doc(employerId),
-      {
-        companyId,
-        countryId: countryId || null
-      },
+      update,
       { merge: true }
     );
   });
@@ -269,11 +275,67 @@ async function syncCompanyEmployerLinks(companyId, countryId, nextEmployerIds = 
   previousEmployerIds.forEach((employerId) => {
     if (nextSet.has(employerId)) return;
 
+    const update = {
+      companyId: null,
+      companyIds: admin.firestore.FieldValue.arrayRemove(companyId)
+    };
+    if (countryId) {
+      update.countryIds = admin.firestore.FieldValue.arrayRemove(countryId);
+    }
+
+    batch.set(db.collection("employers").doc(employerId), update, { merge: true });
+  });
+
+  await batch.commit();
+}
+
+function getEmployerCompanyIds(data = {}) {
+  return normalizeIdList(data.companyIds).length
+    ? normalizeIdList(data.companyIds)
+    : normalizeIdList(data.companyId);
+}
+
+function getEmployerCountryIds(data = {}) {
+  return normalizeIdList(data.countryIds).length
+    ? normalizeIdList(data.countryIds)
+    : normalizeIdList(data.countryId);
+}
+
+function resolveEmployerPayloadLinks(payload = {}) {
+  const companyIds = normalizeIdList(payload.companyIds).length
+    ? normalizeIdList(payload.companyIds)
+    : normalizeIdList(payload.companyId);
+  const countryIds = normalizeIdList(payload.countryIds).length
+    ? normalizeIdList(payload.countryIds)
+    : normalizeIdList(payload.countryId);
+
+  return {
+    companyIds,
+    countryIds,
+    primaryCompanyId: companyIds[0] || null,
+    primaryCountryId: countryIds[0] || null
+  };
+}
+
+async function syncEmployerCompanyBacklinks(employerId, nextCompanyIds = [], previousCompanyIds = []) {
+  if (!nextCompanyIds.length && !previousCompanyIds.length) return;
+
+  const batch = admin.firestore().batch();
+  const nextSet = new Set(nextCompanyIds);
+
+  nextCompanyIds.forEach((companyId) => {
     batch.set(
-      db.collection("employers").doc(employerId),
-      {
-        companyId: null
-      },
+      db.collection("companies").doc(companyId),
+      { employerIds: admin.firestore.FieldValue.arrayUnion(employerId) },
+      { merge: true }
+    );
+  });
+
+  previousCompanyIds.forEach((companyId) => {
+    if (nextSet.has(companyId)) return;
+    batch.set(
+      db.collection("companies").doc(companyId),
+      { employerIds: admin.firestore.FieldValue.arrayRemove(employerId) },
       { merge: true }
     );
   });
@@ -427,15 +489,19 @@ async function deleteCompany(id) {
 
   const employerIds = normalizeIdList(companyDoc.data()?.employerIds);
   const agencyIds = normalizeIdList(companyDoc.data()?.agencyIds);
+  const countryId = companyDoc.data()?.countryId || "";
   if (employerIds.length || agencyIds.length) {
     const batch = admin.firestore().batch();
 
     employerIds.forEach((employerId) => {
-      batch.set(
-        db.collection("employers").doc(employerId),
-        { companyId: null },
-        { merge: true }
-      );
+      const update = {
+        companyId: null,
+        companyIds: admin.firestore.FieldValue.arrayRemove(id)
+      };
+      if (countryId) {
+        update.countryIds = admin.firestore.FieldValue.arrayRemove(countryId);
+      }
+      batch.set(db.collection("employers").doc(employerId), update, { merge: true });
     });
 
     agencyIds.forEach((agencyId) => {
@@ -538,11 +604,14 @@ async function addEmployer(payload) {
     contactNumber: payload.contactNumber
   });
 
+  const { companyIds, countryIds, primaryCompanyId, primaryCountryId } = resolveEmployerPayloadLinks(payload);
   const docRef = await db.collection("employers").add({
     name: payload.name,
     whatsappNumber: payload.whatsappNumber || "",
-    companyId: payload.companyId || null,
-    countryId: payload.countryId || null,
+    companyId: primaryCompanyId,
+    countryId: primaryCountryId,
+    companyIds,
+    countryIds,
     ...(await buildProtectedContactFields(payload)),
     createdAt: new Date()
   });
@@ -555,14 +624,7 @@ async function addEmployer(payload) {
     contactNumber: payload.contactNumber
   });
 
-  if (payload.companyId) {
-    await db.collection("companies").doc(payload.companyId).set(
-      {
-        employerIds: admin.firestore.FieldValue.arrayUnion(docRef.id)
-      },
-      { merge: true }
-    );
-  }
+  await syncEmployerCompanyBacklinks(docRef.id, companyIds, []);
 
   return { message: "Employer added", id: docRef.id, welcomeEmail: linkedUser.welcomeEmail };
 }
@@ -583,37 +645,24 @@ async function updateEmployer(id, payload) {
     excludeUserUid: linkedUserDoc?.id || ""
   });
 
-  const previousCompanyId = employerDoc.data()?.companyId || null;
+  const previousCompanyIds = getEmployerCompanyIds(employerDoc.data());
+  const { companyIds, countryIds, primaryCompanyId, primaryCountryId } = resolveEmployerPayloadLinks(payload);
 
   await employerRef.set(
     {
       name: payload.name,
       whatsappNumber: payload.whatsappNumber || "",
-      companyId: payload.companyId || null,
-      countryId: payload.countryId || null,
+      companyId: primaryCompanyId,
+      countryId: primaryCountryId,
+      companyIds,
+      countryIds,
       ...(await buildProtectedContactFields(payload)),
       updatedAt: new Date()
     },
     { merge: true }
   );
 
-  if (previousCompanyId && previousCompanyId !== payload.companyId) {
-    await db.collection("companies").doc(previousCompanyId).set(
-      {
-        employerIds: admin.firestore.FieldValue.arrayRemove(id)
-      },
-      { merge: true }
-    );
-  }
-
-  if (payload.companyId) {
-    await db.collection("companies").doc(payload.companyId).set(
-      {
-        employerIds: admin.firestore.FieldValue.arrayUnion(id)
-      },
-      { merge: true }
-    );
-  }
+  await syncEmployerCompanyBacklinks(id, companyIds, previousCompanyIds);
 
   await syncLinkedUserAccount({
     email: payload.email,
@@ -634,15 +683,7 @@ async function deleteEmployer(id) {
     throw new AppError("Employer not found", 404);
   }
 
-  const previousCompanyId = employerDoc.data()?.companyId || null;
-  if (previousCompanyId) {
-    await db.collection("companies").doc(previousCompanyId).set(
-      {
-        employerIds: admin.firestore.FieldValue.arrayRemove(id)
-      },
-      { merge: true }
-    );
-  }
+  await syncEmployerCompanyBacklinks(id, [], getEmployerCompanyIds(employerDoc.data()));
 
   await deleteLinkedUserAccount("EMPLOYER", id);
   await employerRef.delete();
@@ -738,14 +779,9 @@ async function listEmployers({ role, query = {} }) {
   const countryFilters = parseCsv(query?.country);
   const companyFilters = parseCsv(query?.company);
 
-  if (parseBooleanQuery(query?.paginated, false) && !search && countryFilters.length <= 10 && companyFilters.length <= 10) {
+  if (parseBooleanQuery(query?.paginated, false) && !search && !countryFilters.length && companyFilters.length <= 1) {
     let employerQuery = db.collection("employers");
-    if (countryFilters.length > 1 && companyFilters.length > 1) {
-      employerQuery = null;
-    } else {
-      employerQuery = applyEntityFilter(employerQuery, "countryId", countryFilters);
-      employerQuery = applyEntityFilter(employerQuery, "companyId", companyFilters);
-    }
+    employerQuery = applyEntityFilter(employerQuery, "companyId", companyFilters);
 
     if (employerQuery) {
       const result = await runFirestorePage(employerQuery, query);
@@ -772,11 +808,17 @@ async function listEmployers({ role, query = {} }) {
   }
 
   if (countryFilters.length) {
-    items = items.filter((employer) => countryFilters.includes(employer?.countryId || ""));
+    items = items.filter((employer) => {
+      const employerCountryIds = getEmployerCountryIds(employer);
+      return countryFilters.some((countryId) => employerCountryIds.includes(countryId));
+    });
   }
 
   if (companyFilters.length) {
-    items = items.filter((employer) => companyFilters.includes(employer?.companyId || ""));
+    items = items.filter((employer) => {
+      const employerCompanyIds = getEmployerCompanyIds(employer);
+      return companyFilters.some((companyId) => employerCompanyIds.includes(companyId));
+    });
   }
 
   const result = sortAndPaginate(items, query);
@@ -829,14 +871,16 @@ async function listCompanies({ user, query: queryParams = {} }) {
     if (!employerId) return [];
 
     const employerDoc = await db.collection("employers").doc(employerId).get();
-    const companyId = employerDoc.exists ? employerDoc.data()?.companyId : null;
-    if (!companyId) return [];
+    const companyIds = employerDoc.exists ? getEmployerCompanyIds(employerDoc.data()) : [];
+    if (!companyIds.length) return [];
 
-    const companyDoc = await db.collection("companies").doc(companyId).get();
-    if (!companyDoc.exists) return [];
-    if (countryId && companyDoc.data()?.countryId !== countryId) return [];
-
-    let items = [{ id: companyDoc.id, ...companyDoc.data() }];
+    const companyDocs = await db.getAll(...companyIds.map((companyId) => db.collection("companies").doc(companyId)));
+    let items = companyDocs
+      .filter((companyDoc) => companyDoc.exists)
+      .map((companyDoc) => ({ id: companyDoc.id, ...companyDoc.data() }));
+    if (countryId) {
+      items = items.filter((company) => company.countryId === countryId);
+    }
     if (search) {
       items = items.filter((company) => normalizeText(company?.name).includes(search));
     }

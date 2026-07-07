@@ -1,7 +1,7 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantSummaries } = require("../../services/applicantSummaryService");
-const { recordAgencyTask } = require("../../services/notificationService");
+const { recordAgencyTask, recordNotificationAction } = require("../../services/notificationService");
 const {
   buildApplicantListDerivedFields,
   getAuthenticatedUserFromReq,
@@ -126,6 +126,19 @@ async function createApplicantUseCase(req) {
     user: req.user,
     actionKey: "APPLICANT_ADDED"
   });
+  if (req.user?.role !== "AGENCY") {
+    // When Super User creates applicant, ensure employer is not notified immediately
+    await recordNotificationAction({
+      applicantId,
+      applicant,
+      user: req.user,
+      actionKey: "APPLICANT_ADDED",
+      employerId: "",
+      recipientRoles: ["AGENCY"],
+      recipientAgencyId: assignedAgencyId,
+      recipientEmployerId: ""
+    });
+  }
 
   return {
     message: "Applicant created successfully",

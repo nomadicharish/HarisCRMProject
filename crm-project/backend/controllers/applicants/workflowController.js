@@ -1,4 +1,5 @@
 const { getApplicantsUseCase } = require("../../usecases/applicants/getApplicantsUseCase");
+const { markNotificationsRead } = require("../../services/notificationService");
 const {
   getApplicantByIdUseCase,
   getApplicantDocumentsPageUseCase,
@@ -53,6 +54,10 @@ const { handleApplicantControllerError } = require("./controllerHelpers");
 
 async function getApplicants(req, res) {
   try {
+    // If request indicates it originated from a notification click, mark notifications read
+    if (["1", "true", "yes"].includes(String(req.query?.markNotificationsRead || "").toLowerCase())) {
+      await markNotificationsRead(req.user);
+    }
     const payload = await getApplicantsUseCase(req);
     return res.json(payload);
   } catch (error) {

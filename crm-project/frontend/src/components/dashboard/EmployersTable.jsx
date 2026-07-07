@@ -9,6 +9,33 @@ function formatContactNumber(value) {
   return String(value || "").trim() || "-";
 }
 
+function getEmployerCompanyIds(employer = {}) {
+  if (Array.isArray(employer.companyIds) && employer.companyIds.length) return employer.companyIds;
+  return employer.companyId ? [employer.companyId] : [];
+}
+
+function getEmployerCountryIds(employer = {}, companyMap = {}) {
+  if (Array.isArray(employer.countryIds) && employer.countryIds.length) return employer.countryIds;
+  const companyCountryIds = getEmployerCompanyIds(employer)
+    .map((companyId) => companyMap[companyId]?.countryId)
+    .filter(Boolean);
+  return companyCountryIds.length ? Array.from(new Set(companyCountryIds)) : employer.countryId ? [employer.countryId] : [];
+}
+
+function formatEmployerCompanies(employer = {}, companyMap = {}) {
+  const names = getEmployerCompanyIds(employer)
+    .map((companyId) => companyMap[companyId]?.name)
+    .filter(Boolean);
+  return names.length ? names.join(", ") : "-";
+}
+
+function formatEmployerCountries(employer = {}, companyMap = {}, countryMap = {}) {
+  const names = getEmployerCountryIds(employer, companyMap)
+    .map((countryId) => countryMap[countryId])
+    .filter(Boolean);
+  return names.length ? names.join(", ") : "-";
+}
+
 function EmployersTable({ rows = [], companyMap = {}, countryMap = {}, onOpenEmployer }) {
   const gridTemplateColumns = "2fr 2fr 1.5fr 1.5fr 2fr";
 
@@ -35,8 +62,8 @@ function EmployersTable({ rows = [], companyMap = {}, countryMap = {}, onOpenEmp
               tabIndex={0}
             >
               <div>{employer.name || "-"}</div>
-              <div>{companyMap[employer.companyId]?.name || "-"}</div>
-              <div>{countryMap[employer.countryId] || "-"}</div>
+              <div>{formatEmployerCompanies(employer, companyMap)}</div>
+              <div>{formatEmployerCountries(employer, companyMap, countryMap)}</div>
               <div>{formatContactNumber(employer.contactNumber)}</div>
               <div>{employer.email || "-"}</div>
             </div>
@@ -72,8 +99,8 @@ function EmployersTable({ rows = [], companyMap = {}, countryMap = {}, onOpenEmp
               onClick={() => onOpenEmployer(employer)}
             >
               <td>{employer.name || "-"}</td>
-              <td>{companyMap[employer.companyId]?.name || "-"}</td>
-              <td>{countryMap[employer.countryId] || "-"}</td>
+              <td>{formatEmployerCompanies(employer, companyMap)}</td>
+              <td>{formatEmployerCountries(employer, companyMap, countryMap)}</td>
               <td>{formatContactNumber(employer.contactNumber)}</td>
               <td>{employer.email || "-"}</td>
             </tr>

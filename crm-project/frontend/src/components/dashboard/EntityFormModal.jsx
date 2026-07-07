@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import ConfirmActionModal from "../common/ConfirmActionModal";
 import Select from "react-select";
 import PhoneInput from "react-phone-input-2";
-import { toast } from "react-toastify";
 import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
@@ -94,7 +93,9 @@ const TYPE_CONFIG = {
 const INITIAL_FORM = {
   name: "",
   countryId: "",
+  countryIds: [],
   companyId: "",
+  companyIds: [],
   contactNumber: "",
   address: "",
   email: "",
@@ -103,14 +104,6 @@ const INITIAL_FORM = {
 };
 
 const PHONE_COUNTRY_CODES = new Set(getCountries().map((code) => code.toUpperCase()));
-
-function getWelcomeEmailWarning(welcomeEmail) {
-  if (!welcomeEmail?.skipped) return "";
-  if (welcomeEmail.reason === "smtp_not_configured") {
-    return "Account created, but welcome email was not sent because SMTP is not configured.";
-  }
-  return "Account created, but welcome email could not be sent.";
-}
 
 function TrashIcon() {
   return (
@@ -158,9 +151,12 @@ function EntityFormModal({
   const companyOptions = useMemo(
     () =>
       companies
-        .filter((company) => !form.countryId || company.countryId === form.countryId)
+        .filter((company) => {
+          if (type !== "employer") return !form.countryId || company.countryId === form.countryId;
+          return !form.countryIds.length || form.countryIds.includes(company.countryId);
+        })
         .map((company) => ({ value: company.id, label: company.name })),
-    [companies, form.countryId]
+    [companies, form.countryId, form.countryIds, type]
   );
 
   const employerOptions = useMemo(
@@ -179,10 +175,29 @@ function EntityFormModal({
       return;
     }
 
+    const resolvedCompanyIds = Array.isArray(editData.companyIds) && editData.companyIds.length
+      ? editData.companyIds
+      : editData.companyId
+        ? [editData.companyId]
+        : [];
+    const countryIdsFromCompanies = resolvedCompanyIds
+      .map((companyId) => companies.find((company) => company.id === companyId)?.countryId)
+      .filter(Boolean);
+    const resolvedCountryIds = Array.from(new Set([
+      ...(Array.isArray(editData.countryIds) && editData.countryIds.length
+        ? editData.countryIds
+        : editData.countryId
+          ? [editData.countryId]
+          : []),
+      ...countryIdsFromCompanies
+    ]));
+
     setForm({
       name: editData.name || "",
       countryId: editData.countryId || "",
+      countryIds: resolvedCountryIds,
       companyId: editData.companyId || "",
+      companyIds: resolvedCompanyIds,
       contactNumber: editData.contactNumber || "",
       address: editData.address || "",
       email: editData.email || "",
@@ -199,7 +214,7 @@ function EntityFormModal({
       setContactLocalNumber(rawNumber.replace(/^\+?[\d]{1,4}/, ""));
     }
     setErrors({});
-  }, [editData]);
+  }, [companies, editData]);
 
   useEffect(() => {
     if (editData) return;
@@ -216,6 +231,17 @@ function EntityFormModal({
       if (key === "countryId" && type === "employer") {
         next.companyId = "";
       }
+      if (key === "countryIds" && type === "employer") {
+        next.companyIds = prev.companyIds.filter((companyId) => {
+          const company = companies.find((item) => item.id === companyId);
+          return company && value.includes(company.countryId);
+        });
+        next.countryId = value[0] || "";
+        next.companyId = next.companyIds[0] || "";
+      }
+      if (key === "companyIds" && type === "employer") {
+        next.companyId = value[0] || "";
+      }
       return next;
     });
 
@@ -227,7 +253,7 @@ function EntityFormModal({
 
     if (!form.name.trim()) nextErrors.name = `${config.nameLabel} is required`;
     if (type === "company" && !form.countryId) nextErrors.countryId = "Country is required";
-    if (type === "employer" && !form.countryId) nextErrors.countryId = "Country is required";
+    if (type === "employer" && !form.countryIds.length) nextErrors.countryIds = "Country is required";
     if (type !== "company" && !contactLocalNumber.trim()) nextErrors.contactNumber = "Contact number is required";
     if (type === "agency" && !form.address.trim()) nextErrors.address = "Address is required";
 
@@ -252,8 +278,10 @@ function EntityFormModal({
 
       const payload = {
         name: form.name.trim(),
-        countryId: form.countryId || "",
-        companyId: form.companyId || "",
+        countryId: type === "employer" ? form.countryIds[0] || "" : form.countryId || "",
+        countryIds: type === "employer" ? form.countryIds : form.countryId ? [form.countryId] : [],
+        companyId: type === "employer" ? form.companyIds[0] || "" : form.companyId || "",
+        companyIds: type === "employer" ? form.companyIds : form.companyId ? [form.companyId] : [],
         contactNumber:
           type !== "company" ? `+${getCountryCallingCode(contactCountry)}${contactLocalNumber.trim()}` : "",
         address: form.address.trim(),
@@ -274,7 +302,6 @@ function EntityFormModal({
         }
       } else {
         const response = await API.post(config.createEndpoint, payload);
-        const welcomeEmailWarning = getWelcomeEmailWarning(response?.data?.welcomeEmail);
         
         if (typeof onSaved === "function") {
           await onSaved({
@@ -371,16 +398,25 @@ function EntityFormModal({
               <div className="input-field">
                 <label className="contractUploadLabel">Country</label>
                 <Select
+                  isMulti={type === "employer"}
                   className="dashboardSelect"
                   classNamePrefix="dashboardSelect"
                   options={countryOptions}
-                  value={countryOptions.find((option) => option.value === form.countryId) || null}
-                  onChange={(option) => updateField("countryId", option?.value || "")}
+                  value={
+                    type === "employer"
+                      ? countryOptions.filter((option) => form.countryIds.includes(option.value))
+                      : countryOptions.find((option) => option.value === form.countryId) || null
+                  }
+                  onChange={(option) =>
+                    type === "employer"
+                      ? updateField("countryIds", (option || []).map((item) => item.value))
+                      : updateField("countryId", option?.value || "")
+                  }
                   isSearchable
-                  placeholder="Select country"
-                  styles={createSelectStyles(Boolean(errors.countryId))}
+                  placeholder={type === "employer" ? "Select countries" : "Select country"}
+                  styles={createSelectStyles(Boolean(errors.countryId || errors.countryIds))}
                 />
-                {errors.countryId ? <div className="dashboardInlineError">{errors.countryId}</div> : null}
+                {errors.countryId || errors.countryIds ? <div className="dashboardInlineError">{errors.countryId || errors.countryIds}</div> : null}
               </div>
             ) : null}
 
@@ -388,14 +424,15 @@ function EntityFormModal({
               <div className="input-field">
                 <label className="contractUploadLabel">Company</label>
                 <Select
+                  isMulti
                   className="dashboardSelect"
                   classNamePrefix="dashboardSelect"
                   options={companyOptions}
-                  value={companyOptions.find((option) => option.value === form.companyId) || null}
-                  onChange={(option) => updateField("companyId", option?.value || "")}
+                  value={companyOptions.filter((option) => form.companyIds.includes(option.value))}
+                  onChange={(selected) => updateField("companyIds", (selected || []).map((option) => option.value))}
                   isSearchable
-                  isDisabled={!form.countryId}
-                  placeholder={form.countryId ? "Select company" : "Select country first"}
+                  isDisabled={!form.countryIds.length}
+                  placeholder={form.countryIds.length ? "Select companies" : "Select countries first"}
                   styles={createSelectStyles(Boolean(errors.companyId))}
                 />
                 {errors.companyId ? <div className="dashboardInlineError">{errors.companyId}</div> : null}

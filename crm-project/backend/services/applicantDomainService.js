@@ -38,6 +38,8 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "docSummary",
   "documentSummary",
   "approvalFlags",
+  "documentDispatch",
+  "dispatchSummary",
   "contract.status",
   "signedContract",
   "visaCollection",

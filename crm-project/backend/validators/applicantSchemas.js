@@ -201,6 +201,8 @@ const applicantsListQuerySchema = z.object({
   country: optionalTrimmedString.optional().default(""),
   company: optionalTrimmedString.optional().default(""),
   agency: optionalTrimmedString.optional().default(""),
+  notificationApplicants: optionalTrimmedString.optional().default(""),
+  markNotificationsRead: optionalTrimmedString.optional().default(""),
   dashboardFilter: optionalTrimmedString.optional().default(""),
   fromDate: optionalTrimmedString.optional().default(""),
   toDate: optionalTrimmedString.optional().default("")

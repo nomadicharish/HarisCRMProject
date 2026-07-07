@@ -35,9 +35,13 @@ async function canAccessApplicant(user = {}, applicantId = "") {
   if (user.role === "EMPLOYER") {
     if (!user.employerId) return false;
     const employerDoc = await db.collection("employers").doc(user.employerId).get();
-    const employerCompanyId = employerDoc.exists ? employerDoc.data()?.companyId || "" : "";
-    return Boolean(employerCompanyId) &&
-      applicant.companyId === employerCompanyId &&
+    const employer = employerDoc.exists ? employerDoc.data() || {} : {};
+    const employerCompanyIds = Array.isArray(employer.companyIds) && employer.companyIds.length
+      ? employer.companyIds
+      : employer.companyId
+        ? [employer.companyId]
+        : [];
+    return employerCompanyIds.includes(applicant.companyId) &&
       String(applicant.approvalStatus || "").toLowerCase() === "approved";
   }
 

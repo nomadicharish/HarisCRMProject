@@ -211,6 +211,7 @@ function ApplicantProfile() {
     isEmployer,
     canAccessDispatch,
     canEditDispatch,
+    hasDocumentDispatch,
     canIssueContract,
     canUploadSignedContract,
     canInitiateEmbassyAppointment,
@@ -304,6 +305,7 @@ function ApplicantProfile() {
     invalidateCache(`/applicants/${id}/documents`);
     invalidateCache(`/applicants/${id}/workflow-bundle`);
     invalidateCache("/applicants");
+    invalidateCache("/dashboard");
 
     loadProfileWorkflowData({ force: true });
   }, [
@@ -472,6 +474,7 @@ function ApplicantProfile() {
               dispatchRowTitle={dispatchRowTitle}
               dispatchActionLabel={canEditDispatch ? "Dispatch Document" : ""}
               canDispatchAction={canEditDispatch}
+              hasDispatchHistory={hasDocumentDispatch}
               contractRowTitle={contractRowTitle}
               contractRowStatus={contractRowStatus}
               signedContractRowTitle={signedContractRowTitle}

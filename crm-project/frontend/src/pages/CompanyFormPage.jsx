@@ -3,6 +3,7 @@ import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import { invalidateCache } from "../services/cachedApi";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
@@ -524,6 +525,9 @@ function CompanyFormPage() {
         : await API.post("/add-company", payload);
       const companyId = id || response.data?.id;
       if (companyId) await uploadDocumentTemplates(companyId);
+      invalidateCache("/companies");
+      invalidateCache("/agencies");
+      invalidateCache("/employers");
       navigate("/dashboard?tab=companies");
     } catch (error) {
       console.error(error);

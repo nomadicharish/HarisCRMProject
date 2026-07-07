@@ -10,6 +10,31 @@ const {
 } = require("../../services/applicantDomainService");
 const { approveAndMoveStageUseCase } = require("./workflowStageUseCases");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+const { recordNotificationAction, getUserName } = require("../../services/notificationService");
+
+async function notifyApplicantApproval({ applicantId, applicant = {}, user = {} }) {
+  await recordNotificationAction({
+    actionKey: "APPLICANT_APPROVED",
+    applicantId,
+    applicant,
+    user,
+    recipientRoles: ["AGENCY"],
+    recipientAgencyId: applicant.agencyId || ""
+  });
+
+  if (!applicant?.createdBy) return;
+  const creatorName = await getUserName(applicant.createdBy);
+  await recordNotificationAction({
+    actionKey: "APPLICANT_ADDED",
+    applicantId,
+    applicant: { ...applicant, approvalStatus: "approved" },
+    user: { uid: applicant.createdBy },
+    actorName: creatorName || "",
+    recipientRoles: ["EMPLOYER"],
+    recipientCompanyId: applicant.companyId || "",
+    recipientEmployerId: applicant.employerId || ""
+  });
+}
 
 async function approveApplicantUseCase(req) {
   const applicantId = req.params.applicantId;
@@ -42,6 +67,11 @@ async function approveApplicantUseCase(req) {
     ...data,
     approvalStatus: "approved"
   });
+  try {
+    await notifyApplicantApproval({ applicantId, applicant: data, user: req.user });
+  } catch (err) {
+    // swallow errors to avoid blocking approval response
+  }
 
   return { message: "Applicant approved successfully" };
 }
@@ -80,6 +110,16 @@ async function completeApplicantUseCase(req) {
   });
 
   await refreshApplicantSummaries(applicantId);
+  await recordNotificationAction({
+    actionKey: "PROCESS_COMPLETED",
+    applicantId,
+    applicant: data,
+    user: req.user,
+    recipientRoles: ["AGENCY", "EMPLOYER"],
+    recipientAgencyId: data.agencyId || "",
+    recipientCompanyId: data.companyId || "",
+    recipientEmployerId: data.employerId || ""
+  });
   return { message: "Process completed successfully" };
 }
 
@@ -135,5 +175,6 @@ module.exports = {
   approveAndMoveStageUseCase,
   approveApplicantUseCase,
   completeApplicantUseCase,
+  notifyApplicantApproval,
   updateApplicantUseCase
 };

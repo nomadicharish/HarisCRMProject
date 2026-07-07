@@ -4,6 +4,7 @@ const {
   refreshApplicantSummaries
 } = require("../../services/applicantSummaryService");
 const { getBankAccount } = require("../../services/bankAccountService");
+const { recordNotificationAction } = require("../../services/notificationService");
 const {
   getAuthenticatedUserFromReq,
   normalizeDate,
@@ -249,6 +250,13 @@ async function addPaymentUseCase(req) {
 
   await applicantRef.collection("payments").add(payment);
   await refreshApplicantSummaries(applicantId, applicantData);
+  await recordNotificationAction({
+    actionKey: "PAYMENT_ADDED",
+    applicantId,
+    applicant: applicantData,
+    user: req.user,
+    actorName: enteredByName
+  });
 
   return { message: "Payment added successfully" };
 }
@@ -389,6 +397,7 @@ async function updatePaymentVerification(req, expectedStatus, nextStatus, fields
   const { applicantId, paymentId } = req.params;
   const applicantRef = db.collection("applicants").doc(applicantId);
   const paymentRef = applicantRef.collection("payments").doc(paymentId);
+  let applicantData = {};
 
   await db.runTransaction(async (transaction) => {
     const [applicantSnap, paymentSnap] = await Promise.all([
@@ -396,6 +405,7 @@ async function updatePaymentVerification(req, expectedStatus, nextStatus, fields
       transaction.get(paymentRef)
     ]);
     if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
+    applicantData = applicantSnap.data() || {};
     if (!paymentSnap.exists) throw new AppError("Payment not found", 404);
     const payment = paymentSnap.data() || {};
     if (payment.type !== "APPLICANT") throw new AppError("Only applicant payments can be reviewed", 400);
@@ -410,6 +420,13 @@ async function updatePaymentVerification(req, expectedStatus, nextStatus, fields
   });
 
   await refreshApplicantSummaries(applicantId);
+  await recordNotificationAction({
+    actionKey: nextStatus === PAYMENT_STATUS.CONFIRMED ? "PAYMENT_CONFIRMED" : "PAYMENT_ACKNOWLEDGED",
+    applicantId,
+    applicant: applicantData,
+    user: req.user,
+    actorName: fields.seniorConfirmedByName || fields.juniorAcknowledgedByName || ""
+  });
   return { message: nextStatus === PAYMENT_STATUS.CONFIRMED ? "Payment confirmed" : "Payment acknowledged" };
 }
 
