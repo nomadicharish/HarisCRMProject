@@ -1,5 +1,4 @@
 const { createApplicantUseCase } = require("../../usecases/applicants/createApplicantUseCase");
-const { getExchangeRateUseCase } = require("../../usecases/applicants/getExchangeRateUseCase");
 const {
   approveAndMoveStageUseCase,
   approveApplicantUseCase,
@@ -19,14 +18,6 @@ async function createApplicant(req, res) {
 
 module.exports = {
   createApplicant,
-  async getExchangeRate(req, res) {
-    try {
-      const payload = await getExchangeRateUseCase(req);
-      return res.json(payload);
-    } catch (error) {
-      return handleApplicantControllerError(res, "Get Exchange Rate Error", error);
-    }
-  },
   async approveApplicant(req, res) {
     try {
       const payload = await approveApplicantUseCase(req);

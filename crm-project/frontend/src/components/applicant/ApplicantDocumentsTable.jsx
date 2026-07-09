@@ -3,6 +3,7 @@ import {
   getLatestVersion,
   getVisibleApplicantDocuments
 } from "../../constants/applicantDocuments";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile } from "../../utils/fileValidation";
 
 function ApplicantDocumentsTable({
   applicant,
@@ -72,7 +73,8 @@ function ApplicantDocumentsTable({
                             <input
                               className="fileInput"
                               type="file"
-                              onChange={(e) => onFileSelect(doc.key, e.target.files?.[0] || null)}
+                              accept={ALLOWED_DOCUMENT_ACCEPT}
+                              onChange={(e) => onFileSelect(doc.key, getValidatedDocumentFile(e.target.files?.[0] || null, alert))}
                             />
 
                             <button

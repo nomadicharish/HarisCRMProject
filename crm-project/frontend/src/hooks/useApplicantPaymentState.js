@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 
 function toNumber(value) {
   const parsed = Number(value);
@@ -18,12 +19,12 @@ function getApplicantTotalAmount(applicant, paymentSummary = null) {
 }
 
 function getApplicantPaidAmount(applicant) {
-  return toNumber(
-    applicant?.payment?.paid ??
-      applicant?.paymentsSummary?.applicant?.paid ??
-      applicant?.paidAmount ??
-      applicant?.amountPaid ??
-      applicant?.initialPaidAmount
+  return Math.max(
+    toNumber(applicant?.payment?.paid),
+    toNumber(applicant?.paymentsSummary?.applicant?.paid),
+    toNumber(applicant?.paidAmount),
+    toNumber(applicant?.amountPaid),
+    toNumber(applicant?.initialPaidAmount)
   );
 }
 
@@ -31,23 +32,33 @@ function useApplicantPaymentState({ applicant, paymentSummary }) {
   return useMemo(() => {
     const total = getApplicantTotalAmount(applicant, paymentSummary);
     const paid = getApplicantPaidAmount(applicant);
-    const exchangeRate = toNumber(applicant?.payment?.exchangeRate ?? applicant?.exchangeRate);
-    const derivedTotalInr = exchangeRate > 0 ? total * exchangeRate : total;
-    const derivedPendingInr = Math.max(0, derivedTotalInr - paid);
+    const currency = normalizeCurrency(
+      paymentSummary?.applicant?.currency ||
+        applicant?.payment?.currency ||
+        applicant?.paymentCurrency ||
+        applicant?.currency
+    );
+    const derivedPending = Math.max(0, total - paid);
     const pending =
       paymentSummary?.applicant?.pendingInr ??
       paymentSummary?.applicant?.pending ??
       applicant?.payment?.pendingInr ??
       applicant?.payment?.pending ??
-      derivedPendingInr;
+      derivedPending;
 
     return {
       pending,
-      formattedPendingAmount: `INR ${Number(pending || 0).toLocaleString("en-IN", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      })}`,
-      isTotalAmountMissing: total <= 0
+      currency,
+      formattedPendingAmount: formatCurrencyAmount(pending, currency, true),
+      isTotalAmountMissing: total <= 0,
+      hasPendingAcknowledgement: Boolean(
+        paymentSummary?.applicant?.hasPendingAcknowledgement ??
+        applicant?.payment?.hasPendingAcknowledgement
+      ),
+      hasPendingConfirmation: Boolean(
+        paymentSummary?.applicant?.hasPendingConfirmation ??
+        applicant?.payment?.hasPendingConfirmation
+      )
     };
   }, [applicant, paymentSummary]);
 }

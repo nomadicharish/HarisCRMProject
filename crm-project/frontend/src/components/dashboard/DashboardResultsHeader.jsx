@@ -4,37 +4,50 @@ function DashboardResultsHeader({
   headerText,
   isRefreshing,
   showHeaderAction,
-  activeTab,
-  isSuperUser,
-  onShowCountryManager,
   onOpenCurrentAction,
   currentActionLabel,
   showExportAction,
   onExport,
-  exportLoading
+  exportLoading,
+  showBulkDispatchAction = false,
+  onOpenBulkDispatch,
+  showViewAllApplicants = false,
+  onViewAllApplicants
 }) {
+  const hasRightActions = showHeaderAction || showBulkDispatchAction || showExportAction || showViewAllApplicants;
+
   return (
     <div className="dashboardResultsHeader">
       <div>
-        <div className="dashboardResultsCount">{headerText}</div>
+        <div className="dashboardResultsCount">
+          <span>{headerText}</span>
+        </div>
         {isRefreshing ? <div className="dashboardResultsSync">Syncing latest data...</div> : null}
       </div>
 
-      {showHeaderAction ? (
-        <div className="dashboardActionGroup">
-          {activeTab === "companies" && isSuperUser ? (
+      {hasRightActions ? (
+        <div className={showHeaderAction ? "dashboardActionGroup" : "dashboardHeaderSoloAction"}>
+          {showViewAllApplicants ? (
             <button
               type="button"
-              className="dashboardSecondaryBtn"
-              onClick={onShowCountryManager}
+              className="dashboardViewAllApplicants"
+              onClick={onViewAllApplicants}
             >
-              Add/Update Country
+              View all applicants
             </button>
           ) : null}
 
-          <button type="button" className="dashboardSecondaryBtn" onClick={onOpenCurrentAction}>
-            + {currentActionLabel}
-          </button>
+          {showHeaderAction ? (
+            <button type="button" className="dashboardSecondaryBtn" onClick={onOpenCurrentAction}>
+              + {currentActionLabel}
+            </button>
+          ) : null}
+
+          {showBulkDispatchAction ? (
+            <button type="button" className="dashboardSecondaryBtn" onClick={onOpenBulkDispatch}>
+              Add Bulk Dispatch
+            </button>
+          ) : null}
 
           {showExportAction ? (
             <button type="button" className="dashboardPrimaryBtn" onClick={onExport} disabled={exportLoading}>

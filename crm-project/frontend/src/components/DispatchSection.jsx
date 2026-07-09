@@ -1,10 +1,39 @@
 import React, { useCallback, useEffect, useState } from "react";
+import DatePicker from "react-datepicker";
 import { toast } from "react-toastify";
 import API from "../services/api";
+import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantDispatch.css";
+
+function formatDateInput(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseDateInput(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  if (!year || !month || !day) return null;
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+  return date;
+}
 
 function formatDispatchDate(createdAt) {
   if (!createdAt) return "-";
+
+  if (typeof createdAt === "string" && /^\d{4}-\d{2}-\d{2}$/.test(createdAt)) {
+    const date = parseDateInput(createdAt);
+    return date
+      ? date.toLocaleDateString(undefined, {
+          day: "2-digit",
+          month: "short",
+          year: "numeric"
+        })
+      : "-";
+  }
 
   if (typeof createdAt === "number" || typeof createdAt === "string") {
     const date = new Date(createdAt);
@@ -39,6 +68,14 @@ function formatDispatchDate(createdAt) {
   return "-";
 }
 
+const DispatchDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <button type="button" className="dispatchDateInput" onClick={onClick} ref={ref}>
+    <span>{value || placeholder}</span>
+  </button>
+));
+
+DispatchDateInput.displayName = "DispatchDateInput";
+
 function DispatchSection({
   applicantId,
   canEdit = false,
@@ -55,7 +92,8 @@ function DispatchSection({
   const [form, setForm] = useState({
     note: "",
     trackingUrl: "",
-    awbNumber: ""
+    awbNumber: "",
+    dispatchDate: ""
   });
 
   const loadDispatches = useCallback(async () => {
@@ -95,10 +133,11 @@ function DispatchSection({
       await API.post(`/applicants/${applicantId}/dispatch`, {
         note: form.note.trim(),
         trackingUrl: form.trackingUrl.trim(),
-        awbNumber: form.awbNumber.trim()
+        awbNumber: form.awbNumber.trim(),
+        dispatchDate: form.dispatchDate
       });
 
-      setForm({ note: "", trackingUrl: "", awbNumber: "" });
+      setForm({ note: "", trackingUrl: "", awbNumber: "", dispatchDate: "" });
       await loadDispatches();
 
       if (typeof onSaved === "function") {
@@ -116,6 +155,9 @@ function DispatchSection({
     return null;
   }
 
+  const selectedDispatchDate = parseDateInput(form.dispatchDate);
+  const shouldShowHistory = dispatches.length > 0;
+
   return (
     <div className={`dispatchSection ${compact ? "dispatchSectionCompact" : ""}`}>
       {showTopBar ? (
@@ -132,41 +174,59 @@ function DispatchSection({
         ) : null}
 
         {canEdit ? (
-          <div className="dispatchFormGrid">
-            <div className="input-field">
-              <label htmlFor="dispatch-note">Dispatch Note</label>
-              <input
-                id="dispatch-note"
-                name="note"
-                placeholder="Enter dispatch note"
-                value={form.note}
-                onChange={handleChange}
-                disabled={saving}
-              />
-            </div>
+          <div className="dispatchEntryBlock">
+            <h4 className="dispatchEntryTitle">Enter Dispatch Details</h4>
+            <div className="dispatchFormGrid">
+              <div className="input-field">
+                <label htmlFor="dispatch-note">Dispatch Note <span className="dispatchRequired">*</span></label>
+                <input
+                  id="dispatch-note"
+                  name="note"
+                  placeholder="Enter dispatch note"
+                  value={form.note}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
 
-            <div className="input-field">
-              <label htmlFor="dispatch-tracking-url">Tracking URL</label>
-              <input
-                id="dispatch-tracking-url"
-                name="trackingUrl"
-                placeholder="Enter tracking URL"
-                value={form.trackingUrl}
-                onChange={handleChange}
-                disabled={saving}
-              />
-            </div>
+              <div className="input-field">
+                <label htmlFor="dispatch-awb">AWB Number <span className="dispatchRequired">*</span></label>
+                <input
+                  id="dispatch-awb"
+                  name="awbNumber"
+                  placeholder="Enter AWB number"
+                  value={form.awbNumber}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
 
-            <div className="input-field">
-              <label htmlFor="dispatch-awb">AWB Number</label>
-              <input
-                id="dispatch-awb"
-                name="awbNumber"
-                placeholder="Enter AWB Number"
-                value={form.awbNumber}
-                onChange={handleChange}
-                disabled={saving}
-              />
+              <div className="input-field">
+                <label htmlFor="dispatch-tracking-url">Tracking URL (Optional)</label>
+                <input
+                  id="dispatch-tracking-url"
+                  name="trackingUrl"
+                  placeholder="Enter tracking URL"
+                  value={form.trackingUrl}
+                  onChange={handleChange}
+                  disabled={saving}
+                />
+              </div>
+
+              <div className="input-field">
+                <label htmlFor="dispatch-date">Dispatch Date (Optional)</label>
+                <DatePicker
+                  selected={selectedDispatchDate}
+                  onChange={(date) => setForm((prev) => ({ ...prev, dispatchDate: date ? formatDateInput(date) : "" }))}
+                  dateFormat="dd/MM/yyyy"
+                  showMonthDropdown
+                  showYearDropdown
+                  dropdownMode="select"
+                  isClearable
+                  customInput={<DispatchDateInput placeholder="Select date" />}
+                  disabled={saving}
+                />
+              </div>
             </div>
 
             <div className="dispatchFormActions">
@@ -176,13 +236,13 @@ function DispatchSection({
                 disabled={saving}
                 onClick={handleSubmit}
               >
-                {saving ? "Saving..." : "Add Dispatch"}
+                {saving ? "Saving..." : "Save Dispatch"}
               </button>
             </div>
           </div>
         ) : null}
 
-        {(loading || dispatches.length > 0) ? (
+        {shouldShowHistory ? (
           <>
             {showHistoryHeader ? (
               <div className="dispatchHistoryHeader">
@@ -202,14 +262,7 @@ function DispatchSection({
                 </thead>
 
                 <tbody>
-                  {loading ? (
-                    <tr>
-                      <td colSpan="4" className="dispatchEmptyCell">
-                        Loading dispatch history...
-                      </td>
-                    </tr>
-                  ) : (
-                    dispatches.map((dispatch) => (
+                  {dispatches.map((dispatch) => (
                       <tr key={dispatch.id}>
                         <td>{dispatch.note || "-"}</td>
                         <td>{dispatch.awbNumber || "-"}</td>
@@ -224,10 +277,9 @@ function DispatchSection({
                             "-"
                           )}
                         </td>
-                        <td>{formatDispatchDate(dispatch.createdAt)}</td>
+                        <td>{formatDispatchDate(dispatch.dispatchDate || dispatch.createdAt)}</td>
                       </tr>
-                    ))
-                  )}
+                    ))}
                 </tbody>
               </table>
             </div>

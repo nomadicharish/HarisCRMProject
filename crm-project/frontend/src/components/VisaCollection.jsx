@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { isSuperUserLikeRole } from "../utils/auth";
 
 function VisaCollection({ applicantId, user, loadApplicant }) {
+  const isSuperUser = isSuperUserLikeRole(user?.role);
 
   const [data, setData] = useState(null);
   const [form, setForm] = useState({ date: "", time: "" });
@@ -46,7 +48,7 @@ function VisaCollection({ applicantId, user, loadApplicant }) {
       )}
 
       {/* ADD */}
-      {!data && ["EMPLOYER", "SUPER_USER"].includes(user?.role) && (
+      {!data && (user?.role === "EMPLOYER" || isSuperUser) && (
         <div>
           <input type="date" name="date" onChange={handleChange} />
           <input type="time" name="time" onChange={handleChange} />
@@ -55,7 +57,7 @@ function VisaCollection({ applicantId, user, loadApplicant }) {
       )}
 
       {/* APPROVE */}
-      {user?.role === "SUPER_USER" && data?.status === "PENDING" && (
+      {isSuperUser && data?.status === "PENDING" && (
         <button onClick={approve}>
           Approve Visa Collection
         </button>

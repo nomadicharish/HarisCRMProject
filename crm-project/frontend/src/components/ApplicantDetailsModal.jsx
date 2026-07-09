@@ -51,16 +51,6 @@ function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = 
     applicant?.totalPayment
   );
 
-  const paidAmount = toDisplayValue(
-    applicant?.payment?.paid,
-    applicant?.paymentsSummary?.applicant?.paid,
-    applicant?.paidAmount,
-    applicant?.amountPaid,
-    applicant?.initialPaidAmount,
-    applicant?.payment?.paidAmount,
-    applicant?.payment?.amountPaid
-  );
-
   return (
     <div className="contractModalOverlay applicantInfoModalOverlay">
       <div className="contractModalCard applicantInfoModalCard">
@@ -88,6 +78,7 @@ function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = 
             <Field label="Place of Birth" value={personalDetails.placeOfBirth ?? applicant.placeOfBirth} />
             <Field label="Passport Number" value={personalDetails.passportNumber ?? applicant.passportNumber} />
             <Field label="Age" value={personalDetails.age ?? applicant.age} />
+            <Field label="Education" value={personalDetails.education ?? applicant.education} />
             <Field label="Address" value={personalDetails.address ?? applicant.address} />
           </div>
         </div>
@@ -109,9 +100,9 @@ function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = 
           <div className="applicantInfoGrid">
             <Field label="Country" value={countryName || applicant.countryName || applicant.country} />
             <Field label="Employer" value={applicant.companyName} />
+            <Field label="Job Position" value={applicant.jobPositionName} />
             {agencyName ? <Field label="Agency" value={agencyName} /> : null}
             {showPaymentDetails ? <Field label="Total Amount" value={totalAmount} /> : null}
-            {showPaymentDetails ? <Field label="Initial Paid Amount" value={paidAmount} /> : null}
           </div>
         </div>
       </div>

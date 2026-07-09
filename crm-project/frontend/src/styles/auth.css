@@ -45,9 +45,11 @@
 }
 
 .authBrandIcon{
-  width:24px;
-  height:24px;
-  color:#3b82f6;
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:block;
+  object-fit:cover;
   flex:0 0 auto;
 }
 

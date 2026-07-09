@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "react-toastify";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
+import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -30,8 +31,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
   const [residencePermit, setResidencePermit] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [frontFile, setFrontFile] = useState(null);
-  const [backFile, setBackFile] = useState(null);
+  const [trpFile, setTrpFile] = useState(null);
 
   const resolvedResidencePermit = useMemo(
     () => residencePermit || fallbackResidencePermit || null,
@@ -55,44 +55,27 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
   useEffect(() => {
     if (open && applicantId) {
       loadResidencePermit();
-      setFrontFile(null);
-      setBackFile(null);
+      setTrpFile(null);
     }
   }, [open, applicantId, loadResidencePermit]);
 
   const uploadSelectedFiles = async () => {
-    const needsFront = !resolvedResidencePermit?.frontUrl;
-    const needsBack = !resolvedResidencePermit?.backUrl;
-
-    if (needsFront && !frontFile) {
-      toast.error("Please select front side document");
+    if (!trpFile) {
+      toast.error("Please select TRC document");
       return;
     }
-
-    if (needsBack && !backFile) {
-      toast.error("Please select back side document");
+    const fileValidation = validateDocumentFiles([trpFile]);
+    if (!fileValidation.valid) {
+      toast.error(fileValidation.message);
       return;
     }
 
     try {
       setSaving(true);
-      const uploads = [];
-
-      if (needsFront && frontFile) {
-        const frontFormData = new FormData();
-        frontFormData.append("file", frontFile);
-        frontFormData.append("type", "FRONT");
-        uploads.push(API.post(`/applicants/${applicantId}/residence-permit`, frontFormData));
-      }
-
-      if (needsBack && backFile) {
-        const backFormData = new FormData();
-        backFormData.append("file", backFile);
-        backFormData.append("type", "BACK");
-        uploads.push(API.post(`/applicants/${applicantId}/residence-permit`, backFormData));
-      }
-
-      await Promise.all(uploads);
+      const formData = new FormData();
+      formData.append("file", trpFile);
+      formData.append("type", "TRP");
+      await API.post(`/applicants/${applicantId}/residence-permit`, formData);
 
       if (typeof onUpdated === "function") {
         await onUpdated();
@@ -124,8 +107,8 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
             </svg>
           </div>
           <div className="workflowModalHeroText">
-            <h3 className="dashboardModalTitle">Residence Permit</h3>
-            <div className="workflowModalSubtitle">View the residence permit details below.</div>
+            <h3 className="dashboardModalTitle">TRC Document</h3>
+            <div className="workflowModalSubtitle">Upload and view the TRC document below.</div>
           </div>
           <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving}>
             x
@@ -141,6 +124,22 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
             {resolvedResidencePermit ? (
               <div className="workflowModalBody">
               <div className="workflowDetailCard workflowDetailCardFlat">
+                {resolvedResidencePermit.trpUrl || resolvedResidencePermit.fileUrl ? (
+                  <div className="workflowDetailRow">
+                    <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
+                      <span className="workflowDetailHeaderIcon workflowDetailInlineIcon" aria-hidden="true">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                          <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      TRC Document
+                    </span>
+                    <a href={resolvedResidencePermit.trpUrl || resolvedResidencePermit.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
+                      View
+                    </a>
+                  </div>
+                ) : null}
                 {resolvedResidencePermit.frontUrl ? (
                   <div className="workflowDetailRow">
                     <span className="workflowDetailRowLabel workflowDetailRowLabelWithIcon">
@@ -198,7 +197,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
               </div>
             ) : null}
 
-            {canUpload && (!resolvedResidencePermit?.frontUrl || !resolvedResidencePermit?.backUrl) ? (
+            {canUpload ? (
               <div className="workflowModalBody">
                 <div className="workflowDetailCard workflowTicketUploadCard">
                   <div className="workflowDetailHeader">
@@ -208,76 +207,43 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
                         <path d="M15 3v4h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </span>
-                    <span>Upload Residence Permit</span>
+                    <span>Upload TRC Document</span>
                   </div>
 
                   <div className="workflowDetailBody workflowTicketUploadBody">
-                    <div className="residencePermitUploadGrid">
-                      {!resolvedResidencePermit?.frontUrl ? (
-                        <div className="input-field">
-                          <label className="contractUploadLabel" htmlFor="residence-front-file">
-                            Front Side
-                          </label>
-                          <label className="workflowUploadBox" htmlFor="residence-front-file">
-                            <input
-                              id="residence-front-file"
-                              type="file"
-                              className="contractFileInput"
-                              disabled={saving}
-                              onChange={(event) => setFrontFile(event.target.files?.[0] || null)}
-                            />
-                            <span className="workflowUploadBoxIcon" aria-hidden="true">
-                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </span>
-                            <span className="workflowUploadBoxText">
-                              <span className="workflowUploadBoxTitle">Choose file</span>
-                              <span className="workflowUploadBoxName">{frontFile ? frontFile.name : "No file chosen"}</span>
-                            </span>
-                          </label>
-                        </div>
-                      ) : null}
-
-                      {!resolvedResidencePermit?.backUrl ? (
-                        <div className="input-field">
-                          <label className="contractUploadLabel" htmlFor="residence-back-file">
-                            Back Side
-                          </label>
-                          <label className="workflowUploadBox" htmlFor="residence-back-file">
-                            <input
-                              id="residence-back-file"
-                              type="file"
-                              className="contractFileInput"
-                              disabled={saving}
-                              onChange={(event) => setBackFile(event.target.files?.[0] || null)}
-                            />
-                            <span className="workflowUploadBoxIcon" aria-hidden="true">
-                              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-                                <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            </span>
-                            <span className="workflowUploadBoxText">
-                              <span className="workflowUploadBoxTitle">Choose file</span>
-                              <span className="workflowUploadBoxName">{backFile ? backFile.name : "No file chosen"}</span>
-                            </span>
-                          </label>
-                        </div>
-                      ) : null}
-                    </div>
+                    <label className="workflowUploadBox workflowUploadBoxFull" htmlFor="trp-document-file">
+                      <input
+                        id="trp-document-file"
+                        type="file"
+                        accept={ALLOWED_DOCUMENT_ACCEPT}
+                        className="contractFileInput"
+                        disabled={saving}
+                        onChange={(event) => setTrpFile(getValidatedDocumentFile(event.target.files?.[0] || null, toast.error))}
+                      />
+                      <span className="workflowUploadBoxIcon" aria-hidden="true">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                          <path d="M12 16V7m0 0-3.5 3.5M12 7l3.5 3.5M5 16.5v1A1.5 1.5 0 0 0 6.5 19h11a1.5 1.5 0 0 0 1.5-1.5v-1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                      <span className="workflowUploadBoxText">
+                        <span className="workflowUploadBoxTitle">Choose file</span>
+                        <span className="workflowUploadBoxName">{trpFile ? trpFile.name : "No file chosen"}</span>
+                        <span className="workflowUploadBoxMeta">{DOCUMENT_UPLOAD_HELP_TEXT}</span>
+                      </span>
+                    </label>
                   </div>
                 </div>
               </div>
             ) : null}
 
-            {canUpload && (!resolvedResidencePermit?.frontUrl || !resolvedResidencePermit?.backUrl) ? (
+            {canUpload ? (
               <div className="workflowModalFooter">
                 <button type="button" className="btn btnPrimary" disabled={saving} onClick={uploadSelectedFiles}>
-                  {saving ? "Uploading..." : "Upload Residence Permit"}
+                  {saving ? "Uploading..." : resolvedResidencePermit?.trpUrl || resolvedResidencePermit?.fileUrl ? "Update TRC Document" : "Upload TRC Document"}
                 </button>
               </div>
             ) : null}
-            {!canUpload || (resolvedResidencePermit?.frontUrl && resolvedResidencePermit?.backUrl) ? (
+            {!canUpload ? (
               <div className="workflowModalFooter">
                 <button type="button" className="btn btnSecondary" onClick={onClose} disabled={saving}>
                   Close

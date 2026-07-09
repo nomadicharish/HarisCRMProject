@@ -2,7 +2,8 @@ const { db } = require("../config/firebase");
 
 const ROLE_DEFAULT_SCOPES = {
   SUPER_USER: ["*"],
-  ACCOUNTANT: ["agent.jobs.read", "agent.jobs.enqueue", "agent.actions.read"],
+  JUNIOR_ACCOUNTANT: ["agent.actions.read"],
+  SENIOR_ACCOUNTANT: ["agent.actions.read"],
   AGENCY: ["agent.actions.read"],
   EMPLOYER: ["agent.actions.read"]
 };
@@ -20,7 +21,7 @@ function hasScope(user, scope) {
 
 async function canAccessApplicant(user = {}, applicantId = "") {
   if (!applicantId) return false;
-  if (user.role === "SUPER_USER" || user.role === "ACCOUNTANT") return true;
+  if (user.role === "SUPER_USER" || user.role === "JUNIOR_ACCOUNTANT" || user.role === "SENIOR_ACCOUNTANT") return true;
 
   const applicantDoc = await db.collection("applicants").doc(applicantId).get();
   if (!applicantDoc.exists) return false;
@@ -34,8 +35,14 @@ async function canAccessApplicant(user = {}, applicantId = "") {
   if (user.role === "EMPLOYER") {
     if (!user.employerId) return false;
     const employerDoc = await db.collection("employers").doc(user.employerId).get();
-    const employerCompanyId = employerDoc.exists ? employerDoc.data()?.companyId || "" : "";
-    return Boolean(employerCompanyId) && applicant.companyId === employerCompanyId;
+    const employer = employerDoc.exists ? employerDoc.data() || {} : {};
+    const employerCompanyIds = Array.isArray(employer.companyIds) && employer.companyIds.length
+      ? employer.companyIds
+      : employer.companyId
+        ? [employer.companyId]
+        : [];
+    return employerCompanyIds.includes(applicant.companyId) &&
+      String(applicant.approvalStatus || "").toLowerCase() === "approved";
   }
 
   return false;

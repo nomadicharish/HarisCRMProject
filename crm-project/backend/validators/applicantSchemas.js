@@ -16,6 +16,11 @@ const idParamsSchema = z.object({
   id: idSchema
 });
 
+const quickPrintAssetParamsSchema = z.object({
+  id: idSchema,
+  assetType: z.enum(["photo", "flight", "bus"])
+});
+
 const applicantDocParamsSchema = z.object({
   applicantId: idSchema,
   docType: idSchema
@@ -30,6 +35,11 @@ const documentVersionParamsSchema = z.object({
 const idDocTypeParamsSchema = z.object({
   id: idSchema,
   docType: idSchema
+});
+
+const signedContractDocumentParamsSchema = z.object({
+  id: idSchema,
+  documentId: idSchema
 });
 
 const appointmentParamsSchema = z.object({
@@ -47,6 +57,8 @@ const createApplicantSchema = z.object({
   education: optionalTrimmedString,
   countryId: idSchema,
   companyId: idSchema,
+  jobPositionId: idSchema,
+  jobPositionName: optionalTrimmedString,
   agencyId: optionalTrimmedString,
   email: optionalEmailSchema,
   totalAmount: z.coerce.number().optional(),
@@ -54,6 +66,7 @@ const createApplicantSchema = z.object({
   paidAmount: z.coerce.number().optional(),
   whatsappNumber: optionalTrimmedString,
   currency: optionalTrimmedString,
+  paymentCurrency: optionalTrimmedString,
   totalApplicantPayment: z.coerce.number().optional(),
   totalEmployerPayment: z.coerce.number().optional(),
   personalDetails: z.object({
@@ -84,7 +97,17 @@ const addPaymentSchema = z.object({
   currency: optionalTrimmedString,
   note: optionalTrimmedString,
   paidDate: optionalTrimmedString,
-  paymentMode: optionalTrimmedString
+  paymentMode: optionalTrimmedString,
+  bankAccountId: optionalTrimmedString,
+  utrNumber: optionalTrimmedString,
+  payeeName: optionalTrimmedString,
+  payeeBankName: optionalTrimmedString,
+  payeeBankBranch: optionalTrimmedString
+});
+
+const paymentActionParamsSchema = z.object({
+  applicantId: idSchema,
+  paymentId: idSchema
 });
 
 const appointmentBodySchema = z.object({
@@ -99,7 +122,16 @@ const rejectDocumentSchema = z.object({
 const dispatchBodySchema = z.object({
   note: trimmedString.min(1, "Note is required"),
   trackingUrl: optionalTrimmedString,
-  awbNumber: optionalTrimmedString
+  awbNumber: optionalTrimmedString,
+  dispatchDate: optionalTrimmedString
+});
+
+const bulkDispatchBodySchema = z.object({
+  note: optionalTrimmedString,
+  trackingUrl: trimmedString.min(1, "Tracking URL is required"),
+  awbNumber: trimmedString.min(1, "AWB Number is required"),
+  dispatchDate: trimmedString.min(1, "Dispatch date is required"),
+  applicantIds: z.array(idSchema).min(1, "Select at least one applicant")
 });
 
 const embassyAppointmentBodySchema = z.object({
@@ -128,11 +160,17 @@ const dateTimeBodySchema = z.object({
 const visaTravelBodySchema = z.object({
   date: trimmedString.min(1, "Date is required"),
   time: trimmedString.min(1, "Time is required"),
+  flightNumber: trimmedString.min(1, "Flight number is required"),
+  arrivalPlace: trimmedString.min(1, "Arrival place is required"),
+  arrivalBusNumber: optionalTrimmedString,
+  hotelNameAddress: optionalTrimmedString,
+  removeTravelFile: optionalTrimmedString,
+  removeBusTicket: optionalTrimmedString,
   ticketNumber: optionalTrimmedString
 });
 
 const residencePermitBodySchema = z.object({
-  type: z.enum(["FRONT", "BACK"])
+  type: z.enum(["FRONT", "BACK", "TRP"]).optional().default("TRP")
 });
 
 const uploadDocumentBodySchema = z.object({
@@ -162,7 +200,12 @@ const applicantsListQuerySchema = z.object({
   type: optionalTrimmedString.optional().default(""),
   country: optionalTrimmedString.optional().default(""),
   company: optionalTrimmedString.optional().default(""),
-  agency: optionalTrimmedString.optional().default("")
+  agency: optionalTrimmedString.optional().default(""),
+  notificationApplicants: optionalTrimmedString.optional().default(""),
+  markNotificationsRead: optionalTrimmedString.optional().default(""),
+  dashboardFilter: optionalTrimmedString.optional().default(""),
+  fromDate: optionalTrimmedString.optional().default(""),
+  toDate: optionalTrimmedString.optional().default("")
 });
 
 module.exports = {
@@ -171,6 +214,7 @@ module.exports = {
   applicantIdParamsSchema,
   appointmentBodySchema,
   appointmentParamsSchema,
+  bulkDispatchBodySchema,
   createApplicantSchema,
   applicantsListQuerySchema,
   dashboardQuerySchema,
@@ -183,8 +227,11 @@ module.exports = {
   idParamsSchema,
   interviewBodySchema,
   interviewOrStageParamsSchema,
+  paymentActionParamsSchema,
   rejectDocumentSchema,
+  quickPrintAssetParamsSchema,
   residencePermitBodySchema,
+  signedContractDocumentParamsSchema,
   travelBodySchema,
   updateApplicantSchema,
   uploadDocumentBodySchema,

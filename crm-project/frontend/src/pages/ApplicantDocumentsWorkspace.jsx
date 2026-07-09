@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
-import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
+import { getCached, invalidateCache, readCached } from "../services/cachedApi";
 import "../styles/applicantDocuments.css";
 import {
   getDocumentReviewState,
@@ -12,10 +12,15 @@ import {
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
-import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
-import { getStoredUser } from "../utils/auth";
-import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
-import "../styles/applicantProfile.css";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import {
+  ALLOWED_DOCUMENT_ACCEPT,
+  DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+  getAcceptForExtensions,
+  getUploadHelpText,
+  getValidatedDocumentFile,
+  validateDocumentFile
+} from "../utils/fileValidation";
 
 function StatusIcon({ tone = "success" }) {
   if (tone === "danger") {
@@ -60,6 +65,54 @@ function StatusIcon({ tone = "success" }) {
   );
 }
 
+function UploadFileIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V8M8.5 11.5 12 8l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 16.5a4 4 0 0 0-3.8-4A5.5 5.5 0 0 0 5.7 14 3.5 3.5 0 0 0 6.5 21H18a3 3 0 0 0 2-5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ReferenceIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 3v12m0 0-4-4m4 4 4-4M5 21h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M20 21v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function getInitials(name) {
+  return String(name || "A")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join("") || "A";
+}
+
+function getApplicantDisplayName(applicant) {
+  return applicant?.fullName || [applicant?.firstName, applicant?.lastName].filter(Boolean).join(" ").trim() || "Applicant";
+}
+
 function getTopBarState({
   canReview,
   rejectedRequired,
@@ -89,7 +142,7 @@ function getTopBarState({
 
     return {
       tone: "neutral",
-      title: "Review submitted documents and approve or reject each document",
+      title: "Review submitted documents",
       actionLabel: ""
     };
   }
@@ -98,7 +151,7 @@ function getTopBarState({
     return {
       tone: "successSoft",
       title: "Looks like all issues are fixed, please resend for approval",
-      actionLabel: "Send for approval"
+      actionLabel: "Submit for Review"
     };
   }
 
@@ -106,7 +159,7 @@ function getTopBarState({
     return {
       tone: "danger",
       title: "There are few issues in the document, please fix it and resend",
-      actionLabel: canSendForApproval ? "Send again" : ""
+      actionLabel: canSendForApproval ? "Submit for Review" : ""
     };
   }
 
@@ -122,7 +175,7 @@ function getTopBarState({
     return {
       tone: "primary",
       title: "All required documents are selected. Request the admin for review & approval to go to next phase",
-      actionLabel: "Send for approval"
+      actionLabel: "Submit for Review"
     };
   }
 
@@ -130,7 +183,7 @@ function getTopBarState({
     return {
       tone: "successSoft",
       title: "Looks like all issues are fixed, please resend for approval",
-      actionLabel: "Send for approval"
+      actionLabel: "Submit for Review"
     };
   }
 
@@ -191,13 +244,10 @@ function ApplicantDocumentsWorkspace() {
   const navigate = useNavigate();
   const initialDocumentsPage = readCached(`/applicants/${id}/documents-page`) || null;
   const documentsPageCacheTtlMs = 120000;
-  const initialSidebarProfile = readCached(getApplicantSidebarCacheKey(id)) || null;
-  const initialSidebarPendingAmount = initialSidebarProfile?.pendingAmount || 0;
   const [applicant, setApplicant] = useState(initialDocumentsPage?.applicant || null);
   const [documentConfigs, setDocumentConfigs] = useState(initialDocumentsPage?.documentConfigs || []);
   const [documents, setDocuments] = useState(initialDocumentsPage?.documents || {});
   const [user, setUser] = useState(() => getStoredUser());
-  const [sidebarProfile, setSidebarProfile] = useState(initialSidebarProfile);
   const [loading, setLoading] = useState(!initialDocumentsPage);
   const [selectedFiles, setSelectedFiles] = useState({});
   const [saving, setSaving] = useState(false);
@@ -218,20 +268,6 @@ function ApplicantDocumentsWorkspace() {
         setApplicant(documentsPageRes?.applicant || null);
         setDocumentConfigs(Array.isArray(documentsPageRes?.documentConfigs) ? documentsPageRes.documentConfigs : []);
         setDocuments(documentsPageRes?.documents || {});
-
-        const nextSidebarProfile =
-          readCached(getApplicantSidebarCacheKey(id)) ||
-          buildApplicantSidebarCache({
-            applicant: documentsPageRes?.applicant || null,
-            pendingAmount: initialSidebarPendingAmount,
-            countryName: documentsPageRes?.applicant?.countryName || documentsPageRes?.applicant?.country || "",
-            agencyName: documentsPageRes?.applicant?.agencyName || documentsPageRes?.applicant?.agency?.name || ""
-          });
-
-        if (nextSidebarProfile) {
-          setSidebarProfile(nextSidebarProfile);
-          writeCached(getApplicantSidebarCacheKey(id), nextSidebarProfile, { ttlMs: documentsPageCacheTtlMs });
-        }
       } catch (error) {
         console.error(error);
       } finally {
@@ -243,7 +279,7 @@ function ApplicantDocumentsWorkspace() {
     return () => {
       cancelled = true;
     };
-  }, [documentsPageCacheTtlMs, id, initialSidebarPendingAmount, user]);
+  }, [documentsPageCacheTtlMs, id, user]);
 
   if (loading) {
     return <PageLoader label="Loading documents..." />;
@@ -253,8 +289,7 @@ function ApplicantDocumentsWorkspace() {
     return <div style={{ padding: "40px" }}>Applicant not found</div>;
   }
 
-  const canReview = user?.role === "SUPER_USER";
-  const sidebarApplicant = sidebarProfile?.applicant || applicant;
+  const canReview = isSuperUserLikeRole(user?.role);
   const visibleDocs = getVisibleApplicantDocuments(applicant, documentConfigs);
   const reviewState = getDocumentReviewState(documents, applicant, documentConfigs);
   const dispatchStarted = Number(applicant.stage || 0) >= 3;
@@ -298,6 +333,18 @@ function ApplicantDocumentsWorkspace() {
     }
     return "";
   };
+  const applicantName = getApplicantDisplayName(applicant);
+  const standardReference = applicant?.standardReferenceUrl
+    ? {
+        referenceUrl: applicant.standardReferenceUrl,
+        referenceFileName: applicant.standardReferenceFileName || "Standard Reference"
+      }
+    : null;
+  const pendingReviewDocs = visibleDocs
+    .map((doc) => ({ doc, latest: getLatestVersion(documents?.[doc.key] || []) }))
+    .filter(({ latest }) => latest?.status === "PENDING");
+  const isDocumentUploadStageCompleted = Number(applicant?.stage || 1) > 2;
+  const canApproveAll = canReview && !allRequiredApproved && !isDocumentUploadStageCompleted && pendingReviewDocs.length > 0;
 
   const handleSendForApproval = async () => {
     const uploads = Object.entries(selectedFiles)
@@ -306,6 +353,14 @@ function ApplicantDocumentsWorkspace() {
     if (uploads.length === 0) {
       toast.info("Select documents before sending for approval");
       return;
+    }
+    for (const [docKey, file] of uploads) {
+      const docConfig = visibleDocs.find((doc) => doc.key === docKey);
+      const fileValidation = validateDocumentFile(file, docConfig?.allowedExtensions || DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS);
+      if (!fileValidation.valid) {
+        toast.error(fileValidation.message);
+        return;
+      }
     }
 
     try {
@@ -364,6 +419,46 @@ function ApplicantDocumentsWorkspace() {
     }
   };
 
+  const handleApproveAll = async () => {
+    if (!canApproveAll) return;
+    const previousDocuments = documents;
+    const approvedAt = new Date().toISOString();
+    setDocuments((prev) => {
+      const next = { ...prev };
+      pendingReviewDocs.forEach(({ doc, latest }) => {
+        const versions = Array.isArray(next[doc.key]) ? [...next[doc.key]] : [];
+        const idx = versions.findIndex((version) => version.id === latest.id);
+        if (idx >= 0) {
+          versions[idx] = {
+            ...versions[idx],
+            status: "APPROVED",
+            rejectedReason: "",
+            reviewedAt: approvedAt
+          };
+          next[doc.key] = versions;
+        }
+      });
+      return next;
+    });
+
+    try {
+      setSaving(true);
+      await Promise.all(pendingReviewDocs.map(({ doc, latest }) =>
+        API.patch(`/applicants/${id}/documents/${doc.key}/${latest.id}/approve`)
+      ));
+      invalidateCache(`/applicants/${id}/documents`);
+      invalidateCache(`/applicants/${id}/documents-page`);
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache("/applicants");
+    } catch (error) {
+      console.error(error);
+      setDocuments(previousDocuments);
+      toast.error(error?.response?.data?.message || "Approval failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleReject = async (comment) => {
     const previousDocuments = documents;
     const { docKey, versionId } = rejectState;
@@ -404,24 +499,7 @@ function ApplicantDocumentsWorkspace() {
       <BlockingLoader open={saving} label="Saving document updates..." />
       <DashboardTopbar user={user} />
       <div className="page-content docsWorkspacePage">
-        <div className="applicantProfileLayout">
-          <aside className="applicantProfileSidebar">
-            <ApplicantSummaryCard
-              applicant={sidebarApplicant}
-              pendingAmount={sidebarProfile?.pendingAmount || 0}
-              pendingDisplayValue={sidebarProfile?.pendingAmount ? `INR ${Number(sidebarProfile.pendingAmount).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ""}
-              canEdit={false}
-              onEdit={() => {}}
-              onPendingClick={undefined}
-              agencyName={sidebarProfile?.agencyName || ""}
-              countryName={sidebarProfile?.countryName || ""}
-              showAgency={Boolean(sidebarProfile?.agencyName) || canReview}
-              showPendingAmount={Boolean(sidebarProfile?.pendingAmount)}
-              pendingStyle="section"
-            />
-          </aside>
-
-          <main className="applicantProfileMain">
+        <main className="docsUploadCard">
             <div className={`docsTopBar docsTopBar-${topBar.tone}`}>
               <div className="docsTopBarContent">
                 <div className="docsTopBarIcon" aria-hidden="true">
@@ -432,26 +510,67 @@ function ApplicantDocumentsWorkspace() {
                 </div>
                 <div className="docsTopBarText">
                   <div className="docsTopBarTitle">{topBar.title}</div>
-                  {!allRequiredApproved ? (
+                  {!canReview && !allRequiredApproved ? (
                     <div className="docsTopBarSubtitle">Request the admin for review &amp; approval to go to next phase.</div>
                   ) : null}
                 </div>
-                {!canReview && topBar.actionLabel ? (
-                  <button
-                    type="button"
-                    className="btn docsTopBarButton"
-                    disabled={!canSendForApproval || saving}
-                    onClick={handleSendForApproval}
-                  >
-                    {saving ? "Submitting..." : topBar.actionLabel}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="docsApplicantSummary docsApplicantSummaryAction"
+                  onClick={() => navigate(`/applicants/${id}`)}
+                >
+                  <span className="docsApplicantIcon" aria-hidden="true">
+                    {applicant.profilePhotoUrl ? (
+                      <img src={applicant.profilePhotoUrl} alt="" />
+                    ) : (
+                      <span>{getInitials(applicantName)}</span>
+                    )}
+                  </span>
+                  <strong>{applicantName}</strong>
+                </button>
               </div>
             </div>
 
-            <div className="docsSectionSpacer" />
+            <div className={`docsPrepRow${canReview ? " docsPrepRowReview" : ""}`}>
+              {!canReview && standardReference ? (
+                <div className="docsStandardReference">
+                  <a
+                    className="docsStandardReferenceBtn"
+                    href={standardReference.referenceUrl || standardReference.documentToFillUrl || standardReference.templateFileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <DownloadIcon />
+                    Standard Reference Document
+                  </a>
+                  <div className="docsStandardReferenceText">Kindly refer this document before preparing your documents.</div>
+                </div>
+              ) : null}
+              {canApproveAll ? (
+                <div className="docsReviewBulkActions">
+                  <button
+                    type="button"
+                    className="btn docsApproveAllButton"
+                    disabled={!canApproveAll || saving}
+                    onClick={handleApproveAll}
+                  >
+                    {saving ? "Approving..." : "Approve all"}
+                  </button>
+                </div>
+              ) : null}
+            </div>
 
             <div className="docsTableCard">
+          {visibleDocs.length > 0 ? (
+            <div className={`docsRow docsTableHead${canReview ? " docsRowReview" : ""}`}>
+              <div>Document</div>
+              {!canReview ? <div>Document to fill</div> : null}
+              {!canReview ? <div>Reference Document</div> : null}
+              <div>Upload</div>
+              <div>Status</div>
+            </div>
+          ) : null}
+
           {visibleDocs.length === 0 ? (
             <div className="docsHint">No company documents are configured for this applicant.</div>
           ) : null}
@@ -493,45 +612,72 @@ function ApplicantDocumentsWorkspace() {
               : "is-pending";
 
             return (
-              <div key={doc.key} className={`docsRow ${isRejected ? "is-rejected" : ""}`}>
+              <div key={doc.key} className={`docsRow${canReview ? " docsRowReview" : ""} ${isRejected ? "is-rejected" : ""}`}>
                 <div className="docsDocCell">
                   <div className="docsDocMeta">
                     <div className="docsDocTitle">
                       {doc.label}
                       {doc.required ? <span className="docsRequiredTag">*</span> : null}
                     </div>
-                    <div className="docsHint">Upload png, pdf or jpeg within 2MB</div>
-                    {doc.templateFileUrl ? (
-                      <a className="docsTemplateLink" href={doc.templateFileUrl} target="_blank" rel="noreferrer">
-                        Download template
-                      </a>
-                    ) : null}
                     {isRejected && latest?.rejectedReason ? (
                       <div className="docsRejectedNote">{latest.rejectedReason}</div>
                     ) : null}
                   </div>
                 </div>
 
+                {!canReview ? (
+                  <div className="docsFillCell">
+                    {doc.documentToFillUrl ? (
+                      <a className="docsDownloadLink" href={doc.documentToFillUrl} target="_blank" rel="noreferrer">
+                        <DownloadIcon />
+                        Download
+                      </a>
+                    ) : (
+                      <div className="docsReferenceEmpty">Not available</div>
+                    )}
+                  </div>
+                ) : null}
+
+                {!canReview ? (
+                  <div className="docsReferenceCell">
+                    {doc.referenceUrl ? (
+                      <a className="docsReferenceLink" href={doc.referenceUrl} target="_blank" rel="noreferrer">
+                        <ReferenceIcon />
+                        Reference Document
+                      </a>
+                    ) : (
+                      <div className="docsReferenceEmpty">No reference document</div>
+                    )}
+                  </div>
+                ) : null}
+
                 <div className="docsFileCell">
                   {canAgentUpload ? (
                     <label className="docsFileBox docsFileBoxUpload">
                       <input
                         type="file"
+                        accept={doc.allowedExtensions?.length ? getAcceptForExtensions(doc.allowedExtensions) : ALLOWED_DOCUMENT_ACCEPT}
                         className="docsFileInput"
                         disabled={saving}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                          const file = getValidatedDocumentFile(
+                            event.target.files?.[0] || null,
+                            toast.error,
+                            doc.allowedExtensions || DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS
+                          );
                           setSelectedFiles((prev) => ({
                             ...prev,
-                            [doc.key]: event.target.files?.[0]
-                              ? { file: event.target.files[0], selectedAt: Date.now() }
+                            [doc.key]: file
+                              ? { file, selectedAt: Date.now() }
                               : null
-                          }))
-                        }
+                          }));
+                        }}
                       />
                       <div className="docsFileBoxLeft">
+                        <span className="docsUploadIcon"><UploadFileIcon /></span>
                         <div>
                           <div className="docsFileName">{displayFileName || "Choose file"}</div>
-                          <div className="docsFileMeta">{displayFileName ? "Ready to send for approval" : "No file chosen"}</div>
+                          <div className="docsFileMeta">{doc.uploadHelpText || getUploadHelpText(doc.allowedExtensions)}</div>
                         </div>
                       </div>
                     </label>
@@ -570,12 +716,6 @@ function ApplicantDocumentsWorkspace() {
                   ) : null}
 
 
-                  {!showReviewActions && isRejected && latest?.rejectedReason ? (
-                    <span className="docsStatusLink">
-                      View remarks
-                    </span>
-                  ) : null}
-
                   {showReviewActions ? (
                     <div className="docsReviewActions">
                       <button
@@ -603,9 +743,22 @@ function ApplicantDocumentsWorkspace() {
         </div>
 
             {saving ? <div className="docsBusyLayer">Please wait...</div> : null}
-            <div className="docsFooterNote">Your documents are securely encrypted and will only be used for verification purposes.</div>
+            {!canReview ? (
+              <div className="docsReviewFooter">
+                <div className="docsFooterNote">Please refer to the reference document before uploading. All documents will be reviewed by the admin.</div>
+                {topBar.actionLabel ? (
+                <button
+                  type="button"
+                  className="btn docsTopBarButton docsBottomSubmitButton"
+                  disabled={!canSendForApproval || saving}
+                  onClick={handleSendForApproval}
+                >
+                  {saving ? "Submitting..." : topBar.actionLabel}
+                </button>
+                ) : null}
+              </div>
+            ) : null}
           </main>
-        </div>
       </div>
 
       <DocumentRejectModal

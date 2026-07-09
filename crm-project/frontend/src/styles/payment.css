@@ -258,11 +258,436 @@
   font-weight:500;
 }
 
+.paymentDocumentLink{
+  color:#0052CC;
+  font-weight:600;
+  text-decoration:none;
+}
+
+.paymentDocumentLink:hover{
+  text-decoration:underline;
+}
+
+.paymentDocumentLinks{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:4px;
+}
+
+.paymentDetailsStack{
+  display:flex;
+  flex-direction:column;
+  gap:3px;
+  line-height:1.35;
+}
+
+.paymentDocumentUpload{
+  min-height:44px;
+  border:1px dashed #b9c6d8;
+  border-radius:12px;
+  background:#FAFBFC;
+  color:#344054;
+  display:flex;
+  align-items:center;
+  padding:6px 12px;
+  font-size:14px;
+  font-weight:500;
+  cursor:default;
+  gap:10px;
+}
+
+.paymentDocumentUpload input{
+  display:none;
+}
+
+.paymentDocumentUpload span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.paymentDocumentName{
+  flex:1 1 auto;
+}
+
+.paymentDocumentSize{
+  flex:0 0 auto;
+  color:#667085;
+  font-size:12px;
+}
+
+.paymentDocumentUploadIcon{
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#0052CC;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
 .paymentModalSubtitle{
   margin-top:4px;
   font-size:14px;
   color:#475467;
   font-weight:400;
+}
+
+.paymentEntryModalOverlay{
+  align-items:flex-start;
+}
+
+.paymentEntryModalCard{
+  max-height:calc(100vh - 40px);
+  max-height:calc(100dvh - 40px);
+  overflow-y:auto;
+  overscroll-behavior:contain;
+}
+
+.paymentAddModalCard{
+  max-width:760px;
+  padding:0;
+}
+
+.paymentAddModalCard .dashboardModalHeader{
+  padding:20px 24px 16px;
+  border-bottom:1px solid #e4e7ec;
+}
+
+.paymentAddModalCard .paymentAddFormGrid{
+  grid-template-columns:repeat(6, minmax(0, 1fr));
+  gap:16px;
+  padding:20px 24px 8px;
+}
+
+.paymentAddModalCard .paymentAddFormGrid > .input-field{
+  grid-column:span 3;
+}
+
+.paymentAddModalCard .paymentAddFormGrid > .input-field:nth-child(-n+3){
+  grid-column:span 2;
+}
+
+.paymentAddModalCard .paymentAddFormGrid > .paymentFullWidthField,
+.paymentAddModalCard .paymentFormSectionTitle{
+  grid-column:1 / -1;
+}
+
+.paymentAddModalCard .contractActionRow{
+  padding:12px 24px 20px;
+  border-top:1px solid #eef2f6;
+}
+
+.paymentFormSectionTitle{
+  grid-column:1 / -1;
+  margin:4px 0 -4px;
+  color:#101828;
+  font-size:14px;
+  font-weight:700;
+}
+
+.paymentRequired{
+  color:#d92d20;
+}
+
+.paymentAddFormGrid textarea{
+  width:100%;
+  min-height:88px;
+  padding:12px 14px;
+  border:1px solid #cfd8e6;
+  border-radius:8px;
+  resize:vertical;
+  font:inherit;
+  box-sizing:border-box;
+}
+
+.paymentHiddenFileInput{
+  display:none;
+}
+
+.paymentDatePickerShell{
+  position:relative;
+  width:100%;
+}
+
+.paymentDatePickerShell .workflowDateInput{
+  width:100%;
+  padding-right:42px;
+  cursor:pointer;
+  box-sizing:border-box;
+}
+
+.paymentDatePickerButton{
+  position:absolute;
+  top:50%;
+  right:10px;
+  transform:translateY(-50%);
+  width:30px;
+  height:30px;
+  border:0;
+  background:transparent;
+  color:#667085;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  cursor:pointer;
+}
+
+.paymentAddModalCard .react-datepicker-wrapper,
+.paymentAddModalCard .react-datepicker__input-container{
+  width:100%;
+}
+
+.paymentStatusGrid{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:12px;
+  margin-bottom:12px;
+}
+
+.paymentStatusCard{
+  min-height:64px;
+  padding:8px;
+  border:1px solid #e5e7eb;
+  border-radius:12px;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  background:#fff;
+}
+
+.paymentStatusCard span{
+  color:#667085;
+  font-size:12px;
+  font-weight:600;
+}
+
+.paymentStatusCard strong{
+  color:#101828;
+  font-size:16px;
+}
+
+.paymentStatusConfirmed{ background:#f4fbf6; border-color:#d4f0dc; }
+.paymentStatusSenior{ background:#f4f8ff; border-color:#d8e5ff; }
+.paymentStatusJunior{ background:#fff9ef; border-color:#f7e2b7; }
+.paymentStatusPaid{ background:#faf7ff; border-color:#e8dcff; }
+
+.paymentStatusBadge{
+  display:inline-flex;
+  padding:6px 9px;
+  border-radius:6px;
+  white-space:nowrap;
+  font-size:11px;
+  font-weight:700;
+}
+
+.paymentStatusBadge-pending_junior{ color:#b54708; background:#fffaeb; border:1px solid #fedf89; }
+.paymentStatusBadge-pending_senior{ color:#175cd3; background:#eff8ff; border:1px solid #b2ddff; }
+.paymentStatusBadge-confirmed{ color:#027a48; background:#ecfdf3; border:1px solid #abefc6; }
+
+.paymentReviewDone{ color:#039855; font-weight:600; }
+.paymentReviewPending{ color:#b54708; font-weight:600; }
+
+.paymentViewBtn{
+  border:0;
+  background:transparent;
+  color:#155eef;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.paymentReviewModalCard{
+  max-width:780px;
+  padding:0;
+}
+
+.paymentReviewModalCard .dashboardModalHeader{
+  padding:20px 24px 16px;
+  border-bottom:1px solid #e4e7ec;
+}
+
+.paymentReviewModalCard > :not(.dashboardModalHeader):not(.blockingLoaderOverlay){
+  margin-left:24px;
+  margin-right:24px;
+}
+
+.paymentReviewModalCard .contractActionRow{
+  margin:12px 0 0;
+  padding:8px 0px 20px;
+  border-top:1px solid #e4e7ec;
+}
+
+.paymentReviewModalCard .contractActionRow .paymentReviewActionBtn{
+  background:#0052cc;
+  border:1px solid #0052cc;
+  color:#ffffff;
+}
+
+.paymentReviewModalCard .contractActionRow .paymentReviewActionBtn:hover:not(:disabled){
+  background:#0043a8;
+  border-color:#0043a8;
+  color:#ffffff;
+}
+
+.paymentReviewModalCard .contractActionRow .paymentReviewActionBtn:disabled{
+  background:#8fb3ea;
+  border-color:#8fb3ea;
+  color:#ffffff;
+  cursor:not-allowed;
+}
+
+.paymentReviewSummary{
+  display:grid;
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+  gap:12px;
+  padding:10px 16px;
+  margin:8px 0;
+  border:1px solid #e4e7ec;
+  border-radius:10px;
+  background:#f9fafb;
+}
+
+.paymentReviewSummary div{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+}
+
+.paymentReviewSummary span{
+  color:#667085;
+  font-size:12px;
+}
+
+.paymentReviewGrid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:18px;
+}
+
+.paymentReviewDetailsGrid{
+  border-bottom:1px solid #e4e7ec;
+}
+
+.paymentReviewHeadingRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-top:6px;
+}
+
+.paymentReviewSection{
+  margin:16px 0;
+}
+
+.paymentReviewSection h4{
+  margin:0 0 10px;
+  font-size:14px;
+  color:#101828;
+}
+
+.paymentReviewSection p{
+  margin:5px 0;
+  color:#475467;
+  font-size:13px;
+}
+
+.paymentReviewDocuments{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+
+.paymentReviewDocuments a{
+  padding:10px 12px;
+  border:1px solid #e4e7ec;
+  border-radius:8px;
+  color:#155eef;
+  text-decoration:none;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.paymentVerificationTimeline{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  color:#98a2b3;
+  font-size:13px;
+}
+
+.paymentVerificationTimeline span::before{
+  content:"";
+  display:inline-block;
+  width:8px;
+  height:8px;
+  margin-right:8px;
+  border-radius:50%;
+  background:#d0d5dd;
+}
+
+.paymentVerificationTimeline .paymentTimelineDone{
+  color:#027a48;
+}
+
+.paymentVerificationTimeline .paymentTimelineDone::before{
+  background:#12b76a;
+}
+
+.paymentReviewConfirmation{
+  display:flex;
+  align-items:flex-start;
+  gap:10px;
+  padding:16px;
+  margin-top:18px;
+  border-radius:10px;
+  background:#eff6ff;
+  color:#1d2939;
+  font-size:14px;
+  line-height:1.5;
+}
+
+.paymentReviewConfirmation input{
+  margin-top:3px;
+}
+
+@media (max-width: 900px){
+  .paymentStatusGrid,
+  .paymentReviewSummary{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px){
+  .paymentStatusGrid,
+  .paymentReviewSummary,
+  .paymentReviewGrid{
+    grid-template-columns:1fr;
+  }
+
+  .paymentAddModalCard .paymentAddFormGrid{
+    grid-template-columns:1fr;
+    padding:16px;
+  }
+
+  .paymentAddModalCard .paymentAddFormGrid > .input-field,
+  .paymentAddModalCard .paymentAddFormGrid > .input-field:nth-child(-n+3){
+    grid-column:1;
+  }
+
+  .paymentAddModalCard .dashboardModalHeader,
+  .paymentReviewModalCard .dashboardModalHeader{
+    padding:16px;
+  }
+
+  .paymentReviewModalCard > :not(.dashboardModalHeader):not(.blockingLoaderOverlay){
+    margin-left:16px;
+    margin-right:16px;
+  }
 }
 
 .paymentPage .contractUploadLabel{
@@ -277,6 +702,98 @@
   font-size:14px;
   font-weight:400;
   color:#000000;
+}
+
+.paymentAmountInputWrap{
+  display:flex;
+  align-items:center;
+  min-height:44px;
+  border:1px solid #cfd8e6;
+  border-radius:6px;
+  overflow:hidden;
+  background:#fff;
+}
+
+.paymentAmountPrefix{
+  align-self:stretch;
+  min-width:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-right:1px solid #d9e3f0;
+  color:#0f172a;
+  font-weight:800;
+  background:#f8fafc;
+}
+
+.paymentPage .contractFormGrid .paymentAmountInputWrap input{
+  border:0;
+  min-height:42px;
+  flex:1;
+}
+
+.paymentPage .contractFormGrid .paymentAmountInputWrap input:focus{
+  outline:none;
+  box-shadow:none;
+}
+
+.paymentFullWidthField{
+  grid-column:1 / -1;
+}
+
+.paymentDocumentsHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:8px;
+}
+
+.paymentDocumentsHeader .contractUploadLabel{
+  margin:0;
+}
+
+.paymentAddDocumentBtn,
+.paymentRemoveDocumentBtn{
+  min-height:32px;
+  border:0;
+  background:transparent;
+  color:#0052cc;
+  font-size:13px;
+  font-weight:700;
+}
+
+.paymentAddDocumentBtn{
+  width:100%;
+  margin-top:10px;
+  border:1px dashed #98b5ef;
+  border-radius:8px;
+  background:#fff;
+}
+
+.paymentAddDocumentBtn:disabled{
+  opacity:.45;
+}
+
+.paymentDocumentFields{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.paymentDocumentFieldRow{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr) auto;
+  align-items:center;
+  gap:10px;
+  border:1px solid #dbe3ef;
+  border-radius:8px;
+  padding:2px 8px 2px 2px;
+}
+
+.paymentRemoveDocumentBtn{
+  color:#dc2626;
+  font-size:20px;
 }
 
 @media (max-width: 900px){
@@ -357,11 +874,11 @@
 }
 
 .paymentHistoryTable thead th{
-  padding:16px 0;
+  padding:8px 0;
 }
 
 .paymentHistoryTable tbody td{
-  padding:18px 0;
+  padding:8px 0;
   border-bottom:1px solid #eef2f7;
 }
 
@@ -372,7 +889,7 @@
 }
 
 .paymentBackLink{
-  margin-top:22px;
+  margin-top:8px;
   font-weight:700;
 }
 
@@ -498,14 +1015,100 @@
 
 .paymentLayout{
   grid-template-columns:320px minmax(0, 1fr);
+  gap:24px;
 }
 
 .paymentPage{
   max-width:1440px;
 }
 
+.paymentSidebar{
+  width:100%;
+  max-width:320px;
+  grid-column:1;
+  grid-row:1;
+}
+
+.paymentHistoryCard{
+  width:100%;
+  box-sizing:border-box;
+}
+
+.paymentMain{
+  display:contents;
+}
+
+.paymentSidebar .applicantSideCard{
+  width:100%;
+  min-height:100px;
+  background:#ffffff;
+  border:1px solid #e5eaf3;
+  border-radius:14px;
+  box-shadow:0 8px 24px rgba(24,45,85,0.06);
+  overflow:hidden;
+}
+
+.paymentSidebar .sideTop{
+  min-height:100px;
+  padding:14px 20px;
+  gap:18px;
+  align-items:center;
+  background:#ffffff;
+  box-sizing:border-box;
+}
+
+.paymentSidebar .sideAvatar{
+  width:64px;
+  height:64px;
+  flex:0 0 64px;
+  color:#0b235d;
+  background:#eef3ff;
+  border:4px solid #ffffff;
+  outline:1px solid #d9e0ec;
+  box-shadow:0 3px 10px rgba(16,34,73,0.14);
+}
+
+.paymentSidebar .sideTopMeta{
+  min-width:0;
+  align-items:flex-start;
+}
+
+.paymentSidebar .sideName{
+  max-width:100%;
+  color:#07194c;
+  font-size:18px;
+  font-weight:700;
+  line-height:1.15;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.paymentSidebar .sideAge{
+  width:fit-content;
+  margin-top:8px;
+  padding:4px 11px;
+  color:#3156b5;
+  background:#eaf0ff;
+  border-radius:999px;
+  font-size:13px;
+  font-weight:600;
+  line-height:1.2;
+}
+
+.paymentSidebar .sideCreated{
+  display:none;
+}
+
+.paymentSidebar .sideTopActionable:hover{
+  background:#fbfcff;
+}
+
 .paymentInfoStrip{
-  min-height:0;
+  grid-column:2;
+  grid-row:1;
+  min-height:100px;
+  margin-bottom:0;
   border:1px solid #e6edf5;
   border-radius:18px;
   background:#eef5ff;
@@ -552,9 +1155,30 @@
   color:var(--ui-text-strong);
 }
 
+.paymentHistoryCard{
+  grid-column:1 / -1;
+  grid-row:2;
+}
+
 @media (max-width: 900px){
   .paymentLayout{
     grid-template-columns:1fr;
+  }
+
+  .paymentSidebar{
+    grid-column:1;
+    grid-row:1;
+    max-width:100%;
+  }
+
+  .paymentInfoStrip{
+    grid-column:1;
+    grid-row:2;
+  }
+
+  .paymentHistoryCard{
+    grid-column:1;
+    grid-row:3;
   }
 }
 
@@ -585,6 +1209,27 @@
   .paymentLayout{
     grid-template-columns:1fr;
     gap:12px;
+  }
+
+  .paymentSidebar .sideTop{
+    min-height:104px;
+    padding:12px 16px;
+    gap:14px;
+  }
+
+  .paymentSidebar .sideAvatar{
+    width:76px;
+    height:76px;
+    flex-basis:76px;
+  }
+
+  .paymentSidebar .sideName{
+    font-size:22px;
+  }
+
+  .paymentSidebar .sideAge{
+    margin-top:6px;
+    font-size:14px;
   }
 
   .paymentInfoStrip,

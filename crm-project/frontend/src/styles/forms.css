@@ -4,8 +4,9 @@
   background:#F3F5F9;
   min-height:100vh;
   display:flex;
-  justify-content:center;
-  align-items:flex-start;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:center;
 }
 
 .page-content{
@@ -80,8 +81,8 @@
 }
 
 .companyFormPage input:not([type="checkbox"]):not([type="radio"]):not([type="file"]){
-  height:44px;
-  min-height:44px;
+  height:46px;
+  min-height:46px;
 }
 
 .companyFormPage .dashboardSelect input{
@@ -105,6 +106,77 @@
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
+}
+
+.applicantJobDocumentsBlock{
+  margin-top:16px;
+  border:1px solid #e6eaf2;
+  border-radius:12px;
+  background:#ffffff;
+  overflow:hidden;
+}
+
+.applicantJobDocumentsHeader{
+  padding:12px 14px;
+  border-bottom:1px solid #eef2f7;
+  color:#101828;
+  font-size:14px;
+  font-weight:800;
+}
+
+.applicantJobDocumentsList{
+  display:flex;
+  flex-direction:column;
+}
+
+.applicantJobDocumentRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:12px 14px;
+}
+
+.applicantJobDocumentRow + .applicantJobDocumentRow{
+  border-top:1px solid #eef2f7;
+}
+
+.applicantJobDocumentMeta{
+  min-width:0;
+}
+
+.applicantJobDocumentName{
+  color:#1d2939;
+  font-size:14px;
+  font-weight:700;
+}
+
+.applicantJobDocumentName span{
+  margin-left:6px;
+  color:#dc2626;
+}
+
+.applicantJobDocumentHelp,
+.applicantJobDocumentFile,
+.applicantJobDocumentEmpty{
+  margin-top:4px;
+  color:#64748b;
+  font-size:12px;
+}
+
+.applicantJobDocumentView{
+  min-height:34px;
+  padding:0 14px;
+  border:1px solid #d9e3f0;
+  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#1767ea;
+  font-size:13px;
+  font-weight:800;
+  background:#fff;
+  flex:0 0 auto;
 }
 
 @media (max-width: 768px){
@@ -165,6 +237,33 @@
   align-items:stretch;
 }
 
+.applicantFormAmountCurrencyRow{
+  display:grid;
+  grid-template-columns:116px minmax(0, 1fr);
+  min-height:44px;
+  border:1px solid #DFE1E6;
+  border-radius:12px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.applicantFormAmountCurrencyRow:focus-within{
+  border-color:#0052CC;
+  box-shadow:0 0 0 3px rgba(0, 82, 204, 0.12);
+}
+
+.applicantFormAmountCurrencyRowError{
+  border-color:red;
+}
+
+.applicantFormAmountCurrencyRow input:focus{
+  box-shadow:none !important;
+}
+
+.applicantFormCurrencySelect{
+  min-width:0;
+}
+
 @media (max-width: 860px){
   .applicantFormTripleRow,
   .applicantFormThreeRow,
@@ -200,7 +299,7 @@
 @media (min-width: 481px) and (max-width: 1024px){
   .page-container{
     padding:18px;
-    padding-top:calc(64px + 18px);
+    padding-top:24px;
   }
 
   .page-content{
@@ -208,7 +307,7 @@
   }
 
   .dashboardPageContainer{
-    padding:0 16px 24px;
+    padding:24px 16px 24px;
   }
 
   .dashboardPageContainer > .page-content{
@@ -226,7 +325,7 @@
 @media (max-width: 480px){
   .page-container{
     padding:12px;
-    padding-top:calc(56px + 12px);
+    padding-top:154px;
   }
 
   .page-content{
@@ -234,7 +333,7 @@
   }
 
   .dashboardPageContainer{
-    padding:0 12px 20px;
+    padding:24px 12px 20px;
   }
 
   .dashboardPageContainer > .page-content{
@@ -252,6 +351,10 @@
   .applicantFormContactRow{
     grid-template-columns:1fr;
     gap:12px;
+  }
+
+  .applicantFormAmountCurrencyRow{
+    grid-template-columns:104px minmax(0, 1fr);
   }
 
   .submit-btn{

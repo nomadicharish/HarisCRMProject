@@ -1,9 +1,17 @@
 const { admin, db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
+const { logger } = require("../lib/logger");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
 const { decryptText, encryptText } = require("../utils/crypto");
+const { sendEmail } = require("./emailService");
 
 const DEFAULT_ENTITY_PASSWORD = "ChangeMe@123";
+const DEFAULT_APP_LOGIN_URL = "http://localhost:5173/login";
+
+function getAppLoginUrl() {
+  if (process.env.APP_LOGIN_URL) return String(process.env.APP_LOGIN_URL).trim();
+  return String(process.env.FRONTEND_URL || DEFAULT_APP_LOGIN_URL).replace(/\/$/, "") + "/login";
+}
 
 async function buildUserProfileRecord({ email, name, role, agencyId = null, employerId = null, contactNumber = "" }) {
   const normalizedEmail = normalizeEmailValue(email);
@@ -72,7 +80,61 @@ async function createLinkedUserAccount({ email, name, role, agencyId = null, emp
     createdAt: new Date()
   });
 
-  return userRecord.uid;
+  let welcomeEmailResult;
+  try {
+    welcomeEmailResult = await sendWelcomeEmail({
+      email: normalizedEmail,
+      name: normalizedName,
+      role
+    });
+  } catch (error) {
+    logger.error("Welcome email failed", {
+      role,
+      email: normalizedEmail,
+      message: error?.message,
+      stack: error?.stack
+    });
+    welcomeEmailResult = { skipped: true, reason: "send_failed" };
+  }
+
+  if (welcomeEmailResult?.skipped) {
+    logger.warn("Welcome email was not sent", {
+      role,
+      email: normalizedEmail,
+      reason: welcomeEmailResult.reason || "unknown"
+    });
+  }
+
+  return {
+    uid: userRecord.uid,
+    welcomeEmail: welcomeEmailResult?.skipped ? welcomeEmailResult : { sent: true }
+  };
+}
+
+async function sendWelcomeEmail({ email, name, role }) {
+  const displayRole = role === "AGENCY" ? "agency" : role === "EMPLOYER" ? "employer" : String(role || "user").toLowerCase();
+  const loginUrl = getAppLoginUrl();
+  const subject = "Welcome to Talent Acquisition CRM";
+  const greetingName = name || "User";
+  const text = [
+    `Hi ${greetingName},`,
+    "",
+    `Your ${displayRole} account has been created for Talent Acquisition CRM.`,
+    `Login here: ${loginUrl}`,
+    `Temporary password: ${DEFAULT_ENTITY_PASSWORD}`,
+    "",
+    "Please sign in and update your password."
+  ].join("\n");
+
+  const html = `
+    <p>Hi ${greetingName},</p>
+    <p>Your ${displayRole} account has been created for Talent Acquisition CRM.</p>
+    <p><a href="${loginUrl}">Open Talent Acquisition CRM</a></p>
+    <p>Temporary password: <strong>${DEFAULT_ENTITY_PASSWORD}</strong></p>
+    <p>Please sign in and update your password.</p>
+  `;
+
+  return sendEmail({ to: email, subject, text, html });
 }
 
 async function syncLinkedUserAccount({ email, name, role, agencyId = null, employerId = null, contactNumber = "" }) {

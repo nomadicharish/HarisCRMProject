@@ -48,16 +48,6 @@ function ApplicantDetailsView({ applicant, showPaymentDetails = true }) {
     applicant?.totalPayment
   );
 
-  const paidAmount = toDisplayValue(
-    applicant?.payment?.paid,
-    applicant?.paymentsSummary?.applicant?.paid,
-    applicant?.paidAmount,
-    applicant?.amountPaid,
-    applicant?.initialPaidAmount,
-    applicant?.payment?.paidAmount,
-    applicant?.payment?.amountPaid
-  );
-
   return (
     <div className="card">
       <div className="cardTitleRow">
@@ -68,13 +58,14 @@ function ApplicantDetailsView({ applicant, showPaymentDetails = true }) {
         <Field label="Full Name" value={fullName} />
         <Field label="Date of Birth" value={pd.dob ? String(pd.dob).slice(0, 10) : applicant?.dob} />
         <Field label="Age" value={pd.age ?? applicant?.age} />
+        <Field label="Education" value={pd.education ?? applicant?.education} />
         <Field label="Contact number" value={formatPhoneWithSeparator(pd.phone ?? applicant?.phone)} />
         <Field label="WhatsApp number" value={formatPhoneWithSeparator(pd.whatsappNumber ?? pd.whatsapp ?? applicant?.whatsappNumber)} />
         <Field label="Address" value={pd.address ?? applicant?.address} />
         <Field label="Country" value={applicant?.countryName} />
         <Field label="Employer" value={applicant?.companyName} />
+        <Field label="Job Position" value={applicant?.jobPositionName} />
         {showPaymentDetails ? <Field label="Total Amount" value={totalAmount} /> : null}
-        {showPaymentDetails ? <Field label="Initial Paid Amount" value={paidAmount} /> : null}
       </div>
     </div>
   );

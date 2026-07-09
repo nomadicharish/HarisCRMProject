@@ -1,9 +1,14 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
-const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
+const {
+  refreshApplicantDocumentSummary,
+  refreshApplicantSummaries
+} = require("../../services/applicantSummaryService");
 const {
   buildApplicantListDerivedFields,
-  getAuthenticatedUserFromReq
+  getAuthenticatedUserFromReq,
+  normalizePaymentCurrency,
+  roundCurrency
 } = require("../../services/applicantDomainService");
 const {
   AUTO_STAGE_IDS,
@@ -13,6 +18,49 @@ const {
   autoAdvanceStage,
   getRequiredDocumentTypes
 } = require("../../services/applicantWorkflowStageService");
+const {
+  recordAdminApproval,
+  recordEmployerWorkflowInitiated,
+  recordNotificationAction,
+  getUserName
+} = require("../../services/notificationService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
+
+const GENERIC_EMPLOYER_ACTIONS = {
+  EMBASSY_APPOINTMENT: "EMBASSY_APPOINTMENT_INITIATED",
+  EMBASSY_INTERVIEW: "EMBASSY_INTERVIEW_INITIATED",
+  VISA_COLLECTION: "VISA_COLLECTION_INITIATED"
+};
+
+const GENERIC_ADMIN_ACTIONS = {
+  EMBASSY_APPOINTMENT: "EMBASSY_APPOINTMENT_APPROVED",
+  EMBASSY_INTERVIEW: "EMBASSY_INTERVIEW_APPROVED",
+  VISA_COLLECTION: "VISA_COLLECTION_APPROVED"
+};
+
+async function notifyApplicantApproval({ applicantId, applicant = {}, user = {} }) {
+  await recordNotificationAction({
+    actionKey: "APPLICANT_APPROVED",
+    applicantId,
+    applicant,
+    user,
+    recipientRoles: ["AGENCY"],
+    recipientAgencyId: applicant.agencyId || ""
+  });
+
+  if (!applicant?.createdBy) return;
+  const creatorName = await getUserName(applicant.createdBy);
+  await recordNotificationAction({
+    actionKey: "APPLICANT_ADDED",
+    applicantId,
+    applicant: { ...applicant, approvalStatus: "approved" },
+    user: { uid: applicant.createdBy },
+    actorName: creatorName || "",
+    recipientRoles: ["EMPLOYER"],
+    recipientCompanyId: applicant.companyId || "",
+    recipientEmployerId: applicant.employerId || ""
+  });
+}
 
 async function addAppointmentUseCase(req) {
   const { applicantId, type } = req.params;
@@ -21,9 +69,9 @@ async function addAppointmentUseCase(req) {
 
   const allowedTypes = ["EMBASSY_APPOINTMENT", "EMBASSY_INTERVIEW", "VISA_COLLECTION", "BIOMETRIC", "INTERVIEW"];
   if (!allowedTypes.includes(type)) throw new AppError("Invalid appointment type", 400);
-  if (!["EMPLOYER", "SUPER_USER"].includes(userRole)) throw new AppError("Not allowed to add appointment", 403);
+  if (!(userRole === "EMPLOYER" || isSuperUserLikeRole(userRole))) throw new AppError("Not allowed to add appointment", 403);
 
-  const autoApprove = userRole === "SUPER_USER";
+  const autoApprove = isSuperUserLikeRole(userRole);
   const appointment = {
     type,
     date,
@@ -44,13 +92,22 @@ async function addAppointmentUseCase(req) {
     { merge: true }
   );
   await refreshApplicantDocumentSummary(applicantId);
+  if (GENERIC_EMPLOYER_ACTIONS[type]) {
+    const applicantSnap = await db.collection("applicants").doc(applicantId).get();
+    await recordEmployerWorkflowInitiated({
+      applicantId,
+      applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+      user: req.user,
+      actionKey: GENERIC_EMPLOYER_ACTIONS[type]
+    });
+  }
   return { message: "Appointment added successfully" };
 }
 
 async function approveAppointmentUseCase(req) {
   const { applicantId, type } = req.params;
   const { userRole, userId } = getAuthenticatedUserFromReq(req);
-  if (userRole !== "SUPER_USER") throw new AppError("Only Super User can approve", 403);
+  if (!isSuperUserLikeRole(userRole)) throw new AppError("Only Super User can approve", 403);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   const appointmentRef = applicantRef.collection("appointments").doc(type);
@@ -97,12 +154,22 @@ async function approveAppointmentUseCase(req) {
     }
   }
 
+  if (GENERIC_ADMIN_ACTIONS[type]) {
+    const applicantSnap = await applicantRef.get();
+    await recordAdminApproval({
+      applicantId,
+      applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+      user: req.user,
+      actionKey: GENERIC_ADMIN_ACTIONS[type]
+    });
+  }
+
   return { message: "Appointment approved and stage updated if applicable" };
 }
 
 async function approveAndMoveStageUseCase(req) {
   const applicantId = req.params.id || req.params.applicantId;
-  if (req.user.role !== "SUPER_USER") throw new AppError("Only Super User can approve stages", 403);
+  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can approve stages", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();
@@ -143,9 +210,22 @@ async function approveAndMoveStageUseCase(req) {
   };
 
   if (currentStage === 1) {
+    const requestedTotal = roundCurrency(req.body?.totalApplicantPayment ?? req.body?.totalAmount);
+    const resolvedTotal = requestedTotal > 0
+      ? requestedTotal
+      : roundCurrency(applicant.totalApplicantPayment ?? applicant.totalAmount ?? 0);
+    if (resolvedTotal <= 0) {
+      throw new AppError("Total amount is required to approve applicant", 400);
+    }
     updatePayload.approvalStatus = "approved";
     updatePayload.approvedAt = new Date();
     updatePayload.approvedBy = req.user.uid;
+    updatePayload.totalApplicantPayment = resolvedTotal;
+    updatePayload.totalAmount = resolvedTotal;
+    updatePayload.paymentCurrency = normalizePaymentCurrency(
+      req.body?.paymentCurrency || req.body?.currency || applicant.paymentCurrency || applicant.currency
+    );
+    updatePayload.currency = updatePayload.paymentCurrency;
   }
   Object.assign(updatePayload, buildApplicantListDerivedFields({
     ...applicant,
@@ -160,6 +240,22 @@ async function approveAndMoveStageUseCase(req) {
     role: req.user.role,
     action: "MANUAL_STAGE_APPROVAL"
   });
+  await refreshApplicantSummaries(applicantId, {
+    ...applicant,
+    ...updatePayload
+  });
+
+  if (currentStage === 1) {
+    try {
+      await notifyApplicantApproval({
+        applicantId,
+        applicant: { ...applicant, ...updatePayload },
+        user: req.user
+      });
+    } catch (err) {
+      // Notification failure should not block stage approval.
+    }
+  }
 
   const finalApplicant = await docRef.get();
   const finalStage = finalApplicant.exists ? finalApplicant.data().stage : nextStage;

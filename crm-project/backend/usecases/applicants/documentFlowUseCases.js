@@ -2,8 +2,26 @@ const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { refreshApplicantDocumentSummary } = require("../../services/applicantSummaryService");
 const { getAuthenticatedUserFromReq } = require("../../services/applicantDomainService");
-const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
+const { recordAgencyTask, recordNotificationAction } = require("../../services/notificationService");
+const {
+  areLatestRequiredDocumentsApproved,
+  syncApplicantDocumentStage
+} = require("../../services/applicantWorkflowStageService");
+const { getCompanyDocumentsForApplicant, normalizeAllowedDocumentExtensions } = require("../../utils/normalizers");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
+const { isSuperUserLikeRole } = require("../../utils/roles");
+
+const DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpeg", "jpg", "png"];
+const CV_WORD_DOCUMENT_ID = "cv_word_format_with_photo";
+const CV_WORD_ALLOWED_EXTENSIONS = ["doc", "docx"];
+const MIME_TYPES_BY_EXTENSION = {
+  pdf: ["application/pdf"],
+  jpeg: ["image/jpeg"],
+  jpg: ["image/jpeg"],
+  png: ["image/png"],
+  doc: ["application/msword", "application/doc", "application/vnd.ms-word", "application/x-msword"],
+  docx: ["application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/zip", "application/octet-stream"]
+};
 
 function normalizeDateValue(value) {
   if (!value) return null;
@@ -70,10 +88,45 @@ async function getLatestDocumentsMap(applicantId) {
   );
 }
 
+function normalizeAllowedExtensionsForUpload(documentType, documentConfig = null) {
+  const allowedExtensions = normalizeAllowedDocumentExtensions(
+    documentConfig?.allowedExtensions?.length ? documentConfig.allowedExtensions : DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS
+  );
+  const configDocumentId = String(documentConfig?.id || documentConfig?.key || documentConfig?.docType || documentType || "").trim();
+  if (configDocumentId === CV_WORD_DOCUMENT_ID) {
+    return Array.from(new Set([...allowedExtensions, ...CV_WORD_ALLOWED_EXTENSIONS]));
+  }
+  return allowedExtensions;
+}
+
+function validateUploadedFileForDocument(file, documentConfig = null, documentType = "") {
+  const allowedExtensions = normalizeAllowedExtensionsForUpload(documentType, documentConfig);
+  const allowedExtensionSet = new Set(allowedExtensions);
+  const allowedMimeTypes = new Set(allowedExtensions.flatMap((extension) => MIME_TYPES_BY_EXTENSION[extension] || []));
+  const extension = String(file?.originalname || "").split(".").pop().toLowerCase();
+
+  if (!allowedExtensionSet.has(extension) || !allowedMimeTypes.has(file?.mimetype)) {
+    throw new AppError(`Only ${allowedExtensions.map((item) => item.toUpperCase()).join(", ")} files are allowed`, 400);
+  }
+}
+
+async function getApplicantDocumentConfig(applicantId, documentType) {
+  const applicantDoc = await db.collection("applicants").doc(applicantId).get();
+  if (!applicantDoc.exists) throw new AppError("Applicant not found", 404);
+
+  const applicant = applicantDoc.data() || {};
+  const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
+  if (!companyDoc?.exists) return null;
+
+  const companyDocuments = getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicant);
+  return companyDocuments.find((document) => document.id === documentType) || null;
+}
+
 async function uploadDocumentByTypeUseCase(req) {
   const { applicantId, docType } = req.params;
   const file = req.file;
   if (!file) throw new AppError("No file uploaded", 400);
+  validateUploadedFileForDocument(file, await getApplicantDocumentConfig(applicantId, docType), docType);
 
   const { userId } = getAuthenticatedUserFromReq(req);
   const bucket = admin.storage().bucket();
@@ -121,6 +174,13 @@ async function uploadDocumentByTypeUseCase(req) {
   await deleteStorageFileIfExists(bucket, previousFileUrl);
 
   await refreshApplicantDocumentSummary(applicantId);
+  const applicantSnap = await db.collection("applicants").doc(applicantId).get();
+  await recordAgencyTask({
+    applicantId,
+    applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+    user: req.user,
+    actionKey: "DOCUMENT_UPLOADED"
+  });
   return { message: "Document uploaded successfully", fileUrl };
 }
 
@@ -182,6 +242,7 @@ async function uploadDocumentGenericUseCase(req) {
   const { id } = req.params;
   const { documentType } = req.body;
   if (!req.file) throw new AppError("File required", 400);
+  validateUploadedFileForDocument(req.file, await getApplicantDocumentConfig(id, documentType), documentType);
 
   const bucket = admin.storage().bucket();
   const fileName = `applicants/${id}/${documentType}_${Date.now()}`;
@@ -228,6 +289,13 @@ async function uploadDocumentGenericUseCase(req) {
   await deleteStorageFileIfExists(bucket, previousVersionFileUrl);
 
   await refreshApplicantDocumentSummary(id);
+  const applicantSnap = await db.collection("applicants").doc(id).get();
+  await recordAgencyTask({
+    applicantId: id,
+    applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+    user: req.user,
+    actionKey: "DOCUMENT_UPLOADED"
+  });
   return { message: "Uploaded successfully" };
 }
 
@@ -289,12 +357,19 @@ async function rejectDocumentUseCase(req) {
   }, { merge: true });
 
   await refreshApplicantDocumentSummary(id);
+  const applicantSnap = await db.collection("applicants").doc(id).get();
+  await recordNotificationAction({
+    actionKey: "DOCUMENT_REJECTED",
+    applicantId: id,
+    applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
+    user: req.user
+  });
   return { message: "Rejected" };
 }
 
 async function approveDocumentUseCase(req) {
   const { id, docType, versionId } = req.params;
-  if (req.user.role !== "SUPER_USER") {
+  if (!isSuperUserLikeRole(req.user.role)) {
     throw new AppError("Only Super User can approve documents", 403);
   }
 
@@ -305,6 +380,10 @@ async function approveDocumentUseCase(req) {
     .doc(docType)
     .collection("versions")
     .doc(versionId);
+  const applicantRef = db.collection("applicants").doc(id);
+  const applicantSnap = await applicantRef.get();
+  const applicant = applicantSnap.exists ? applicantSnap.data() : null;
+  const hadAllRequiredApproved = await areLatestRequiredDocumentsApproved(id, applicant || {});
   const versionSnap = await versionRef.get();
   const previousVersionData = versionSnap.exists ? versionSnap.data() || {} : {};
   const reviewedAt = new Date();
@@ -327,11 +406,17 @@ async function approveDocumentUseCase(req) {
     updatedAt: reviewedAt
   }, { merge: true });
 
-  const applicantRef = db.collection("applicants").doc(id);
-  const applicantSnap = await applicantRef.get();
-  const applicant = applicantSnap.exists ? applicantSnap.data() : null;
   await syncApplicantDocumentStage(id, applicant, req.user.uid, req.user.role);
   await refreshApplicantDocumentSummary(id);
+  const hasAllRequiredApproved = await areLatestRequiredDocumentsApproved(id, applicant || {});
+  if (!hadAllRequiredApproved && hasAllRequiredApproved) {
+    await recordNotificationAction({
+      actionKey: "DOCUMENT_APPROVED",
+      applicantId: id,
+      applicant: applicant || {},
+      user: req.user
+    });
+  }
   return { message: "Document approved" };
 }
 

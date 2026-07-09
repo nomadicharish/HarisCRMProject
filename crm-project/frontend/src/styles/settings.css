@@ -51,7 +51,7 @@
 }
 
 .settingsShell{
-  max-width:920px;
+  max-width:1100px;
   margin:38px auto 0;
   background:#fff;
   border:1px solid #dbe3f0;
@@ -126,6 +126,25 @@
   border:1.6px solid currentColor;
   border-top:none;
   border-radius:0 0 8px 8px;
+}
+
+.settingsNavIconAdmins{
+  border-radius:3px;
+}
+
+.settingsNavIconAdmins::after{
+  width:10px;
+  height:5px;
+  bottom:-6px;
+}
+
+.settingsNavIconBank{
+  border-radius:2px;
+  transform:rotate(45deg);
+}
+
+.settingsNavIconBank::after{
+  display:none;
 }
 
 .settingsContent{
@@ -308,6 +327,430 @@
   color:#0f766e;
 }
 
+.settingsAdminPanel{
+  width:100%;
+}
+
+.settingsAdminHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:18px;
+}
+
+.settingsAdminHeader .settingsSectionTitle{
+  margin:0;
+}
+
+.settingsAddAdminBtn{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+
+.settingsAdminToolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:18px;
+}
+
+.settingsAdminSearch{
+  width:min(100%, 390px);
+  position:relative;
+}
+
+.settingsAdminSearch input{
+  width:100%;
+  min-height:40px;
+  border:1px solid #d8dfeb;
+  border-radius:6px;
+  padding:0 42px 0 14px;
+  color:#334c76;
+  font-size:14px;
+}
+
+.settingsAdminSearch svg{
+  position:absolute;
+  right:14px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#7890b4;
+}
+
+.settingsAdminTotal,
+.settingsAdminNote{
+  color:#6f819f;
+  font-size:13px;
+  font-weight:500;
+}
+
+.settingsAdminTableWrap{
+  overflow-x:auto;
+  border:1px solid #dbe3f0;
+  border-radius:8px;
+}
+
+.settingsAdminTable{
+  width:100%;
+  min-width:760px;
+  border-collapse:collapse;
+  color:#243b63;
+  font-size:13px;
+}
+
+.settingsBankTable{
+  min-width:680px;
+}
+
+.settingsAdminTable th{
+  background:#f8fbff;
+  color:#0f1f3d;
+  font-size:12px;
+  font-weight:700;
+  text-align:left;
+  padding:14px 16px;
+  border-bottom:1px solid #dbe3f0;
+}
+
+.settingsAdminTable td{
+  padding:14px 16px;
+  border-bottom:1px solid #e8eef7;
+  vertical-align:middle;
+}
+
+.settingsAdminTable tr:last-child td{
+  border-bottom:none;
+}
+
+.settingsAdminNameCell{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  font-weight:500;
+}
+
+.settingsAdminAvatar{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  background:#e7f0ff;
+  color:#0052cc;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:11px;
+  font-weight:700;
+  flex:0 0 auto;
+}
+
+.settingsAdminDeleteBtn{
+  width:34px;
+  height:34px;
+  min-height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:none;
+  background:transparent;
+  color:#ef4444;
+  padding:0;
+}
+
+.settingsAdminEditBtn{
+  width:34px;
+  height:34px;
+  min-height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border:none;
+  background:transparent;
+  color:#0052cc;
+  padding:0;
+}
+
+.settingsRowActions{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+}
+
+.settingsAdminEmpty{
+  text-align:center;
+  color:#6f819f;
+}
+
+.settingsAdminNote{
+  margin:18px 0 0;
+}
+
+.settingsModalBackdrop{
+  position:fixed;
+  inset:0;
+  z-index:2000;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(15,23,42,0.42);
+}
+
+.settingsModal{
+  position:relative;
+  width:min(100%, 460px);
+  border-radius:10px;
+  background:#fff;
+  border:1px solid #dbe3f0;
+  box-shadow:0 22px 70px rgba(15,23,42,0.28);
+  padding:22px;
+}
+
+.settingsAddAdminModal{
+  width:min(100%, 490px);
+}
+
+.settingsModalHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:18px;
+}
+
+.settingsModalHeader h3,
+.settingsConfirmModal h3,
+.settingsSuccessModal h3{
+  margin:0;
+  color:#0f1f3d;
+  font-size:18px;
+  font-weight:700;
+}
+
+.settingsModalCloseBtn{
+  width:28px;
+  height:28px;
+  min-height:28px;
+  border:none;
+  background:transparent;
+  color:#41577e;
+  padding:0;
+}
+
+.settingsModalFloatingClose{
+  position:absolute;
+  top:16px;
+  right:16px;
+}
+
+.settingsModalField{
+  margin-bottom:14px;
+}
+
+.settingsModalField label{
+  display:block;
+  margin-bottom:7px;
+  color:#263a68;
+  font-size:13px;
+  font-weight:700;
+}
+
+.settingsModalField label span{
+  color:#ef4444;
+}
+
+.settingsModalField input{
+  width:100%;
+  min-height:40px;
+  border:1px solid #d8dfeb;
+  border-radius:5px;
+  padding:0 12px;
+  color:#334c76;
+}
+
+.settingsModalField select{
+  width:100%;
+  min-height:40px;
+  border:1px solid #d8dfeb;
+  border-radius:5px;
+  padding:0 12px;
+  background:#fff;
+  color:#334c76;
+}
+
+.settingsPhoneField .react-tel-input .form-control{
+  width:100%;
+  min-height:40px;
+  height:40px;
+  border-color:#d8dfeb;
+  color:#334c76;
+}
+
+.settingsModalHelp,
+.settingsInlineError{
+  margin-top:6px;
+  font-size:12px;
+  line-height:1.4;
+}
+
+.settingsModalHelp{
+  color:#6f819f;
+}
+
+.settingsInlineError{
+  color:#dc2626;
+}
+
+.settingsModalActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:14px;
+  margin-top:22px;
+}
+
+.settingsModalActionsCenter{
+  justify-content:center;
+}
+
+.settingsDangerBtn{
+  min-height:36px;
+  height:36px;
+  padding:0 16px;
+  border:1px solid #ef1f1f;
+  border-radius:4px;
+  background:#ef1f1f;
+  color:#fff;
+  font-size:14px;
+  font-weight:600;
+}
+
+.settingsDangerBtn:disabled{
+  opacity:0.45;
+}
+
+.settingsConfirmModal,
+.settingsSuccessModal{
+  text-align:center;
+  padding:42px 36px 34px;
+}
+
+.settingsConfirmModal p,
+.settingsSuccessModal p{
+  color:#253858;
+  font-size:15px;
+  line-height:1.5;
+}
+
+.settingsWarningIcon,
+.settingsSuccessIcon{
+  width:72px;
+  height:72px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-bottom:18px;
+}
+
+.settingsWarningIcon{
+  border:2px solid #f59e0b;
+  color:#f59e0b;
+  font-size:42px;
+  font-weight:300;
+}
+
+.settingsSuccessIcon{
+  border:2px solid #0f8a2c;
+  color:#0f8a2c;
+}
+
+.settingsNavIconOrganization::before{
+  content:"";
+  width:14px;
+  height:14px;
+  border:1.8px solid currentColor;
+  border-radius:3px;
+  box-shadow:5px 5px 0 -3px #ffffff, 5px 5px 0 -1.8px currentColor;
+}
+
+.settingsOrganizationPanel{
+  min-width:0;
+}
+
+.settingsSectionDescription{
+  margin:6px 0 0;
+  color:#667085;
+  font-size:14px;
+}
+
+.settingsOrganizationToolbar{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:16px;
+  margin:20px 0 14px;
+}
+
+.settingsOrganizationSearch{
+  width:min(300px, 100%);
+}
+
+.settingsOrganizationSelect{
+  width:auto;
+  min-width:170px;
+}
+
+.settingsOrganizationCount{
+  margin-left:auto;
+  color:#667085;
+  font-size:14px;
+  white-space:nowrap;
+}
+
+.settingsOrganizationTable{
+  padding:0;
+  overflow:auto;
+  box-shadow:none;
+}
+
+.settingsCountrySummary{
+  margin-top:22px;
+  padding:24px;
+  border:1px solid #e4e9f3;
+  border-radius:12px;
+  background:#f8faff;
+}
+
+.settingsCountrySummary > strong{
+  display:block;
+  color:#101828;
+  font-size:30px;
+}
+
+.settingsCountrySummary > span{
+  color:#667085;
+  font-size:14px;
+}
+
+.settingsCountryTags{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin-top:18px;
+}
+
+.settingsCountryTags span{
+  padding:7px 11px;
+  border:1px solid #d8e3f5;
+  border-radius:999px;
+  background:#ffffff;
+  color:#253858;
+  font-size:13px;
+  font-weight:600;
+}
+
 @media (max-width: 900px){
   .settingsShell{
     margin:24px 16px 0;
@@ -400,6 +843,15 @@
   .settingsInlineActions{
     flex-direction:column;
     align-items:stretch;
+  }
+
+  .settingsOrganizationToolbar{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .settingsOrganizationCount{
+    white-space:normal;
   }
 
   .settingsBlock,

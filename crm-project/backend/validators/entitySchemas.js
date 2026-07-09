@@ -12,7 +12,28 @@ const companyDocumentSchema = z.object({
   name: optionalTrimmedString,
   required: z.boolean().optional(),
   templateFileName: optionalTrimmedString,
-  templateFileUrl: optionalTrimmedString
+  templateFileUrl: optionalTrimmedString,
+  documentToFillFileName: optionalTrimmedString,
+  documentToFillUrl: optionalTrimmedString,
+  referenceFileName: optionalTrimmedString,
+  referenceUrl: optionalTrimmedString,
+  allowedExtensions: z.array(trimmedString).optional().default([]),
+  uploadHelpText: optionalTrimmedString
+});
+
+const companyJobSpecificationSchema = z.object({
+  id: optionalTrimmedString,
+  label: optionalTrimmedString,
+  name: optionalTrimmedString
+});
+
+const companyJobPositionSchema = z.object({
+  id: optionalTrimmedString,
+  label: optionalTrimmedString,
+  name: optionalTrimmedString,
+  title: optionalTrimmedString,
+  documents: z.array(companyDocumentSchema).optional().default([]),
+  documentsNeeded: z.array(companyDocumentSchema).optional().default([])
 });
 
 const idParamSchema = z.object({
@@ -26,11 +47,16 @@ const countryPayloadSchema = z.object({
 const companyPayloadSchema = z.object({
   name: trimmedString.min(1, "Company name is required"),
   countryId: trimmedString.min(1, "Country is required"),
-  companyPaymentPerApplicant: numericAmountField,
+  companyPaymentPerApplicant: numericAmountField.optional().default(0),
   employerIds: z.array(trimmedString).optional().default([]),
+  agencyIds: z.array(trimmedString).optional().default([]),
   contactNumber: optionalTrimmedString,
   whatsappNumber: optionalTrimmedString,
-  documentsNeeded: z.array(companyDocumentSchema).optional().default([])
+  standardReferenceFileName: optionalTrimmedString,
+  standardReferenceUrl: optionalTrimmedString,
+  documentsNeeded: z.array(companyDocumentSchema).optional().default([]),
+  jobSpecifications: z.array(companyJobSpecificationSchema).optional().default([]),
+  jobPositions: z.array(companyJobPositionSchema).optional().default([])
 });
 
 const employerPayloadSchema = z.object({
@@ -39,7 +65,9 @@ const employerPayloadSchema = z.object({
   contactNumber: trimmedString.min(1, "Contact number is required"),
   whatsappNumber: optionalTrimmedString,
   companyId: optionalTrimmedString,
-  countryId: optionalTrimmedString
+  countryId: optionalTrimmedString,
+  companyIds: z.array(trimmedString).optional().default([]),
+  countryIds: z.array(trimmedString).optional().default([])
 });
 
 const agencyPayloadSchema = z.object({
@@ -100,7 +128,9 @@ const documentTemplateParamsSchema = z.object({
 });
 
 const documentTemplateBodySchema = z.object({
-  documentId: trimmedString.min(1, "Document id is required")
+  documentId: optionalTrimmedString,
+  jobPositionId: optionalTrimmedString,
+  templateType: z.enum(["documentToFill", "reference", "standardReference"]).optional().default("documentToFill")
 });
 
 module.exports = {

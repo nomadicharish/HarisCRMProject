@@ -6,6 +6,629 @@
   padding-top:64px;
 }
 
+.companyFormPage{
+  background:#f5f7fb;
+  display:block;
+  padding:88px 18px 42px;
+}
+
+.companyFormShell{
+  max-width:1250px;
+  margin:0 auto;
+  padding:0;
+}
+
+.companyFormCard{
+  background:#fff;
+  border:1px solid #e4e9f2;
+  border-radius:8px;
+  box-shadow:0 18px 45px rgba(15,23,42,.1);
+  overflow:hidden;
+}
+
+.companyFormHeader,
+.companyPositionsHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  padding:24px 26px;
+}
+
+.companyFormHeader{
+  justify-content:flex-start;
+  padding-bottom:12px;
+}
+
+.companyFormHeader h1,
+.companySectionTitle h2{
+  margin:0;
+  color:#101828;
+  font-size:20px;
+  font-weight:800;
+}
+
+.companySectionTitle{
+  display:flex;
+  align-items:center;
+  gap:14px;
+}
+
+.companySectionTitle p{
+  margin:4px 0 0;
+  color:#475467;
+  font-size:13px;
+}
+
+.companyFormIcon{
+  width:38px;
+  height:38px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#dbeafe;
+  color:#0b55d9;
+  font-size:12px;
+  font-weight:800;
+  flex:0 0 auto;
+}
+
+.companyFormGrid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:20px 28px;
+  padding:0 26px 24px;
+}
+
+.companyFormGrid label,
+.companyPositionTop label{
+  display:block;
+  margin-bottom:8px;
+  color:#1d2939;
+  font-size:13px;
+  font-weight:800;
+}
+
+.companyFormGrid label span,
+.companyPositionTop label span{
+  color:#1d2939;
+}
+
+.companyFormInput{
+  width:100%;
+  min-height:46px;
+  border:1px solid #cfd8e6;
+  border-radius:6px;
+  padding:0 14px;
+  color:#101828;
+  font-size:14px;
+  font-weight:600;
+  outline:none;
+  background:#fff;
+}
+
+.companyFormInput:focus{
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+}
+
+.companyFormInputError{
+  border-color:#ef4444;
+}
+
+.companyFormError{
+  margin-top:6px;
+  color:#dc2626;
+  font-size:12px;
+  font-weight:700;
+}
+
+.companyFormWideError{
+  margin:0 26px 8px;
+}
+
+.companyPositionsHeader{
+  border-top:1px solid #e4e9f2;
+  background:#fbfdff;
+}
+
+.companyOutlineButton,
+.companyPrimaryButton,
+.companyCancelButton{
+  min-height:42px;
+  border-radius:6px;
+  padding:0 16px;
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyOutlineButton{
+  border:1px solid #2563eb;
+  background:#fff;
+  color:#0b55d9;
+}
+
+.companySmallButton{
+  min-height:36px;
+  font-size:13px;
+}
+
+.companyPositionsList{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:0 26px 26px;
+}
+
+.companyPositionPanel{
+  border:1px solid #d9e2ee;
+  border-radius:8px;
+  background:#fff;
+  overflow:hidden;
+}
+
+.companyPositionTop{
+  display:grid;
+  grid-template-columns:28px 72px minmax(240px,420px) minmax(120px,1fr);
+  align-items:center;
+  gap:14px;
+  padding:14px;
+}
+
+.companyPositionTop label{
+  margin:0;
+}
+
+.companyPositionNumber{
+  width:28px;
+  height:28px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:#0b55d9;
+  color:#fff;
+  font-size:13px;
+  font-weight:900;
+}
+
+.companyDeleteIcon{
+  border:0;
+  background:transparent;
+  color:#1d2939;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyDeleteIcon,
+.companyRemoveButton{
+  color:#dc2626;
+}
+
+.companyDeleteIcon{
+  justify-self:end;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  min-height:34px;
+  padding:0 6px;
+}
+
+.companyPositionActions{
+  justify-self:end;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.companyCopyApplicantLink{
+  min-height:34px;
+  padding:0 12px;
+  border:1px solid #2563eb;
+  border-radius:6px;
+  background:#eff6ff;
+  color:#0b55d9;
+  font-size:12px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyCopyApplicantLink:disabled{
+  border-color:#d0d5dd;
+  background:#f2f4f7;
+  color:#98a2b3;
+  cursor:not-allowed;
+}
+
+.companyDocumentsBlock{
+  padding:10px 28px 24px;
+}
+
+.companyDocumentsHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.companyDocumentsHeader h3{
+  margin:0;
+  color:#101828;
+  font-size:14px;
+  font-weight:800;
+}
+
+.companyDocumentsTable{
+  border:1px solid #d9e2ee;
+  border-radius:6px;
+  overflow:hidden;
+}
+
+.companyDocumentsRow{
+  display:grid;
+  grid-template-columns:minmax(220px,1.15fr) 78px minmax(280px,1.2fr) minmax(280px,1.2fr) 120px;
+  gap:0;
+  align-items:center;
+  padding:0;
+  border-top:1px solid #e4e9f2;
+}
+
+.companyDocumentsRow > *{
+  min-width:0;
+  padding:14px 18px;
+  border-right:1px solid #e4e9f2;
+  height:100%;
+  box-sizing:border-box;
+}
+
+.companyDocumentsRow > *:last-child{
+  border-right:0;
+}
+
+.companyDocNameCell{
+  display:flex;
+  align-items:center;
+}
+
+.companyDocNameCell .companyFormInput{
+  width:100%;
+}
+
+.companyDocumentsRow:first-child{
+  border-top:0;
+}
+
+.companyDocumentsHead{
+  min-height:36px;
+  background:#f8fafc;
+  color:#344054;
+  font-size:12px;
+  font-weight:900;
+}
+
+.companyDocumentsHead > div{
+  display:flex;
+  align-items:center;
+  min-height:48px;
+}
+
+.companyRequiredToggle{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:0;
+  color:#344054;
+  font-size:14px;
+  font-weight:700;
+}
+
+.companyRequiredToggle input{
+  width:16px;
+  height:16px;
+  accent-color:#0b55d9;
+}
+
+.companyFileDrop{
+  min-height:46px;
+  border:1px dashed #bfcee2;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:0 12px;
+  color:#475467;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  overflow:hidden;
+}
+
+.companyFileDropIcon{
+  width:28px;
+  height:28px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#0b55d9;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.companyFileDrop input{
+  display:none;
+}
+
+.companyFileDrop span{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+
+.companyTemplateCell{
+  display:flex;
+  align-items:stretch;
+  flex-direction:column;
+  min-width:0;
+}
+
+.companyDocUploadCard{
+  min-height:54px;
+  border:1px solid #d9e3f0;
+  border-radius:6px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:0 12px;
+  color:#475467;
+  font-size:13px;
+  font-weight:700;
+  cursor:pointer;
+  overflow:hidden;
+}
+
+.companyDocUploadCard .companyFileDropIcon{
+  align-self:center;
+  color:#0b55d9;
+}
+
+.companyDocUploadCard input{
+  display:none;
+}
+
+.companyDocUploadCard span:last-child{
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  min-width:0;
+}
+
+.companyFileHelp{
+  color:#64748b;
+  font-size:12px;
+  line-height:1.4;
+}
+
+.companyStandardReferenceField{
+  grid-column:1 / -1;
+}
+
+.companyStandardReferenceControls{
+  display:block;
+  align-items:center;
+  justify-content:start;
+  max-width:420px;
+}
+
+.companyDocFileActions{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.companyDocFileAction{
+  border:0;
+  background:transparent;
+  min-height:28px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.companyDocFileActionView{
+  color:#0052cc;
+}
+
+.companyDocFileActionRemove{
+  color:#ef0000;
+}
+
+.companyStandardReferenceRow{
+  margin:0 28px 20px;
+  padding:14px;
+  border:1px solid #d9e3f0;
+  border-radius:8px;
+  display:grid;
+  grid-template-columns:minmax(220px, 1fr) minmax(260px, 420px) auto;
+  gap:16px;
+  align-items:center;
+}
+
+.companyStandardReferenceRow label{
+  font-size:14px;
+  font-weight:800;
+  color:#0f172a;
+}
+
+.companyRemoveButton{
+  border:0;
+  background:transparent;
+  font-size:13px;
+  font-weight:900;
+  cursor:pointer;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:6px;
+}
+
+.companyFormActions{
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  padding:24px 26px;
+  border-top:1px solid #e4e9f2;
+}
+
+.companySectionFooter{
+  display:flex;
+  justify-content:flex-end;
+  margin-top:14px;
+}
+
+.companyDocumentsBlock .companySectionFooter,
+.companyPositionsFooter{
+  justify-content:flex-start;
+}
+
+.companyPositionsFooter{
+  padding:0 26px 24px;
+  margin-top:0;
+}
+
+.companyCancelButton{
+  border:1px solid #cfd8e6;
+  background:#fff;
+  color:#101828;
+}
+
+.companyPrimaryButton{
+  border:1px solid #0b55d9;
+  background:#0b55d9;
+  color:#fff;
+}
+
+@media (max-width:900px){
+  .companyFormPage{
+    padding-left:14px;
+    padding-right:14px;
+  }
+
+  .companyFormShell{
+    max-width:100%;
+  }
+
+  .companyFormGrid,
+  .companyDocumentsRow,
+  .companyPositionTop{
+    grid-template-columns:1fr;
+  }
+
+  .companyPositionsHeader,
+  .companyDocumentsHeader,
+  .companyFormActions{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .companyDeleteIcon,
+  .companyPositionActions,
+  .companySectionFooter{
+    justify-self:stretch;
+    justify-content:flex-end;
+  }
+
+  .companyDocumentsHead{
+    display:none;
+  }
+
+  .companyDocumentsRow{
+    gap:10px;
+    padding:14px;
+  }
+
+  .companyFileDrop{
+    min-height:58px;
+  }
+}
+
+@media (max-width:480px){
+  .companyFormPage{
+    padding:154px 12px 24px;
+  }
+
+  .companyFormShell{
+    padding-top:14px;
+  }
+
+  .companyFormHeader,
+  .companyPositionsHeader,
+  .companyFormGrid,
+  .companyPositionsList,
+  .companyFormActions,
+  .companyPositionsFooter{
+    padding-left:14px;
+    padding-right:14px;
+  }
+
+  .companyFormHeader{
+    align-items:flex-start;
+  }
+
+  .companySectionTitle{
+    align-items:flex-start;
+    gap:10px;
+  }
+
+  .companyDocumentsBlock{
+    padding:10px 14px 18px;
+  }
+
+  .companyFormHeader h1,
+  .companySectionTitle h2{
+    font-size:18px;
+  }
+
+  .companyOutlineButton,
+  .companyPrimaryButton,
+  .companyCancelButton{
+    width:100%;
+  }
+
+  .companyDeleteIcon{
+    width:auto;
+    margin-left:auto;
+  }
+
+  .companyRemoveButton{
+    min-height:36px;
+  }
+
+  .companyFormCard{
+    border-radius:8px;
+  }
+
+  .companyFormGrid{
+    gap:14px;
+  }
+
+  .companyFileDrop{
+    padding:10px;
+  }
+}
+
 .dashboardTopbar{
   height:64px;
   background:#ffffff;
@@ -45,14 +668,9 @@
   width:28px;
   height:28px;
   border-radius:50%;
-  background:#0052cc;
-  color:#ffffff;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-size:11px;
-  font-weight:700;
-  letter-spacing:0.04em;
+  display:block;
+  object-fit:cover;
+  flex:0 0 auto;
 }
 
 .dashboardTabs{
@@ -360,6 +978,274 @@
   font-size:14px;
   font-weight:500;
   color:#6b778c;
+}
+
+.dashboardViewAllApplicants{
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#0052cc;
+  font:inherit;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.dashboardHeaderSoloAction{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+}
+
+.dashboardViewAllApplicants:hover{
+  color:#003d99;
+  text-decoration:underline;
+}
+
+.dashboardViewAllApplicants:focus-visible{
+  outline:2px solid #0052cc;
+  outline-offset:3px;
+  border-radius:2px;
+}
+
+.dashboardQuickPrintBtn{
+  min-height:34px;
+  padding:0 12px;
+  border:1px solid #0052cc;
+  border-radius:6px;
+  background:#ffffff;
+  color:#0052cc;
+  font-size:12px;
+  font-weight:700;
+  white-space:nowrap;
+  cursor:pointer;
+}
+
+.dashboardQuickPrintBtn:hover{
+  background:#eaf2ff;
+}
+
+.quickPrintPage{
+  min-height:100vh;
+  padding:24px;
+  background:#f4f7fb;
+  color:#172b4d;
+  font-family:Arial, sans-serif;
+}
+
+.quickPrintToolbar{
+  max-width:900px;
+  margin:0 auto 14px;
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.quickPrintToolbar button{
+  min-height:42px;
+  padding:0 18px;
+  border-radius:6px;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.quickPrintBack{
+  border:1px solid #cfd8e6;
+  background:#fff;
+  color:#172b4d;
+}
+
+.quickPrintAction{
+  border:1px solid #0052cc;
+  background:#0052cc;
+  color:#fff;
+}
+
+.quickPrintAction:disabled{
+  opacity:.65;
+  cursor:wait;
+}
+
+.quickPrintSheet{
+  max-width:900px;
+  margin:0 auto;
+  padding:24px;
+  border:1px solid #dfe3e8;
+  border-radius:10px;
+  background:#fff;
+}
+
+.quickPrintHeader{
+  display:grid;
+  grid-template-columns:112px 1fr;
+  gap:18px;
+  align-items:center;
+  padding-bottom:16px;
+  border-bottom:2px solid #0052cc;
+}
+
+.quickPrintHeader h1{
+  margin:0 0 6px;
+  font-size:24px;
+}
+
+.quickPrintHeader p{
+  margin:0;
+  color:#667085;
+  font-size:13px;
+}
+
+.quickPrintPhoto,
+.quickPrintPhotoMissing{
+  width:112px;
+  height:132px;
+  border:1px solid #d8e2f0;
+  border-radius:8px;
+  background:#f4f7fb;
+}
+
+.quickPrintPhoto{
+  object-fit:cover;
+}
+
+.quickPrintPhotoMissing{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:#667085;
+}
+
+.quickPrintDetails{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:0 24px;
+  margin-top:16px;
+}
+
+.quickPrintField{
+  display:grid;
+  grid-template-columns:145px 1fr;
+  gap:10px;
+  padding:8px 0;
+  border-bottom:1px solid #eef2f6;
+}
+
+.quickPrintLabel{
+  color:#667085;
+  font-weight:700;
+}
+
+.quickPrintValue{
+  color:#101828;
+  font-weight:600;
+  overflow-wrap:anywhere;
+}
+
+.quickPrintAttachments{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+  margin-top:18px;
+}
+
+.quickPrintAttachment{
+  break-inside:avoid;
+  padding:12px;
+  border:1px solid #dfe3e8;
+  border-radius:8px;
+}
+
+.quickPrintAttachment h2{
+  margin:0 0 10px;
+  font-size:14px;
+}
+
+.quickPrintAttachment img{
+  width:100%;
+  height:240px;
+  object-fit:contain;
+  border:1px solid #eef2f6;
+  background:#f8fafc;
+}
+
+.quickPrintAttachment a{
+  display:block;
+  margin-top:8px;
+  color:#0052cc;
+  overflow-wrap:anywhere;
+}
+
+.quickPrintPdfAttachment,
+.quickPrintMissing{
+  min-height:100px;
+  padding:20px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  text-align:center;
+  background:#f8fafc;
+  color:#667085;
+  overflow-wrap:anywhere;
+}
+
+.quickPrintError{
+  padding:40px;
+  color:#b42318;
+  text-align:center;
+  font-weight:700;
+}
+
+.quickPrintPdfNotice{
+  margin-top:18px;
+  padding:14px 16px;
+  border:1px solid #cfe0ff;
+  border-radius:8px;
+  background:#f4f8ff;
+  color:#344054;
+  font-size:13px;
+  line-height:1.5;
+}
+
+@media print{
+  @page{
+    size:A4;
+    margin:12mm;
+  }
+
+  .quickPrintPage{
+    min-height:0;
+    padding:0;
+    background:#fff;
+  }
+
+  .quickPrintToolbar{
+    display:none;
+  }
+
+  .quickPrintSheet{
+    max-width:none;
+    padding:0;
+    border:0;
+    border-radius:0;
+  }
+
+  .quickPrintAttachment a{
+    color:#172b4d;
+    text-decoration:none;
+  }
+}
+
+@media (max-width:700px){
+  .quickPrintPage{
+    padding:12px;
+  }
+
+  .quickPrintDetails,
+  .quickPrintAttachments{
+    grid-template-columns:1fr;
+  }
 }
 
 .dashboardResultsSync{
@@ -686,6 +1572,191 @@
   max-width:460px;
 }
 
+.bulkDispatchOverlay{
+  position:fixed;
+  inset:0;
+  z-index:1500;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(15,23,42,.42);
+}
+
+.bulkDispatchModal{
+  width:min(920px, 100%);
+  max-height:calc(100vh - 48px);
+  overflow:auto;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  background:#fff;
+  box-shadow:0 24px 70px rgba(15,23,42,.24);
+}
+
+.bulkDispatchHeader{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  padding:24px 28px 18px;
+  border-bottom:1px solid #e5eaf3;
+}
+
+.bulkDispatchHeader h2{
+  margin:0;
+  color:#101828;
+  font-size:20px;
+  font-weight:800;
+}
+
+.bulkDispatchHeader p{
+  margin:6px 0 0;
+  color:#475467;
+  font-size:14px;
+}
+
+.bulkDispatchCloseBtn{
+  border:0;
+  background:transparent;
+  color:#344054;
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+}
+
+.bulkDispatchSection{
+  padding:18px 28px 0;
+}
+
+.bulkDispatchSection h3{
+  margin:0 0 14px;
+  color:#101828;
+  font-size:15px;
+  font-weight:800;
+}
+
+.bulkDispatchGrid{
+  display:grid;
+  gap:18px;
+}
+
+.bulkDispatchGridThree{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.bulkDispatchRecipientGrid{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+.bulkDispatchFullField{
+  grid-column:1 / -1;
+}
+
+.bulkDispatchRequired{
+  color:#ef4444;
+}
+
+.bulkDispatchGrid label,
+.bulkDispatchNoteField{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  color:#1d2939;
+  font-size:13px;
+  font-weight:700;
+}
+
+.bulkDispatchGrid input,
+.bulkDispatchNoteField textarea,
+.bulkDispatchDateInput{
+  width:100%;
+  min-height:44px;
+  border:1px solid #d0d5dd;
+  border-radius:8px;
+  background:#fff;
+  color:#101828;
+  font:inherit;
+  font-weight:500;
+  outline:none;
+}
+
+.bulkDispatchGrid input{
+  padding:0 14px;
+}
+
+.bulkDispatchGrid input:focus,
+.bulkDispatchNoteField textarea:focus,
+.bulkDispatchDateInput:focus{
+  border-color:#2563eb;
+  box-shadow:0 0 0 3px rgba(37,99,235,.12);
+}
+
+.bulkDispatchDateInput{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:0 14px;
+  cursor:pointer;
+}
+
+.bulkDispatchNoteField{
+  position:relative;
+  margin-top:18px;
+}
+
+.bulkDispatchNoteField textarea{
+  min-height:78px;
+  padding:12px 14px 24px;
+  resize:vertical;
+}
+
+.bulkDispatchNoteField small{
+  position:absolute;
+  right:12px;
+  bottom:8px;
+  color:#667085;
+  font-size:12px;
+  font-weight:500;
+}
+
+.bulkDispatchInfo{
+  margin-top:18px;
+  padding:12px 14px;
+  border:1px solid #bfd7ff;
+  border-radius:8px;
+  background:#f4f8ff;
+  color:#1d4ed8;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  font-size:13px;
+}
+
+.bulkDispatchInfo span{
+  color:#475467;
+}
+
+.bulkDispatchApplicantOption{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+
+.bulkDispatchApplicantOption small{
+  color:#667085;
+  font-size:11px;
+}
+
+.bulkDispatchFooter{
+  display:flex;
+  justify-content:flex-end;
+  gap:12px;
+  padding:22px 28px 28px;
+}
+
 .dashboardConfirmMessage{
   color:#344054;
   font-size:14px;
@@ -876,6 +1947,12 @@
     order:3;
     justify-content:flex-start;
     width:100%;
+    overflow-x:auto;
+    padding-bottom:4px;
+  }
+
+  .companyFormPage{
+    padding-top:154px;
   }
 }
 
@@ -899,6 +1976,22 @@
 
   .dashboardTableCard{
     overflow:auto;
+  }
+
+  .dashboardTopbar{
+    gap:12px;
+  }
+
+  .dashboardTabs{
+    gap:18px;
+  }
+
+  .dashboardTopbarRight{
+    width:100%;
+  }
+
+  .dashboardActionGroup{
+    justify-content:flex-start;
   }
 
   .dashboardCountryAddRow,
@@ -1019,7 +2112,6 @@
 .dashboardBrandIcon{
   width:36px;
   height:36px;
-  font-size:14px;
 }
 
 .dashboardTab{
@@ -1217,6 +2309,11 @@
   color:#16a34a;
 }
 
+.dashboardStatusPillWarning{
+  background:#fff4e8;
+  color:#f97316;
+}
+
 .dashboardPaymentPillPending{
   background:#fff4e8;
   color:#f97316;
@@ -1348,6 +2445,11 @@
 .dashboardPaymentPillSuccess{
   background:var(--ui-green-soft);
   color:var(--ui-green);
+}
+
+.dashboardStatusPillWarning{
+  background:var(--ui-orange-soft);
+  color:var(--ui-orange);
 }
 
 .dashboardPaymentPillPending{
@@ -1483,6 +2585,12 @@
   border:1px solid #bbf7d0;
 }
 
+.dashboardStatusPillWarning{
+  background:#fff7ed;
+  color:var(--ui-orange);
+  border:1px solid #fed7aa;
+}
+
 .dashboardPaymentPillPending{
   background:#fff7ed;
   color:var(--ui-orange);
@@ -1532,6 +2640,10 @@
 @media (min-width: 481px) and (max-width: 1024px){
   .dashboardPage{
     padding-top:0;
+  }
+
+  .companyFormPage{
+    padding-top:16px;
   }
 
   .dashboardTopbar{
@@ -1598,6 +2710,10 @@
 @media (max-width: 480px){
   .dashboardPage{
     padding-top:0;
+  }
+
+  .companyFormPage{
+    padding-top:12px;
   }
 
   .dashboardTopbar{
@@ -1713,5 +2829,1147 @@
     right:10px;
     left:10px;
     width:auto;
+  }
+}
+
+.dashboardHome{
+  position:relative;
+  grid-column:1 / -1;
+  width:100%;
+  padding:0px 12px 34px;
+  box-sizing:border-box;
+}
+
+.homeDateControls .dashboardPrimaryBtn:disabled{
+  opacity:0.72;
+  cursor:not-allowed;
+}
+
+.homeDateCard{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  min-height:52px;
+  margin-top: 8px;
+  padding:8px 16px;
+  border:1px solid #edf1f7;
+  border-radius:12px;
+  background:#ffffff;
+  box-shadow:0 12px 28px rgba(15,23,42,0.08);
+}
+
+.homeDateLabel{
+  margin-bottom:8px;
+  color:#263a68;
+  font-size:14px;
+  font-weight:800;
+}
+
+.homeDateControls{
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+
+.homeDateControls .react-datepicker-wrapper{
+  width:194px;
+  flex:0 0 194px;
+}
+
+.homeDateControls .react-datepicker__input-container{
+  width:100%;
+}
+
+.homeDatePickerWrap{
+  position:relative;
+  display:block;
+  width:100%;
+}
+
+.homeDatePickerIcon{
+  position:absolute;
+  left:16px;
+  top:50%;
+  transform:translateY(-50%);
+  color:#6b7a99;
+  pointer-events:none;
+}
+
+.homeDateControls input.homeDatePickerInput{
+  width:100%;
+  height:34px !important;
+  min-height:34px !important;
+  box-sizing:border-box;
+  border:1px solid #d4ddea;
+  border-radius:8px;
+  padding:0 16px 0 46px;
+  color:#0b1538;
+  background:#ffffff;
+  font-size:14px;
+  font-weight:500;
+  cursor:pointer;
+}
+
+.homeDateControls .dashboardPrimaryBtn{
+  min-width:88px;
+  min-height:36px;
+  border-radius:8px;
+  box-shadow:0 8px 18px rgba(0,82,204,0.24);
+}
+
+.homeDateSeparator{
+  color:#0b1538;
+  font-size:16px;
+  font-weight:800;
+}
+
+.homeDateError{
+  margin-top:8px;
+  color:#d92d20;
+  font-size:12px;
+  font-weight:600;
+}
+
+.homeViewAllBtn{
+  border:0;
+  background:transparent;
+  color:#0052cc;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.homeSection{
+  margin-top:8px;
+  margin-bottom:0;
+}
+
+.homeSection h2{
+  margin:0 0 8px;
+  color:#0b1538;
+  font-size:15px;
+  font-weight:800;
+}
+
+.homeCardGrid{
+  display:grid;
+  gap:12px;
+}
+
+.homeCardGridFour{
+  grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+
+.homeCardGridThree{
+  grid-template-columns:repeat(3, minmax(0, 1fr));
+}
+
+.homeCardGridTwo{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+}
+
+.homeMetricCard{
+  border:1px solid #e5ebf3;
+  border-radius:12px;
+  background:#ffffff;
+  padding:0;
+  color:#0b1538;
+  text-align:left;
+  overflow:hidden;
+  cursor:pointer;
+  box-shadow:0 12px 26px rgba(15,23,42,0.08);
+}
+
+.homeMetricBody{
+  min-height:84px;
+  display:flex;
+  align-items:flex-start;
+  gap:24px;
+  padding:12px 18px 0px;
+}
+
+.homeMetricIcon{
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.homeTone-blue .homeMetricIcon{ background:#dfe9ff; color:#0052cc; }
+.homeTone-green .homeMetricIcon{ background:#dff8eb; color:#0ea85f; }
+.homeTone-purple .homeMetricIcon{ background:#eadfff; color:#6d28d9; }
+.homeTone-orange .homeMetricIcon{ background:#ffe5d6; color:#f45b0a; }
+
+.homeMetricTitle{
+  color:#0b1538;
+  font-size:14px;
+  padding:0px 0 0;
+  font-weight:500;
+}
+
+.homeMetricCount{
+  margin-top:4px;
+  display:flex;
+  align-items:baseline;
+  gap:18px;
+  color:#1c3157;
+  font-size:13px;
+}
+
+.homeMetricCount strong{
+  color:#0052cc;
+  font-size:24px;
+  line-height:1;
+}
+
+.homeTone-green .homeMetricCount strong{ color:#0ea85f; }
+.homeTone-purple .homeMetricCount strong{ color:#6d28d9; }
+.homeTone-orange .homeMetricCount strong{ color:#f45b0a; }
+
+.homeMetricFooter{
+  min-height:40px;
+  border-top:1px solid #e7ecf4;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:0px 20px;
+  color:#0052cc;
+  font-size:14px;
+  font-weight:600;
+}
+
+.homePaymentCard{
+  width:100%;
+  border:1px solid #fecaca;
+  border-radius:12px;
+  background:#fff7f7;
+  display:grid;
+  grid-template-columns:auto minmax(220px, 1fr) repeat(3, minmax(160px, 1fr)) auto;
+  align-items:center;
+  gap:26px;
+  min-height:88px;
+  padding:4px 30px;
+  text-align:left;
+  cursor:pointer;
+  box-shadow:0 12px 28px rgba(15,23,42,0.05);
+}
+
+.homePaymentIcon{
+  background:#ffe1e1;
+  color:#ef0000;
+}
+
+.homePaymentApplicants div,
+.homePaymentAmount span{
+  color:#0b1538;
+  font-size:16px;
+  font-weight:600;
+}
+
+.homePaymentApplicants strong{
+  color:#ef0000;
+  font-size:24px;
+  line-height:1;
+}
+
+.homePaymentApplicants span{
+  color:#30436f;
+  margin-left:18px;
+  font-size:16px;
+}
+
+.homePaymentAmount{
+  border-left:1px solid #fecaca;
+  padding-left:42px;
+}
+
+.homePaymentAmount strong{
+  display:block;
+  margin-top:4px;
+  color:#ef0000;
+  font-size:18px;
+}
+
+.homePaymentAction{
+  color:#ef0000;
+  font-size:16px;
+  font-weight:600;
+  white-space:nowrap;
+}
+
+.homePaymentOverview{
+  display:grid;
+  grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
+  gap:10px;
+  align-items:center;
+  padding:10px 24px 10px;
+  border:1px solid #ff6b6b;
+  border-radius:12px;
+  background:linear-gradient(110deg,#fd8585 0%, #fff0f0 70%, #fff0f0 100%);
+  box-shadow:0 10px 26px rgba(218,32,32,.06);
+}
+
+.homePaymentOverviewMain{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:0px;
+}
+
+.homePaymentOverviewTitle{
+  display:flex;
+  align-items:flex-start;
+  gap:16px;
+}
+
+.homePaymentOverviewIcon,
+.homePaymentOverviewApplicantsIcon{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  background:#ef2020;
+  color:#fff;
+}
+
+.homePaymentOverviewTitle h2,
+.homePaymentStagesSection > h2{
+  margin:0;
+  text-transform:uppercase;
+  color:#0b1538;
+  font-size:15px;
+  font-weight:700;
+}
+
+.homePaymentOverviewTitle p{
+  margin:8px 0 0;
+  color:#22325d;
+  font-size:13px;
+}
+
+.homePaymentOverviewAmounts{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:20px;
+  padding-left:62px;
+}
+
+.homePaymentCurrency{
+  min-height:44px;
+  padding:0px 8px;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  border:1px solid #f1caca;
+  border-radius:8px;
+  background:rgba(255,255,255,.88);
+}
+
+.homePaymentCurrencySymbol{
+  width:30px;
+  height:30px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  font-size:17px;
+  background:#ffe8e8;
+  color:#dc1818;
+}
+
+.homePaymentCurrency > div{
+  min-width:0;
+  display:flex;
+  align-items:baseline;
+  gap:8px;
+}
+
+.homePaymentCurrency > div > span{
+  color:#15234b;
+  font-size:12px;
+  font-weight:800;
+  flex:0 0 auto;
+}
+
+.homePaymentCurrency strong{
+  margin-top:0;
+  font-size:16px;
+  color:#dc1818;
+  white-space:nowrap;
+}
+
+.homePaymentCurrency-eur{
+  border-color:#cddcff;
+}
+
+.homePaymentCurrency-eur .homePaymentCurrencySymbol{
+  color:#075de5;
+  background:#e7efff;
+}
+
+.homePaymentCurrency-eur strong{
+  color:#075de5;
+}
+
+.homePaymentCurrency-usd{
+  border-color:#cde7d4;
+}
+
+.homePaymentCurrency-usd .homePaymentCurrencySymbol{
+  color:#087b2b;
+  background:#e6f5ea;
+}
+
+.homePaymentCurrency-usd strong{
+  color:#087b2b;
+}
+
+.homePaymentOverviewApplicants{
+  min-height:84px;
+  padding-left:22px;
+  border-left:1px solid #ff8b8b;
+  display:grid;
+  grid-template-columns:54px 1fr;
+  gap:8px;
+  align-items:center;
+}
+
+.homePaymentOverviewApplicants > div > span{
+  display:block;
+  color:#182650;
+  font-size:11px;
+  font-weight:700;
+}
+
+.homePaymentOverviewApplicants strong{
+  display:block;
+  margin-top:6px;
+  color:#dc1818;
+  font-size:24px;
+}
+
+.homePaymentOverviewApplicants small{
+  margin-left:6px;
+  color:#182650;
+  font-size:14px;
+  font-weight:700;
+}
+
+.homePaymentOverviewApplicants button{
+  grid-column:1 / -1;
+  justify-self:start;
+  padding:0;
+  border:0;
+  background:transparent;
+  color:#0052cc;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.homePaymentOverviewApplicants button:hover{
+  color:#003d99;
+  text-decoration:underline;
+}
+
+.homePaymentOverviewApplicants button:focus-visible{
+  outline:2px solid #0052cc;
+  outline-offset:3px;
+  border-radius:2px;
+}
+
+.homePaymentOverviewActions{
+  grid-column:1 / -1;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:14px;
+  padding-top:10px;
+  border-top:1px solid #ffb3b3;
+}
+
+.homePaymentOverviewActions button{
+  min-height:44px;
+  border:1px solid #f2b5b5;
+  border-radius:8px;
+  background:rgba(255,255,255,.78);
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:0 18px;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.homePaymentActionLabel{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  justify-content:flex-start;
+  gap:12px;
+  text-align:left;
+}
+
+.homePaymentActionLabel > span:last-child{
+  min-width:0;
+}
+
+.homePaymentActionMeta{
+  flex:0 0 auto;
+  margin-left:auto;
+  color:#0052cc;
+  font-size:13px;
+  font-weight:800;
+  white-space:nowrap;
+}
+
+.homePaymentOverviewActions button:hover{
+  border-color:#0052cc;
+  background:#fff;
+}
+
+.homePaymentActionIcon{
+  width:34px;
+  height:34px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  background:#e8f0ff;
+  color:#0052cc;
+}
+
+.homePaymentModalOverlay{
+  position:fixed;
+  inset:0;
+  z-index:1500;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  background:rgba(15,23,42,.45);
+}
+
+.homePaymentModal{
+  width:min(940px,100%);
+  max-height:calc(100vh - 48px);
+  overflow:auto;
+  border:1px solid #e2e8f0;
+  border-radius:10px;
+  background:#fff;
+  box-shadow:0 24px 70px rgba(15,23,42,.24);
+}
+
+.homePaymentStageModal{
+  width:min(1180px,100%);
+}
+
+.homePaymentAgencyModal{
+  width:min(820px,100%);
+}
+
+.homePaymentModalHeader{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  padding:22px 24px 18px;
+  border-bottom:1px solid #e5eaf3;
+}
+
+.homePaymentModalTitleRow{
+  min-width:0;
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+}
+
+.homePaymentModalIcon{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  background:#e8f0ff;
+  color:#0052cc;
+}
+
+.homePaymentModalHeader h2{
+  margin:0;
+  color:#101828;
+  font-size:20px;
+  font-weight:800;
+}
+
+.homePaymentModalHeader p{
+  margin:6px 0 0;
+  color:#475467;
+  font-size:14px;
+}
+
+.accountantHomeSections{
+  display:grid;
+  gap:12px;
+  padding-top: 12px;
+}
+
+.accountantPaymentPanel{
+  border:1px solid #d9e4f7;
+  border-radius:8px;
+  background:#fff;
+  padding:22px;
+  box-shadow:0 12px 28px rgba(15,23,42,.04);
+}
+
+.accountantPaymentPanelAgents{
+  border-color:#cfe8dc;
+}
+
+.accountantPaymentPanelHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin-bottom:18px;
+}
+
+.accountantPaymentPanelTitle{
+  display:flex;
+  align-items:center;
+  gap:18px;
+}
+
+.accountantPanelIcon{
+  width:50px;
+  height:50px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:#005eea;
+  background:#eef5ff;
+}
+
+.accountantPanelIconGreen{
+  color:#0f9f4a;
+  background:#e6f7ed;
+}
+
+.accountantPaymentPanelTitle h2{
+  margin:0;
+  color:#0b1538;
+  font-size:16px;
+  font-weight:600;
+}
+
+.accountantPaymentPanelTitle p{
+  margin:8px 0 0;
+  color:#30436f;
+  font-size:12px;
+  font-weight:400;
+}
+
+.accountantPaymentPanelHeader button{
+  border:0;
+  background:transparent;
+  color:#005eea;
+  font-size:14px;
+  font-weight:600;
+  cursor:pointer;
+  white-space:nowrap;
+}
+
+.accountantPaymentPanelHeader button:hover{
+  text-decoration:underline;
+}
+
+.accountantCurrencyGrid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:24px;
+}
+
+.accountantCurrencyTile{
+  min-height:64px;
+  border:1px solid #dfe7f3;
+  border-radius:8px;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px;
+}
+
+.accountantCurrencyIcon{
+  width:45px;
+  height:45px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:#ef0000;
+  background:#ffe7e7;
+  font-size:22px;
+  font-weight:600;
+}
+
+.accountantCurrencyTile > div > span{
+  display:block;
+  color:#30436f;
+  font-size:14px;
+  font-weight:800;
+}
+
+.accountantCurrencyTile strong{
+  display:block;
+  margin-top:12px;
+  color:#ef0000;
+  font-size:18px;
+  line-height:1;
+  white-space:nowrap;
+}
+
+.accountantCurrencyTile-eur .accountantCurrencyIcon{
+  color:#005eea;
+  background:#eef5ff;
+}
+
+.accountantCurrencyTile-eur strong,
+.accountantAmountEur{
+  color:#005eea;
+}
+
+.accountantCurrencyTile-usd .accountantCurrencyIcon{
+  color:#0aa344;
+  background:#e6f7ed;
+}
+
+.accountantCurrencyTile-usd strong,
+.accountantAmountUsd{
+  color:#0aa344;
+}
+
+.accountantAgentTableWrap{
+  overflow:auto;
+  border:1px solid #e0e7f1;
+  border-radius:8px;
+}
+
+.accountantAgentTable{
+  width:100%;
+  border-collapse:collapse;
+  color:#0b1538;
+  font-size:14px;
+}
+
+.accountantAgentTable th{
+  padding:13px 14px;
+  background:#f8faff;
+  text-align:left;
+  font-weight:600;
+}
+
+.accountantAgentTable td{
+  padding:13px 14px;
+  border-top:1px solid #e5ebf3;
+  font-weight:700;
+}
+
+.accountantAmountInr{
+  color:#ef0000;
+}
+
+.accountantAgentEmpty{
+  color:#667085;
+  text-align:center;
+}
+
+.homePaymentModalClose{
+  border:0;
+  background:transparent;
+  color:#344054;
+  font-size:20px;
+  line-height:1;
+  cursor:pointer;
+}
+
+.homePaymentStageGridModal{
+  grid-template-columns:repeat(5,minmax(180px,1fr));
+  padding:20px 24px 24px;
+}
+
+.homeAgencyPaymentTableWrap{
+  margin:20px 24px 24px;
+  max-height:520px;
+  overflow:auto;
+  border:1px solid #dbe3ef;
+  border-radius:8px;
+}
+
+.homeAgencyPaymentTable{
+  width:100%;
+  border-collapse:collapse;
+  color:#101828;
+  font-size:14px;
+}
+
+.homeAgencyPaymentTable th,
+.homeAgencyPaymentTable td{
+  border:1px solid #e2e8f0;
+  padding:12px 14px;
+}
+
+.homeAgencyPaymentTable th{
+  background:#f8fafc;
+  color:#0f172a;
+  font-weight:800;
+  text-align:center;
+}
+
+.homeAgencyPaymentTable th:first-child,
+.homeAgencyPaymentTable td:first-child{
+  text-align:left;
+  font-weight:800;
+}
+
+.homeAgencyAmount{
+  text-align:center;
+  font-weight:900;
+}
+
+.homeAgencyAmountInr{
+  color:#dc1818;
+}
+
+.homeAgencyAmountEur{
+  color:#075de5;
+}
+
+.homeAgencyAmountUsd{
+  color:#087b2b;
+}
+
+.homeAgencyEmpty{
+  color:#667085;
+  text-align:center;
+  font-weight:700;
+}
+
+.homePaymentStagesSection{
+  margin-top:14px;
+  padding:12px 16px;
+  border:1px solid #ff6b6b;
+  border-radius:10px;
+   background:linear-gradient(110deg,#fd8585 0%,#fff 100%);
+  box-shadow:0 10px 26px rgba(218,32,32,.06);
+}
+
+.homePaymentStagesSection > h2{
+  margin-bottom:6px;
+  font-size:14px;
+}
+
+.homePaymentStageGrid{
+  display:grid;
+  grid-template-columns:repeat(5,minmax(0,1fr));
+  gap:16px;
+}
+
+.homePaymentStageCard{
+  --stage-color:#dc1818;
+  --stage-pale:#ffe8e8;
+  min-width:0;
+  padding:12px 10px 8px;
+  border:1px solid color-mix(in srgb,var(--stage-color) 35%,white);
+  border-radius:8px;
+  background:#fff;
+}
+
+.homePaymentStage-orange{--stage-color:#f36a18;--stage-pale:#fff0e5}
+.homePaymentStage-purple{--stage-color:#6d28d9;--stage-pale:#f1e9ff}
+.homePaymentStage-blue{--stage-color:#075de5;--stage-pale:#e7efff}
+.homePaymentStage-green{--stage-color:#087b2b;--stage-pale:#e6f5ea}
+
+.homePaymentStageHeader{
+  min-height:84px;
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+}
+
+.homePaymentStageIcon{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:var(--stage-color);
+  background:var(--stage-pale);
+}
+
+.homePaymentStageHeader h3{
+  margin:2px 0 0;
+  color:#17234a;
+  font-size:13px;
+  font-weight:800;
+}
+
+.homePaymentStageNote{
+  margin-top:2px;
+  color:#17234a;
+  font-size:10px;
+  font-weight:700;
+}
+
+.homePaymentStageHeader p{
+  margin:4px 0 0;
+  color:#25335c;
+  font-size:11px;
+  line-height:1.45;
+}
+
+.homePaymentStageCurrencies{
+  min-height:100px;
+  padding:0 6px;
+  display:flex;
+  flex-direction:column;
+  border-top:1px solid #f2d6d6;
+}
+
+.homePaymentStageCurrencies span{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  min-height:32px;
+  border-bottom:1px solid #f2d6d6;
+  color:#26345d;
+  font-size:11px;
+  font-weight:800;
+}
+
+.homePaymentStageCurrencies strong{
+  font-size:12px;
+  font-weight:900;
+}
+
+.homePaymentStageInr{
+  color:#dc1818;
+}
+
+.homePaymentStageEur{
+  color:#dc1818;
+}
+
+.homePaymentStageUsd{
+  color:#dc1818;
+}
+
+.homePaymentStageCard > button{
+  width:100%;
+  min-height:24px;
+  background:#fff;
+  color:var(--stage-color);
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+@media (max-width:1350px){
+  .homePaymentOverview{
+    grid-template-columns:1fr;
+  }
+
+  .homePaymentOverviewAmounts{
+    padding-left:0;
+  }
+
+  .homePaymentOverviewApplicants{
+    padding-left:0;
+    padding-top:16px;
+    border-left:0;
+    border-top:1px solid #ffb3b3;
+  }
+
+  .homePaymentStageGrid{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+  }
+
+  .homePaymentStageGridModal{
+    grid-template-columns:repeat(3,minmax(180px,1fr));
+  }
+}
+
+@media (max-width: 1100px){
+  .homeCardGridFour,
+  .homeCardGridThree,
+  .homeCardGridTwo{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .homePaymentCard{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .homePaymentOverviewAmounts{
+    grid-template-columns:repeat(3,minmax(180px,1fr));
+    overflow-x:auto;
+  }
+
+  .homePaymentStageGrid{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .homePaymentOverviewActions{
+    grid-template-columns:1fr;
+  }
+
+  .homePaymentStageGridModal{
+    grid-template-columns:repeat(2,minmax(180px,1fr));
+  }
+}
+
+@media (max-width: 700px){
+  .bulkDispatchOverlay{
+    padding:12px;
+    align-items:flex-start;
+  }
+
+  .bulkDispatchModal{
+    max-height:calc(100vh - 24px);
+  }
+
+  .bulkDispatchHeader,
+  .bulkDispatchSection,
+  .bulkDispatchFooter{
+    padding-left:16px;
+    padding-right:16px;
+  }
+
+  .bulkDispatchGridThree{
+    grid-template-columns:1fr;
+  }
+
+  .bulkDispatchInfo,
+  .bulkDispatchFooter{
+    align-items:stretch;
+    flex-direction:column;
+  }
+
+  .bulkDispatchFooter .dashboardPrimaryBtn,
+  .bulkDispatchFooter .dashboardSecondaryBtn{
+    width:100%;
+    justify-content:center;
+  }
+
+  .dashboardHome{
+    padding:14px;
+  }
+
+  .homeDateCard,
+  .homeDateControls,
+  .homePaymentCard{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .homeDateCard,
+  .homePaymentCard{
+    display:flex;
+  }
+
+  .homeCardGridFour,
+  .homeCardGridThree,
+  .homeCardGridTwo{
+    grid-template-columns:1fr;
+  }
+
+  .accountantPaymentPanel{
+    padding:16px;
+  }
+
+  .accountantPaymentPanelHeader{
+    flex-direction:column;
+    align-items:flex-start;
+  }
+
+  .accountantPaymentPanelTitle{
+    align-items:flex-start;
+  }
+
+  .accountantCurrencyGrid{
+    grid-template-columns:1fr;
+  }
+
+  .accountantAgentTable{
+    min-width:680px;
+  }
+
+  .homeDateControls input,
+  .homeDateControls .dashboardPrimaryBtn{
+    width:100%;
+  }
+
+  .homeDateControls .react-datepicker-wrapper{
+    width:100%;
+    flex:1 1 auto;
+  }
+
+  .homePaymentAmount{
+    border-left:0;
+    border-top:1px solid #fecaca;
+    padding-left:0;
+    padding-top:16px;
+  }
+
+  .homePaymentOverview{
+    padding:16px;
+  }
+
+  .homePaymentOverviewAmounts,
+  .homePaymentStageGrid{
+    grid-template-columns:1fr;
+  }
+
+  .homePaymentModalOverlay{
+    align-items:flex-start;
+    padding:12px;
+  }
+
+  .homePaymentModal{
+    max-height:calc(100vh - 24px);
+  }
+
+  .homePaymentModalHeader{
+    padding:16px;
+  }
+
+  .homePaymentStageGridModal{
+    grid-template-columns:1fr;
+    padding:16px;
+  }
+
+  .homeAgencyPaymentTableWrap{
+    margin:16px;
+  }
+
+  .homeAgencyPaymentTable{
+    min-width:620px;
   }
 }

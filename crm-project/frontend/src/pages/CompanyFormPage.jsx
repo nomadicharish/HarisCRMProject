@@ -1,366 +1,475 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
-import ConfirmActionModal from "../components/common/ConfirmActionModal";
+import { toast } from "react-toastify";
+import API from "../services/api";
+import { invalidateCache } from "../services/cachedApi";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
-import API from "../services/api";
-import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
-import "../styles/forms.css";
-import "../styles/applicantDocuments.css";
+import {
+  ALLOWED_DOCUMENT_ACCEPT,
+  DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+  DOC_ONLY_EXTENSIONS,
+  DOCUMENT_UPLOAD_HELP_TEXT,
+  getValidatedDocumentFile,
+  validateDocumentFiles
+} from "../utils/fileValidation";
+import { isSuperUserLikeRole } from "../utils/auth";
 import "../styles/applicantsDashboard.css";
 
-const THEME = {
-  primary: "#0052CC",
-  border: "#DFE1E6",
-  error: "red"
-};
+const DEFAULT_DOCUMENT_ASSET_PATH = "/default-documents/";
+const defaultDocumentAssetUrl = (fileName) => `${DEFAULT_DOCUMENT_ASSET_PATH}${encodeURIComponent(fileName)}`;
 
-const createDocumentId = (value, fallbackIndex = 0) => {
+const DEFAULT_DOCUMENTS = [
+  {
+    id: "cv_word_format_with_photo",
+    name: "CV in word format with photo",
+    required: true,
+    allowedExtensions: DOC_ONLY_EXTENSIONS,
+    uploadHelpText: "Upload DOC or DOCX (Max 5 MB)"
+  },
+  { id: "experience_reference_document", name: "Experience/reference document", required: false },
+  { id: "additional_experience_reference_document", name: "Additional Experience/reference document", required: false },
+  {
+    id: "passport_scan_standard",
+    name: "Passport scan as per the given standard",
+    required: true,
+    referenceFileName: "Passport copy sample.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("Passport copy sample.jpeg")
+  },
+  {
+    id: "passport_photo_scan_standard",
+    name: "Photo (passport photo scan as per the given standard)",
+    required: true,
+    referenceFileName: "Visa_Photo_Requirements.pdf",
+    referenceUrl: defaultDocumentAssetUrl("Visa_Photo_Requirements.pdf")
+  },
+  { id: "education_document", name: "Education document (higher secondary school pass certificate)", required: true },
+  { id: "additional_education_document", name: "Additional Education Document", required: false },
+  {
+    id: "podpis_tujca",
+    name: "Podpis Tujca (signed with blue pen)",
+    required: true,
+    documentToFillFileName: "podpisTujca.PDF",
+    documentToFillUrl: defaultDocumentAssetUrl("podpisTujca.PDF"),
+    templateFileName: "podpisTujca.PDF",
+    templateFileUrl: defaultDocumentAssetUrl("podpisTujca.PDF"),
+    referenceFileName: "podpisTujcaReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("podpisTujcaReference.jpeg")
+  },
+  {
+    id: "tax_authorization",
+    name: "Tax Authorization",
+    required: true,
+    documentToFillFileName: "taxAuthorization.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("taxAuthorization.pdf"),
+    templateFileName: "taxAuthorization.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("taxAuthorization.pdf"),
+    referenceFileName: "taxAuthorizationReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("taxAuthorizationReference.jpeg")
+  },
+  { id: "pan_card", name: "Pan card", required: true },
+  {
+    id: "application_authorization",
+    name: "Application Authorization",
+    required: true,
+    documentToFillFileName: "applicationAuthorization.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("applicationAuthorization.pdf"),
+    templateFileName: "applicationAuthorization.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("applicationAuthorization.pdf"),
+    referenceFileName: "applicationAuthorizationReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("applicationAuthorizationReference.jpeg")
+  },
+  {
+    id: "appointment_authorization",
+    name: "Appointment Authorization",
+    required: true,
+    documentToFillFileName: "AppointmentAuthorization.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("AppointmentAuthorization.pdf"),
+    templateFileName: "AppointmentAuthorization.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("AppointmentAuthorization.pdf"),
+    referenceFileName: "appointmentAuthorizationReference.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("appointmentAuthorizationReference.jpeg")
+  },
+  {
+    id: "medical_certificate",
+    name: "Medical certificate",
+    required: true,
+    documentToFillFileName: "Medical Certificate_01.2026.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("Medical Certificate_01.2026.pdf"),
+    templateFileName: "Medical Certificate_01.2026.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("Medical Certificate_01.2026.pdf")
+  },
+  {
+    id: "workwear_measurement",
+    name: "Workwear measurement",
+    required: false,
+    documentToFillFileName: "WorkwearMeasurement.pdf",
+    documentToFillUrl: defaultDocumentAssetUrl("WorkwearMeasurement.pdf"),
+    templateFileName: "WorkwearMeasurement.pdf",
+    templateFileUrl: defaultDocumentAssetUrl("WorkwearMeasurement.pdf"),
+    referenceFileName: "footwearSize.jpeg",
+    referenceUrl: defaultDocumentAssetUrl("footwearSize.jpeg")
+  },
+  { id: "affidavit", name: "AFFIDAVIT", required: true },
+  { id: "additional_document_1", name: "Additional Document", required: false },
+  { id: "additional_document_2", name: "Additional Document", required: false },
+  { id: "additional_document_3", name: "Additional Document", required: false }
+];
+
+const createKey = (prefix) => `${prefix}_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+
+function CompanyIcon() {
+  return (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 9h2a2 2 0 0 1 2 2v10M8 7h4M8 11h4M8 15h4M3 21h18" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function JobIcon() {
+  return (
+    <svg width="21" height="21" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 6V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1M4 9h16M6 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M10 13h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UploadFileIcon() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 16V8M8.5 11.5 12 8l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M20 16.5a4 4 0 0 0-3.8-4A5.5 5.5 0 0 0 5.7 14 3.5 3.5 0 0 0 6.5 21H18a3 3 0 0 0 2-5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ViewIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function buildId(value, fallback) {
   const normalized = String(value || "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
-
-  return normalized || `document_${fallbackIndex + 1}`;
-};
-
-const createDocumentRow = (value = {}, index = 0) => ({
-  rowKey: String(value.rowKey || value.id || `document_row_${Date.now()}_${index}_${Math.random().toString(36).slice(2, 8)}`),
-  id: String(value.id || createDocumentId(value.name, index)),
-  name: String(value.name || value.label || ""),
-  required: Boolean(value.required),
-  templateFileName: String(value.templateFileName || ""),
-  templateFileUrl: String(value.templateFileUrl || ""),
-  file: null,
-  clearTemplate: false
-});
-
-const handleFocus = (event) => {
-  event.target.style.border = `1px solid ${THEME.primary}`;
-};
-
-const handleBlur = (event, hasError) => {
-  event.target.style.border = hasError
-    ? `1px solid ${THEME.error}`
-    : `1px solid ${THEME.border}`;
-};
-
-const input = {
-  width: "100%",
-  height: "44px",
-  minHeight: "44px",
-  padding: "0 10px",
-  borderRadius: 0,
-  border: `1px solid ${THEME.border}`,
-  background: "#FAFBFC",
-  fontSize: "14px",
-  boxSizing: "border-box",
-  outline: "none",
-  transition: "border 0.2s ease"
-};
-
-const label = {
-  fontSize: "13px",
-  marginBottom: "5px",
-  display: "block",
-  color: "#6B778C",
-  fontWeight: "500"
-};
-
-const errorText = {
-  color: "red",
-  fontSize: "12px",
-  marginTop: "3px"
-};
-
-const formatAmountInput = formatIndianNumberInput;
-const parseAmountInput = parseIndianNumberInput;
-
-function TrashIcon() {
-  return (
-    <svg className="dashboardCountryIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 7h16" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path
-        d="M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V4h6v3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
+  return normalized || fallback;
 }
+
+function createDocumentRow(document = {}, index = 0) {
+  const name = document.name || document.label || "";
+  return {
+    rowKey: document.rowKey || createKey("document"),
+    id: document.id || document.docType || buildId(name, `document_${index + 1}`),
+    name,
+    required: Boolean(document.required),
+    templateFileName: document.templateFileName || "",
+    templateFileUrl: document.templateFileUrl || "",
+    documentToFillFileName: document.documentToFillFileName || document.fillDocumentFileName || document.templateFileName || "",
+    documentToFillUrl: document.documentToFillUrl || document.fillDocumentUrl || document.templateFileUrl || "",
+    referenceFileName: document.referenceFileName || document.referenceDocumentFileName || "",
+    referenceUrl: document.referenceUrl || document.referenceDocumentUrl || "",
+    allowedExtensions: Array.isArray(document.allowedExtensions) && document.allowedExtensions.length
+      ? document.allowedExtensions
+      : DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+    uploadHelpText: document.uploadHelpText || "",
+    documentToFillFile: null,
+    referenceFile: null
+  };
+}
+
+function createPositionRow(position = {}, index = 0, fallbackDocuments = []) {
+  const title = position.title || position.name || position.label || "";
+  const documents = Array.isArray(position.documents) && position.documents.length
+    ? position.documents
+    : Array.isArray(position.documentsNeeded) && position.documentsNeeded.length
+      ? position.documentsNeeded
+      : fallbackDocuments.length
+        ? fallbackDocuments
+        : DEFAULT_DOCUMENTS;
+
+  return {
+    rowKey: position.rowKey || createKey("position"),
+    id: position.id || buildId(title, `job_position_${index + 1}`),
+    title,
+    documents: documents.map((document, documentIndex) => createDocumentRow(document, documentIndex))
+  };
+}
+
+function normalizeCompanyPositions(company = {}) {
+  const fallbackDocuments = Array.isArray(company.documentsNeeded) ? company.documentsNeeded : [];
+  if (Array.isArray(company.jobPositions) && company.jobPositions.length) {
+    return company.jobPositions.map((position, index) => createPositionRow(position, index, fallbackDocuments));
+  }
+  if (Array.isArray(company.jobSpecifications) && company.jobSpecifications.length) {
+    return company.jobSpecifications.map((position, index) => createPositionRow(position, index, fallbackDocuments));
+  }
+  return [createPositionRow({}, 0, DEFAULT_DOCUMENTS)];
+}
+
+const selectStyles = {
+  control: (base, state) => ({
+    ...base,
+    minHeight: 46,
+    height: 46,
+    borderColor: state.isFocused ? "#2563eb" : "#cfd8e6",
+    boxShadow: state.isFocused ? "0 0 0 3px rgba(37,99,235,0.12)" : "none",
+    borderRadius: 6,
+    fontSize: 14,
+    overflow: "hidden"
+  }),
+  valueContainer: (base) => ({
+    ...base,
+    minHeight: 46,
+    height: 46,
+    paddingTop: 0,
+    paddingBottom: 0,
+    overflowX: "auto",
+    flexWrap: "nowrap"
+  }),
+  indicatorsContainer: (base) => ({ ...base, minHeight: 46, height: 46 }),
+  input: (base) => ({ ...base, margin: 0, padding: 0 }),
+  menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+  multiValue: (base) => ({ ...base, background: "#dbeafe", borderRadius: 4 }),
+  multiValueLabel: (base) => ({ ...base, color: "#0b55d9", fontWeight: 700 }),
+  multiValueRemove: (base) => ({ ...base, color: "#0b55d9", ":hover": { background: "#bfdbfe", color: "#0b55d9" } })
+};
 
 function CompanyFormPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEdit = Boolean(id);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
+
+  const [user, setUser] = useState(null);
   const [countries, setCountries] = useState([]);
-  const [companies, setCompanies] = useState([]);
   const [employers, setEmployers] = useState([]);
+  const [agencies, setAgencies] = useState([]);
+  const [pageLoading, setPageLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState({});
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
   const [form, setForm] = useState({
     name: "",
     countryId: "",
-    employerIds: [],
     companyPaymentPerApplicant: "",
-    documentsNeeded: []
+    standardReferenceFileName: "",
+    standardReferenceUrl: "",
+    standardReferenceFile: null,
+    employerIds: [],
+    agencyIds: [],
+    jobPositions: [createPositionRow({}, 0, DEFAULT_DOCUMENTS)]
   });
 
   useEffect(() => {
-    let cancelled = false;
-
     async function load() {
       try {
-        const [userRes, countryRes, employerRes, companyRes] = await Promise.all([
+        setPageLoading(true);
+        const [me, countryRes, employerRes, agencyRes, companyRes] = await Promise.all([
           API.get("/auth/me"),
           API.get("/countries"),
-          API.get("/employers"),
-          API.get("/companies")
+          API.get("/employers?paginated=false"),
+          API.get("/agencies?paginated=false"),
+          API.get("/companies?paginated=false")
         ]);
-
-        if (cancelled) return;
-
-        setCurrentUser(userRes.data || null);
-        if (userRes.data?.role !== "SUPER_USER") {
+        const nextUser = me.data || null;
+        setUser(nextUser);
+        if (!isSuperUserLikeRole(nextUser?.role)) {
           navigate("/dashboard", { replace: true });
           return;
         }
-
-        const companiesData = Array.isArray(companyRes.data) ? companyRes.data : [];
-        setCountries(Array.isArray(countryRes.data) ? countryRes.data : []);
-        setEmployers(Array.isArray(employerRes.data) ? employerRes.data : []);
-        setCompanies(companiesData);
+        const companyItems = Array.isArray(companyRes.data) ? companyRes.data : companyRes.data?.items || [];
+        setCountries(Array.isArray(countryRes.data) ? countryRes.data : countryRes.data?.items || []);
+        setEmployers(Array.isArray(employerRes.data) ? employerRes.data : employerRes.data?.items || []);
+        setAgencies(Array.isArray(agencyRes.data) ? agencyRes.data : agencyRes.data?.items || []);
 
         if (isEdit) {
-          const selected = companiesData.find((company) => company.id === id);
-          if (!selected) {
-            navigate("/dashboard?tab=companies", { replace: true });
-            return;
+          const selected = companyItems.find((company) => company.id === id);
+          if (selected) {
+            const agencyItems = Array.isArray(agencyRes.data) ? agencyRes.data : agencyRes.data?.items || [];
+            const selectedAgencyIds = Array.isArray(selected.agencyIds) && selected.agencyIds.length
+              ? selected.agencyIds
+              : agencyItems
+                  .filter((agency) => Array.isArray(agency.assignedCompanyIds) && agency.assignedCompanyIds.includes(id))
+                  .map((agency) => agency.id);
+            setForm({
+              name: selected.name || "",
+              countryId: selected.countryId || "",
+              companyPaymentPerApplicant: selected.companyPaymentPerApplicant ?? "",
+              standardReferenceFileName: selected.standardReferenceFileName || "",
+              standardReferenceUrl: selected.standardReferenceUrl || "",
+              standardReferenceFile: null,
+              employerIds: Array.isArray(selected.employerIds) ? selected.employerIds : [],
+              agencyIds: selectedAgencyIds,
+              jobPositions: normalizeCompanyPositions(selected)
+            });
           }
-
-          setForm({
-            name: selected.name || "",
-            countryId: selected.countryId || "",
-            employerIds: Array.isArray(selected.employerIds) ? selected.employerIds : [],
-            companyPaymentPerApplicant: formatAmountInput(selected.companyPaymentPerApplicant ?? ""),
-            documentsNeeded: Array.isArray(selected.documentsNeeded)
-              ? selected.documentsNeeded.map((document, index) => createDocumentRow(document, index))
-              : []
-          });
         }
       } catch (error) {
         console.error(error);
       } finally {
-        if (!cancelled) setLoading(false);
+        setPageLoading(false);
       }
     }
-
     load();
-    return () => {
-      cancelled = true;
-    };
   }, [id, isEdit, navigate]);
 
-  const countryOptions = useMemo(
-    () =>
-      countries.map((country) => ({
-        value: country.id,
-        label: country.name
-      })),
-    [countries]
-  );
+  const countryOptions = useMemo(() => countries.map((country) => ({ value: country.id, label: country.name })), [countries]);
+  const employerOptions = useMemo(() => employers.map((employer) => ({ value: employer.id, label: employer.name })), [employers]);
+  const agencyOptions = useMemo(() => agencies.map((agency) => ({ value: agency.id, label: agency.name })), [agencies]);
 
-  const employerOptions = useMemo(
-    () =>
-      employers
-        .filter((employer) => !form.countryId || employer.countryId === form.countryId)
-        .map((employer) => ({
-          value: employer.id,
-          label: employer.name
-        })),
-    [employers, form.countryId]
-  );
+  const selectedCountry = countryOptions.find((country) => country.value === form.countryId) || null;
+  const selectedEmployers = employerOptions.filter((employer) => form.employerIds.includes(employer.value));
+  const selectedAgencies = agencyOptions.filter((agency) => form.agencyIds.includes(agency.value));
 
-  const customSelectStyles = {
-    control: (base, state) => ({
-      ...base,
-      padding: 0,
-      borderRadius: 0,
-      border: `1px solid ${
-        state.selectProps.hasError ? THEME.error : state.isFocused ? THEME.primary : THEME.border
-      }`,
-      boxShadow: "none",
-      minHeight: "44px",
-      height: "44px",
-      "&:hover": {
-        border: `1px solid ${state.selectProps.hasError ? THEME.error : THEME.primary}`
-      }
-    }),
-    valueContainer: (base) => ({
-      ...base,
-      height: "42px",
-      padding: "0 10px",
-      flexWrap: "nowrap",
-      overflow: "hidden"
-    }),
-    placeholder: (base) => ({
-      ...base,
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-      textOverflow: "ellipsis"
-    }),
-    singleValue: (base) => ({
-      ...base,
-      whiteSpace: "nowrap",
-      overflow: "hidden",
-      textOverflow: "ellipsis"
-    }),
-    indicatorsContainer: (base) => ({
-      ...base,
-      height: "42px"
-    }),
-    menu: (base) => ({
-      ...base,
-      borderRadius: 0,
-      zIndex: 9999
-    }),
-    option: (base, state) => ({
-      ...base,
-      backgroundColor: state.isFocused ? "#f0f6ff" : "#fff",
-      color: "#333",
-      cursor: "pointer"
-    }),
-    input: (base) => ({
-      ...base,
-      margin: 0,
-      padding: 0,
-      minHeight: 0,
-      boxShadow: "none",
-      border: "none"
-    }),
-    multiValue: (base) => ({
-      ...base,
-      borderRadius: 0,
-      maxWidth: "130px",
-      flex: "0 0 auto"
-    }),
-    multiValueLabel: (base) => ({
-      ...base,
-      overflow: "hidden",
-      textOverflow: "ellipsis",
-      whiteSpace: "nowrap"
-    })
-  };
-
-  const updateField = (key, value) => {
-    setForm((prev) => {
-      const next = { ...prev, [key]: value };
-      if (key === "companyPaymentPerApplicant") {
-        next.companyPaymentPerApplicant = formatAmountInput(value);
-      }
-      if (key === "countryId") {
-        next.employerIds = prev.employerIds.filter((employerId) =>
-          employers.some((employer) => employer.id === employerId && employer.countryId === value)
-        );
-      }
-      return next;
-    });
-
-    setErrors((prev) => ({ ...prev, [key]: "" }));
-  };
-
-  const updateDocument = (rowKey, key, value) => {
+  const updatePosition = (rowKey, updater) => {
     setForm((prev) => ({
       ...prev,
-      documentsNeeded: prev.documentsNeeded.map((document, index) => {
-        if (document.rowKey !== rowKey) return document;
-
-        const next = { ...document, [key]: value };
-        if (key === "name") {
-          next.id = createDocumentId(value, index);
-        }
-        if (key === "file") {
-          next.clearTemplate = false;
-        }
-        return next;
-      })
-    }));
-  };
-
-  const addDocumentRow = () => {
-    setForm((prev) => ({
-      ...prev,
-      documentsNeeded: [...prev.documentsNeeded, createDocumentRow({}, prev.documentsNeeded.length)]
-    }));
-  };
-
-  const removeDocumentRow = (documentId) => {
-    setForm((prev) => ({
-      ...prev,
-      documentsNeeded: prev.documentsNeeded.filter((document) => document.rowKey !== documentId)
-    }));
-  };
-
-  const clearTemplateFile = (rowKey) => {
-    setForm((prev) => ({
-      ...prev,
-      documentsNeeded: prev.documentsNeeded.map((document) =>
-        document.rowKey === rowKey
-          ? {
-              ...document,
-              templateFileName: "",
-              templateFileUrl: "",
-              file: null,
-              clearTemplate: true
-            }
-          : document
+      jobPositions: prev.jobPositions.map((position) =>
+        position.rowKey === rowKey ? updater(position) : position
       )
+    }));
+  };
+
+  const handleDocumentChange = (positionKey, documentKey, patch) => {
+    updatePosition(positionKey, (position) => ({
+      ...position,
+      documents: position.documents.map((document) =>
+        document.rowKey === documentKey ? { ...document, ...patch } : document
+      )
+    }));
+  };
+
+  const addPosition = () => {
+    setForm((prev) => ({
+      ...prev,
+      jobPositions: [...prev.jobPositions, createPositionRow({}, prev.jobPositions.length, DEFAULT_DOCUMENTS)]
+    }));
+  };
+
+  const removePosition = (rowKey) => {
+    setForm((prev) => ({
+      ...prev,
+      jobPositions: prev.jobPositions.length > 1
+        ? prev.jobPositions.filter((position) => position.rowKey !== rowKey)
+        : prev.jobPositions
+    }));
+  };
+
+  const copyAddApplicantLink = async (position) => {
+    if (!isEdit) {
+      toast.info("Save the company before copying an applicant link.");
+      return;
+    }
+
+    const jobPositionId = position.id || buildId(position.title, "job_position");
+    const params = new URLSearchParams({
+      source: "job-position-link",
+      countryId: form.countryId,
+      companyId: id,
+      jobPositionId
+    });
+    const link = `${window.location.origin}/create-applicant?${params.toString()}`;
+
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success("Add applicant link copied.");
+    } catch {
+      const textArea = document.createElement("textarea");
+      textArea.value = link;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      toast.success("Add applicant link copied.");
+    }
+  };
+
+  const addDocument = (positionKey) => {
+    updatePosition(positionKey, (position) => ({
+      ...position,
+      documents: [...position.documents, createDocumentRow({}, position.documents.length)]
+    }));
+  };
+
+  const removeDocument = (positionKey, documentKey) => {
+    updatePosition(positionKey, (position) => ({
+      ...position,
+      documents: position.documents.filter((document) => document.rowKey !== documentKey)
     }));
   };
 
   const validate = () => {
     const nextErrors = {};
-
     if (!form.name.trim()) nextErrors.name = "Company name is required";
-    if (!form.countryId) nextErrors.countryId = "Select country";
-    if (form.companyPaymentPerApplicant === "") {
-      nextErrors.companyPaymentPerApplicant = "Total amount is required";
-    } else if (
-      Number.isNaN(parseAmountInput(form.companyPaymentPerApplicant)) ||
-      parseAmountInput(form.companyPaymentPerApplicant) < 0
-    ) {
-      nextErrors.companyPaymentPerApplicant = "Total amount must be a valid number";
-    }
+    if (!form.countryId) nextErrors.countryId = "Country is required";
 
-    const invalidDocument = form.documentsNeeded.find((document) => !String(document.name || "").trim());
-    if (invalidDocument) {
-      nextErrors.documentsNeeded = "Document name is required";
-    }
+    const invalidPosition = form.jobPositions.find((position) => !String(position.title || "").trim());
+    if (invalidPosition) nextErrors.jobPositions = "Job title is required";
+
+    const invalidDocument = form.jobPositions.some((position) =>
+      position.documents.some((document) => !String(document.name || "").trim())
+    );
+    if (invalidDocument) nextErrors.documents = "Document name is required";
+    const documentFiles = [
+      form.standardReferenceFile,
+      ...form.jobPositions.flatMap((position) =>
+        position.documents.flatMap((document) => [document.documentToFillFile, document.referenceFile]).filter(Boolean)
+      )
+    ].filter(Boolean);
+    const fileValidation = validateDocumentFiles(documentFiles);
+    if (!fileValidation.valid) nextErrors.documents = fileValidation.message;
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
-  const uploadDocumentTemplates = async (companyId, documentsNeeded) => {
-    for (const document of documentsNeeded) {
-      if (!document.file) continue;
-
-      const formData = new FormData();
-      formData.append("file", document.file);
-      formData.append("documentId", document.id);
-      await API.post(`/companies/${companyId}/document-template`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
+  const uploadDocumentTemplates = async (companyId) => {
+    if (form.standardReferenceFile) {
+      const body = new FormData();
+      body.append("file", form.standardReferenceFile);
+      body.append("templateType", "standardReference");
+      await API.post(`/companies/${companyId}/document-template`, body, {
+        headers: { "Content-Type": "multipart/form-data" }
       });
+    }
+
+    for (const position of form.jobPositions) {
+      for (const document of position.documents) {
+        const uploads = [
+          { file: document.documentToFillFile, templateType: "documentToFill" },
+          { file: document.referenceFile, templateType: "reference" }
+        ];
+        for (const upload of uploads) {
+          if (!upload.file) continue;
+          const body = new FormData();
+          body.append("file", upload.file);
+          body.append("documentId", document.id || buildId(document.name, "document"));
+          body.append("jobPositionId", position.id || buildId(position.title, "job_position"));
+          body.append("templateType", upload.templateType);
+          await API.post(`/companies/${companyId}/document-template`, body, {
+            headers: { "Content-Type": "multipart/form-data" }
+          });
+        }
+      }
     }
   };
 
@@ -368,291 +477,387 @@ function CompanyFormPage() {
     if (!validate()) return;
 
     try {
+      window.scrollTo({ top: 0, behavior: "auto" });
       setSaving(true);
-
-      const documentsNeeded = form.documentsNeeded.map((document, index) => ({
-        id: createDocumentId(document.name, index),
-        name: String(document.name || "").trim(),
-        required: Boolean(document.required),
-        templateFileName: document.clearTemplate ? "" : document.templateFileName || "",
-        templateFileUrl: document.clearTemplate ? "" : document.templateFileUrl || ""
-      }));
+      const jobPositions = form.jobPositions.map((position, index) => {
+        const title = position.title.trim();
+        const positionId = position.id || buildId(title, `job_position_${index + 1}`);
+        return {
+          id: positionId,
+          title,
+          name: title,
+          documents: position.documents.map((document, documentIndex) => {
+            const name = document.name.trim();
+            return {
+              id: document.id || buildId(name, `document_${documentIndex + 1}`),
+              name,
+              required: Boolean(document.required),
+              templateFileName: document.templateFileName || "",
+              templateFileUrl: document.templateFileUrl || "",
+              documentToFillFileName: document.documentToFillFileName || document.fillDocumentFileName || document.templateFileName || "",
+              documentToFillUrl: document.documentToFillUrl || document.fillDocumentUrl || document.templateFileUrl || "",
+              referenceFileName: document.referenceFileName || document.referenceDocumentFileName || "",
+              referenceUrl: document.referenceUrl || document.referenceDocumentUrl || "",
+              allowedExtensions: Array.isArray(document.allowedExtensions) && document.allowedExtensions.length
+                ? document.allowedExtensions
+                : DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
+              uploadHelpText: document.uploadHelpText || ""
+            };
+          })
+        };
+      });
 
       const payload = {
         name: form.name.trim(),
         countryId: form.countryId,
+        companyPaymentPerApplicant: Number(form.companyPaymentPerApplicant || 0),
+        standardReferenceFileName: form.standardReferenceFileName || "",
+        standardReferenceUrl: form.standardReferenceUrl || "",
         employerIds: form.employerIds,
-        companyPaymentPerApplicant: parseAmountInput(form.companyPaymentPerApplicant),
-        documentsNeeded
+        agencyIds: form.agencyIds,
+        documentsNeeded: jobPositions[0]?.documents || [],
+        jobSpecifications: jobPositions.map((position) => ({ id: position.id, name: position.title })),
+        jobPositions
       };
 
-      let companyId = id;
-      if (isEdit) {
-        await API.patch(`/companies/${id}`, payload);
-      } else {
-        const response = await API.post("/add-company", payload);
-        companyId = response.data?.id;
-      }
-
-      await uploadDocumentTemplates(companyId, form.documentsNeeded);
-      navigate({ pathname: "/dashboard", search: "?tab=companies" }, { replace: true });
+      const response = isEdit
+        ? await API.patch(`/companies/${id}`, payload)
+        : await API.post("/add-company", payload);
+      const companyId = id || response.data?.id;
+      if (companyId) await uploadDocumentTemplates(companyId);
+      invalidateCache("/companies");
+      invalidateCache("/agencies");
+      invalidateCache("/employers");
+      navigate("/dashboard?tab=companies");
     } catch (error) {
       console.error(error);
-      setErrors((prev) => ({
-        ...prev,
-        form: error?.response?.data?.message || "Failed to save company"
-      }));
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDeleteCompany = async () => {
-    if (!id) return;
-
-    try {
-      setSaving(true);
-      await API.delete(`/companies/${id}`);
-      navigate({ pathname: "/dashboard", search: "?tab=companies" }, { replace: true });
-    } catch (error) {
-      console.error(error);
-      setErrors((prev) => ({
-        ...prev,
-        form: error?.response?.data?.message || "Failed to delete company"
-      }));
-    } finally {
-      setSaving(false);
-      setShowDeleteConfirm(false);
-    }
-  };
-
-  if (loading) {
-    return <PageLoader label="Loading company details..." />;
+  if (pageLoading) {
+    return (
+      <div className="page-container">
+        <DashboardTopbar user={user} />
+        <PageLoader label="Loading company..." />
+      </div>
+    );
   }
 
   return (
     <div className="page-container companyFormPage">
-      <BlockingLoader open={saving} label={isEdit ? "Updating company..." : "Saving company..."} />
-      <DashboardTopbar user={currentUser} />
-      <div className="page-content" style={{ maxWidth: "980px" }}>
-        <div className="card">
-          <div style={{ marginBottom: "10px" }}>
-            <div className="dashboardHeaderActions">
-              <h3 style={{ margin: 0 }}>{isEdit ? "Edit Company" : "Add Company"}</h3>
-              {isEdit ? (
-                <button
-                  type="button"
-                  className="dashboardIconBtn"
-                  onClick={() => setShowDeleteConfirm(true)}
-                  aria-label="Delete company"
-                  title="Delete company"
-                >
-                  <TrashIcon />
-                </button>
-              ) : null}
-            </div>
+      <DashboardTopbar user={user} />
+      <BlockingLoader open={saving} label={isEdit ? "Updating company..." : "Creating company..."} />
+      <main className="companyFormShell">
+        <section className="companyFormCard">
+          <div className="companyFormHeader">
+            <span className="companyFormIcon"><CompanyIcon /></span>
+            <h1>{isEdit ? "Update Company" : "Add Company"}</h1>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "12px" }}>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <label style={label} htmlFor="company-name">Company Name</label>
+          <div className="companyFormGrid">
+            <div>
+              <label>Company Name <span>*</span></label>
               <input
-                id="company-name"
-                style={{ ...input, border: errors.name ? `1px solid ${THEME.error}` : input.border }}
                 value={form.name}
-                onFocus={handleFocus}
-                onBlur={(event) => handleBlur(event, errors.name)}
-                onChange={(event) => updateField("name", event.target.value)}
-                placeholder="Company Name"
+                onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+                className={errors.name ? "companyFormInput companyFormInputError" : "companyFormInput"}
+                placeholder="Enter company name"
               />
-              {errors.name ? <div style={errorText}>{errors.name}</div> : null}
+              {errors.name ? <div className="companyFormError">{errors.name}</div> : null}
             </div>
-
             <div>
-              <label style={label}>Country</label>
-              <div className="dashboardSelect">
-                <Select
-                  classNamePrefix="dashboardSelect"
-                  styles={customSelectStyles}
-                  hasError={Boolean(errors.countryId)}
-                  options={countryOptions}
-                  placeholder="Search country..."
-                  value={countryOptions.find((country) => country.value === form.countryId) || null}
-                  onChange={(selected) => updateField("countryId", selected?.value || "")}
-                />
-              </div>
-              {errors.countryId ? <div style={errorText}>{errors.countryId}</div> : null}
-            </div>
-
-            <div>
-              <label style={label}>Employer POC</label>
-              <div className="dashboardSelect">
-                <Select
-                  isMulti
-                  classNamePrefix="dashboardSelect"
-                  styles={customSelectStyles}
-                  options={employerOptions}
-                  placeholder="Search employer..."
-                  value={employerOptions.filter((option) => form.employerIds.includes(option.value))}
-                  onChange={(selected) => updateField("employerIds", (selected || []).map((option) => option.value))}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label style={label} htmlFor="company-total-amount">Total Amount (EUR)</label>
-              <input
-                id="company-total-amount"
-                style={{
-                  ...input,
-                  border: errors.companyPaymentPerApplicant ? `1px solid ${THEME.error}` : input.border
-                }}
-                value={form.companyPaymentPerApplicant}
-                onFocus={handleFocus}
-                onBlur={(event) => handleBlur(event, errors.companyPaymentPerApplicant)}
-                onChange={(event) => updateField("companyPaymentPerApplicant", event.target.value)}
-                placeholder="Total Amount"
+              <label>Country <span>*</span></label>
+              <Select
+                styles={selectStyles}
+                options={countryOptions}
+                value={selectedCountry}
+                placeholder="Select country"
+                onChange={(selected) => setForm((prev) => ({ ...prev, countryId: selected?.value || "" }))}
+                menuPortalTarget={menuPortalTarget}
+                menuPosition="fixed"
               />
-              {errors.companyPaymentPerApplicant ? (
-                <div style={errorText}>{errors.companyPaymentPerApplicant}</div>
-              ) : null}
+              {errors.countryId ? <div className="companyFormError">{errors.countryId}</div> : null}
             </div>
-
-          </div>
-
-          <div style={{ marginTop: "24px" }}>
-            <div style={{ fontSize: "15px", fontWeight: 600, marginBottom: "10px" }}>Documents Needed</div>
-
-            {form.documentsNeeded.map((document) => (
-              <div
-                key={document.rowKey}
-                style={{
-                  border: "1px solid #dbe3ef",
-                  padding: "14px",
-                  marginBottom: "12px",
-                  background: "#fff"
-                }}
-              >
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: "12px",
-                    alignItems: "start"
-                  }}
-                >
-                  <div>
-                    <label style={label} htmlFor={`document-name-${document.rowKey}`}>Document Name</label>
-                    <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                      <input
-                        id={`document-name-${document.rowKey}`}
-                        style={{
-                          ...input,
-                          flex: "1 1 220px",
-                          border: errors.documentsNeeded ? `1px solid ${THEME.error}` : input.border
-                        }}
-                        value={document.name}
-                        onFocus={handleFocus}
-                        onBlur={(event) => handleBlur(event, errors.documentsNeeded)}
-                        onChange={(event) => updateDocument(document.rowKey, "name", event.target.value)}
-                        placeholder="Document Name"
-                      />
+            <div>
+              <label>Employer POC</label>
+              <Select
+                isMulti
+                styles={selectStyles}
+                options={employerOptions}
+                value={selectedEmployers}
+                placeholder="Select employer POC"
+                onChange={(selected) =>
+                  setForm((prev) => ({ ...prev, employerIds: (selected || []).map((item) => item.value) }))
+                }
+                menuPortalTarget={menuPortalTarget}
+                menuPosition="fixed"
+              />
+            </div>
+            <div>
+              <label>Agencies</label>
+              <Select
+                isMulti
+                styles={selectStyles}
+                options={agencyOptions}
+                value={selectedAgencies}
+                placeholder="Select agencies"
+                onChange={(selected) =>
+                  setForm((prev) => ({ ...prev, agencyIds: (selected || []).map((item) => item.value) }))
+                }
+                menuPortalTarget={menuPortalTarget}
+                menuPosition="fixed"
+              />
+            </div>
+            <div className="companyStandardReferenceField">
+              <label>Add Standard Reference Document</label>
+              <div className="companyFileHelp">{DOCUMENT_UPLOAD_HELP_TEXT}</div>
+              <div className="companyStandardReferenceControls">
+                <div className="companyTemplateCell">
+                  <label className="companyDocUploadCard">
+                    <input
+                      type="file"
+                      accept={ALLOWED_DOCUMENT_ACCEPT}
+                      onChange={(event) => {
+                        const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                        setForm((prev) => ({
+                          ...prev,
+                          standardReferenceFile: file,
+                          standardReferenceFileName: file?.name || prev.standardReferenceFileName
+                        }));
+                      }}
+                    />
+                    <span className="companyFileDropIcon"><UploadFileIcon /></span>
+                    <span>{form.standardReferenceFile?.name || form.standardReferenceFileName || "Choose document"}</span>
+                  </label>
+                  <div className="companyDocFileActions">
+                    {form.standardReferenceUrl ? (
+                      <a className="companyDocFileAction companyDocFileActionView" href={form.standardReferenceUrl} target="_blank" rel="noreferrer">
+                        <ViewIcon />
+                        View
+                      </a>
+                    ) : null}
+                    {form.standardReferenceFile || form.standardReferenceFileName || form.standardReferenceUrl ? (
                       <button
                         type="button"
-                        className="dashboardInlineLinkBtn"
-                        onClick={() => removeDocumentRow(document.rowKey)}
+                        className="companyDocFileAction companyDocFileActionRemove"
+                        onClick={() => setForm((prev) => ({
+                          ...prev,
+                          standardReferenceFile: null,
+                          standardReferenceFileName: "",
+                          standardReferenceUrl: ""
+                        }))}
                       >
-                        Remove document
+                        <TrashIcon />
+                        Remove
                       </button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label style={label}>Required</label>
-                    <label className="dashboardMiniCheckbox" style={{ minHeight: "44px" }}>
-                      <input
-                        type="checkbox"
-                        checked={document.required}
-                        onChange={(event) => updateDocument(document.rowKey, "required", event.target.checked)}
-                      />
-                      <span>Required</span>
-                    </label>
-                  </div>
-
-                  <div>
-                    <label style={label}>Document to fill</label>
-                    <label className="docsFileBox docsFileBoxUpload companyTemplateUpload">
-                      <input
-                        type="file"
-                        className="docsFileInput"
-                        onChange={(event) => updateDocument(document.rowKey, "file", event.target.files?.[0] || null)}
-                      />
-                      <div className="docsFileBoxLeft">
-                        <div>
-                          <div className="docsFileName">
-                            {document.file?.name || document.templateFileName || "Choose file"}
-                          </div>
-                          <div className="docsFileMeta">
-                            {document.file || document.templateFileName ? "Template document selected" : "No file chosen"}
-                          </div>
-                        </div>
-                      </div>
-                    </label>
-
-                    {document.templateFileUrl ? (
-                      <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-                        <a className="linkBtn" href={document.templateFileUrl} target="_blank" rel="noreferrer">
-                          Download current file
-                        </a>
-                        <button
-                          type="button"
-                          className="dashboardInlineLinkBtn"
-                          onClick={() => clearTemplateFile(document.rowKey)}
-                        >
-                          Remove file
-                        </button>
-                      </div>
                     ) : null}
                   </div>
                 </div>
-
               </div>
+            </div>
+          </div>
+
+          <div className="companyPositionsHeader">
+            <div>
+              <div className="companySectionTitle">
+                <span className="companyFormIcon"><JobIcon /></span>
+                <div>
+                  <h2>Job Positions</h2>
+                  <p>Add one or more job positions for this company.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {errors.jobPositions ? <div className="companyFormError companyFormWideError">{errors.jobPositions}</div> : null}
+          {errors.documents ? <div className="companyFormError companyFormWideError">{errors.documents}</div> : null}
+
+          <div className="companyPositionsList">
+            {form.jobPositions.map((position, positionIndex) => (
+              <section className="companyPositionPanel" key={position.rowKey}>
+                <div className="companyPositionTop">
+                  <span className="companyPositionNumber">{positionIndex + 1}</span>
+                  <label>Job Title <span>*</span></label>
+                  <input
+                    value={position.title}
+                    placeholder="Enter job title"
+                    className="companyFormInput companyJobTitleInput"
+                    onChange={(event) => updatePosition(position.rowKey, (item) => ({ ...item, title: event.target.value }))}
+                  />
+                  <div className="companyPositionActions">
+                    <button
+                      type="button"
+                      className="companyCopyApplicantLink"
+                      onClick={() => copyAddApplicantLink(position)}
+                      disabled={!isEdit}
+                      title={isEdit ? "Copy link to Add Applicants" : "Save the company to enable this link"}
+                    >
+                      Copy link to Add Applicants
+                    </button>
+                    <button
+                      type="button"
+                      className="companyDeleteIcon"
+                      aria-label="Remove job position"
+                      onClick={() => removePosition(position.rowKey)}
+                    >
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div className="companyDocumentsBlock">
+                  <div className="companyDocumentsHeader">
+                    <h3>Documents Required</h3>
+                  </div>
+                  <div className="companyDocumentsTable">
+                    <div className="companyDocumentsRow companyDocumentsHead">
+                      <div>Document Name</div>
+                      <div>Required</div>
+                      <div>Document to fill</div>
+                      <div>Reference Document</div>
+                      <div>Actions</div>
+                    </div>
+                    {position.documents.map((document) => (
+                      <div className="companyDocumentsRow" key={document.rowKey}>
+                        <div className="companyDocNameCell">
+                          <input
+                            className="companyFormInput"
+                            value={document.name}
+                            placeholder="Document name"
+                            onChange={(event) => handleDocumentChange(position.rowKey, document.rowKey, { name: event.target.value })}
+                          />
+                        </div>
+                        <label className="companyRequiredToggle">
+                          <input
+                            type="checkbox"
+                            aria-label={`Required ${document.name || "document"}`}
+                            checked={Boolean(document.required)}
+                            onChange={(event) => handleDocumentChange(position.rowKey, document.rowKey, { required: event.target.checked })}
+                          />
+                        </label>
+                        <div className="companyTemplateCell">
+                          <label className="companyDocUploadCard">
+                            <input
+                              type="file"
+                              accept={ALLOWED_DOCUMENT_ACCEPT}
+                              onChange={(event) => {
+                                const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                                handleDocumentChange(position.rowKey, document.rowKey, {
+                                  documentToFillFile: file,
+                                  documentToFillFileName: file?.name || document.documentToFillFileName || document.templateFileName,
+                                  templateFileName: file?.name || document.templateFileName
+                                });
+                              }}
+                            />
+                            <span className="companyFileDropIcon"><UploadFileIcon /></span>
+                            <span>{document.documentToFillFile?.name || document.documentToFillFileName || "Choose document"}</span>
+                          </label>
+                          <div className="companyDocFileActions">
+                          {document.documentToFillUrl ? (
+                            <a className="companyDocFileAction companyDocFileActionView" href={document.documentToFillUrl} target="_blank" rel="noreferrer">
+                              <ViewIcon />
+                              View
+                            </a>
+                          ) : null}
+                            {document.documentToFillFile || document.documentToFillFileName || document.documentToFillUrl ? (
+                              <button
+                                type="button"
+                                className="companyDocFileAction companyDocFileActionRemove"
+                                onClick={() => handleDocumentChange(position.rowKey, document.rowKey, {
+                                  documentToFillFile: null,
+                                  documentToFillFileName: "",
+                                  documentToFillUrl: "",
+                                  templateFileName: "",
+                                  templateFileUrl: ""
+                                })}
+                              >
+                                <TrashIcon />
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="companyTemplateCell">
+                          <label className="companyDocUploadCard">
+                            <input
+                              type="file"
+                              accept={ALLOWED_DOCUMENT_ACCEPT}
+                              onChange={(event) => {
+                                const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
+                                handleDocumentChange(position.rowKey, document.rowKey, {
+                                  referenceFile: file,
+                                  referenceFileName: file?.name || document.referenceFileName
+                                });
+                              }}
+                            />
+                            <span className="companyFileDropIcon"><UploadFileIcon /></span>
+                            <span>{document.referenceFile?.name || document.referenceFileName || "Choose document"}</span>
+                          </label>
+                          <div className="companyDocFileActions">
+                            {document.referenceUrl ? (
+                              <a className="companyDocFileAction companyDocFileActionView" href={document.referenceUrl} target="_blank" rel="noreferrer">
+                                <ViewIcon />
+                                View
+                              </a>
+                            ) : null}
+                            {document.referenceFile || document.referenceFileName || document.referenceUrl ? (
+                              <button
+                                type="button"
+                                className="companyDocFileAction companyDocFileActionRemove"
+                                onClick={() => handleDocumentChange(position.rowKey, document.rowKey, {
+                                  referenceFile: null,
+                                  referenceFileName: "",
+                                  referenceUrl: ""
+                                })}
+                              >
+                                <TrashIcon />
+                                Remove
+                              </button>
+                            ) : null}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className="companyRemoveButton"
+                          onClick={() => removeDocument(position.rowKey, document.rowKey)}
+                        >
+                          <TrashIcon />
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="companySectionFooter">
+                    <button type="button" className="companyOutlineButton companySmallButton" onClick={() => addDocument(position.rowKey)}>
+                      + Add Document
+                    </button>
+                  </div>
+                </div>
+              </section>
             ))}
+          </div>
 
-            {errors.documentsNeeded ? <div style={errorText}>{errors.documentsNeeded}</div> : null}
-
-            <button type="button" className="dashboardPrimaryBtn" onClick={addDocumentRow}>
-              Add Document
+          <div className="companySectionFooter companyPositionsFooter">
+            <button type="button" className="companyOutlineButton" onClick={addPosition}>
+              + Add Job Position
             </button>
           </div>
 
-          {errors.form ? <div style={{ ...errorText, marginTop: "16px" }}>{errors.form}</div> : null}
-
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px" }}>
-            <button
-              type="button"
-              className="dashboardPaginationBtn"
-              onClick={() => navigate({ pathname: "/dashboard", search: "?tab=companies" }, { replace: true })}
-            >
+          <div className="companyFormActions">
+            <button type="button" className="companyCancelButton" onClick={() => navigate(-1)} disabled={saving}>
               Cancel
             </button>
-            <button type="button" className="dashboardPrimaryBtn" disabled={saving} onClick={handleSubmit}>
-              {saving ? "Saving..." : isEdit ? "Update Profile" : "Create Profile"}
+            <button type="button" className="companyPrimaryButton" onClick={handleSubmit} disabled={saving}>
+              {isEdit ? "Update Company" : "Create Company"}
             </button>
           </div>
-        </div>
-      </div>
-
-      {showDeleteConfirm ? (
-        <ConfirmActionModal
-          title="Delete Company"
-          message="Are you sure you want to delete this company? This cannot be undone."
-          confirmLabel="Delete"
-          isBusy={saving}
-          onConfirm={handleDeleteCompany}
-          onClose={() => setShowDeleteConfirm(false)}
-        />
-      ) : null}
+        </section>
+      </main>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import API from "../services/api";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 
 function DocumentUploader({ applicantId }) {
 
@@ -8,6 +9,8 @@ function DocumentUploader({ applicantId }) {
   const handleUpload = async () => {
 
     if (!file) return alert("Select file");
+    const fileValidation = validateDocumentFiles([file]);
+    if (!fileValidation.valid) return alert(fileValidation.message);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -37,7 +40,8 @@ function DocumentUploader({ applicantId }) {
 
       <input
         type="file"
-        onChange={(e) => setFile(e.target.files[0])}
+        accept={ALLOWED_DOCUMENT_ACCEPT}
+        onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
       />
 
       <button onClick={handleUpload}>

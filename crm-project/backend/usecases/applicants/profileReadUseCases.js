@@ -1,17 +1,134 @@
 const { db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
-const { normalizeCompanyDocuments } = require("../../utils/normalizers");
+const { getCompanyDocumentsForApplicant } = require("../../utils/normalizers");
 const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
 const { buildPaymentSummaryResponse } = require("./paymentUseCases");
 const { getLatestDocumentsMap } = require("./documentFlowUseCases");
 const {
   getApplicantBannerStatusText,
   getApplicantStageLabel,
-  getTodayEurToInrRate,
   normalizeDate,
+  resolveApplicantPaymentCurrency,
   resolveApplicantTotalEur,
   roundCurrency
 } = require("../../services/applicantDomainService");
+const { isSuperUserLikeRole } = require("../../utils/roles");
+const { admin } = require("../../config/firebase");
+const { extractStoragePath } = require("../../utils/storageFiles");
+
+function projectAccountantApplicant(applicant = {}) {
+  const personalDetails = applicant.personalDetails || {};
+  return {
+    id: applicant.id || "",
+    firstName: applicant.firstName || personalDetails.firstName || "",
+    lastName: applicant.lastName || personalDetails.lastName || "",
+    fullName:
+      applicant.fullName ||
+      [applicant.firstName || personalDetails.firstName, applicant.lastName || personalDetails.lastName]
+        .filter(Boolean)
+        .join(" ")
+        .trim(),
+    age: applicant.age ?? personalDetails.age ?? null,
+    personalDetails: {
+      age: personalDetails.age ?? applicant.age ?? null
+    },
+    jobPositionName: applicant.jobPositionName || "",
+    companyName: applicant.companyName || "",
+    agencyName: applicant.agencyName || "",
+    profilePhotoUrl: applicant.profilePhotoUrl || "",
+    photoUrl: applicant.photoUrl || "",
+    passportPhotoUrl: applicant.passportPhotoUrl || "",
+    passportSizePhotoUrl: applicant.passportSizePhotoUrl || "",
+    stage: Number(applicant.stage || 1),
+    approvalStatus: applicant.approvalStatus || "",
+    stageLabel: applicant.stageLabel || "",
+    applicantBannerStatus: applicant.applicantBannerStatus || "",
+    statusText: applicant.statusText || "",
+    workflowFlags: applicant.workflowFlags || {},
+    payment: applicant.payment || {},
+    paymentCurrency: applicant.paymentCurrency || applicant.currency || "",
+    currency: applicant.currency || applicant.paymentCurrency || "",
+    totalApplicantPayment: applicant.totalApplicantPayment ?? applicant.totalAmount ?? 0,
+    totalAmount: applicant.totalAmount ?? applicant.totalApplicantPayment ?? 0,
+    amountPaid: applicant.amountPaid ?? applicant.paidAmount ?? 0,
+    paidAmount: applicant.paidAmount ?? applicant.amountPaid ?? 0
+  };
+}
+
+function shouldProjectAccountantApplicant(role) {
+  return role === "JUNIOR_ACCOUNTANT" || role === "SENIOR_ACCOUNTANT";
+}
+
+async function getApplicantProfilePhotoUrl(applicantId) {
+  const docsRef = db.collection("applicants").doc(applicantId).collection("documents");
+  const [photoDoc, legacyPhotoDoc] = await Promise.all([
+    docsRef.doc("passport_photo_scan_standard").get(),
+    docsRef.doc("passport_size_photo").get()
+  ]);
+  const data = photoDoc.exists ? photoDoc.data() || {} : legacyPhotoDoc.exists ? legacyPhotoDoc.data() || {} : {};
+  return data?.latestVersion?.fileUrl || data?.fileUrl || "";
+}
+
+async function assertEmployerApplicantAccess(req, applicant) {
+  if (req.user?.role !== "EMPLOYER") throw new AppError("Only Employer can access quick print assets", 403);
+  let employerId = req.user?.employerId || "";
+  if (!employerId) {
+    const userDoc = await db.collection("users").doc(req.user.uid).get();
+    employerId = userDoc.exists ? userDoc.data()?.employerId || "" : "";
+  }
+  if (!employerId) throw new AppError("Employer profile not linked", 403);
+  const employerDoc = await db.collection("employers").doc(employerId).get();
+  const employer = employerDoc.exists ? employerDoc.data() || {} : {};
+  const employerCompanyIds = Array.isArray(employer.companyIds) && employer.companyIds.length
+    ? employer.companyIds
+    : employer.companyId
+      ? [employer.companyId]
+      : [];
+  if (!employerCompanyIds.includes(applicant.companyId)) {
+    throw new AppError("Applicant is outside employer scope", 403);
+  }
+}
+
+async function getApplicantQuickPrintAssetUseCase(req) {
+  const applicantId = req.params.id;
+  const assetType = String(req.params.assetType || "").toLowerCase();
+  const applicantDoc = await db.collection("applicants").doc(applicantId).get();
+  if (!applicantDoc.exists) throw new AppError("Applicant not found", 404);
+  const applicant = applicantDoc.data() || {};
+  await assertEmployerApplicantAccess(req, applicant);
+
+  const assetUrls = {
+    photo: await getApplicantProfilePhotoUrl(applicantId),
+    flight: applicant?.visaTravel?.fileUrl || "",
+    bus: applicant?.visaTravel?.busTicketUrl || ""
+  };
+  const fileUrl = assetUrls[assetType];
+  if (!Object.prototype.hasOwnProperty.call(assetUrls, assetType)) throw new AppError("Invalid quick print asset type", 400);
+  if (!fileUrl) throw new AppError("Quick print asset not found", 404);
+
+  const bucket = admin.storage().bucket();
+  const storagePath = extractStoragePath(fileUrl, bucket.name);
+  if (storagePath) {
+    const file = bucket.file(storagePath);
+    const [exists] = await file.exists();
+    if (!exists) throw new AppError("Quick print asset not found", 404);
+    const [[buffer], [metadata]] = await Promise.all([file.download(), file.getMetadata()]);
+    return {
+      buffer,
+      contentType: metadata?.contentType || "application/octet-stream",
+      fileName: metadata?.name?.split("/").pop() || `${assetType}-asset`
+    };
+  }
+
+  if (!/^https:\/\//i.test(fileUrl)) throw new AppError("Unsupported quick print asset URL", 400);
+  const response = await fetch(fileUrl);
+  if (!response.ok) throw new AppError("Unable to download quick print asset", 502);
+  return {
+    buffer: Buffer.from(await response.arrayBuffer()),
+    contentType: response.headers.get("content-type") || "application/octet-stream",
+    fileName: `${assetType}-asset`
+  };
+}
 
 async function getApplicantByIdUseCase(req) {
   const applicantId = req.params.id;
@@ -28,9 +145,10 @@ async function getApplicantByIdUseCase(req) {
   ]);
 
   const companyName = applicantData.companyName || (companyDoc?.exists ? companyDoc.data()?.name || "" : "");
-  const companyDocuments = companyDoc?.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
+  const companyDocuments = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyDoc.data() || {}, applicantData) : [];
   const countryName = applicantData.countryName || (countryDoc?.exists ? countryDoc.data()?.name || "" : "");
   const agencyName = applicantData.agencyName || (agencyDoc?.exists ? agencyDoc.data()?.name || "" : "");
+  const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
 
   const applicantPaid = roundCurrency(
     applicantData?.paymentSummary?.applicant?.paid ??
@@ -40,19 +158,78 @@ async function getApplicantByIdUseCase(req) {
       0
   );
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
+  const paymentCurrency = resolveApplicantPaymentCurrency(applicantData);
 
+  const docSummary = applicantData?.docSummary || applicantData?.documentSummary || {};
+  const approvalFlags = applicantData?.approvalFlags || {};
+  const approvedRequired = Number(docSummary.approvedCount || 0) > 0 && Number(docSummary.pendingCount || 0) === 0;
+  const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
+  const pendingRequired = Number(docSummary.pendingCount || 0) > 0;
+  const uploadedRequired = Number(docSummary.totalCount || 0) > 0;
+  const hasPendingEmbassyInterviewApproval =
+    Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
+    String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
+    (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
+  const hasPendingEmbassyAppointmentApproval =
+    String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
+  const hasPendingVisaCollectionApproval =
+    String(applicantData?.visaCollection?.status || "").toUpperCase() === "PENDING";
+  const hasRejectedSignedContractDocuments =
+    String(applicantData?.signedContract?.status || "").toUpperCase() === "REJECTED" ||
+    Number(applicantData?.signedContract?.rejectedDocumentCount || 0) > 0;
   const stageLabel = getApplicantStageLabel(applicantData?.stage, applicantData?.approvalStatus);
-  const applicantBannerStatus = String(applicantData?.applicantBannerStatus || stageLabel || "Candidate Created");
+  const applicantBannerStatus = getApplicantBannerStatusText(applicantData, {
+    hasCompletedDocumentStage: Number(applicantData?.stage || 1) >= 3 && approvedRequired,
+    pendingRequired,
+    rejectedRequired,
+    uploadedRequired,
+    hasDocuments: uploadedRequired,
+    hasTravelDetails: Boolean(
+      applicantData?.travelDetails?.travelDate ||
+      applicantData?.travelDetails?.time ||
+      applicantData?.travelDetails?.fileUrl
+    ),
+    hasBiometricSlip: Boolean(applicantData?.biometricSlip?.fileUrl),
+    hasInterviewTicket: Boolean(
+      applicantData?.interviewTicket?.date ||
+      applicantData?.interviewTicket?.time ||
+      applicantData?.interviewTicket?.fileUrl
+    ),
+    hasInterviewBiometric: Boolean(applicantData?.interviewBiometric?.fileUrl),
+    hasVisaTravel: Boolean(
+      applicantData?.visaTravel?.date ||
+      applicantData?.visaTravel?.time ||
+      applicantData?.visaTravel?.fileUrl
+    ),
+    hasResidencePermit: Boolean(
+      applicantData?.residencePermit?.trpUrl ||
+      applicantData?.residencePermit?.frontUrl ||
+      applicantData?.residencePermit?.backUrl ||
+      applicantData?.residencePermit?.fileUrl
+    ),
+    hasPendingEmbassyInterviewApproval,
+    hasPendingEmbassyAppointmentApproval,
+    hasPendingVisaCollectionApproval,
+    hasRejectedSignedContractDocuments,
+    hasEmbassyAppointment: Boolean(
+      applicantData?.embassyAppointment?.date ||
+      applicantData?.embassyAppointment?.time ||
+      applicantData?.embassyAppointment?.fileUrl
+    )
+  });
 
-  return {
+  const response = {
     id: doc.id,
     ...applicantData,
     companyName,
     companyDocuments,
+    profilePhotoUrl,
     agencyName,
     countryName,
     totalApplicantPayment,
     totalAmount: totalApplicantPayment,
+    paymentCurrency,
+    currency: paymentCurrency,
     stageLabel,
     applicantBannerStatus,
     statusText: applicantBannerStatus,
@@ -60,10 +237,24 @@ async function getApplicantByIdUseCase(req) {
     paidAmount: applicantPaid,
     payment: {
       total: totalApplicantPayment,
+      totalInr: totalApplicantPayment,
       paid: applicantPaid,
-      pending: Math.max(0, totalApplicantPayment - applicantPaid)
+      paidInr: applicantPaid,
+      pending: Math.max(0, totalApplicantPayment - applicantPaid),
+      pendingInr: Math.max(0, totalApplicantPayment - applicantPaid),
+      currency: paymentCurrency,
+      sourceCurrency: paymentCurrency,
+      confirmedAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.confirmedAmount ?? applicantPaid),
+      awaitingJuniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingJuniorAmount),
+      awaitingSeniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingSeniorAmount),
+      hasPendingAcknowledgement: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingAcknowledgement),
+      hasPendingConfirmation: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingConfirmation),
+      paymentCompleted: Boolean(applicantData?.paymentSummary?.applicant?.paymentCompleted)
     }
   };
+  return shouldProjectAccountantApplicant(req.user?.role)
+    ? projectAccountantApplicant(response)
+    : response;
 }
 
 async function getApplicantWorkflowBundleUseCase(req) {
@@ -74,6 +265,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
 
   const applicant = applicantSnap.data() || {};
   const applicantData = await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
+  const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
     !applicantData.companyName && applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
@@ -85,8 +277,8 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const countryName = applicantData.countryName || (countryDoc?.exists ? countryDoc.data()?.name || "" : "");
   const agencyName = applicantData.agencyName || (agencyDoc?.exists ? agencyDoc.data()?.name || "" : "");
 
-  const eurToInrRate = await getTodayEurToInrRate();
   const totalApplicantPayment = await resolveApplicantTotalEur(applicantData);
+  const paymentCurrency = resolveApplicantPaymentCurrency(applicantData);
   const paidFromSummary = roundCurrency(
     applicantData?.paymentSummary?.applicant?.paid ??
       applicantData?.paymentsSummary?.applicant?.paid ??
@@ -152,7 +344,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const visaCollection =
     applicantData.visaCollection &&
     (String(applicantData.visaCollection.status || "").toUpperCase() === "APPROVED" ||
-      ["SUPER_USER", "EMPLOYER"].includes(req.user?.role))
+      (isSuperUserLikeRole(req.user?.role) || req.user?.role === "EMPLOYER"))
       ? {
           ...applicantData.visaCollection,
           createdAt: normalizeDate(applicantData.visaCollection.createdAt),
@@ -163,7 +355,16 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const visaTravel = applicantData.visaTravel
     ? {
         ...applicantData.visaTravel,
-        createdAt: normalizeDate(applicantData.visaTravel.createdAt)
+        createdAt: normalizeDate(applicantData.visaTravel.createdAt),
+        updatedAt: normalizeDate(applicantData.visaTravel.updatedAt)
+      }
+    : null;
+
+  const visaCollectionTravel = applicantData.visaCollectionTravel
+    ? {
+        ...applicantData.visaCollectionTravel,
+        createdAt: normalizeDate(applicantData.visaCollectionTravel.createdAt),
+        updatedAt: normalizeDate(applicantData.visaCollectionTravel.updatedAt)
       }
     : null;
 
@@ -185,8 +386,13 @@ async function getApplicantWorkflowBundleUseCase(req) {
     Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
     String(applicantData?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
     (Boolean(applicantData?.embassyInterview?.dateTime) && !Boolean(applicantData?.embassyInterview?.approved));
+  const hasPendingEmbassyAppointmentApproval =
+    String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
   const hasPendingVisaCollectionApproval =
     String(applicantData?.visaCollection?.status || "").toUpperCase() === "PENDING";
+  const hasRejectedSignedContractDocuments =
+    String(applicantData?.signedContract?.status || "").toUpperCase() === "REJECTED" ||
+    Number(applicantData?.signedContract?.rejectedDocumentCount || 0) > 0;
   const hasTravelDetails = Boolean(
     applicantData?.travelDetails?.travelDate ||
     applicantData?.travelDetails?.time ||
@@ -204,7 +410,13 @@ async function getApplicantWorkflowBundleUseCase(req) {
     applicantData?.visaTravel?.time ||
     applicantData?.visaTravel?.fileUrl
   );
+  const hasVisaCollectionTravel = Boolean(
+    applicantData?.visaCollectionTravel?.date ||
+    applicantData?.visaCollectionTravel?.time ||
+    applicantData?.visaCollectionTravel?.fileUrl
+  );
   const hasResidencePermit = Boolean(
+    applicantData?.residencePermit?.trpUrl ||
     applicantData?.residencePermit?.frontUrl ||
     applicantData?.residencePermit?.backUrl ||
     applicantData?.residencePermit?.fileUrl
@@ -229,7 +441,9 @@ async function getApplicantWorkflowBundleUseCase(req) {
     hasVisaTravel,
     hasResidencePermit,
     hasPendingEmbassyInterviewApproval,
+    hasPendingEmbassyAppointmentApproval,
     hasPendingVisaCollectionApproval,
+    hasRejectedSignedContractDocuments,
     hasEmbassyAppointment
   });
   const applicantBannerStatus = String(computedStatusText || "");
@@ -239,31 +453,41 @@ async function getApplicantWorkflowBundleUseCase(req) {
     isDocumentsApproved: Boolean(hasCompletedDocumentStage),
     hasRejectedDocuments: Boolean(rejectedRequired),
     hasPendingDocumentsApproval: Boolean(pendingRequired),
-    isDispatchCompleted: Number(applicantData?.stage || 1) >= 4,
+    isDispatchCompleted:
+      Boolean(applicantData?.documentDispatch?.hasDispatch) ||
+      Number(applicantData?.dispatchSummary?.count || 0) > 0 ||
+      Number(applicantData?.stage || 1) >= 4,
     isContractIssued: Number(applicantData?.stage || 1) >= 5 || String(applicantData?.contract?.status || "").toUpperCase() === "APPROVED",
+    isSignedContractUploaded:
+      !hasRejectedSignedContractDocuments &&
+      (Number(applicantData?.stage || 1) >= 6 || Boolean(applicantData?.signedContract?.fileUrl)),
+    hasRejectedSignedContractDocuments,
     isContractPendingApproval: String(applicantData?.contract?.status || "").toUpperCase() === "PENDING",
     isEmbassyAppointmentCreated: Boolean(hasEmbassyAppointment),
     isEmbassyAppointmentApproved:
-      Boolean(applicantData?.embassyAppointment?.approved) || Number(applicantData?.stage || 1) >= 6,
-    isEmbassyAppointmentCompleted: Number(applicantData?.stage || 1) >= 7,
+      String(applicantData?.embassyAppointment?.status || "").toUpperCase() === "APPROVED" ||
+      Boolean(applicantData?.embassyAppointment?.approved) ||
+      Number(applicantData?.stage || 1) >= 7,
+    isEmbassyAppointmentPendingApproval: Boolean(hasPendingEmbassyAppointmentApproval),
+    isEmbassyAppointmentCompleted: Number(applicantData?.stage || 1) >= 8,
     isTravelTicketUploaded: Boolean(hasTravelDetails),
     isBiometricCompleted: Boolean(hasBiometricSlip),
     isEmbassyInterviewCreated: Boolean(applicantData?.embassyInterview?.dateTime),
     isEmbassyInterviewApproved:
       String(applicantData?.embassyInterview?.status || "").toUpperCase() === "APPROVED" ||
-      Number(applicantData?.stage || 1) >= 8,
+      Number(applicantData?.stage || 1) >= 9,
     isEmbassyInterviewPendingApproval: Boolean(hasPendingEmbassyInterviewApproval),
     isInterviewTicketUploaded: Boolean(hasInterviewTicket),
     isInterviewBiometricCompleted: Boolean(hasInterviewBiometric),
     isVisaCollectionCreated: Boolean(applicantData?.visaCollection?.date && applicantData?.visaCollection?.time),
     isVisaCollectionApproved:
       String(applicantData?.visaCollection?.status || "").toUpperCase() === "APPROVED" ||
-      Number(applicantData?.stage || 1) >= 10,
+      Number(applicantData?.stage || 1) >= 11,
     isVisaCollectionPendingApproval: Boolean(hasPendingVisaCollectionApproval),
+    isVisaCollectionTravelAdded: Boolean(hasVisaCollectionTravel),
     isVisaTravelUploaded: Boolean(hasVisaTravel),
     isResidencePermitUploaded: Boolean(hasResidencePermit)
   };
-
   const {
     contract: _contract,
     biometricSlip: _biometricSlip,
@@ -272,6 +496,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
     interviewTicket: _interviewTicket,
     interviewBiometric: _interviewBiometric,
     visaCollection: _visaCollection,
+    visaCollectionTravel: _visaCollectionTravel,
     visaTravel: _visaTravel,
     residencePermit: _residencePermit,
     travelDetails: _travelDetails,
@@ -284,42 +509,55 @@ async function getApplicantWorkflowBundleUseCase(req) {
 
   const normalizedDocSummary = applicantData?.docSummary || applicantData?.documentSummary || {};
 
-  const totalInr = roundCurrency(totalApplicantPayment * eurToInrRate);
-  const paidInr = roundCurrency(applicantPaid);
-  const pendingInr = Math.max(0, roundCurrency(totalInr - paidInr));
+  const total = roundCurrency(totalApplicantPayment);
+  const paid = roundCurrency(applicantPaid);
+  const pending = Math.max(0, roundCurrency(total - paid));
 
   const response = {
     applicant: {
       id: applicantId,
       ...applicantCore,
+      profilePhotoUrl,
       docSummary: normalizedDocSummary,
       companyName,
       agencyName,
       countryName,
       totalApplicantPayment,
       totalAmount: totalApplicantPayment,
+      paymentCurrency,
+      currency: paymentCurrency,
       stageLabel,
       applicantBannerStatus,
       currentStatus: applicantBannerStatus,
       statusText,
       workflowFlags,
-      amountPaid: roundCurrency(applicantPaid),
-      paidAmount: roundCurrency(applicantPaid),
+      amountPaid: paid,
+      paidAmount: paid,
       payment: {
-        total: totalApplicantPayment,
-        totalEur: totalApplicantPayment,
-        totalInr,
-        paid: paidInr,
-        paidInr,
-        pending: pendingInr,
-        pendingInr,
-        exchangeRate: roundCurrency(eurToInrRate),
-        currency: "INR",
-        sourceCurrency: "EUR"
+        total,
+        totalEur: total,
+        totalInr: total,
+        paid,
+        paidInr: paid,
+        pending,
+        pendingInr: pending,
+        currency: paymentCurrency,
+        sourceCurrency: paymentCurrency,
+        confirmedAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.confirmedAmount ?? paid),
+        awaitingJuniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingJuniorAmount),
+        awaitingSeniorAmount: roundCurrency(applicantData?.paymentSummary?.applicant?.awaitingSeniorAmount),
+        hasPendingAcknowledgement: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingAcknowledgement),
+        hasPendingConfirmation: Boolean(applicantData?.paymentSummary?.applicant?.hasPendingConfirmation),
+        paymentCompleted: Boolean(applicantData?.paymentSummary?.applicant?.paymentCompleted)
       }
     },
-    exchangeRate: roundCurrency(eurToInrRate)
+    currency: paymentCurrency
   };
+
+  if (shouldProjectAccountantApplicant(req.user?.role)) {
+    response.applicant = projectAccountantApplicant(response.applicant);
+    return response;
+  }
 
   if (includeDetails) {
     return {
@@ -331,6 +569,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
       interviewTicket,
       interviewBiometric,
       visaCollection,
+      visaCollectionTravel,
       visaTravel,
       residencePermit
     };
@@ -346,17 +585,32 @@ async function getApplicantDocumentsContextUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = applicantSnap.data() || {};
+  const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
   const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
-  const documentConfigs = companyDoc?.exists ? normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded) : [];
+  const companyData = companyDoc?.exists ? companyDoc.data() || {} : {};
+  const documentConfigs = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyData, applicant) : [];
 
   return {
     applicant: {
       id: applicantId,
+      firstName: applicant.firstName || applicant.personalDetails?.firstName || "",
+      lastName: applicant.lastName || applicant.personalDetails?.lastName || "",
+      fullName:
+        applicant.fullName ||
+        [applicant.firstName || applicant.personalDetails?.firstName, applicant.lastName || applicant.personalDetails?.lastName]
+          .filter(Boolean)
+          .join(" ")
+          .trim(),
       stage: Number(applicant.stage || 1),
       approvalStatus: applicant.approvalStatus || "",
       companyId: applicant.companyId || "",
       countryId: applicant.countryId || "",
-      agencyId: applicant.agencyId || ""
+      agencyId: applicant.agencyId || "",
+      jobPositionId: applicant.jobPositionId || "",
+      jobPositionName: applicant.jobPositionName || "",
+      standardReferenceFileName: companyData.standardReferenceFileName || "",
+      standardReferenceUrl: companyData.standardReferenceUrl || "",
+      profilePhotoUrl
     },
     documentConfigs
   };
@@ -399,5 +653,6 @@ module.exports = {
   getApplicantDocumentsPageUseCase,
   getApplicantDocumentsContextUseCase,
   getApplicantPaymentsPageUseCase,
-  getApplicantWorkflowBundleUseCase
+  getApplicantWorkflowBundleUseCase,
+  getApplicantQuickPrintAssetUseCase
 };

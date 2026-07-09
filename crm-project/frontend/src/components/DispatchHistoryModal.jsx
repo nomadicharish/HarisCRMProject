@@ -2,12 +2,24 @@ import React from "react";
 import DispatchSection from "./DispatchSection";
 import "../styles/applicantContract.css";
 
-function DispatchHistoryModal({ applicantId, open, onClose }) {
+function DispatchHistoryModal({ applicantId, open, onClose, canEdit = false, onSaved }) {
   if (!open) return null;
 
+  const handleSaved = async () => {
+    if (typeof onSaved === "function") {
+      await onSaved();
+    }
+    onClose?.();
+  };
+
   return (
-    <div className="contractModalOverlay">
-      <div className="contractModalCard dispatchHistoryModalCard">
+    <div className="contractModalOverlay dispatchModalOverlay" role="presentation">
+      <div
+        className="contractModalCard dispatchHistoryModalCard"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="dispatch-modal-title"
+      >
         <div className="dispatchModalHero">
           <div className="dispatchModalHeroIcon" aria-hidden="true">
             <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
@@ -15,21 +27,26 @@ function DispatchHistoryModal({ applicantId, open, onClose }) {
             </svg>
           </div>
           <div className="dispatchModalHeroText">
-            <h3 className="dashboardModalTitle">Dispatch History</h3>
-            <div className="dispatchModalSubtitle">View all dispatch notes and tracking details.</div>
+            <h3 id="dispatch-modal-title" className="dashboardModalTitle">Dispatch Document</h3>
+            <div className="dispatchModalSubtitle">Enter dispatch details or view dispatch history.</div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn dispatchModalCloseBtn" onClick={onClose}>
-            x
+          <button
+            type="button"
+            className="dashboardModalCloseBtn dispatchModalCloseBtn"
+            onClick={onClose}
+            aria-label="Close dispatch dialog"
+          >
+            &times;
           </button>
         </div>
 
         <DispatchSection
           applicantId={applicantId}
-          canEdit={false}
+          canEdit={canEdit}
           showTitle={false}
           compact={true}
           truncateTrackingUrl={true}
-          showHistoryHeader={false}
+          onSaved={handleSaved}
         />
 
         <div className="dispatchModalFooter">

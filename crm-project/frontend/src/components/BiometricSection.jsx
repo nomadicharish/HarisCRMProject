@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 
 function BiometricSection({ applicantId, user, loadApplicant }) {
 
@@ -18,6 +19,8 @@ function BiometricSection({ applicantId, user, loadApplicant }) {
   const upload = async () => {
 
     if (!file) return alert("Select file");
+    const fileValidation = validateDocumentFiles([file]);
+    if (!fileValidation.valid) return alert(fileValidation.message);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -50,7 +53,8 @@ function BiometricSection({ applicantId, user, loadApplicant }) {
 
           <input
             type="file"
-            onChange={(e) => setFile(e.target.files[0])}
+            accept={ALLOWED_DOCUMENT_ACCEPT}
+            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
           />
 
           {file && (

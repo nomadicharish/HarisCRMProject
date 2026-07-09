@@ -1,13 +1,8 @@
 const { db } = require("../config/firebase");
-const { logger } = require("../lib/logger");
 const { AppError } = require("../lib/AppError");
+const { normalizeCompanyJobPositions } = require("../utils/normalizers");
 
-const DEFAULT_EUR_TO_INR_RATE = 90;
-const FX_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
-let fxRateCache = {
-  value: DEFAULT_EUR_TO_INR_RATE,
-  fetchedAt: 0
-};
+const SUPPORTED_PAYMENT_CURRENCIES = new Set(["INR", "EUR", "USD"]);
 
 const APPLICANT_LIST_SELECT_FIELDS = [
   "firstName",
@@ -20,9 +15,11 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "education",
   "countryId",
   "companyId",
+  "jobPositionId",
   "agencyId",
   "countryName",
   "companyName",
+  "jobPositionName",
   "agencyName",
   "companyPaymentPerApplicant",
   "searchText",
@@ -41,9 +38,12 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "docSummary",
   "documentSummary",
   "approvalFlags",
+  "documentDispatch",
+  "dispatchSummary",
   "contract.status",
-  "visaCollection.status",
-  "embassyInterview.status",
+  "signedContract",
+  "visaCollection",
+  "embassyInterview",
   "embassyAppointment",
   "travelDetails",
   "biometricSlip",
@@ -75,6 +75,85 @@ function roundCurrency(value) {
   return Math.round((toNumber(value) + Number.EPSILON) * 100) / 100;
 }
 
+function firstFinitePaymentNumber(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === "") continue;
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
+function resolveApplicantPaymentSnapshot(applicant = {}) {
+  const summary = applicant?.paymentSummary?.applicant || {};
+  const total = roundCurrency(firstFinitePaymentNumber(
+    summary.total,
+    applicant?.totalApplicantPayment,
+    applicant?.totalAmount,
+    applicant?.totalPayment
+  ));
+  const paid = roundCurrency(Math.max(
+    firstFinitePaymentNumber(summary.paid),
+    firstFinitePaymentNumber(applicant?.amountPaid),
+    firstFinitePaymentNumber(applicant?.paidAmount)
+  ));
+  const pending = Math.max(0, roundCurrency(total - paid));
+  const currency = resolveApplicantPaymentCurrency(applicant);
+
+  return {
+    total,
+    totalEur: total,
+    totalInr: total,
+    paid,
+    paidInr: paid,
+    pending,
+    pendingInr: pending,
+    currency,
+    sourceCurrency: currency,
+    confirmedAmount: roundCurrency(summary.confirmedAmount ?? paid),
+    awaitingJuniorAmount: roundCurrency(summary.awaitingJuniorAmount),
+    awaitingSeniorAmount: roundCurrency(summary.awaitingSeniorAmount),
+    hasPendingAcknowledgement: Boolean(summary.hasPendingAcknowledgement),
+    hasPendingConfirmation: Boolean(summary.hasPendingConfirmation),
+    paymentCompleted: Boolean(summary.paymentCompleted)
+  };
+}
+
+function resolveApplicantPaymentStage(applicant = {}, paymentSnapshot = null) {
+  const payment = paymentSnapshot || resolveApplicantPaymentSnapshot(applicant);
+  const stage = Number(applicant?.stage || 1);
+  const approved = String(applicant?.approvalStatus || "").toLowerCase() === "approved";
+  let key = "";
+  let label = "";
+  let percentage = 0;
+
+  if (stage >= 12) {
+    key = "after_trc";
+    label = "After TRC Added";
+    percentage = 100;
+  } else if (stage === 11) {
+    key = "after_visa_collection";
+    label = "After Visa Collection";
+    percentage = 100;
+  } else if (stage >= 9) {
+    key = "after_embassy_interview";
+    label = "After Embassy Interview";
+    percentage = 60;
+  } else if (stage >= 7) {
+    key = "after_embassy_appointment";
+    label = "After Embassy Appointment";
+    percentage = 60;
+  } else if (approved) {
+    key = "after_approval";
+    label = "After Approval";
+    percentage = 20;
+  }
+
+  const targetAmount = roundCurrency(payment.total * (percentage / 100));
+  const pending = Math.max(0, roundCurrency(targetAmount - payment.paid));
+  return { key, label, percentage, targetAmount, pending };
+}
+
 function normalizeDate(value) {
   if (!value) return null;
   if (typeof value?.toMillis === "function") return value.toMillis();
@@ -91,11 +170,16 @@ function normalizeTextForSearch(value) {
 
 function normalizePaymentMode(value) {
   const normalized = String(value || "").trim().toLowerCase();
-  if (normalized === "check" || normalized === "cheque") return "Check";
   if (normalized === "bank transfer") return "Bank Transfer";
   if (normalized === "upi") return "UPI";
-  if (normalized === "cash") return "Cash";
+  if (normalized === "bh") return "BH";
   return "";
+}
+
+function normalizePaymentCurrency(value) {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (normalized === "EURO") return "EUR";
+  return SUPPORTED_PAYMENT_CURRENCIES.has(normalized) ? normalized : "INR";
 }
 
 function parseBooleanQuery(value, fallback = false) {
@@ -152,7 +236,7 @@ function buildApplicantListDerivedFields(applicant = {}) {
     hasPendingEmbassyInterviewApproval
   );
   const workflowStatus =
-    Number(applicant?.stage || 1) >= 12
+    Number(applicant?.stage || 1) >= 13
       ? "completed"
       : attentionRequired
       ? "attention_required"
@@ -168,6 +252,7 @@ function buildApplicantListDerivedFields(applicant = {}) {
       fullName,
       applicant?.email || applicant?.personalDetails?.email || "",
       applicant?.companyName || "",
+      applicant?.jobPositionName || "",
       applicant?.countryName || "",
       applicant?.agencyName || ""
     ].filter(Boolean).join(" "))
@@ -178,18 +263,21 @@ async function resolveApplicantTotalEur(applicant = {}) {
   const directTotal = roundCurrency(
     applicant?.totalApplicantPayment ?? applicant?.totalAmount ?? applicant?.totalPayment ?? 0
   );
-  if (directTotal > 0) return directTotal;
+  return directTotal;
+}
 
-  const companyId = applicant?.companyId;
-  if (!companyId) return 0;
+async function resolveApplicantTotalAmount(applicant = {}) {
+  return resolveApplicantTotalEur(applicant);
+}
 
-  try {
-    const companyDoc = await db.collection("companies").doc(companyId).get();
-    if (!companyDoc.exists) return 0;
-    return roundCurrency(companyDoc.data()?.companyPaymentPerApplicant ?? 0);
-  } catch {
-    return 0;
-  }
+function resolveApplicantPaymentCurrency(applicant = {}) {
+  return normalizePaymentCurrency(
+    applicant?.paymentCurrency ||
+      applicant?.currency ||
+      applicant?.payment?.currency ||
+      applicant?.paymentSummary?.applicant?.currency ||
+      applicant?.paymentsSummary?.applicant?.currency
+  );
 }
 
 async function resolveApplicantReferenceFields(applicant = {}) {
@@ -199,8 +287,14 @@ async function resolveApplicantReferenceFields(applicant = {}) {
     applicant.agencyId ? db.collection("agencies").doc(applicant.agencyId).get() : Promise.resolve(null)
   ]);
 
+  const companyData = companyDoc?.exists ? companyDoc.data() || {} : {};
+  const jobPositions = normalizeCompanyJobPositions(companyData?.jobPositions, companyData?.documentsNeeded);
+  const jobPositionId = String(applicant?.jobPositionId || "").trim();
+  const matchedJobPosition = jobPositions.find((position) => position.id === jobPositionId);
+
   return {
     companyName: companyDoc?.exists ? companyDoc.data()?.name || "" : "",
+    jobPositionName: matchedJobPosition?.title || applicant?.jobPositionName || "",
     countryName: countryDoc?.exists ? countryDoc.data()?.name || "" : "",
     agencyName: agencyDoc?.exists ? agencyDoc.data()?.name || "" : "",
     companyPaymentPerApplicant: companyDoc?.exists
@@ -216,13 +310,14 @@ function getApplicantStageLabel(stage, approvalStatus) {
   if (normalizedStage === 2) return "Upload Documents";
   if (normalizedStage === 3) return "Dispatch Documents";
   if (normalizedStage === 4) return "Issue of the Contract";
-  if (normalizedStage === 5) return "Embassy Appointment Initiated";
-  if (normalizedStage === 6) return "Embassy Appointment Completed";
-  if (normalizedStage === 7) return "Initiate Embassy Interview";
-  if (normalizedStage === 8) return "Embassy Interview Completed";
-  if (normalizedStage === 9) return "Visa Collection Initiated";
-  if (normalizedStage === 10) return "Visa Collection Completed";
-  if (normalizedStage === 11) return "Arrival of Candidate";
+  if (normalizedStage === 5) return "Upload Signed Contract";
+  if (normalizedStage === 6) return "Embassy Appointment Initiated";
+  if (normalizedStage === 7) return "Embassy Appointment Completed";
+  if (normalizedStage === 8) return "Initiate Embassy Interview";
+  if (normalizedStage === 9) return "Embassy Interview Completed";
+  if (normalizedStage === 10) return "Visa Collection Initiated";
+  if (normalizedStage === 11) return "Visa Collection Completed";
+  if (normalizedStage === 12) return "Applicant Arrival Details";
   return "Candidate Arrived and Process Completed";
 }
 
@@ -241,42 +336,53 @@ function getApplicantBannerStatusText(applicant, context = {}) {
     hasInterviewBiometric = false,
     hasVisaTravel = false,
     hasResidencePermit = false,
+    hasPendingEmbassyAppointmentApproval = false,
     hasPendingEmbassyInterviewApproval = false,
     hasPendingVisaCollectionApproval = false,
-    hasEmbassyAppointment = false
+    hasEmbassyAppointment = false,
+    hasRejectedSignedContractDocuments = false
   } = context;
 
   const isPendingSuperUserApproval = applicantStage === 1 && approvalStatus === "pending";
+  const signedContractRejected =
+    hasRejectedSignedContractDocuments || String(applicant?.signedContract?.status || "").toUpperCase() === "REJECTED";
   if (isPendingSuperUserApproval) return "Candidate created. Pending for Admin approval";
   if (applicantStage === 1 && approvalStatus === "approved") return "Document upload pending";
   if (applicantStage === 1) return "Complete the candidate profile for approval";
-  if (applicantStage >= 12) return "Candidate Arrived and Process Completed";
-  if (applicantStage === 11) return "Candidate arrival pending";
+  if (applicantStage >= 6 && signedContractRejected) return "Super user rejected few document.";
+  if (applicantStage >= 13) return "Candidate Arrived and Process Completed";
+  if (applicantStage === 12) return hasVisaTravel ? "Candidate arrival pending" : "Applicant arrival details pending";
+  if (applicantStage === 11) return "Complete visa collection details";
   if (applicantStage === 10) {
-    return hasVisaTravel ? "Pending Residence Permit upload" : "Visa Collection Initiated. Travel Ticket upload pending.";
+    const hasVisaCollection = Boolean(
+      applicant?.visaCollection?.date ||
+      applicant?.visaCollection?.time ||
+      applicant?.visaCollection?.dateTime
+    );
+    if (!hasVisaCollection) return "Visa collection initiation pending.";
+    if (hasPendingVisaCollectionApproval) return "Visa collection Initiated. Pending admin approval";
+    return "Visa Collection Initiated.";
   }
   if (applicantStage === 9) {
-    if (hasPendingVisaCollectionApproval) return "Visa collection Initiated. Pending admin approval";
-    return "Visa Collection Initiated. Travel Ticket upload pending.";
-  }
-  if (applicantStage === 8) {
     if (hasInterviewBiometric) return "Pending visa collection";
     if (hasInterviewTicket) return "Embassy Interview Initiated. Biometric slip upload pending.";
     return "Embassy Interview Initiated. Travel ticket upload pending.";
   }
-  if (applicantStage === 7) {
+  if (applicantStage === 8) {
     if (hasPendingEmbassyInterviewApproval) return "Embassy interview Initiated. Pending admin approval";
     return "Embassy Interview initiation pending";
   }
-  if (applicantStage === 6) {
+  if (applicantStage === 7) {
     if (hasBiometricSlip) return "Embassy Interview Initiation pending";
     if (hasTravelDetails) return "Embassy Appointment Initiated. Biometric slip upload pending.";
     return "Embassy Appointment Initiated. Travel ticket upload pending.";
   }
-  if (applicantStage >= 5) {
+  if (applicantStage === 6) {
+    if (hasPendingEmbassyAppointmentApproval) return "Embassy appointment Initiated. Pending admin approval";
     if (!hasEmbassyAppointment) return "Pending Embassy Appointment Initiation.";
     return "Pending embassy appointment.";
   }
+  if (applicantStage === 5) return "Signed contract upload pending.";
   if (applicantStage === 4) {
     if (String(applicant?.contract?.status || "").toUpperCase() === "PENDING") {
       return "Contract issued. Pending admin approval.";
@@ -291,48 +397,13 @@ function getApplicantBannerStatusText(applicant, context = {}) {
   return "Document upload pending";
 }
 
-async function getTodayEurToInrRate() {
-  try {
-    const now = Date.now();
-    if (fxRateCache.fetchedAt && now - fxRateCache.fetchedAt < FX_CACHE_TTL_MS) {
-      return fxRateCache.value;
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    const response = await fetch("https://api.frankfurter.app/latest?from=EUR&to=INR", {
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-
-    if (!response.ok) {
-      throw new Error(`Exchange rate request failed with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const rate = toNumber(data?.rates?.INR);
-    const resolvedRate = rate > 0 ? rate : DEFAULT_EUR_TO_INR_RATE;
-    fxRateCache = {
-      value: resolvedRate,
-      fetchedAt: now
-    };
-    return resolvedRate;
-  } catch (error) {
-    logger.warn("Exchange rate fetch error", {
-      message: error?.message || String(error || "")
-    });
-    if (fxRateCache.fetchedAt) return fxRateCache.value;
-    return DEFAULT_EUR_TO_INR_RATE;
-  }
-}
-
 module.exports = {
   APPLICANT_LIST_SELECT_FIELDS,
   getApplicantBannerStatusText,
   getApplicantStageLabel,
   getAuthenticatedUserFromReq,
-  getTodayEurToInrRate,
   normalizeDate,
+  normalizePaymentCurrency,
   normalizePaymentMode,
   normalizeTextForSearch,
   parseBooleanQuery,
@@ -340,6 +411,10 @@ module.exports = {
   buildApplicantListDerivedFields,
   projectApplicantFields,
   resolveApplicantReferenceFields,
+  resolveApplicantPaymentSnapshot,
+  resolveApplicantPaymentStage,
+  resolveApplicantPaymentCurrency,
+  resolveApplicantTotalAmount,
   resolveApplicantTotalEur,
   roundCurrency,
   toNumber

@@ -2,18 +2,9 @@ import { useState } from "react";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../firebase";
+import BrandLogo from "../components/common/BrandLogo";
 import "../styles/auth.css";
 import { validateEmail } from "../utils/auth";
-
-function BrandMark() {
-  return (
-    <svg className="authBrandIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 7.2V10c0 5.4-3.6 9.8-8 11-4.4-1.2-8-5.6-8-11V7.2L12 3Z" fill="currentColor" />
-      <path d="M12 3v18" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-      <path d="M6 9h12" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-    </svg>
-  );
-}
 
 function MailIcon() {
   return (
@@ -79,8 +70,7 @@ function ForgotPassword() {
   return (
     <div className="authPage">
       <div className="authBrand">
-        <BrandMark />
-        <span>Talent Acquisition</span>
+        <BrandLogo className="authBrandIcon" />
       </div>
 
       <div className="authCard authCardWide">

@@ -87,12 +87,6 @@
   border-top:1px solid #e7ecf4;
 }
 
-.contractUploadPanel{
-  margin-top:18px;
-  padding-top:18px;
-  border-top:1px solid #eef2f7;
-}
-
 .contractFormGrid{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
@@ -419,7 +413,7 @@
 }
 
 .workflowEntryPanel{
-  padding:18px 0 0;
+  padding:8px 0 0;
 }
 
 .workflowEntryPanelNoBorder{
@@ -569,6 +563,67 @@
   line-height:1.5;
 }
 
+.workflowPaymentStatus{
+  display:flex;
+  gap:14px;
+  padding:16px;
+  border:1px solid;
+  border-radius:12px;
+}
+
+.workflowPaymentStatusDanger{
+  border-color:#fecaca;
+  background:#fff1f2;
+  color:#dc2626;
+}
+
+.workflowPaymentStatusSuccess{
+  border-color:#bbf7d0;
+  background:#f0fdf4;
+  color:#15803d;
+}
+
+.workflowPaymentStatusIcon{
+  display:inline-flex;
+  align-items:flex-start;
+  justify-content:center;
+  flex:0 0 auto;
+  padding-top:2px;
+}
+
+.workflowPaymentStatusContent{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+}
+
+.workflowPaymentStatusTitle{
+  font-size:15px;
+  font-weight:800;
+}
+
+.workflowPaymentStatusMeta{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 18px;
+  color:#344054;
+  font-size:13px;
+}
+
+.workflowPaymentStatusMessage{
+  font-size:13px;
+  font-weight:700;
+}
+
+.workflowPaymentStatusDanger .workflowPaymentStatusMessage{
+  color:#ef4444;
+}
+
+.workflowPaymentStatusSuccess .workflowPaymentStatusMessage{
+  color:#16a34a;
+}
+
 .workflowTicketUploadPanel{
   padding-top:10px;
 }
@@ -583,13 +638,31 @@
 
 .workflowTravelEntryGrid{
   display:grid;
-  grid-template-columns:minmax(0, 1fr) minmax(0, 1fr) minmax(260px, 1.1fr);
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:16px;
   align-items:end;
 }
 
 .workflowTravelEntryGrid .workflowUploadBox{
   width:100%;
+}
+
+.workflowTravelFullField{
+  grid-column:1 / -1;
+}
+
+.workflowExistingFileRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+
+.workflowExistingFileViewBtn,
+.workflowExistingFileRemoveBtn{
+  min-height:36px;
+  padding:0 14px;
+  border-radius:8px;
 }
 
 .residencePermitUploadGrid{
@@ -605,20 +678,108 @@
 
 .workflowUploadBox{
   width:50%;
-  min-height:49px;
+  min-height:64px;
   border:1.5px dashed #c8d5ea;
   border-radius:14px;
   background:#ffffff;
   display:flex;
   align-items:center;
   gap:18px;
-  padding:0 28px;
+  padding:0 10px;
   cursor:pointer;
   box-sizing:border-box;
 }
 
+.contractUploadHeading{
+  margin-bottom:14px;
+}
+
+.contractUploadHeading h4{
+  margin:0;
+  color:#0f172a;
+  font-size:18px;
+  font-weight:800;
+}
+
+.contractUploadHeading h4 span{
+  font-size:14px;
+  font-weight:700;
+  color:#334155;
+}
+
+.contractUploadHeading p{
+  margin:8px 0 0;
+  color:#4b5f82;
+  font-size:14px;
+  line-height:1.45;
+}
+
+.contractFileCardWide{
+  width:100%;
+  min-height:64px;
+  justify-content:flex-start;
+  text-align:left;
+  gap:18px;
+  padding:0px 10px;
+  border:1px solid #d7e0ee;
+}
+
+.contractUploadTileIcon,
 .workflowUploadBoxIcon{
-  color:#5f7393;
+  width:54px;
+  height:54px;
+  border-radius:8px;
+  background:#eef4ff;
+  color:#0052cc;
+}
+
+.contractUploadTileIcon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+}
+
+.contractUploadText{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  min-width:0;
+}
+
+.contractFileCardWide .contractFileCardTitle,
+.workflowUploadBoxTitle{
+  color:#0b1b4d;
+  font-size:16px;
+  font-weight:800;
+  word-break:break-word;
+}
+
+.contractFileCardMeta{
+  color:#344b75;
+  font-size:14px;
+  font-weight:500;
+}
+
+.workflowUploadBoxFull{
+  width:100%;
+}
+
+.workflowAdditionalUploadGroup{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  margin-top:24px;
+}
+
+.workflowAdditionalDocLinks{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+}
+
+.workflowUploadBoxIcon{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -647,12 +808,13 @@
 .workflowUploadBoxMeta{
   width:100%;
   font-size:12px;
-  color:#6b7a99;
+  color:#344b75;
 }
 
 .workflowModalFooter{
   display:flex;
   justify-content:flex-end;
+  gap:12px;
   padding:12px 28px 12px;
   border-top:1px solid #e8eef6;
 }
@@ -693,6 +855,223 @@
   font-weight:600;
 }
 
+.signedContractModalCard{
+  max-width:840px;
+}
+
+.signedContractBody{
+  display:flex;
+  flex-direction:column;
+  gap:20px;
+}
+
+.signedDocSection{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.signedDocSectionHeader{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+
+.signedDocSectionHeader h4{
+  margin:0;
+  color:#111827;
+  font-size:15px;
+  font-weight:800;
+}
+
+.signedDocSectionHeader h4 span{
+  color:#9f1239;
+  font-size:13px;
+  font-weight:700;
+}
+
+.signedDocSectionHeader h4 span:first-child{
+  color:#64748b;
+}
+
+.signedDocRejectedCount{
+  color:#dc2626;
+  font-size:12px;
+  font-weight:800;
+}
+
+.signedDocRow{
+  min-height:64px;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:10px 14px;
+  border:1px solid #dfe7f3;
+  border-radius:8px;
+  background:#ffffff;
+}
+
+.signedDocRowRejected{
+  border-color:#f4c7c7;
+  background:#fff3f3;
+}
+
+.signedDocIcon{
+  width:42px;
+  height:42px;
+  border-radius:8px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  background:#eef4ff;
+  color:#0052cc;
+}
+
+.signedDocDetails{
+  min-width:0;
+  flex:1 1 auto;
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+}
+
+.signedDocName{
+  color:#0f172a;
+  font-size:14px;
+  font-weight:800;
+  text-decoration:none;
+  overflow-wrap:anywhere;
+}
+
+.signedDocName:hover{
+  color:#0052cc;
+}
+
+.signedDocNameDisabled{
+  color:#b91c1c;
+  pointer-events:none;
+}
+
+.signedDocMeta{
+  color:#64748b;
+  font-size:12px;
+  line-height:1.4;
+}
+
+.signedDocBadge{
+  padding:5px 9px;
+  border-radius:6px;
+  background:#fff1f2;
+  color:#dc2626;
+  font-size:12px;
+  font-weight:800;
+}
+
+.signedDocRejectBtn{
+  min-height:36px;
+  padding:0 16px;
+  border:1px solid #fca5a5;
+  border-radius:8px;
+  background:#ffffff;
+  color:#dc2626;
+  font-size:13px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.signedDocRejectBtn:hover:not(:disabled){
+  background:#fff1f2;
+}
+
+.signedDocRejectBtn:disabled{
+  cursor:not-allowed;
+  opacity:0.65;
+}
+
+.signedDocViewBtn{
+  min-height:36px;
+  padding:0 16px;
+  border-radius:8px;
+  flex:0 0 auto;
+}
+
+.signedDocUploadBox{
+  min-height:58px;
+  width:100%;
+}
+
+.signedDocUploadBox .signedDocIcon{
+  width:54px;
+  height:54px;
+}
+
+.signedDocUploadShell{
+  display:block;
+}
+
+.signedDocUploadBoxRejected{
+  border-color:#ef4444;
+  background:#fffafa;
+}
+
+.signedDocUploadSide{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:12px;
+  min-width:260px;
+}
+
+.signedDocRejectedInline{
+  color:#dc2626;
+  font-size:12px;
+  font-weight:800;
+}
+
+.signedDocUploadNowBtn{
+  min-height:36px;
+  padding:0 16px;
+  border-radius:8px;
+  flex:0 0 auto;
+}
+
+.signedDocUploadNowBtn:disabled{
+  cursor:not-allowed;
+  opacity:0.55;
+}
+
+.signedDocError{
+  padding:12px 14px;
+  border:1px solid #fecaca;
+  border-radius:8px;
+  background:#fff1f2;
+  color:#b91c1c;
+  font-size:13px;
+  font-weight:700;
+}
+
+.signedDocAlert{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  padding:14px 16px;
+  border-radius:8px;
+  background:#fdecec;
+  color:#991b1b;
+  font-size:13px;
+}
+
+.signedDocAlert strong{
+  font-weight:800;
+}
+
+.signedDocNotice{
+  margin-top:0;
+  border-radius:8px;
+}
+
 @media (max-width: 900px){
   .workflowModalHero,
   .workflowModalBody,
@@ -720,6 +1099,19 @@
 
   .workflowDetailRowValue{
     text-align:left;
+  }
+
+  .workflowAdditionalDocLinks{
+    justify-content:flex-start;
+  }
+
+  .signedDocUploadShell{
+    grid-template-columns:1fr;
+  }
+
+  .signedDocUploadSide{
+    min-width:0;
+    justify-content:space-between;
   }
 }
 
@@ -811,12 +1203,30 @@
     gap:12px;
   }
 
+  .signedDocUploadSide{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .signedDocRejectedInline{
+    white-space:normal;
+  }
+
   .workflowTravelEntryGrid{
     grid-template-columns:1fr;
   }
 
   .residencePermitUploadGrid{
     grid-template-columns:1fr;
+  }
+
+  .workflowExistingFileRow{
+    flex-direction:column;
+    align-items:stretch;
+  }
+
+  .workflowExistingFileRemoveBtn{
+    width:100%;
   }
 
   .workflowDetailHeader,

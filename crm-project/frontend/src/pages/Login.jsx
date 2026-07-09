@@ -1,20 +1,11 @@
 import { useEffect, useState } from "react";
 import { signInWithEmailAndPassword } from "firebase/auth";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import { auth, authReady } from "../firebase";
+import BrandLogo from "../components/common/BrandLogo";
 import "../styles/auth.css";
 import { getDashboardPathByRole, getStoredUser, isSessionExpired, storeSession, validateEmail } from "../utils/auth";
-
-function BrandMark() {
-  return (
-    <svg className="authBrandIcon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 3 20 7.2V10c0 5.4-3.6 9.8-8 11-4.4-1.2-8-5.6-8-11V7.2L12 3Z" fill="currentColor" />
-      <path d="M12 3v18" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-      <path d="M6 9h12" stroke="#ffffff" strokeWidth="2" opacity="0.65" />
-    </svg>
-  );
-}
 
 function EyeIcon({ open }) {
   return open ? (
@@ -73,6 +64,10 @@ function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+  const requestedPath = location.state?.from
+    ? `${location.state.from.pathname}${location.state.from.search || ""}${location.state.from.hash || ""}`
+    : "";
 
   useEffect(() => {
     if (isSessionExpired()) return;
@@ -84,8 +79,8 @@ function Login() {
       return;
     }
 
-    navigate(getDashboardPathByRole(storedUser.role), { replace: true });
-  }, [navigate]);
+    navigate(requestedPath || getDashboardPathByRole(storedUser.role), { replace: true });
+  }, [navigate, requestedPath]);
 
   const handleLogin = async (event) => {
     event.preventDefault();
@@ -119,7 +114,7 @@ function Login() {
         return;
       }
 
-      navigate(getDashboardPathByRole(userData.role), { replace: true });
+      navigate(requestedPath || getDashboardPathByRole(userData.role), { replace: true });
     } catch (err) {
       console.error(err);
       setError(getLoginErrorMessage(err));
@@ -131,8 +126,7 @@ function Login() {
   return (
     <div className="authPage">
       <div className="authBrand">
-        <BrandMark />
-        <span>Talent Acquisition</span>
+        <BrandLogo className="authBrandIcon" />
       </div>
 
       <div className="authCard authCardWide">

@@ -5,13 +5,15 @@ const PIPELINE_ITEMS = [
   { id: 2, key: "DOCS", title: "Upload Documents" },
   { id: 3, key: "DISPATCH", title: "Dispatch Documents" },
   { id: 4, key: "CONTRACT", title: "Issue of the Contract" },
-  { id: 5, key: "EMBASSY_APPOINTMENT_INITIATED", title: "Embassy Appointment Initiated" },
-  { id: 6, key: "EMBASSY_APPOINTMENT_COMPLETED", title: "Embassy Appointment Completed" },
-  { id: 7, key: "EMBASSY_INTERVIEW_INITIATED", title: "Initiate Embassy Interview" },
-  { id: 8, key: "EMBASSY_INTERVIEW_COMPLETED", title: "Embassy Interview Completed" },
-  { id: 9, key: "VISA_COLLECTION_INITIATED", title: "Visa Collection Initiated" },
-  { id: 10, key: "VISA_COLLECTION_COMPLETED", title: "Visa Collection Completed" },
-  { id: 11, key: "CANDIDATE_ARRIVED", title: "Candidate Arrived" }
+  { id: 5, key: "SIGNED_CONTRACT", title: "Upload Signed Contract" },
+  { id: 6, key: "EMBASSY_APPOINTMENT_INITIATED", title: "Embassy Appointment Initiated" },
+  { id: 7, key: "EMBASSY_APPOINTMENT_COMPLETED", title: "Embassy Appointment Completed" },
+  { id: 8, key: "EMBASSY_INTERVIEW_INITIATED", title: "Initiate Embassy Interview" },
+  { id: 9, key: "EMBASSY_INTERVIEW_COMPLETED", title: "Embassy Interview Completed" },
+  { id: 10, key: "VISA_COLLECTION_INITIATED", title: "Visa Collection Initiated" },
+  { id: 11, key: "VISA_COLLECTION_COMPLETED", title: "Visa Collection Completed" },
+  { id: 12, key: "APPLICANT_ARRIVAL_DETAILS", title: "Applicant Arrival Details" },
+  { id: 13, key: "CANDIDATE_ARRIVED", title: "Candidate Arrived" }
 ];
 
 function IconCheck() {
@@ -82,18 +84,22 @@ function StatusIcon({ status }) {
 
 function ApplicantPipelineList({
   currentStep = 1,
-  totalSteps = 11,
+  totalSteps = 13,
   onUploadDocuments,
   onCandidateAccountCreation,
   onDispatchDocuments,
   onContractAction,
+  onSignedContractAction,
   onEmbassyAppointmentAction,
   onBiometricSlipAction,
   onEmbassyInterviewAction,
   onInterviewCompletionAction,
   onVisaCollectionAction,
   onVisaCompletionAction,
+  onApplicantTravelAction,
   onCandidateArrivalAction,
+  onUpdateTravelAction,
+  updateTravelActionLabel = "Update Travel",
   onHeaderAction,
   headerActionLabel = "",
   canHeaderAction = true,
@@ -101,10 +107,18 @@ function ApplicantPipelineList({
   canActiveStepAction = true,
   documentRowSubtitle = "",
   dispatchRowTitle = "Dispatch Documents",
+  dispatchActionLabel = "",
+  canDispatchAction = true,
+  hasDispatchHistory = false,
   contractRowTitle = "Issue of the Contract",
   contractRowSubtitle = "",
   contractRowStatus = "",
+  signedContractRowTitle = "Upload Signed Contract",
+  signedContractRowSubtitle = "",
+  signedContractRowStatus = "",
   embassyAppointmentRowTitle = "Embassy Appointment Initiated",
+  embassyAppointmentRowSubtitle = "",
+  embassyAppointmentRowStatus = "",
   embassyAppointmentCompletedRowTitle = "Embassy Appointment Completed",
   embassyAppointmentCompletedRowSubtitle = "",
   embassyAppointmentCompletedRowStatus = "",
@@ -119,16 +133,18 @@ function ApplicantPipelineList({
   visaCollectionCompletedRowTitle = "Visa Collection Completed",
   visaCollectionCompletedRowSubtitle = "",
   visaCollectionCompletedRowStatus = "",
+  applicantTravelRowStatus = "",
   candidateArrivalRowTitle = "Arrival of Candidate",
   candidateArrivalRowSubtitle = "",
   bannerText = "Complete the document uploading for admin to approve the candidate",
-  documentRowStatus = ""
+  documentRowStatus = "",
+  readOnly = false
 }) {
   const resolvedCurrentStep = Number(currentStep || 1);
 
   return (
     <div className="pipelineCard">
-      <div className="pipelineBannerCard">
+      {!readOnly ? <div className="pipelineBannerCard">
         <div className="pipelineBanner">
           <div className="pipelineBannerLeft">
             <div className="pipelineStepPill">
@@ -146,7 +162,7 @@ function ApplicantPipelineList({
             </button>
           ) : null}
         </div>
-      </div>
+      </div> : null}
 
       <div className="pipelineHeaderRow">
         <h3 className="pipelineTitle">Application Pipeline</h3>
@@ -155,21 +171,34 @@ function ApplicantPipelineList({
       <div className="pipelineListCard">
         <div className="pipelineList">
         {PIPELINE_ITEMS.map((item) => {
+          const isProcessCompleted = resolvedCurrentStep >= totalSteps;
           const status =
-            item.id < resolvedCurrentStep ? "completed" : item.id === resolvedCurrentStep ? "active" : "locked";
+            isProcessCompleted && item.id <= totalSteps
+              ? "completed"
+              : item.id < resolvedCurrentStep
+              ? "completed"
+              : item.id === resolvedCurrentStep
+              ? "active"
+              : "locked";
           const resolvedStatus =
             item.id === 2 && documentRowStatus
               ? documentRowStatus
               : item.id === 4 && contractRowStatus
               ? contractRowStatus
-              : item.id === 6 && embassyAppointmentCompletedRowStatus
+              : item.id === 5 && signedContractRowStatus
+              ? signedContractRowStatus
+              : item.id === 6 && embassyAppointmentRowStatus
+              ? embassyAppointmentRowStatus
+              : item.id === 7 && embassyAppointmentCompletedRowStatus
               ? embassyAppointmentCompletedRowStatus
-              : item.id === 8 && embassyInterviewCompletedRowStatus
+              : item.id === 9 && embassyInterviewCompletedRowStatus
               ? embassyInterviewCompletedRowStatus
-              : item.id === 9 && visaCollectionRowStatus
+              : item.id === 10 && visaCollectionRowStatus
               ? visaCollectionRowStatus
-              : item.id === 10 && visaCollectionCompletedRowStatus
+              : item.id === 11 && visaCollectionCompletedRowStatus
               ? visaCollectionCompletedRowStatus
+              : item.id === 12 && applicantTravelRowStatus
+              ? applicantTravelRowStatus
               : status;
           const rowAction =
             item.id === 1
@@ -181,21 +210,27 @@ function ApplicantPipelineList({
               : item.id === 4
               ? onContractAction
               : item.id === 5
-              ? onEmbassyAppointmentAction
+              ? onSignedContractAction
               : item.id === 6
-              ? onBiometricSlipAction
+              ? onEmbassyAppointmentAction
               : item.id === 7
-              ? onEmbassyInterviewAction
+              ? onBiometricSlipAction
               : item.id === 8
-              ? onInterviewCompletionAction
+              ? onEmbassyInterviewAction
               : item.id === 9
-              ? onVisaCollectionAction
+              ? onInterviewCompletionAction
               : item.id === 10
-              ? onVisaCompletionAction
+              ? onVisaCollectionAction
               : item.id === 11
+              ? onVisaCompletionAction
+              : item.id === 12
+              ? onApplicantTravelAction
+              : item.id === 13
               ? onCandidateArrivalAction
               : undefined;
-          const canRowClick = typeof rowAction === "function";
+          const canRowClick =
+            typeof rowAction === "function" &&
+            (!readOnly || item.id === 3);
           const isCompletedRow = resolvedStatus === "completed";
           const isActiveRow = item.id === resolvedCurrentStep;
           const resolvedSubtitle =
@@ -203,17 +238,21 @@ function ApplicantPipelineList({
               ? documentRowSubtitle
               : item.id === 4
               ? contractRowSubtitle
+              : item.id === 5
+              ? signedContractRowSubtitle
               : item.id === 6
-              ? embassyAppointmentCompletedRowSubtitle
+              ? embassyAppointmentRowSubtitle
               : item.id === 7
-              ? embassyInterviewRowSubtitle
+              ? embassyAppointmentCompletedRowSubtitle
               : item.id === 8
-              ? embassyInterviewCompletedRowSubtitle
+              ? embassyInterviewRowSubtitle
               : item.id === 9
-              ? visaCollectionRowSubtitle
+              ? embassyInterviewCompletedRowSubtitle
               : item.id === 10
-              ? visaCollectionCompletedRowSubtitle
+              ? visaCollectionRowSubtitle
               : item.id === 11
+              ? visaCollectionCompletedRowSubtitle
+              : item.id === 13
               ? candidateArrivalRowSubtitle
               : "";
           const resolvedTitle =
@@ -222,26 +261,59 @@ function ApplicantPipelineList({
               : item.id === 4
               ? contractRowTitle
               : item.id === 5
-              ? embassyAppointmentRowTitle
+              ? signedContractRowTitle
               : item.id === 6
-              ? embassyAppointmentCompletedRowTitle
+              ? embassyAppointmentRowTitle
               : item.id === 7
-              ? embassyInterviewRowTitle
+              ? embassyAppointmentCompletedRowTitle
               : item.id === 8
-              ? embassyInterviewCompletedRowTitle
+              ? embassyInterviewRowTitle
               : item.id === 9
-              ? visaCollectionRowTitle
+              ? embassyInterviewCompletedRowTitle
               : item.id === 10
-              ? visaCollectionCompletedRowTitle
+              ? visaCollectionRowTitle
               : item.id === 11
+              ? visaCollectionCompletedRowTitle
+              : item.id === 12
+              ? item.title
+              : item.id === 13
               ? candidateArrivalRowTitle
               : item.title;
+          const displayTitle = readOnly ? item.title : resolvedTitle;
+          const isSignedContractRejectedRow =
+            item.id === 5 &&
+            signedContractRowStatus === "danger" &&
+            activeStepActionLabel === "Upload Signed Contract";
+          const isCandidateArrivalActionRow =
+            item.id === 13 &&
+            activeStepActionLabel === "Candidate Arrived";
+          const isApplicantArrivalUpdateRow =
+            item.id === 12 &&
+            resolvedStatus === "completed" &&
+            activeStepActionLabel === "Update Arrival Details";
           const showActiveButton =
-            isActiveRow &&
+            (isSignedContractRejectedRow ||
+              isCandidateArrivalActionRow ||
+              isApplicantArrivalUpdateRow ||
+              (isActiveRow &&
+                !(signedContractRowStatus === "danger" && activeStepActionLabel === "Upload Signed Contract") &&
+                activeStepActionLabel !== "Candidate Arrived")) &&
             activeStepActionLabel &&
             typeof onHeaderAction === "function" &&
             Boolean(canActiveStepAction);
-          const showCompletedArrow = isCompletedRow && canRowClick;
+          const showUpdateTravelButton =
+            typeof onUpdateTravelAction === "function" &&
+            Boolean(canActiveStepAction) &&
+            isActiveRow &&
+            (activeStepActionLabel === "Add Biometric Slip" || activeStepActionLabel === "Upload TRC Document");
+          const showRowArrow =
+            canRowClick &&
+            (item.id === 3 ? hasDispatchHistory : isCompletedRow);
+          const showDispatchButton =
+            item.id === 3 &&
+            dispatchActionLabel &&
+            typeof onDispatchDocuments === "function" &&
+            Boolean(canDispatchAction);
           const isLastRow = item.id === totalSteps;
 
           return (
@@ -254,26 +326,42 @@ function ApplicantPipelineList({
               <div className="pipeLeft">
                 <StatusIcon status={resolvedStatus} />
                 <div className="pipeText">
-                  <div className="pipeTitle">{resolvedTitle}</div>
-                  {resolvedSubtitle ? (
+                  <div className="pipeTitle">{displayTitle}</div>
+                  {!readOnly && resolvedSubtitle ? (
                     <div className={`pipeMeta pipeMeta-${resolvedStatus}`}>{resolvedSubtitle}</div>
                   ) : null}
                 </div>
               </div>
 
               <div className="pipeRight">
-                {showActiveButton ? (
+                {!readOnly && showDispatchButton ? (
+                  <button
+                    className="btn bannerBtn btnSm pipeStageActionBtn"
+                    type="button"
+                    onClick={onDispatchDocuments}
+                  >
+                    {dispatchActionLabel}
+                  </button>
+                ) : null}
+
+                {!readOnly && showUpdateTravelButton ? (
+                  <button className="btn btnSecondary btnSm pipeStageActionBtn" type="button" onClick={onUpdateTravelAction}>
+                    {updateTravelActionLabel}
+                  </button>
+                ) : null}
+
+                {!readOnly && showActiveButton ? (
                   <button className="btn bannerBtn btnSm pipeStageActionBtn" type="button" onClick={onHeaderAction}>
                     {activeStepActionLabel}
                   </button>
                 ) : null}
 
-                {showCompletedArrow ? (
+                {showRowArrow && !showDispatchButton ? (
                   <button
                     className="pipeChevronBtn"
                     type="button"
                     onClick={rowAction}
-                    aria-label={`Open ${resolvedTitle}`}
+                    aria-label={`Open ${displayTitle}`}
                   >
                     <IconChevron />
                   </button>
