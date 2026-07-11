@@ -156,7 +156,7 @@ function ApplicantFormModal({
     async function loadDropdowns() {
       try {
         const [companiesData, countriesData, agenciesData] = await Promise.all([
-          getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
+          getCached("/companies", { params: { paginated: "false" }, ttlMs: 600000 }),
           getCached("/countries", { ttlMs: 120000 }),
           getCached("/agencies", { ttlMs: 60000 })
         ]);

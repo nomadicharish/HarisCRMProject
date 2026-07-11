@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import Select from "react-select";
 import { toast } from "react-toastify";
@@ -31,6 +31,8 @@ const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
+const DASHBOARD_FILTER_STORAGE_KEY = "dashboard_sidebar_filters";
+const SIDEBAR_FILTER_KEYS = ["type", "country", "company", "agency"];
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
@@ -620,8 +622,8 @@ function BulkDispatchModal({
   };
 
   const handleSave = async () => {
-    if (!form.awbNumber.trim() || !form.trackingUrl.trim() || !form.dispatchDate) {
-      toast.error("AWB number, tracking URL and dispatch date are required");
+    if (!form.awbNumber.trim() || !form.trackingUrl.trim() || !form.dispatchDate || !form.note.trim()) {
+      toast.error("AWB number, tracking URL, dispatch date and dispatch note are required");
       return;
     }
     if (!countryId || !selectedCompanyIds.length || !selectedApplicantIds.length) {
@@ -662,6 +664,7 @@ function BulkDispatchModal({
 
   return (
     <div className="bulkDispatchOverlay" role="presentation">
+      <BlockingLoader open={saving} label="Saving dispatch details..." />
       <div className="bulkDispatchModal" role="dialog" aria-modal="true" aria-labelledby="bulk-dispatch-title">
         <div className="bulkDispatchHeader">
           <div>
@@ -700,7 +703,7 @@ function BulkDispatchModal({
           </div>
 
           <label className="bulkDispatchNoteField">
-            <span>Dispatch Note</span>
+            <span>Dispatch Note <RequiredMark /></span>
             <textarea
               name="note"
               value={form.note}
@@ -958,6 +961,7 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
 
   return (
     <div className="bulkDispatchOverlay bulkContractOverlay" role="presentation">
+      <BlockingLoader open={saving} label="Uploading contracts..." />
       <div className="bulkDispatchModal bulkContractModal" role="dialog" aria-modal="true" aria-labelledby="bulk-contract-title">
         <div className="bulkDispatchHeader bulkContractHeader">
           <span className="bulkContractHeaderIcon"><UploadGlyph type="upload" /></span>
@@ -1083,7 +1087,9 @@ function DashboardHome({
   showWorkflowPendingCards = false,
   showArrivedLastMonthCard = false,
   showHomeSectionDivider = false,
-  isAccountantHome = false
+  isAccountantHome = false,
+  showPaymentActions = true,
+  showPaymentActionsTopDivider = false
 }) {
   const [showStagePaymentModal, setShowStagePaymentModal] = useState(false);
   const [showAgencyPaymentModal, setShowAgencyPaymentModal] = useState(false);
@@ -1136,22 +1142,23 @@ function DashboardHome({
             </div>
           </div>
 
-          <HomePaymentStageModal
-            open={showStagePaymentModal}
-            paymentStages={paymentStages}
-            onClose={() => setShowStagePaymentModal(false)}
-            onOpenFilter={onOpenFilter}
-          />
-          <HomePaymentAgencyModal
-            open={showAgencyPaymentModal}
-            agencies={paymentAgencies}
-            onClose={() => setShowAgencyPaymentModal(false)}
-          />
-
         </section>
       ) : null}
 
-      <div className="homePaymentOverviewActions">
+      <HomePaymentStageModal
+        open={showStagePaymentModal}
+        paymentStages={paymentStages}
+        onClose={() => setShowStagePaymentModal(false)}
+        onOpenFilter={onOpenFilter}
+      />
+      <HomePaymentAgencyModal
+        open={showAgencyPaymentModal}
+        agencies={paymentAgencies}
+        onClose={() => setShowAgencyPaymentModal(false)}
+      />
+
+      {showPaymentActions ? (
+      <div className={`homePaymentOverviewActions ${showPaymentActionsTopDivider ? "homePaymentOverviewActionsTopDivider" : ""}`}>
         <button type="button" onClick={() => setShowStagePaymentModal(true)}>
           <span className="homePaymentActionLabel">
             <span className="homePaymentActionIcon"><HomeIcon type="calendar" /></span>
@@ -1169,6 +1176,7 @@ function DashboardHome({
           </button>
         ) : null}
       </div>
+      ) : null}
 
       <section className="homeDateCard">
         <div>
@@ -1331,6 +1339,7 @@ function retainSelectedOptions(options = [], selectedValues = [], resolveLabel =
 function ApplicantsDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasRestoredSidebarFilters = useRef(false);
   const [user, setUser] = useState(() => getStoredUser());
   const [applicants, setApplicants] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -1341,13 +1350,15 @@ function ApplicantsDashboard() {
     page: 1,
     limit: PAGE_SIZE,
     total: 0,
-    totalPages: 1
+    totalPages: 1,
+    nextCursor: null
   });
   const [entityPagination, setEntityPagination] = useState({
     page: 1,
     limit: PAGE_SIZE,
     total: 0,
-    totalPages: 1
+    totalPages: 1,
+    nextCursor: null
   });
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -1392,6 +1403,37 @@ function ApplicantsDashboard() {
   const homeFromDate = searchParams.get("fromDate") || retainedHomeRange.fromDate;
   const homeToDate = searchParams.get("toDate") || retainedHomeRange.toDate;
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
+  const currentCursor = searchParams.get("cursor") || "";
+
+  useEffect(() => {
+    if (hasRestoredSidebarFilters.current) return;
+    hasRestoredSidebarFilters.current = true;
+
+    const hasUrlFilters = SIDEBAR_FILTER_KEYS.some((key) => searchParams.has(key));
+    if (hasUrlFilters) return;
+
+    try {
+      const storedFilters = JSON.parse(sessionStorage.getItem(DASHBOARD_FILTER_STORAGE_KEY) || "{}");
+      const next = new URLSearchParams(searchParams);
+      SIDEBAR_FILTER_KEYS.forEach((key) => {
+        if (storedFilters[key]) next.set(key, storedFilters[key]);
+      });
+      if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+    } catch {
+      sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const filters = Object.fromEntries(
+      SIDEBAR_FILTER_KEYS
+        .map((key) => [key, searchParams.get(key) || ""])
+        .filter(([, value]) => value)
+    );
+    if (Object.keys(filters).length) {
+      sessionStorage.setItem(DASHBOARD_FILTER_STORAGE_KEY, JSON.stringify(filters));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (searchParams.get("fromDate") || searchParams.get("toDate")) return;
@@ -1428,6 +1470,9 @@ function ApplicantsDashboard() {
 
       if (!Object.prototype.hasOwnProperty.call(updates, "page")) {
         next.delete("page");
+        next.delete("cursor");
+      } else if (Number(updates.page || 1) <= 1) {
+        next.delete("cursor");
       }
 
       if (next.toString() === searchParams.toString()) {
@@ -1445,6 +1490,7 @@ function ApplicantsDashboard() {
         lite: "true",
         paginated: "true",
         page: currentPage,
+        cursor: currentCursor,
         limit: PAGE_SIZE,
         q: searchText || "",
         type: applicantTypes.join(","),
@@ -1460,6 +1506,7 @@ function ApplicantsDashboard() {
       const entityParams = {
         paginated: "true",
         page: currentPage,
+        cursor: currentCursor,
         limit: PAGE_SIZE,
         q: searchText || "",
         country: countryIds.join(","),
@@ -1479,7 +1526,7 @@ function ApplicantsDashboard() {
 
       const [userData, countriesData, applicantsData] = await Promise.all([
         user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 }),
-        getCached("/countries", { ttlMs: 120000 }),
+        getCached("/countries", { ttlMs: 600000 }),
         activeTab === "home"
           ? Promise.resolve({ items: [], pagination: { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 } })
           : getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
@@ -1497,7 +1544,8 @@ function ApplicantsDashboard() {
         page: Number(applicantsData?.pagination?.page || currentPage),
         limit: Number(applicantsData?.pagination?.limit || PAGE_SIZE),
         total: Number(applicantsData?.pagination?.total || normalizedApplicants.length),
-        totalPages: Number(applicantsData?.pagination?.totalPages || 1)
+        totalPages: Number(applicantsData?.pagination?.totalPages || 1),
+        nextCursor: applicantsData?.pagination?.nextCursor || null
       });
 
       if (activeTab === "home" && canViewHomeDashboard) {
@@ -1516,6 +1564,7 @@ function ApplicantsDashboard() {
           params: {
             paginated: "true",
             page: currentPage,
+            cursor: currentCursor,
             limit: PAGE_SIZE,
             q: searchText || "",
             countryId: countryIds[0] || "",
@@ -1536,18 +1585,26 @@ function ApplicantsDashboard() {
           page: Number(companiesData?.pagination?.page || currentPage),
           limit: Number(companiesData?.pagination?.limit || PAGE_SIZE),
           total: Number(companiesData?.pagination?.total || normalizedCompanies.length),
-          totalPages: Number(companiesData?.pagination?.totalPages || 1)
+          totalPages: Number(companiesData?.pagination?.totalPages || 1),
+          nextCursor: companiesData?.pagination?.nextCursor || null
         });
-        const employersData = await getCached("/employers", {
-          params: { paginated: "false", fields: EMPLOYER_LOOKUP_FIELDS },
-          ttlMs: 60000
-        });
+        const [employersData, agenciesData] = await Promise.all([
+          getCached("/employers", {
+            params: { paginated: "false", fields: EMPLOYER_LOOKUP_FIELDS },
+            ttlMs: 600000
+          }),
+          getCached("/agencies", {
+            params: { paginated: "false", fields: AGENCY_LOOKUP_FIELDS },
+            ttlMs: 600000
+          })
+        ]);
         setEmployers(Array.isArray(employersData) ? employersData : []);
+        setAgencies(Array.isArray(agenciesData) ? agenciesData : []);
       } else if (activeTab === "employers") {
         const [companiesData, employersData] = await Promise.all([
           getCached("/companies", {
             params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
-            ttlMs: 60000
+            ttlMs: 600000
           }),
           getCached("/employers", {
             params: { ...entityParams, fields: EMPLOYER_LOOKUP_FIELDS },
@@ -1565,13 +1622,14 @@ function ApplicantsDashboard() {
           page: Number(employersData?.pagination?.page || currentPage),
           limit: Number(employersData?.pagination?.limit || PAGE_SIZE),
           total: Number(employersData?.pagination?.total || normalizedEmployers.length),
-          totalPages: Number(employersData?.pagination?.totalPages || 1)
+          totalPages: Number(employersData?.pagination?.totalPages || 1),
+          nextCursor: employersData?.pagination?.nextCursor || null
         });
       } else if (activeTab === "agencies") {
         const [companiesData, agenciesData] = await Promise.all([
           getCached("/companies", {
             params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
-            ttlMs: 60000
+            ttlMs: 600000
           }),
           getCached("/agencies", {
             params: { ...entityParams, fields: AGENCY_LOOKUP_FIELDS },
@@ -1589,13 +1647,14 @@ function ApplicantsDashboard() {
           page: Number(agenciesData?.pagination?.page || currentPage),
           limit: Number(agenciesData?.pagination?.limit || PAGE_SIZE),
           total: Number(agenciesData?.pagination?.total || normalizedAgencies.length),
-          totalPages: Number(agenciesData?.pagination?.totalPages || 1)
+          totalPages: Number(agenciesData?.pagination?.totalPages || 1),
+          nextCursor: agenciesData?.pagination?.nextCursor || null
         });
       } else {
         const [companiesData, agenciesData] = await Promise.all([
           getCached("/companies", {
             params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
-            ttlMs: 60000
+            ttlMs: 600000
           }),
           isSuperUser
             ? getCached("/agencies", {
@@ -1623,6 +1682,7 @@ function ApplicantsDashboard() {
     applicantTypes,
     companyIds,
     countryIds,
+    currentCursor,
     currentPage,
     dashboardFilter,
     hasLoadedOnce,
@@ -1648,11 +1708,6 @@ function ApplicantsDashboard() {
     () => Object.fromEntries(companies.map((company) => [company.id, company])),
     [companies]
   );
-  const employerMap = useMemo(
-    () => Object.fromEntries(employers.map((employer) => [employer.id, employer])),
-    [employers]
-  );
-
   const visibleCompanies = useMemo(() => {
     if (!countryIds.length) return companies;
     return companies.filter((company) => countryIds.includes(company.countryId));
@@ -1730,12 +1785,16 @@ function ApplicantsDashboard() {
     return companies.map((company) => ({
         ...company,
         countryName: countryMap[company.countryId] || "-",
-        employerNames: (company.employerIds || [])
-          .map((id) => employerMap[id]?.name)
+        agencyNames: (company.agencyIds || [])
+          .map((id) => agencies.find((agency) => agency.id === id)?.name)
+          .filter(Boolean)
+          .join(", "),
+        jobPositionNames: (company.jobPositions || company.jobSpecifications || [])
+          .map((position) => position.title || position.name || position.label)
           .filter(Boolean)
           .join(", ")
       }));
-  }, [companies, countryMap, employerMap]);
+  }, [agencies, companies, countryMap]);
 
   const employerRows = useMemo(() => {
     return employers;
@@ -1994,6 +2053,7 @@ function ApplicantsDashboard() {
   ]);
 
   const resetFilters = () => {
+    sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
     const next = new URLSearchParams();
     if (activeTab !== "home") {
       next.set("tab", activeTab);
@@ -2085,6 +2145,7 @@ function ApplicantsDashboard() {
   };
 
   const openHomeFilter = (filter, includeDateRange = true) => {
+    sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
     const next = new URLSearchParams();
     next.set("tab", "applicants");
     next.set("dashboardFilter", filter);
@@ -2283,6 +2344,8 @@ function ApplicantsDashboard() {
             showArrivedLastMonthCard={isSuperUser || isEmployer}
             showHomeSectionDivider={isSuperUser}
             isAccountantHome={isAccountantHomeUser}
+            showPaymentActions={!isEmployer}
+            showPaymentActionsTopDivider={isSuperUser || isAgency}
           />
         ) : (
           <>
@@ -2349,7 +2412,11 @@ function ApplicantsDashboard() {
                   />
                 ) : null}
 
-                {activeTab === "companies" ? (
+                {activeTab === "companies" && isRefreshing ? (
+                  <PageLoader label="Loading companies..." />
+                ) : null}
+
+                {activeTab === "companies" && !isRefreshing ? (
                   <CompaniesTable
                     rows={paginatedRows}
                     isSuperUser={isSuperUser}
@@ -2396,7 +2463,12 @@ function ApplicantsDashboard() {
               type="button"
               className="dashboardPaginationBtn"
               disabled={safePage >= totalPages}
-              onClick={() => updateFilters({ page: safePage + 1 })}
+              onClick={() => updateFilters({
+                page: safePage + 1,
+                cursor: activeTab === "applicants"
+                  ? applicantsPagination.nextCursor
+                  : entityPagination.nextCursor
+              })}
             >
               Next
             </button>

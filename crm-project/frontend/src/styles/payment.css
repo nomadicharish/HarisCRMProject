@@ -449,13 +449,13 @@
 }
 
 .paymentStatusCard{
-  min-height:64px;
-  padding:8px;
+  min-height:54px;
+  padding:4px 8px;
   border:1px solid #e5e7eb;
   border-radius:12px;
   display:flex;
   flex-direction:column;
-  gap:6px;
+  gap:2px;
   background:#fff;
 }
 

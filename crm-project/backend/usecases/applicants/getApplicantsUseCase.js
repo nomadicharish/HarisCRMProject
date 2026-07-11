@@ -1,4 +1,4 @@
-const { db } = require("../../config/firebase");
+const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const {
   APPLICANT_LIST_SELECT_FIELDS,
@@ -44,6 +44,25 @@ function isWithinRange(date, fromDate, toDate) {
   if (fromDate && date < fromDate) return false;
   if (toDate && date > toDate) return false;
   return true;
+}
+
+function decodeCursor(value = "") {
+  if (!value) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(String(value), "base64url").toString("utf8"));
+    const createdAt = new Date(parsed.createdAt);
+    if (!parsed.id || Number.isNaN(createdAt.getTime())) return null;
+    return { createdAt, id: String(parsed.id) };
+  } catch {
+    return null;
+  }
+}
+
+function encodeCursor(doc) {
+  const value = doc?.data()?.createdAt;
+  const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value || 0);
+  if (!doc?.id || Number.isNaN(date.getTime())) return null;
+  return Buffer.from(JSON.stringify({ createdAt: date.toISOString(), id: doc.id })).toString("base64url");
 }
 
 function getLastOneMonthRange() {
@@ -298,12 +317,11 @@ async function resolveReferenceMaps(docs = []) {
 
   docs.forEach((doc) => {
     const data = doc.data();
-    if (data?.companyId) companyIds.add(data.companyId);
-    if (data?.countryId) countryIds.add(data.countryId);
-    if (data?.agencyId) agencyIds.add(data.agencyId);
+    if (data?.companyId && !data?.companyName) companyIds.add(data.companyId);
+    if (data?.countryId && !data?.countryName) countryIds.add(data.countryId);
+    if (data?.agencyId && !data?.agencyName) agencyIds.add(data.agencyId);
   });
 
-  const companyIdToPayment = {};
   const companyIdToName = {};
   const countryIdToName = {};
   const agencyIdToName = {};
@@ -320,9 +338,6 @@ async function resolveReferenceMaps(docs = []) {
 
   companyDocs.forEach((doc) => {
     companyIdToName[doc.id] = doc.exists ? doc.data()?.name || "" : "";
-    companyIdToPayment[doc.id] = doc.exists
-      ? roundCurrency(doc.data()?.companyPaymentPerApplicant ?? 0)
-      : 0;
   });
   countryDocs.forEach((doc) => {
     countryIdToName[doc.id] = doc.exists ? doc.data()?.name || "" : "";
@@ -334,7 +349,6 @@ async function resolveReferenceMaps(docs = []) {
   return {
     agencyIdToName,
     companyIdToName,
-    companyIdToPayment,
     countryIdToName
   };
 }
@@ -345,8 +359,7 @@ function mapApplicant({
   liteMode,
   companyIdToName,
   countryIdToName,
-  agencyIdToName,
-  companyIdToPayment
+  agencyIdToName
 }) {
   const data = doc.data();
   const firstName =
@@ -371,6 +384,7 @@ function mapApplicant({
   const uploadedRequired = Number(docSummary.totalCount || 0) > 0;
   const hasPendingDocumentApproval = pendingRequired;
   const hasRejectedDocument = rejectedRequired;
+  const hasDocumentUploadPending = Number(docSummary.uploadedCount || 0) < Number(docSummary.totalCount || 0);
   const hasDocuments = uploadedRequired;
 
   const hasPendingAppointmentApproval =
@@ -393,7 +407,7 @@ function mapApplicant({
     isSuperUserLikeRole(userRole)
       ? hasPendingDocumentApproval || hasPendingPipelineApproval || hasPendingEmbassyInterviewApproval
       : userRole === "AGENCY"
-      ? hasRejectedDocument
+      ? hasRejectedDocument || hasDocumentUploadPending
       : false;
 
   const hasTravelDetails = Boolean(
@@ -508,6 +522,7 @@ async function getApplicantsFirestorePage({
   employerId,
   liteMode,
   page,
+  cursor,
   limit,
   requestedFieldSet,
   countryFilters,
@@ -522,10 +537,14 @@ async function getApplicantsFirestorePage({
   const safeLimit = Math.max(1, Math.min(100, limit));
   const safePage = Math.max(1, page);
   const total = await countQueryResults(query);
-  const offset = (safePage - 1) * safeLimit;
-  const snap = await query.orderBy("createdAt", "desc").offset(offset).limit(safeLimit).get();
-  const docs = snap.docs;
-  const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
+  const decodedCursor = decodeCursor(cursor);
+  query = query.orderBy("createdAt", "desc").orderBy(admin.firestore.FieldPath.documentId(), "desc");
+  if (decodedCursor) query = query.startAfter(decodedCursor.createdAt, decodedCursor.id);
+  else if (safePage > 1) query = query.offset((safePage - 1) * safeLimit);
+  const snap = await query.limit(safeLimit + 1).get();
+  const hasMore = snap.docs.length > safeLimit;
+  const docs = snap.docs.slice(0, safeLimit);
+  const { agencyIdToName, companyIdToName, countryIdToName } = await resolveReferenceMaps(docs);
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
@@ -533,11 +552,11 @@ async function getApplicantsFirestorePage({
       liteMode,
       companyIdToName,
       countryIdToName,
-      agencyIdToName,
-      companyIdToPayment
+      agencyIdToName
     })
   );
   const items = requestedFieldSet ? mapped.map((item) => projectApplicantFields(item, requestedFieldSet)) : mapped;
+  const offset = (safePage - 1) * safeLimit;
   const resolvedTotal = total ?? offset + items.length;
   const totalPages = Math.max(1, Math.ceil(resolvedTotal / safeLimit));
 
@@ -547,7 +566,9 @@ async function getApplicantsFirestorePage({
       page: Math.min(safePage, totalPages),
       limit: safeLimit,
       total: resolvedTotal,
-      totalPages
+      totalPages,
+      hasMore,
+      nextCursor: hasMore && docs.length ? encodeCursor(docs[docs.length - 1]) : null
     }
   };
 }
@@ -628,6 +649,7 @@ async function getApplicantsUseCase(req) {
   const liteMode = parseBooleanQuery(req.query?.lite, false);
   const paginated = parseBooleanQuery(req.query?.paginated, true);
   const page = Number(req.query?.page || 1);
+  const cursor = String(req.query?.cursor || "").trim();
   const limit = Number(req.query?.limit || 25);
   const searchQuery = String(req.query?.q || "").trim().toLowerCase();
   const requestedFieldSet = parseProjectionFields(req.query?.fields);
@@ -666,6 +688,7 @@ async function getApplicantsUseCase(req) {
         employerId,
         liteMode,
         page,
+        cursor,
         limit,
         requestedFieldSet,
         countryFilters,
@@ -683,7 +706,7 @@ async function getApplicantsUseCase(req) {
   const dashboardApplicantIds = dashboardFilter === "payment_received"
     ? await resolvePaymentApplicantIdsByDate({ applicantDocs: docs, fromDate, toDate })
     : null;
-  const { agencyIdToName, companyIdToName, companyIdToPayment, countryIdToName } = await resolveReferenceMaps(docs);
+  const { agencyIdToName, companyIdToName, countryIdToName } = await resolveReferenceMaps(docs);
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
@@ -691,8 +714,7 @@ async function getApplicantsUseCase(req) {
       liteMode: effectiveLiteMode,
       companyIdToName,
       countryIdToName,
-      agencyIdToName,
-      companyIdToPayment
+      agencyIdToName
     })
   );
 

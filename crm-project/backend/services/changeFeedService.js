@@ -18,7 +18,8 @@ async function emitChangeEvent({
     actorRole: String(actorRole || ""),
     correlationId: String(correlationId || ""),
     payload: payload && typeof payload === "object" ? payload : {},
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: new Date(Date.now() + Number(process.env.CHANGE_EVENT_TTL_DAYS || 30) * 24 * 60 * 60 * 1000)
   };
 
   try {

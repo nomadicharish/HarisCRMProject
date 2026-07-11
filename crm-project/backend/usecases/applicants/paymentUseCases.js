@@ -1,7 +1,8 @@
 const { admin, db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const {
-  refreshApplicantSummaries
+  refreshApplicantSummaries,
+  updatePaymentSummaryAfterPayment
 } = require("../../services/applicantSummaryService");
 const { getBankAccount } = require("../../services/bankAccountService");
 const { recordNotificationAction } = require("../../services/notificationService");
@@ -249,7 +250,7 @@ async function addPaymentUseCase(req) {
   };
 
   await applicantRef.collection("payments").add(payment);
-  await refreshApplicantSummaries(applicantId, applicantData);
+  await updatePaymentSummaryAfterPayment(applicantId, payment, applicantData);
   await recordNotificationAction({
     actionKey: "PAYMENT_ADDED",
     applicantId,

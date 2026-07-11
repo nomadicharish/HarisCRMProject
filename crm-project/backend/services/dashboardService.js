@@ -134,6 +134,21 @@ async function buildAccountantPaymentDashboard({ applicantDocs, from, to }) {
   });
 
   await Promise.all(applicantDocs.map(async (applicantDoc) => {
+    const applicant = applicantDoc.exists ? applicantDoc.data() || {} : {};
+    const cachedSummary = applicant?.paymentSummary?.applicant;
+    if (!from && !to && cachedSummary && Number.isFinite(Number(cachedSummary.paid))) {
+      if (Number(cachedSummary.paid) > 0) {
+        paymentRows.push({
+          applicantId: applicantDoc.id,
+          installmentCount: Number(cachedSummary.installmentCount || 0),
+          payment: {
+            amount: Number(cachedSummary.paid || 0),
+            currency: cachedSummary.currency || applicant.paymentCurrency || applicant.currency
+          }
+        });
+      }
+      return;
+    }
     const paymentsSnapshot = await applicantDoc.ref.collection("payments").get();
     paymentsSnapshot.docs.forEach((paymentDoc) => {
       const payment = paymentDoc.data() || {};
@@ -141,6 +156,7 @@ async function buildAccountantPaymentDashboard({ applicantDocs, from, to }) {
       if (!isPaymentInRange(payment, from, to)) return;
       paymentRows.push({
         applicantId: applicantDoc.id,
+        installmentCount: 1,
         payment
       });
     });
@@ -181,7 +197,7 @@ async function buildAccountantPaymentDashboard({ applicantDocs, from, to }) {
   return {
     totalByCurrency,
     applicantCount: applicantIds.size,
-    paymentCount: paymentRows.length,
+    paymentCount: paymentRows.reduce((total, row) => total + Number(row.installmentCount || 1), 0),
     applicantIds: [...applicantIds],
     agencies: [...agencyRows.values()].sort((a, b) => {
       const left = a.receivedByCurrency || {};

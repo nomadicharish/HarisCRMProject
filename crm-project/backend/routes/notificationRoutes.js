@@ -10,6 +10,7 @@ router.use(verifyToken);
 router.use(noStore);
 
 router.get("/", asyncHandler(notificationController.listNotifications));
+router.get("/unread-count", asyncHandler(notificationController.unreadCount));
 router.patch("/read", asyncHandler(notificationController.markAllRead));
 
 module.exports = router;

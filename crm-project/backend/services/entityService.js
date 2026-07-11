@@ -74,12 +74,26 @@ async function runFirestorePage(query, queryParams = {}) {
   const sortBy = queryParams?.sortBy || "createdAt";
   const sortOrder = queryParams?.sortOrder === "asc" ? "asc" : "desc";
   const total = await countQueryResults(query);
-  const snapshot = await query
-    .orderBy(sortBy === "name" ? "name" : "createdAt", sortOrder)
-    .offset((page - 1) * limit)
-    .limit(limit)
-    .get();
-  const items = mapSnapshot(snapshot);
+  const sortField = sortBy === "name" ? "name" : "createdAt";
+  let cursor = null;
+  try {
+    cursor = queryParams?.cursor
+      ? JSON.parse(Buffer.from(String(queryParams.cursor), "base64url").toString("utf8"))
+      : null;
+  } catch {
+    cursor = null;
+  }
+  query = query.orderBy(sortField, sortOrder).orderBy(admin.firestore.FieldPath.documentId(), sortOrder);
+  if (cursor?.id && Object.prototype.hasOwnProperty.call(cursor, "value")) {
+    const cursorValue = sortField === "createdAt" ? new Date(cursor.value) : cursor.value;
+    if (sortField !== "createdAt" || !Number.isNaN(cursorValue.getTime())) query = query.startAfter(cursorValue, cursor.id);
+  } else if (page > 1) {
+    query = query.offset((page - 1) * limit);
+  }
+  const snapshot = await query.limit(limit + 1).get();
+  const hasMore = snapshot.docs.length > limit;
+  const pageDocs = snapshot.docs.slice(0, limit);
+  const items = pageDocs.map((doc) => ({ id: doc.id, ...doc.data() }));
   const resolvedTotal = total ?? (page - 1) * limit + items.length;
 
   return {
@@ -88,7 +102,16 @@ async function runFirestorePage(query, queryParams = {}) {
       page,
       limit,
       total: resolvedTotal,
-      totalPages: Math.max(1, Math.ceil(resolvedTotal / limit))
+      totalPages: Math.max(1, Math.ceil(resolvedTotal / limit)),
+      hasMore,
+      nextCursor: hasMore && pageDocs.length
+        ? Buffer.from(JSON.stringify({
+            value: sortField === "createdAt"
+              ? pageDocs[pageDocs.length - 1].data()?.createdAt?.toDate?.().toISOString() || pageDocs[pageDocs.length - 1].data()?.createdAt
+              : pageDocs[pageDocs.length - 1].data()?.[sortField],
+            id: pageDocs[pageDocs.length - 1].id
+          })).toString("base64url")
+        : null
     }
   };
 }

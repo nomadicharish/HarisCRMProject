@@ -69,22 +69,40 @@ function NotificationBell() {
   const [open, setOpen] = useState(false);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadUnreadCount = useCallback(async () => {
     try {
-      const response = await API.get("/notifications", { params: { limit: 5 } });
-      setNotifications(Array.isArray(response.data?.items) ? response.data.items : []);
+      const response = await API.get("/notifications/unread-count");
       setUnreadCount(Number(response.data?.unreadCount || 0));
     } catch (error) {
-      console.error(error);
+      if (error?.code !== "ERR_CANCELED") console.error(error);
     }
   }, []);
 
   useEffect(() => {
-    load();
-    const timer = setInterval(load, 60000);
-    return () => clearInterval(timer);
-  }, [load]);
+    const initialLoadId = window.setTimeout(loadUnreadCount, 0);
+    const intervalId = window.setInterval(loadUnreadCount, 60_000);
+    return () => {
+      window.clearTimeout(initialLoadId);
+      window.clearInterval(intervalId);
+    };
+  }, [loadUnreadCount]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const controller = new AbortController();
+    API.get("/notifications", { params: { limit: 5 }, signal: controller.signal })
+      .then((response) => {
+        setNotifications(Array.isArray(response.data?.items) ? response.data.items : []);
+        setUnreadCount(Number(response.data?.unreadCount || 0));
+      })
+      .catch((error) => {
+        if (error?.code !== "ERR_CANCELED") console.error(error);
+      })
+      .finally(() => setLoadingNotifications(false));
+    return () => controller.abort();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -99,12 +117,18 @@ function NotificationBell() {
 
   const markAllRead = async () => {
     await API.patch("/notifications/read");
-    await load();
+    setUnreadCount(0);
+    setNotifications((items) => items.map((item) => ({ ...item, unread: false })));
+  };
+
+  const toggleNotifications = () => {
+    if (!open) setLoadingNotifications(true);
+    setOpen((value) => !value);
   };
 
   return (
     <div className="notificationTopbar" ref={panelRef}>
-      <button type="button" className="notificationBellBtn" onClick={() => setOpen((value) => !value)} aria-label="Notifications">
+      <button type="button" className="notificationBellBtn" onClick={toggleNotifications} aria-label="Notifications">
         <BellSvg />
         {badge > 0 ? <span className="notificationBadge">{badge}</span> : null}
       </button>
@@ -116,7 +140,8 @@ function NotificationBell() {
             <button type="button" onClick={markAllRead}>Mark all as read</button>
           </div>
           <div className="notificationOverlayList">
-            {notifications.length === 0 ? <div className="notificationEmpty">No notifications yet.</div> : null}
+            {loadingNotifications ? <div className="notificationEmpty">Loading notifications...</div> : null}
+            {!loadingNotifications && notifications.length === 0 ? <div className="notificationEmpty">No notifications yet.</div> : null}
             {notifications.map((item) => (
               <NotificationListItem
                 key={item.id}

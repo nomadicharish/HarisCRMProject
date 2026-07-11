@@ -127,7 +127,7 @@ const dispatchBodySchema = z.object({
 });
 
 const bulkDispatchBodySchema = z.object({
-  note: optionalTrimmedString,
+  note: trimmedString.min(1, "Dispatch note is required"),
   trackingUrl: trimmedString.min(1, "Tracking URL is required"),
   awbNumber: trimmedString.min(1, "AWB Number is required"),
   dispatchDate: trimmedString.min(1, "Dispatch date is required"),
@@ -165,6 +165,7 @@ const visaTravelBodySchema = z.object({
   arrivalBusNumber: optionalTrimmedString,
   arrivalBusDate: optionalTrimmedString,
   arrivalBusTime: optionalTrimmedString,
+  busArrivalPlace: optionalTrimmedString,
   hotelNameAddress: optionalTrimmedString,
   removeTravelFile: optionalTrimmedString,
   removeBusTicket: optionalTrimmedString,
@@ -196,6 +197,7 @@ const applicantsListQuerySchema = z.object({
     z.boolean()
   ).optional().default(true),
   page: z.coerce.number().int().min(1).optional().default(1),
+  cursor: optionalTrimmedString.optional().default(""),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   q: optionalTrimmedString.optional().default(""),
   fields: optionalTrimmedString.optional().default(""),

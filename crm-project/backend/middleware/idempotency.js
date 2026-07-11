@@ -55,7 +55,8 @@ function idempotency() {
           status: "IN_PROGRESS",
           createdAt: admin.firestore.FieldValue.serverTimestamp(),
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-          updatedAtMs: Date.now()
+          updatedAtMs: Date.now(),
+          expiresAt: new Date(Date.now() + IDEMPOTENCY_TTL_MS)
         },
         { merge: true }
       );

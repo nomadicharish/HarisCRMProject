@@ -157,9 +157,9 @@ function Settings() {
       setError("");
       const [countriesData, companiesData, employersData, agenciesData] = await Promise.all([
         getCached("/countries", { ttlMs: 120000 }),
-        getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
-        getCached("/employers", { params: { paginated: "false" }, ttlMs: 60000 }),
-        getCached("/agencies", { params: { paginated: "false" }, ttlMs: 60000 })
+        getCached("/companies", { params: { paginated: "false" }, ttlMs: 600000 }),
+        getCached("/employers", { params: { paginated: "false" }, ttlMs: 600000 }),
+        getCached("/agencies", { params: { paginated: "false" }, ttlMs: 600000 })
       ]);
       setCountries(normalizeListResponse(countriesData));
       setCompanies(normalizeListResponse(companiesData));

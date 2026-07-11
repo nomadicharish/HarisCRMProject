@@ -140,6 +140,7 @@ function VisaCollectionModal({
   const [arrivalBusNumber, setArrivalBusNumber] = useState("");
   const [arrivalBusDate, setArrivalBusDate] = useState(null);
   const [arrivalBusTime, setArrivalBusTime] = useState("");
+  const [busArrivalPlace, setBusArrivalPlace] = useState("");
   const [hotelNameAddress, setHotelNameAddress] = useState("");
   const [busTicketFile, setBusTicketFile] = useState(null);
   const [removeTravelFile, setRemoveTravelFile] = useState(false);
@@ -213,6 +214,7 @@ function VisaCollectionModal({
       setArrivalBusNumber(travelData?.arrivalBusNumber || "");
       setArrivalBusDate(travelData?.arrivalBusDate ? new Date(travelData.arrivalBusDate) : null);
       setArrivalBusTime(travelData?.arrivalBusTime || "");
+      setBusArrivalPlace(travelData?.busArrivalPlace || "");
       setHotelNameAddress(travelData?.hotelNameAddress || "");
       setRemoveTravelFile(false);
       setRemoveBusTicketFile(false);
@@ -234,6 +236,7 @@ function VisaCollectionModal({
       setArrivalBusNumber("");
       setArrivalBusDate(null);
       setArrivalBusTime("");
+      setBusArrivalPlace("");
       setHotelNameAddress("");
       setRemoveTravelFile(false);
       setRemoveBusTicketFile(false);
@@ -375,6 +378,7 @@ function VisaCollectionModal({
       formData.append("arrivalBusNumber", arrivalBusNumber.trim());
       formData.append("arrivalBusDate", formattedBusDate || "");
       formData.append("arrivalBusTime", trimmedBusTime);
+      formData.append("busArrivalPlace", busArrivalPlace.trim());
       formData.append("hotelNameAddress", hotelNameAddress.trim());
       if (removeTravelFile && !travelFile) formData.append("removeTravelFile", "true");
       if (removeBusTicketFile && !busTicketFile) formData.append("removeBusTicket", "true");
@@ -891,6 +895,19 @@ function VisaCollectionModal({
                           onClick={openTimePicker}
                           onFocus={openTimePicker}
                           onChange={(event) => setArrivalBusTime(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="bus-arrival-place">
+                          Bus Arrival Place (Optional)
+                        </label>
+                        <input
+                          id="bus-arrival-place"
+                          value={busArrivalPlace}
+                          disabled={isBusy}
+                          placeholder="Enter bus arrival place"
+                          onChange={(event) => setBusArrivalPlace(event.target.value)}
                         />
                       </div>
 

@@ -142,6 +142,7 @@ function ApplicantQuickPrint() {
           <Field label="Flight Arrival Place" value={details.arrival.arrivalPlace} />
           <Field label="Arrival Bus Number" value={details.arrival.arrivalBusNumber} />
           <Field label="Bus Arrival Date & Time" value={combineDateTime(details.arrival.arrivalBusDate, details.arrival.arrivalBusTime)} />
+          <Field label="Bus Arrival Place" value={details.arrival.busArrivalPlace} />
           <Field label="Hotel Name & Address" value={details.arrival.hotelNameAddress} />
         </section>
 

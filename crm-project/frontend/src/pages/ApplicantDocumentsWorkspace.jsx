@@ -365,12 +365,15 @@ function ApplicantDocumentsWorkspace() {
 
     try {
       setSaving(true);
-      await Promise.all(uploads.map(async ([docKey, file]) => {
+      // Keep uploads within one save sequential. The server groups the resulting
+      // document events by action and agent, so this produces one notification
+      // for the save instead of racing multiple notification writes.
+      for (const [docKey, file] of uploads) {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("documentType", docKey);
         await API.post(`/applicants/${id}/upload-document`, formData);
-      }));
+      }
 
       invalidateCache(`/applicants/${id}/documents`);
       invalidateCache(`/applicants/${id}/documents-page`);

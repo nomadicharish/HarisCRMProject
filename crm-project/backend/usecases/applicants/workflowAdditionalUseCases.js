@@ -673,6 +673,7 @@ async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isU
     `Arrival bus number: ${arrivalDetails.arrivalBusNumber || "-"}`,
     `Bus arrival date: ${arrivalDetails.arrivalBusDate || "-"}`,
     `Arrival bus time: ${arrivalDetails.arrivalBusTime || "-"}`,
+    `Bus arrival place: ${arrivalDetails.busArrivalPlace || "-"}`,
     `Hotel name and address: ${arrivalDetails.hotelNameAddress || "-"}`,
     arrivalDetails.fileUrl ? `Travel ticket: ${arrivalDetails.fileUrl}` : "",
     arrivalDetails.busTicketUrl ? `Bus ticket: ${arrivalDetails.busTicketUrl}` : ""
@@ -693,7 +694,7 @@ function isTruthyFormFlag(value) {
 
 async function addVisaTravelUseCase(req) {
   const applicantId = req.params.id;
-  const { date, time, ticketNumber, flightNumber, arrivalPlace, arrivalBusNumber, arrivalBusDate, arrivalBusTime, hotelNameAddress, removeTravelFile, removeBusTicket } = req.body;
+  const { date, time, ticketNumber, flightNumber, arrivalPlace, arrivalBusNumber, arrivalBusDate, arrivalBusTime, busArrivalPlace, hotelNameAddress, removeTravelFile, removeBusTicket } = req.body;
 
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency can add travel details", 403);
   if (!date || !time || !flightNumber || !arrivalPlace) {
@@ -755,6 +756,7 @@ async function addVisaTravelUseCase(req) {
     arrivalBusNumber: arrivalBusNumber || "",
     arrivalBusDate: arrivalBusDate || "",
     arrivalBusTime: arrivalBusTime || "",
+    busArrivalPlace: busArrivalPlace || "",
     hotelNameAddress: hotelNameAddress || "",
     fileUrl: shouldRemoveTravelFile ? "" : fileUrl || previousVisaTravelFileUrl || "",
     busTicketUrl: shouldRemoveBusTicket ? "" : busTicketUrl || previousBusTicketUrl || "",

@@ -3,7 +3,7 @@ import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import API from "../services/api";
-import { invalidateCache } from "../services/cachedApi";
+import { getCached, invalidateCache } from "../services/cachedApi";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
@@ -282,11 +282,17 @@ function CompanyFormPage() {
       try {
         setPageLoading(true);
         const [me, countryRes, employerRes, agencyRes, companyRes] = await Promise.all([
-          API.get("/auth/me"),
-          API.get("/countries"),
-          API.get("/employers?paginated=false"),
-          API.get("/agencies?paginated=false"),
-          API.get("/companies?paginated=false")
+          getCached("/auth/me", { ttlMs: 120000 }).then((data) => ({ data })),
+          getCached("/countries", { ttlMs: 600000 }).then((data) => ({ data })),
+          getCached("/employers", { params: { paginated: "false" }, ttlMs: 600000 }).then((data) => ({ data })),
+          getCached("/agencies", { params: { paginated: "false" }, ttlMs: 600000 }).then((data) => ({ data })),
+          getCached("/companies", {
+            params: { paginated: "false" },
+            ttlMs: 600000,
+            // The company was just updated before this edit page is reopened.
+            // Revalidate the HTTP cache so its employer/agency assignments are current.
+            force: isEdit
+          }).then((data) => ({ data }))
         ]);
         const nextUser = me.data || null;
         setUser(nextUser);

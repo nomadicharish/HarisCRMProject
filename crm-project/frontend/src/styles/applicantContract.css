@@ -430,7 +430,7 @@
 }
 
 .workflowModalBody{
-  padding:22px 28px 24px;
+  padding:12px 28px 12px;
 }
 
 .workflowDetailStack{
@@ -566,7 +566,7 @@
 .workflowPaymentStatus{
   display:flex;
   gap:14px;
-  padding:16px;
+  padding:8px 16px;
   border:1px solid;
   border-radius:12px;
 }
@@ -594,7 +594,7 @@
 .workflowPaymentStatusContent{
   display:flex;
   flex-direction:column;
-  gap:8px;
+  gap:2px;
   min-width:0;
 }
 
