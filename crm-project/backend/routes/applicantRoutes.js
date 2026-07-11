@@ -169,6 +169,17 @@ router.patch(
 // Add bulk dispatch
 router.post("/bulk-dispatch", allowRoles("AGENCY"), validate(bulkDispatchBodySchema), asyncHandler(applicantController.addBulkDispatch));
 
+// Upload contracts for multiple applicants
+router.post(
+  "/bulk-contract",
+  allowRoles("SUPER_USER", "EMPLOYER"),
+  uploadDoc.fields([
+    { name: "file", maxCount: 1 },
+    { name: "additionalDocuments", maxCount: 3 }
+  ]),
+  asyncHandler(applicantController.uploadBulkContract)
+);
+
 // Add dispatch
 router.post("/:id/dispatch", allowRoles("AGENCY"), validate(idParamsSchema, "params"), validate(dispatchBodySchema), asyncHandler(applicantController.addDispatch));
 

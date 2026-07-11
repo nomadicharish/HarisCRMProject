@@ -470,15 +470,6 @@ function ApplicantPayments() {
             showPendingAmount={false}
             accountantView={isAccountant}
             headerOnly
-            pendingStatusText={
-              applicantPayment.hasPendingAcknowledgement && applicantPayment.hasPendingConfirmation
-                ? "Acknowledgement & confirmation pending"
-                : applicantPayment.hasPendingAcknowledgement
-                ? "Acknowledgement pending"
-                : applicantPayment.hasPendingConfirmation
-                ? "Confirmation pending"
-                : ""
-            }
           />
         </aside>
 

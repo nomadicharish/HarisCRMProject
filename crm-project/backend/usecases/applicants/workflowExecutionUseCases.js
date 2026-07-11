@@ -7,6 +7,7 @@ const { addStageLog, autoAdvanceStage } = require("../../services/applicantWorkf
 const {
   recordAdminApproval,
   recordAgencyTask,
+  recordBulkContractUpload,
   recordEmployerWorkflowInitiated,
   recordNotificationAction
 } = require("../../services/notificationService");
@@ -152,12 +153,26 @@ async function getDispatchesUseCase(req) {
 
 async function uploadContractUseCase(req) {
   const applicantId = req.params.id;
+  const result = await uploadContractForApplicant({ req, applicantId, notify: true });
+  return {
+    message: "Contract uploaded successfully",
+    fileUrl: result.fileUrl,
+    status: result.status
+  };
+}
+
+async function uploadContractForApplicant({ req, applicantId, notify = true }) {
   const isSuperUser = isSuperUserLikeRole(req.user.role);
   const isEmployer = req.user.role === "EMPLOYER";
   const contractFile = req.file || (Array.isArray(req.files?.file) ? req.files.file[0] : null);
 
   if (!isSuperUser && !isEmployer) throw new AppError("Only Super User or Employer can upload contract", 403);
   if (!contractFile) throw new AppError("File required", 400);
+
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantSnapBeforeUpdate = await applicantRef.get();
+  if (!applicantSnapBeforeUpdate.exists) throw new AppError("Applicant not found", 404);
+  const applicantData = applicantSnapBeforeUpdate.data() || {};
 
   const bucket = admin.storage().bucket();
   const fileName = `contracts/${applicantId}_${Date.now()}`;
@@ -169,8 +184,6 @@ async function uploadContractUseCase(req) {
   await fileUpload.makePublic();
 
   const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-  const applicantRef = db.collection("applicants").doc(applicantId);
-  const applicantSnapBeforeUpdate = await applicantRef.get();
   const previousContractUrl = applicantSnapBeforeUpdate.exists
     ? applicantSnapBeforeUpdate.data()?.contract?.fileUrl || ""
     : "";
@@ -197,7 +210,7 @@ async function uploadContractUseCase(req) {
   await deleteStorageFileIfExists(bucket, previousContractUrl);
 
   if (isSuperUser) {
-    const currentStage = applicantSnapBeforeUpdate.data()?.stage || 1;
+    const currentStage = applicantData.stage || 1;
     if (currentStage === 4) {
       await applicantRef.update({
         stage: 5,
@@ -214,17 +227,88 @@ async function uploadContractUseCase(req) {
   }
 
   await refreshApplicantDocumentSummary(applicantId);
-  await recordEmployerWorkflowInitiated({
+  if (notify) {
+    await recordEmployerWorkflowInitiated({
+      applicantId,
+      applicant: applicantData,
+      user: req.user,
+      actionKey: "CONTRACT_ISSUED"
+    });
+  }
+
+  return {
     applicantId,
-    applicant: applicantSnapBeforeUpdate.data() || {},
+    applicant: { id: applicantId, ...applicantData },
+    fileUrl,
+    status: contractStatus
+  };
+}
+
+function parseBulkApplicantIds(value) {
+  if (Array.isArray(value)) return value.map((item) => String(item || "").trim()).filter(Boolean);
+  const raw = String(value || "").trim();
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.map((item) => String(item || "").trim()).filter(Boolean);
+  } catch {
+    // Fall back to comma-separated form data.
+  }
+  return raw.split(",").map((item) => item.trim()).filter(Boolean);
+}
+
+async function uploadBulkContractUseCase(req) {
+  const isSuperUser = isSuperUserLikeRole(req.user.role);
+  const isEmployer = req.user.role === "EMPLOYER";
+  if (!isSuperUser && !isEmployer) throw new AppError("Only Super User or Employer can upload contract", 403);
+
+  const contractFile = req.file || (Array.isArray(req.files?.file) ? req.files.file[0] : null);
+  if (!contractFile) throw new AppError("Contract file required", 400);
+
+  const applicantIds = Array.from(new Set(parseBulkApplicantIds(req.body?.applicantIds)));
+  const countryId = String(req.body?.countryId || "").trim();
+  const companyId = String(req.body?.companyId || "").trim();
+  if (!countryId || !companyId || !applicantIds.length) {
+    throw new AppError("Country, company and applicants are required", 400);
+  }
+
+  const applicantDocs = await db.getAll(...applicantIds.map((applicantId) => db.collection("applicants").doc(applicantId)));
+  const applicants = applicantDocs.map((doc) => (doc.exists ? { id: doc.id, ...doc.data() } : null)).filter(Boolean);
+  if (applicants.length !== applicantIds.length) throw new AppError("One or more applicants were not found", 404);
+  if (applicants.some((applicant) => applicant.countryId !== countryId || applicant.companyId !== companyId)) {
+    throw new AppError("Selected applicants must belong to the selected country and company", 400);
+  }
+  if (isEmployer) {
+    const employerDoc = req.user.employerId ? await db.collection("employers").doc(req.user.employerId).get() : null;
+    const employer = employerDoc?.exists ? employerDoc.data() || {} : {};
+    const employerCompanyIds = Array.isArray(employer.companyIds) && employer.companyIds.length
+      ? employer.companyIds
+      : employer.companyId
+        ? [employer.companyId]
+        : [];
+    if (!employerCompanyIds.includes(companyId)) {
+      throw new AppError("You can upload contracts only for your mapped companies", 403);
+    }
+    if (applicants.some((applicant) => String(applicant.approvalStatus || "").toLowerCase() !== "approved")) {
+      throw new AppError("You can upload contracts only for approved applicants", 403);
+    }
+  }
+
+  const results = [];
+  for (const applicantId of applicantIds) {
+    results.push(await uploadContractForApplicant({ req, applicantId, notify: false }));
+  }
+
+  await recordBulkContractUpload({
+    applicants: results.map((result) => result.applicant),
     user: req.user,
-    actionKey: "CONTRACT_ISSUED"
+    companyId
   });
 
   return {
-    message: "Contract uploaded successfully",
-    fileUrl,
-    status: contractStatus
+    message: "Bulk contract uploaded successfully",
+    savedCount: results.length,
+    applicantIds
   };
 }
 
@@ -947,6 +1031,7 @@ module.exports = {
   getSignedContractUseCase,
   getInterviewTicketUseCase,
   rejectSignedContractDocumentUseCase,
+  uploadBulkContractUseCase,
   uploadContractUseCase,
   uploadInterviewBiometricUseCase,
   uploadSignedContractUseCase

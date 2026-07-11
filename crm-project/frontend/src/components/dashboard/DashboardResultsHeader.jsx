@@ -6,15 +6,14 @@ function DashboardResultsHeader({
   showHeaderAction,
   onOpenCurrentAction,
   currentActionLabel,
-  showExportAction,
-  onExport,
-  exportLoading,
   showBulkDispatchAction = false,
   onOpenBulkDispatch,
+  showContractUploadAction = false,
+  onOpenContractUpload,
   showViewAllApplicants = false,
   onViewAllApplicants
 }) {
-  const hasRightActions = showHeaderAction || showBulkDispatchAction || showExportAction || showViewAllApplicants;
+  const hasRightActions = showHeaderAction || showBulkDispatchAction || showContractUploadAction || showViewAllApplicants;
 
   return (
     <div className="dashboardResultsHeader">
@@ -33,7 +32,7 @@ function DashboardResultsHeader({
               className="dashboardViewAllApplicants"
               onClick={onViewAllApplicants}
             >
-              View all applicants
+              View All Applicants
             </button>
           ) : null}
 
@@ -49,9 +48,9 @@ function DashboardResultsHeader({
             </button>
           ) : null}
 
-          {showExportAction ? (
-            <button type="button" className="dashboardPrimaryBtn" onClick={onExport} disabled={exportLoading}>
-              {exportLoading ? "Exporting..." : "Export to Excel"}
+          {showContractUploadAction ? (
+            <button type="button" className="dashboardSecondaryBtn" onClick={onOpenContractUpload}>
+              Contract Upload
             </button>
           ) : null}
         </div>

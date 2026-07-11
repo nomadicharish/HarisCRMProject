@@ -983,10 +983,12 @@
 .dashboardViewAllApplicants{
   padding:0;
   border:0;
+  padding-right: 12px;
   background:transparent;
   color:#0052cc;
-  font:inherit;
-  font-weight:500;
+  font-size:14px;
+  line-height:1.2;
+  font-weight:400;
   cursor:pointer;
 }
 
@@ -1598,7 +1600,7 @@
   align-items:flex-start;
   justify-content:space-between;
   gap:18px;
-  padding:24px 28px 18px;
+  padding:18px 28px 14px;
   border-bottom:1px solid #e5eaf3;
 }
 
@@ -1755,6 +1757,132 @@
   justify-content:flex-end;
   gap:12px;
   padding:22px 28px 28px;
+}
+
+.bulkContractModal{
+  width:min(1040px, 100%);
+}
+
+.bulkContractHeader{
+  display:grid;
+  grid-template-columns:44px 1fr auto;
+  align-items:flex-start;
+}
+
+.bulkContractHeaderIcon{
+  width:40px;
+  height:40px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  color:#0052cc;
+  background:#eef2ff;
+}
+
+.bulkContractSection{
+  padding-top:14px;
+  padding-bottom:14px;
+  border-bottom:1px solid #e5eaf3;
+}
+
+.bulkContractSection h3{
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+
+.bulkContractSection h3 span{
+  color:#475467;
+  font-weight:700;
+}
+
+.bulkContractHelpText{
+  color:#53627d;
+  font-size:13px;
+  line-height:1.45;
+}
+
+.bulkContractMainDrop,
+.bulkContractOptionalDrop{
+  min-height:64px;
+  border:1.5px dashed #9fc3ff;
+  border-radius:8px;
+  background:#fff;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:4px 20px;
+  cursor:pointer;
+}
+
+.bulkContractMainDrop:hover,
+.bulkContractOptionalDrop:hover{
+  border-color:#0052cc;
+  background:#f7fbff;
+}
+
+.bulkContractDropIcon{
+  width:44px;
+  height:44px;
+  border-radius:50%;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  color:#0052cc;
+  background:#eef4ff;
+}
+
+.bulkContractOptionalDrop .bulkContractDropIcon{
+  width:38px;
+  height:38px;
+  border-radius:8px;
+}
+
+.bulkContractDropCopy{
+  min-width:0;
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  color:#344054;
+  font-size:13px;
+  line-height:1.35;
+}
+
+.bulkContractDropCopy strong{
+  color:#0052cc;
+  font-size:14px;
+  font-weight:800;
+}
+
+.bulkContractDropCopy span{
+  color:#53627d;
+}
+
+.bulkContractOptionalList{
+  display:grid;
+  gap:12px;
+  margin-top:14px;
+}
+
+.bulkContractOptionalDrop{
+  min-height:64px;
+  position:relative;
+}
+
+.bulkContractOptionalBadge{
+  margin-left:auto;
+  border-radius:999px;
+  background:#f2f4f7;
+  color:#53627d;
+  font-size:12px;
+  font-weight:600;
+  padding:4px 10px;
+}
+
+.bulkContractFooter{
+  padding-top:18px;
 }
 
 .dashboardConfirmMessage{
@@ -2957,6 +3085,12 @@
   gap:12px;
 }
 
+.homeSectionDivider{
+  height:1px;
+  margin:16px 0 8px;
+  background:#0052cc;
+}
+
 .homeCardGridFour{
   grid-template-columns:repeat(4, minmax(0, 1fr));
 }
@@ -3106,7 +3240,7 @@
   grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
   gap:10px;
   align-items:center;
-  padding:10px 24px 10px;
+  padding:0px 24px 0px;
   border:1px solid #ff6b6b;
   border-radius:12px;
   background:linear-gradient(110deg,#fd8585 0%, #fff0f0 70%, #fff0f0 100%);
@@ -3287,17 +3421,18 @@
 }
 
 .homePaymentOverviewActions{
-  grid-column:1 / -1;
+  width:100%;
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:14px;
+  margin-top:16px;
   padding-top:10px;
-  border-top:1px solid #ffb3b3;
+  border-top:1px solid #0052cc;
 }
 
 .homePaymentOverviewActions button{
   min-height:44px;
-  border:1px solid #f2b5b5;
+  border:1px solid #dcdcdd;
   border-radius:8px;
   background:rgba(255,255,255,.78);
   display:flex;

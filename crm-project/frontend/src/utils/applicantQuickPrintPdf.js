@@ -13,6 +13,10 @@ function valueOrDash(value) {
   return String(value || "").trim() || "-";
 }
 
+function combineDateTime(date, time) {
+  return [date, time].filter((value) => String(value || "").trim()).join(" ");
+}
+
 function calculateAge(applicant) {
   const directAge = Number(applicant?.age || applicant?.personalDetails?.age);
   if (Number.isFinite(directAge) && directAge > 0) return directAge;
@@ -122,22 +126,30 @@ function drawIcon(page, type, x, y) {
     page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness, color: BLUE });
 
   if (type === "phone") {
-    line(x + 13, y + 30, x + 18, y + 23, 4);
-    line(x + 18, y + 23, x + 25, y + 16, 4);
-    line(x + 25, y + 16, x + 31, y + 13, 4);
+    page.drawRectangle({ x: x + 14, y: y + 9, width: 14, height: 26, borderColor: BLUE, borderWidth: 2 });
+    line(x + 18, y + 31, x + 24, y + 31, 1.5);
+    page.drawCircle({ x: cx, y: y + 13, size: 1.8, color: BLUE });
     return;
   }
   if (type === "whatsapp") {
-    page.drawCircle({ x: cx, y: cy + 1, size: 11, borderColor: BLUE, borderWidth: 2 });
-    line(x + 13, y + 10, x + 16, y + 16, 2);
-    line(x + 16, y + 16, x + 21, y + 13, 2);
-    line(x + 18, y + 27, x + 25, y + 18, 3);
+    page.drawCircle({ x: cx, y: cy + 3, size: 12, borderColor: BLUE, borderWidth: 2 });
+    line(x + 13, y + 11, x + 16, y + 16, 2);
+    line(x + 16, y + 16, x + 21, y + 14, 2);
+    line(x + 17, y + 27, x + 20, y + 23, 2);
+    line(x + 20, y + 23, x + 26, y + 20, 2);
+    line(x + 26, y + 20, x + 29, y + 22, 2);
     return;
   }
   if (type === "company" || type === "hotel") {
-    page.drawRectangle({ x: x + 11, y: y + 9, width: 12, height: 24, borderColor: BLUE, borderWidth: 2 });
-    page.drawRectangle({ x: x + 24, y: y + 14, width: 8, height: 19, borderColor: BLUE, borderWidth: 2 });
-    [14, 19, 24].forEach((yy) => line(x + 15, y + yy, x + 19, y + yy, 1.5));
+    page.drawRectangle({ x: x + 10, y: y + 9, width: 22, height: 25, borderColor: BLUE, borderWidth: 2 });
+    if (type === "hotel") {
+      line(x + 15, y + 14, x + 15, y + 22, 2);
+      line(x + 15, y + 18, x + 28, y + 18, 2);
+      line(x + 28, y + 14, x + 28, y + 24, 2);
+    } else {
+      [15, 21, 27].forEach((yy) => line(x + 15, y + yy, x + 19, y + yy, 1.5));
+      [15, 21, 27].forEach((yy) => line(x + 23, y + yy, x + 27, y + yy, 1.5));
+    }
     return;
   }
   if (type === "job") {
@@ -146,28 +158,41 @@ function drawIcon(page, type, x, y) {
     line(x + 9, y + 22, x + 33, y + 22, 1.5);
     return;
   }
-  if (type === "calendar") {
+  if (type === "calendar" || type === "calendarClock") {
     page.drawRectangle({ x: x + 10, y: y + 10, width: 23, height: 22, borderColor: BLUE, borderWidth: 2 });
     line(x + 10, y + 25, x + 33, y + 25, 2);
     line(x + 16, y + 35, x + 16, y + 29, 2);
     line(x + 27, y + 35, x + 27, y + 29, 2);
+    if (type === "calendarClock") {
+      page.drawCircle({ x: x + 28, y: y + 14, size: 5, borderColor: BLUE, borderWidth: 1.5 });
+      line(x + 28, y + 14, x + 28, y + 17, 1.2);
+      line(x + 28, y + 14, x + 31, y + 14, 1.2);
+    } else {
+      line(x + 15, y + 20, x + 18, y + 20, 1.4);
+      line(x + 23, y + 20, x + 26, y + 20, 1.4);
+      line(x + 15, y + 15, x + 18, y + 15, 1.4);
+    }
     return;
   }
   if (type === "time") {
-    page.drawCircle({ x: cx, y: cy, size: 12, color: BLUE });
+    page.drawCircle({ x: cx, y: cy, size: 12, borderColor: BLUE, borderWidth: 2 });
     line(cx, cy, cx, cy + 7, 2);
     line(cx, cy, cx + 6, cy - 4, 2);
     return;
   }
   if (type === "flight") {
-    line(x + 8, y + 18, x + 34, y + 26, 3);
-    line(x + 19, y + 22, x + 13, y + 32, 2);
-    line(x + 23, y + 23, x + 29, y + 13, 2);
+    line(x + 8, y + 22, x + 34, y + 22, 2.5);
+    line(x + 24, y + 22, x + 14, y + 33, 2);
+    line(x + 24, y + 22, x + 14, y + 11, 2);
+    line(x + 10, y + 22, x + 7, y + 27, 1.8);
+    line(x + 10, y + 22, x + 7, y + 17, 1.8);
+    line(x + 31, y + 22, x + 35, y + 25, 1.8);
+    line(x + 31, y + 22, x + 35, y + 19, 1.8);
     return;
   }
   if (type === "pin") {
-    page.drawCircle({ x: cx, y: cy + 5, size: 10, color: BLUE });
-    page.drawCircle({ x: cx, y: cy + 5, size: 3, color: WHITE });
+    page.drawCircle({ x: cx, y: cy + 6, size: 10, borderColor: BLUE, borderWidth: 2 });
+    page.drawCircle({ x: cx, y: cy + 6, size: 3, borderColor: BLUE, borderWidth: 1.5 });
     line(cx - 7, cy - 1, cx, y + 7, 2);
     line(cx + 7, cy - 1, cx, y + 7, 2);
     return;
@@ -175,8 +200,19 @@ function drawIcon(page, type, x, y) {
   if (type === "bus") {
     page.drawRectangle({ x: x + 9, y: y + 11, width: 24, height: 22, borderColor: BLUE, borderWidth: 2 });
     line(x + 12, y + 25, x + 30, y + 25, 2);
+    line(x + 13, y + 18, x + 29, y + 18, 1.5);
     page.drawCircle({ x: x + 14, y: y + 10, size: 3, color: BLUE });
     page.drawCircle({ x: x + 28, y: y + 10, size: 3, color: BLUE });
+    return;
+  }
+  if (type === "busClock") {
+    page.drawRectangle({ x: x + 8, y: y + 14, width: 22, height: 18, borderColor: BLUE, borderWidth: 2 });
+    line(x + 11, y + 25, x + 27, y + 25, 1.8);
+    page.drawCircle({ x: x + 13, y: y + 13, size: 2.5, color: BLUE });
+    page.drawCircle({ x: x + 25, y: y + 13, size: 2.5, color: BLUE });
+    page.drawCircle({ x: x + 31, y: y + 13, size: 6, borderColor: BLUE, borderWidth: 1.5 });
+    line(x + 31, y + 13, x + 31, y + 16, 1.2);
+    line(x + 31, y + 13, x + 34, y + 13, 1.2);
   }
 }
 
@@ -264,12 +300,12 @@ async function drawDetailsPage(pdfDoc, applicant, assets, fonts) {
   drawDetail(page, { x: rightX, y: rows[0], width: columnWidth, icon: "whatsapp", label: "WhatsApp Number", value: applicant?.whatsappNumber || personal.whatsappNumber || personal.whatsapp, ...fonts });
   drawDetail(page, { x: leftX, y: rows[1], width: columnWidth, icon: "company", label: "Company", value: applicant?.companyName, ...fonts });
   drawDetail(page, { x: rightX, y: rows[1], width: columnWidth, icon: "job", label: "Job Position", value: applicant?.jobPositionName, ...fonts });
-  drawDetail(page, { x: leftX, y: rows[2], width: columnWidth, icon: "calendar", label: "Arrival Date", value: arrival.date, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[2], width: columnWidth, icon: "time", label: "Arrival Time", value: arrival.time, ...fonts });
+  drawDetail(page, { x: leftX, y: rows[2], width: columnWidth, icon: "calendarClock", label: "Flight Arrival Date & Time", value: combineDateTime(arrival.date, arrival.time), ...fonts });
   drawDetail(page, { x: leftX, y: rows[3], width: columnWidth, icon: "flight", label: "Flight Number", value: arrival.flightNumber, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[3], width: columnWidth, icon: "pin", label: "Arrival Place", value: arrival.arrivalPlace, ...fonts });
+  drawDetail(page, { x: rightX, y: rows[3], width: columnWidth, icon: "pin", label: "Flight Arrival Place", value: arrival.arrivalPlace, ...fonts });
   drawDetail(page, { x: leftX, y: rows[4], width: columnWidth, icon: "bus", label: "Arrival Bus Number", value: arrival.arrivalBusNumber, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[4], width: columnWidth, icon: "hotel", label: "Hotel Name & Address", value: arrival.hotelNameAddress, ...fonts });
+  drawDetail(page, { x: rightX, y: rows[4], width: columnWidth, icon: "busClock", label: "Bus Arrival Date & Time", value: combineDateTime(arrival.arrivalBusDate, arrival.arrivalBusTime), ...fonts });
+  drawDetail(page, { x: rightX, y: rows[2], width: columnWidth, icon: "hotel", label: "Hotel Name & Address", value: arrival.hotelNameAddress, ...fonts });
 }
 
 async function appendAttachment(pdfDoc, attachment, fonts, assetLoader) {

@@ -46,6 +46,15 @@ function isWithinRange(date, fromDate, toDate) {
   return true;
 }
 
+function getLastOneMonthRange() {
+  const to = new Date();
+  to.setHours(23, 59, 59, 999);
+  const from = new Date(to);
+  from.setMonth(from.getMonth() - 1);
+  from.setHours(0, 0, 0, 0);
+  return { from, to };
+}
+
 function hasResidencePermit(applicant) {
   const permit = applicant?.residencePermit || {};
   return Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl || permit.frontFileUrl || permit.backFileUrl);
@@ -99,11 +108,16 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
   const interviewDate = firstDate(applicant?.embassyInterview?.dateTime, applicant?.embassyInterview?.date, applicant?.embassyInterview?.createdAt);
   const visaCollectionDate = firstDate(applicant?.visaCollection?.dateTime, applicant?.visaCollection?.date, applicant?.visaCollection?.createdAt);
   const arrivalDate = firstDate(applicant?.visaTravel?.dateTime, applicant?.visaTravel?.date, applicant?.visaTravel?.createdAt);
+  const arrivedDate = firstDate(applicant?.completedAt, applicant?.stageUpdatedAt, applicant?.visaTravel?.dateTime, applicant?.visaTravel?.date, applicant?.visaTravel?.createdAt);
   const paymentStage = resolveApplicantPaymentStage(applicant, applicant?.payment);
 
   switch (filter) {
     case "arriving":
       return stage < 13 && isWithinRange(arrivalDate, fromDate, toDate);
+    case "arrived_last_month": {
+      const range = getLastOneMonthRange();
+      return stage >= 13 && isWithinRange(arrivedDate, range.from, range.to);
+    }
     case "visa_collection":
       return stage < 12 && isWithinRange(visaCollectionDate, fromDate, toDate);
     case "embassy_interview":
@@ -454,6 +468,16 @@ function mapApplicant({
       stageLabel,
       applicantBannerStatus,
       statusText,
+      arrivalDate: data?.visaTravel?.date || data?.visaTravel?.dateTime || "",
+      visaTravel: data?.visaTravel
+        ? {
+            date: data.visaTravel.date || "",
+            dateTime: data.visaTravel.dateTime || "",
+            time: data.visaTravel.time || "",
+            arrivalBusDate: data.visaTravel.arrivalBusDate || "",
+            arrivalBusTime: data.visaTravel.arrivalBusTime || ""
+          }
+        : null,
       createdAt: data?.createdAt || null,
       updatedAt: data?.updatedAt || null,
       payment

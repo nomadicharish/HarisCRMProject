@@ -27,6 +27,7 @@ const {
   getSignedContractUseCase,
   getInterviewTicketUseCase,
   rejectSignedContractDocumentUseCase,
+  uploadBulkContractUseCase,
   uploadContractUseCase,
   uploadInterviewBiometricUseCase,
   uploadSignedContractUseCase
@@ -161,6 +162,15 @@ async function uploadContract(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Upload Contract Error", error);
+  }
+}
+
+async function uploadBulkContract(req, res) {
+  try {
+    const payload = await uploadBulkContractUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Upload Bulk Contract Error", error);
   }
 }
 
@@ -458,6 +468,7 @@ module.exports = {
   approveAndMoveStage,
   addDispatch,
   getDispatches,
+  uploadBulkContract,
   uploadContract,
   approveContract,
   getContract,

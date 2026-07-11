@@ -163,6 +163,8 @@ const visaTravelBodySchema = z.object({
   flightNumber: trimmedString.min(1, "Flight number is required"),
   arrivalPlace: trimmedString.min(1, "Arrival place is required"),
   arrivalBusNumber: optionalTrimmedString,
+  arrivalBusDate: optionalTrimmedString,
+  arrivalBusTime: optionalTrimmedString,
   hotelNameAddress: optionalTrimmedString,
   removeTravelFile: optionalTrimmedString,
   removeBusTicket: optionalTrimmedString,

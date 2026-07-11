@@ -1,6 +1,18 @@
 import React from "react";
 import VirtualizedRows from "./VirtualizedRows";
 
+function formatArrivalDate(applicant = {}) {
+  const value = applicant.arrivalDate || applicant.visaTravel?.date || applicant.visaTravel?.dateTime || "";
+  if (!value) return "-";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(value))) {
+    const [year, month, day] = String(value).split("-");
+    return `${day}/${month}/${year}`;
+  }
+  const date = typeof value?.toDate === "function" ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value || "-");
+  return date.toLocaleDateString("en-GB");
+}
+
 export function resolveApplicantWorkflowMeta(applicant = {}) {
   const statusText =
     applicant.applicantBannerStatus ||
@@ -30,16 +42,29 @@ function ApplicantsTable({
   rows = [],
   isEmployer = false,
   showAgencyColumn = false,
+  showArrivalDateColumn = false,
   onOpenApplicant,
   onQuickPrint,
   formatPendingAmount
 }) {
   const gridTemplateColumns = isEmployer
-    ? "2fr 2fr 2fr 1fr"
+    ? "2fr 2fr 1.6fr 1.2fr 1fr"
     : showAgencyColumn
-    ? "2fr 2fr 1.4fr 1.2fr 1.5fr"
+    ? showArrivalDateColumn
+      ? "2fr 2fr 1.2fr 1.2fr 1.3fr 1.2fr"
+      : "2fr 2fr 1.4fr 1.2fr 1.5fr"
+    : showArrivalDateColumn
+    ? "2fr 2fr 1.5fr 1.5fr 1.2fr"
     : "2fr 2fr 1.5fr 1.5fr";
-  const tableColumnCount = isEmployer ? 4 : showAgencyColumn ? 5 : 4;
+  const tableColumnCount = isEmployer
+    ? 5
+    : showArrivalDateColumn
+    ? showAgencyColumn
+      ? 6
+      : 5
+    : showAgencyColumn
+    ? 5
+    : 4;
 
   if (!rows.length) {
     return (
@@ -49,6 +74,7 @@ function ApplicantsTable({
             <th>Name</th>
             <th>Status</th>
             <th>Company</th>
+            {showArrivalDateColumn ? <th>Arrival Date</th> : null}
             {showAgencyColumn ? <th>Agent</th> : null}
             {isEmployer ? <th>Actions</th> : null}
             {!isEmployer ? <th>Payment Status</th> : null}
@@ -73,6 +99,7 @@ function ApplicantsTable({
             <th>Name</th>
               <th>Status</th>
               <th>Company</th>
+              {showArrivalDateColumn ? <th>Arrival Date</th> : null}
               {showAgencyColumn ? <th>Agent</th> : null}
               {isEmployer ? <th>Actions</th> : null}
               {!isEmployer ? <th>Payment Status</th> : null}
@@ -90,14 +117,6 @@ function ApplicantsTable({
             const verificationPending =
               Boolean(applicant.payment?.hasPendingAcknowledgement) ||
               Boolean(applicant.payment?.hasPendingConfirmation);
-            const verificationText =
-              applicant.payment?.hasPendingAcknowledgement && applicant.payment?.hasPendingConfirmation
-                ? "Acknowledgement & confirmation pending"
-                : applicant.payment?.hasPendingAcknowledgement
-                ? "Acknowledgement pending"
-                : applicant.payment?.hasPendingConfirmation
-                ? "Confirmation pending"
-                : "";
             const isCandidateApprovalPending =
               Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
             const canQuickPrint =
@@ -127,6 +146,7 @@ function ApplicantsTable({
                   </div>
                 </td>
                 <td>{applicant.companyName || "-"}</td>
+                {showArrivalDateColumn ? <td>{formatArrivalDate(applicant)}</td> : null}
                 {showAgencyColumn ? <td>{applicant.agencyName || "-"}</td> : null}
                 {isEmployer ? (
                   <td>
@@ -158,7 +178,6 @@ function ApplicantsTable({
                             {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
                           </span>
                         ) : null}
-                        {verificationText ? <span className="dashboardPaymentAmount">{verificationText}</span> : null}
                       </div>
                     )}
                   </td>
@@ -177,6 +196,7 @@ function ApplicantsTable({
         <div>Name</div>
         <div>Status</div>
         <div>Company</div>
+        {showArrivalDateColumn ? <div>Arrival Date</div> : null}
         {showAgencyColumn ? <div>Agent</div> : null}
         {isEmployer ? <div>Actions</div> : null}
         {!isEmployer ? <div>Payment Status</div> : null}
@@ -196,14 +216,6 @@ function ApplicantsTable({
           const verificationPending =
             Boolean(applicant.payment?.hasPendingAcknowledgement) ||
             Boolean(applicant.payment?.hasPendingConfirmation);
-          const verificationText =
-            applicant.payment?.hasPendingAcknowledgement && applicant.payment?.hasPendingConfirmation
-              ? "Acknowledgement & confirmation pending"
-              : applicant.payment?.hasPendingAcknowledgement
-              ? "Acknowledgement pending"
-              : applicant.payment?.hasPendingConfirmation
-              ? "Confirmation pending"
-              : "";
           const isCandidateApprovalPending =
             Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
           const canQuickPrint =
@@ -230,6 +242,7 @@ function ApplicantsTable({
                 {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
               </div>
               <div>{applicant.companyName || "-"}</div>
+              {showArrivalDateColumn ? <div>{formatArrivalDate(applicant)}</div> : null}
               {showAgencyColumn ? <div>{applicant.agencyName || "-"}</div> : null}
               {isEmployer ? (
                 <div>
@@ -261,7 +274,6 @@ function ApplicantsTable({
                           {formatPendingAmount(pendingAmount, applicant.payment?.currency)}
                         </span>
                       ) : null}
-                      {verificationText ? <span className="dashboardPaymentAmount">{verificationText}</span> : null}
                     </>
                   )}
                 </div>

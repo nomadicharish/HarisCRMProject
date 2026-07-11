@@ -66,6 +66,7 @@ const ACTION_META = {
   VISA_COLLECTION_COMPLETED: { title: "Visa Collection Travel Added", tone: "blue", icon: "calendar", verb: "added visa collection travel" },
   ARRIVAL_DETAILS_ADDED: { title: "Arrival Details Added", tone: "blue", icon: "send", verb: "added arrival details" },
   PROCESS_COMPLETED: { title: "Candidate Arrival Completed", tone: "green", icon: "send", verb: "marked candidate arrival and completion" },
+  COMPANY_ASSIGNED: { title: "New Company Added", tone: "blue", icon: "building", verb: "added company" },
   TRC_ADDED: { title: "TRC Added", tone: "green", icon: "document", verb: "added TRC" }
 };
 
@@ -232,6 +233,7 @@ async function addAppNotificationEvent(payload = {}) {
     icon: meta.icon,
     verb: meta.verb,
     applicantId: payload.applicantId || "",
+    applicantIds: Array.isArray(payload.applicantIds) ? payload.applicantIds.filter(Boolean) : [],
     applicantName: payload.applicantName || "",
     actorId: payload.actorId || "",
     actorRole: payload.actorRole || "",
@@ -244,7 +246,33 @@ async function addAppNotificationEvent(payload = {}) {
     recipientAgencyId: payload.recipientAgencyId || "",
     recipientCompanyId: payload.recipientCompanyId || "",
     recipientEmployerId: payload.recipientEmployerId || "",
+    companyName: payload.companyName || "",
     createdAt: now
+  });
+}
+
+async function recordCompanyAssignmentNotification({
+  companyId = "",
+  companyName = "",
+  actor = {},
+  recipientRole = "",
+  recipientAgencyId = "",
+  recipientEmployerId = ""
+} = {}) {
+  if (!companyId || !recipientRole) return;
+  await safeAddDailyEvent({
+    type: "APP_NOTIFICATION",
+    actionKey: "COMPANY_ASSIGNED",
+    actionLabel: ACTION_META.COMPANY_ASSIGNED.title,
+    actorId: actor.uid || "",
+    actorRole: actor.role || "SUPER_USER",
+    actorName: actor.name || actor.displayName || "Super User",
+    companyId,
+    companyName,
+    recipientRoles: [recipientRole],
+    recipientAgencyId,
+    recipientCompanyId: companyId,
+    recipientEmployerId
   });
 }
 
@@ -324,6 +352,33 @@ async function recordEmployerWorkflowInitiated({ applicantId, applicant = {}, us
     recipientAgencyId: applicant.agencyId || "",
     recipientCompanyId: applicant.companyId || "",
     recipientEmployerId: applicant.employerId || ""
+  });
+}
+
+async function recordBulkContractUpload({ applicants = [], user = {}, companyId = "" } = {}) {
+  const applicantIds = applicants.map((applicant) => applicant.id).filter(Boolean);
+  if (!applicantIds.length) return;
+  const actorName = user?.role === "EMPLOYER"
+    ? await getEmployerName(user)
+    : await resolveActorName(user, "Super User");
+  const firstApplicant = applicants[0] || {};
+  await safeAddDailyEvent({
+    type: "APP_NOTIFICATION",
+    actionKey: "CONTRACT_ISSUED",
+    actionLabel: ACTION_META.CONTRACT_ISSUED.title,
+    applicantIds,
+    applicantId: applicantIds[0] || "",
+    applicantName: getApplicantDisplayName(firstApplicant),
+    actorId: user.uid || "",
+    actorRole: user.role || "",
+    actorName,
+    agencyId: firstApplicant.agencyId || "",
+    companyId: companyId || firstApplicant.companyId || "",
+    employerId: user.employerId || firstApplicant.employerId || "",
+    recipientRoles: user.role === "EMPLOYER" ? [SUPER_USER_ROLE] : ["EMPLOYER"],
+    recipientAgencyId: firstApplicant.agencyId || "",
+    recipientCompanyId: companyId || firstApplicant.companyId || "",
+    recipientEmployerId: user.role === "EMPLOYER" ? "" : firstApplicant.employerId || ""
   });
 }
 
@@ -429,7 +484,7 @@ async function getScopedEventsForUser(user = {}) {
   events = events.filter((event, index) => explicitChecks[index] === true || explicitChecks[index] === null);
   if (user.role === "AGENCY") {
     const agencyId = user.agencyId || user.uid || "";
-    events = events.filter((event) => event.agencyId === agencyId);
+    events = events.filter((event) => event.agencyId === agencyId || event.recipientAgencyId === agencyId);
     // Agents shouldn't receive notifications about their own document uploads; only admins should
     events = events.filter((event) => !(event.actionKey === "DOCUMENT_UPLOADED"));
   } else if (user.role === "EMPLOYER") {
@@ -448,10 +503,14 @@ function buildNotificationMessage(group) {
   const actor = group.actorName || "User";
   const verb = group.verb || "updated";
   const count = group.count || group.applicantIds?.size || 0;
+  if (group.actionKey === "COMPANY_ASSIGNED") {
+    return `New company added: ${group.companyName || group.companyId || "Company"}.`;
+  }
   // For creation verbs prefer "{Actor} created {n} applicants." phrasing
   if (/created applicant/i.test(verb) || /applicants added/i.test(group.title || "")) {
     return `${actor} created ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   }
+  if (group.actionKey === "CONTRACT_ISSUED") return `${actor} added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   if (group.actionKey === "APPLICANT_APPROVED") return `${actor} approved ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   if (group.actionKey === "DOCUMENT_APPROVED") return `${actor} approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   if (group.actionKey === "DOCUMENT_REJECTED") return `${actor} rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
@@ -476,13 +535,21 @@ function aggregateNotificationEvents(events = [], lastReadAtMs = 0) {
       actorName: event.actorName || "User",
       agencyId: event.agencyId || "",
       companyId: event.companyId || "",
+      companyName: event.companyName || "",
       applicantIds: new Set(),
       unreadApplicantIds: new Set(),
       latestAt: createdAtMs,
       unread: false
     };
-    if (event.applicantId) current.applicantIds.add(event.applicantId);
-    if (event.applicantId && createdAtMs > lastReadAtMs) current.unreadApplicantIds.add(event.applicantId);
+    const eventApplicantIds = Array.isArray(event.applicantIds) && event.applicantIds.length
+      ? event.applicantIds
+      : event.applicantId
+        ? [event.applicantId]
+        : [];
+    eventApplicantIds.forEach((applicantId) => {
+      current.applicantIds.add(applicantId);
+      if (createdAtMs > lastReadAtMs) current.unreadApplicantIds.add(applicantId);
+    });
     current.latestAt = Math.max(current.latestAt, createdAtMs);
     current.unread = current.unread || createdAtMs > lastReadAtMs;
     groups.set(key, current);
@@ -701,7 +768,9 @@ module.exports = {
   markNotificationsRead,
   recordAdminApproval,
   recordAgencyTask,
+  recordCompanyAssignmentNotification,
   recordEmployerWorkflowInitiated,
+  recordBulkContractUpload,
   recordNotificationAction,
   getUserName,
   runDailyNotificationSummaries,

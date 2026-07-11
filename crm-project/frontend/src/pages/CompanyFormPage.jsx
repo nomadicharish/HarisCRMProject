@@ -389,7 +389,6 @@ function CompanyFormPage() {
 
     try {
       await navigator.clipboard.writeText(link);
-      toast.success("Add applicant link copied.");
     } catch {
       const textArea = document.createElement("textarea");
       textArea.value = link;
@@ -399,7 +398,6 @@ function CompanyFormPage() {
       textArea.select();
       document.execCommand("copy");
       document.body.removeChild(textArea);
-      toast.success("Add applicant link copied.");
     }
   };
 

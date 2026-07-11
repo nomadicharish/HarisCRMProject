@@ -666,11 +666,13 @@ async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isU
   ].filter(Boolean);
   const lines = [
     `Applicant: ${applicantName}`,
-    `Arrival date: ${arrivalDetails.date || "-"}`,
-    `Arrival time: ${arrivalDetails.time || "-"}`,
+    `Flight arrival date: ${arrivalDetails.date || "-"}`,
+    `Flight arrival time: ${arrivalDetails.time || "-"}`,
     `Flight number: ${arrivalDetails.flightNumber || "-"}`,
-    `Arrival place: ${arrivalDetails.arrivalPlace || "-"}`,
+    `Flight arrival place: ${arrivalDetails.arrivalPlace || "-"}`,
     `Arrival bus number: ${arrivalDetails.arrivalBusNumber || "-"}`,
+    `Bus arrival date: ${arrivalDetails.arrivalBusDate || "-"}`,
+    `Arrival bus time: ${arrivalDetails.arrivalBusTime || "-"}`,
     `Hotel name and address: ${arrivalDetails.hotelNameAddress || "-"}`,
     arrivalDetails.fileUrl ? `Travel ticket: ${arrivalDetails.fileUrl}` : "",
     arrivalDetails.busTicketUrl ? `Bus ticket: ${arrivalDetails.busTicketUrl}` : ""
@@ -691,7 +693,7 @@ function isTruthyFormFlag(value) {
 
 async function addVisaTravelUseCase(req) {
   const applicantId = req.params.id;
-  const { date, time, ticketNumber, flightNumber, arrivalPlace, arrivalBusNumber, hotelNameAddress, removeTravelFile, removeBusTicket } = req.body;
+  const { date, time, ticketNumber, flightNumber, arrivalPlace, arrivalBusNumber, arrivalBusDate, arrivalBusTime, hotelNameAddress, removeTravelFile, removeBusTicket } = req.body;
 
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency can add travel details", 403);
   if (!date || !time || !flightNumber || !arrivalPlace) {
@@ -704,6 +706,9 @@ async function addVisaTravelUseCase(req) {
   const applicantData = applicantSnap.data() || {};
   assertNoRejectedSignedDocuments(applicantData);
   const currentStage = Number(applicantData.stage || 1);
+  if (currentStage >= 13) {
+    throw new AppError("Applicant arrival details cannot be edited after candidate arrival is completed", 400);
+  }
   if (currentStage < 12) {
     throw new AppError("Cannot add applicant arrival details before applicant arrival stage", 400);
   }
@@ -748,6 +753,8 @@ async function addVisaTravelUseCase(req) {
     flightNumber,
     arrivalPlace,
     arrivalBusNumber: arrivalBusNumber || "",
+    arrivalBusDate: arrivalBusDate || "",
+    arrivalBusTime: arrivalBusTime || "",
     hotelNameAddress: hotelNameAddress || "",
     fileUrl: shouldRemoveTravelFile ? "" : fileUrl || previousVisaTravelFileUrl || "",
     busTicketUrl: shouldRemoveBusTicket ? "" : busTicketUrl || previousBusTicketUrl || "",

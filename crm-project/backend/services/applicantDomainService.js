@@ -30,6 +30,8 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "stageStatus",
   "createdAt",
   "updatedAt",
+  "completedAt",
+  "stageUpdatedAt",
   "email",
   "totalApplicantPayment",
   "totalAmount",

@@ -32,6 +32,15 @@ function getDateRange(fromDate = "", toDateValue = "") {
   return { from, to };
 }
 
+function getLastOneMonthRange() {
+  const to = new Date();
+  to.setHours(23, 59, 59, 999);
+  const from = new Date(to);
+  from.setMonth(from.getMonth() - 1);
+  from.setHours(0, 0, 0, 0);
+  return { from, to };
+}
+
 function hasResidencePermit(applicant) {
   const permit = applicant?.residencePermit || {};
   return Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl || permit.frontFileUrl || permit.backFileUrl);
@@ -305,6 +314,7 @@ async function getDashboard({ user, query }) {
       embassyInterview: createMetric("embassyInterview", "Embassy Interviews", "embassy_interview", "purple"),
       embassyAppointment: createMetric("embassyAppointment", "Embassy Appointments", "embassy_appointment", "orange")
     },
+    arrivedLastMonth: createMetric("arrivedLastMonth", "Applicants Arrived in last one month", "arrived_last_month", "green"),
     overdue: {},
     payments: {
       applicantsWithPendingPayment: 0,
@@ -370,6 +380,7 @@ async function getDashboard({ user, query }) {
         docs
       })).rows
     : new Map();
+  const arrivedLastMonthRange = getLastOneMonthRange();
 
   for (const doc of docs) {
     const data = doc.data() || {};
@@ -380,6 +391,7 @@ async function getDashboard({ user, query }) {
     const interviewDate = resolveWorkflowDate(data?.embassyInterview?.dateTime, data?.embassyInterview?.date, data?.embassyInterview?.createdAt);
     const visaCollectionDate = resolveWorkflowDate(data?.visaCollection?.dateTime, data?.visaCollection?.date, data?.visaCollection?.createdAt);
     const arrivalDate = resolveWorkflowDate(data?.visaTravel?.dateTime, data?.visaTravel?.date, data?.visaTravel?.createdAt);
+    const arrivedDate = resolveWorkflowDate(data?.completedAt, data?.stageUpdatedAt, data?.visaTravel?.dateTime, data?.visaTravel?.date, data?.visaTravel?.createdAt);
 
     summary.totalApplicants += 1;
     summary.stageCounts[stage] = (summary.stageCounts[stage] || 0) + 1;
@@ -393,6 +405,9 @@ async function getDashboard({ user, query }) {
     summary.payments.totalPending += payment.pending;
 
     if (stage < 13 && isWithinRange(arrivalDate, from, to)) summary.home.upcoming.arriving.count += 1;
+    if (stage >= 13 && isWithinRange(arrivedDate, arrivedLastMonthRange.from, arrivedLastMonthRange.to)) {
+      summary.home.arrivedLastMonth.count += 1;
+    }
     if (stage < 12 && isWithinRange(visaCollectionDate, from, to)) summary.home.upcoming.visaCollection.count += 1;
     if (stage < 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
     if (stage < 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;

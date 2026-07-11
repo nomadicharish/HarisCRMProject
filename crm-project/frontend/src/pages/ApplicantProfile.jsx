@@ -446,17 +446,6 @@ function ApplicantProfile() {
               showAgency={isSuperUserLikeRole(user?.role) || isSeniorAccountant}
               showPendingAmount={!isEmployer}
               accountantView={isSeniorAccountant}
-              pendingStatusText={
-                user?.role === "EMPLOYER"
-                  ? ""
-                  : hasPendingAcknowledgement && hasPendingConfirmation
-                  ? "Acknowledgement & confirmation pending"
-                  : hasPendingAcknowledgement
-                  ? "Acknowledgement pending"
-                  : hasPendingConfirmation
-                  ? "Confirmation pending"
-                  : ""
-              }
             />
           </aside>
 

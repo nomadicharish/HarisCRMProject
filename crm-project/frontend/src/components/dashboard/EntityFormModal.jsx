@@ -198,13 +198,13 @@ function EntityFormModal({
       countryIds: resolvedCountryIds,
       companyId: editData.companyId || "",
       companyIds: resolvedCompanyIds,
-      contactNumber: editData.contactNumber || "",
+      contactNumber: editData.contactNumber || editData.normalizedContactNumber || "",
       address: editData.address || "",
-      email: editData.email || "",
+      email: editData.email || editData.normalizedEmail || "",
       employerIds: Array.isArray(editData.employerIds) ? editData.employerIds : [],
       assignedCompanyIds: Array.isArray(editData.assignedCompanyIds) ? editData.assignedCompanyIds : []
     });
-    const rawNumber = String(editData.contactNumber || "");
+    const rawNumber = String(editData.contactNumber || editData.normalizedContactNumber || "");
     const parsed = parsePhoneNumberFromString(rawNumber.startsWith("+") ? rawNumber : `+${rawNumber}`);
     if (parsed) {
       setContactCountry((parsed.country || "IN").toUpperCase());

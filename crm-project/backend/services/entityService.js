@@ -16,6 +16,7 @@ const {
   findLinkedUserByField,
   syncLinkedUserAccount
 } = require("./accountService");
+const { recordCompanyAssignmentNotification } = require("./notificationService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../utils/roles");
 
 function buildNormalizedFields({ email = "", contactNumber = "" } = {}) {
@@ -181,12 +182,15 @@ async function buildProtectedContactFields({ email = "", contactNumber = "" } = 
 }
 
 async function hydrateEntityContactFields(entity = {}) {
+  const decryptedEmail = entity.emailEncrypted ? await decryptText(entity.emailEncrypted) : entity.email || "";
+  const decryptedContactNumber = entity.contactNumberEncrypted
+    ? await decryptText(entity.contactNumberEncrypted)
+    : entity.contactNumber || "";
+
   return {
     ...entity,
-    email: entity.emailEncrypted ? await decryptText(entity.emailEncrypted) : entity.email || "",
-    contactNumber: entity.contactNumberEncrypted
-      ? await decryptText(entity.contactNumberEncrypted)
-      : entity.contactNumber || ""
+    email: decryptedEmail || entity.normalizedEmail || entity.email || "",
+    contactNumber: decryptedContactNumber || entity.normalizedContactNumber || entity.contactNumber || ""
   };
 }
 
@@ -374,6 +378,54 @@ async function syncCompanyAgencyLinks(companyId, nextAgencyIds = [], previousAge
   await batch.commit();
 }
 
+async function notifyCompanyAssignees({ companyId, companyName, employerIds = [], agencyIds = [], previousEmployerIds = [], previousAgencyIds = [], actor = {} }) {
+  const previousEmployerSet = new Set(previousEmployerIds);
+  const previousAgencySet = new Set(previousAgencyIds);
+  const newEmployerIds = employerIds.filter((employerId) => employerId && !previousEmployerSet.has(employerId));
+  const newAgencyIds = agencyIds.filter((agencyId) => agencyId && !previousAgencySet.has(agencyId));
+
+  await Promise.all([
+    ...newEmployerIds.map((employerId) =>
+      recordCompanyAssignmentNotification({
+        companyId,
+        companyName,
+        actor,
+        recipientRole: "EMPLOYER",
+        recipientEmployerId: employerId
+      })
+    ),
+    ...newAgencyIds.map((agencyId) =>
+      recordCompanyAssignmentNotification({
+        companyId,
+        companyName,
+        actor,
+        recipientRole: "AGENCY",
+        recipientAgencyId: agencyId
+      })
+    )
+  ]);
+}
+
+async function notifyAssignedCompaniesToEntity({ companyIds = [], previousCompanyIds = [], recipientRole = "", recipientAgencyId = "", recipientEmployerId = "", actor = {} }) {
+  const previousSet = new Set(previousCompanyIds);
+  const newCompanyIds = companyIds.filter((companyId) => companyId && !previousSet.has(companyId));
+  if (!newCompanyIds.length || !recipientRole) return;
+
+  const companyDocs = await db.getAll(...newCompanyIds.map((companyId) => db.collection("companies").doc(companyId)));
+  await Promise.all(companyDocs
+    .filter((companyDoc) => companyDoc.exists)
+    .map((companyDoc) =>
+      recordCompanyAssignmentNotification({
+        companyId: companyDoc.id,
+        companyName: companyDoc.data()?.name || "",
+        actor,
+        recipientRole,
+        recipientAgencyId,
+        recipientEmployerId
+      })
+    ));
+}
+
 async function getAgencyIdsAssignedToCompany(companyId) {
   if (!companyId) return [];
   const snapshot = await db
@@ -434,6 +486,13 @@ async function addCompany(payload) {
 
   await syncCompanyEmployerLinks(docRef.id, payload.countryId, normalizedEmployerIds, []);
   await syncCompanyAgencyLinks(docRef.id, normalizedAgencyIds, []);
+  await notifyCompanyAssignees({
+    companyId: docRef.id,
+    companyName: payload.name,
+    employerIds: normalizedEmployerIds,
+    agencyIds: normalizedAgencyIds,
+    actor: payload.actor || {}
+  });
   return { message: "Company added", id: docRef.id };
 }
 
@@ -476,6 +535,15 @@ async function updateCompany(id, payload) {
 
   await syncCompanyEmployerLinks(id, payload.countryId, normalizedEmployerIds, previousEmployerIds);
   await syncCompanyAgencyLinks(id, normalizedAgencyIds, previousAgencyIds);
+  await notifyCompanyAssignees({
+    companyId: id,
+    companyName: payload.name,
+    employerIds: normalizedEmployerIds,
+    agencyIds: normalizedAgencyIds,
+    previousEmployerIds,
+    previousAgencyIds,
+    actor: payload.actor || {}
+  });
   return { message: "Company updated", id };
 }
 
@@ -543,6 +611,13 @@ async function addAgency(payload) {
     contactNumber: payload.contactNumber
   });
 
+  await notifyAssignedCompaniesToEntity({
+    companyIds: assignedCompanyIds,
+    recipientRole: "AGENCY",
+    recipientAgencyId: docRef.id,
+    actor: payload.actor || {}
+  });
+
   return { message: "Agency added", id: docRef.id, welcomeEmail: linkedUser.welcomeEmail };
 }
 
@@ -555,6 +630,7 @@ async function updateAgency(id, payload) {
   }
 
   const linkedUserDoc = await findLinkedUserByField("agencyId", id, "AGENCY");
+  const previousAssignedCompanyIds = normalizeIdList(agencyDoc.data()?.assignedCompanyIds);
   await ensureUniqueEntityDetails({
     email: payload.email,
     contactNumber: payload.contactNumber,
@@ -580,6 +656,14 @@ async function updateAgency(id, payload) {
     role: "AGENCY",
     agencyId: id,
     contactNumber: payload.contactNumber
+  });
+
+  await notifyAssignedCompaniesToEntity({
+    companyIds: normalizeIdList(payload.assignedCompanyIds),
+    previousCompanyIds: previousAssignedCompanyIds,
+    recipientRole: "AGENCY",
+    recipientAgencyId: id,
+    actor: payload.actor || {}
   });
 
   return { message: "Agency updated", id };
@@ -625,6 +709,12 @@ async function addEmployer(payload) {
   });
 
   await syncEmployerCompanyBacklinks(docRef.id, companyIds, []);
+  await notifyAssignedCompaniesToEntity({
+    companyIds,
+    recipientRole: "EMPLOYER",
+    recipientEmployerId: docRef.id,
+    actor: payload.actor || {}
+  });
 
   return { message: "Employer added", id: docRef.id, welcomeEmail: linkedUser.welcomeEmail };
 }
@@ -670,6 +760,14 @@ async function updateEmployer(id, payload) {
     role: "EMPLOYER",
     employerId: id,
     contactNumber: payload.contactNumber
+  });
+
+  await notifyAssignedCompaniesToEntity({
+    companyIds,
+    previousCompanyIds,
+    recipientRole: "EMPLOYER",
+    recipientEmployerId: id,
+    actor: payload.actor || {}
   });
 
   return { message: "Employer updated", id };
