@@ -70,26 +70,14 @@ function ApplicantProfile() {
   const [completingProcess, setCompletingProcess] = useState(false);
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 120000;
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-  }, [id]);
-
   const profileDashboardTabs = useMemo(() => {
     if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
-    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["home", "applicants", "companies"];
-    if (user?.role === "SENIOR_ACCOUNTANT") return ["home", "applicants"];
+    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["applicants", "companies"];
     return ["applicants"];
   }, [user?.role]);
   const handleDashboardTabChange = useCallback(
     (tabKey) => {
       if (!profileDashboardTabs.includes(tabKey)) return;
-      if (tabKey === "applicants") {
-        const params = new URLSearchParams(window.location.search);
-        params.set("tab", "applicants");
-        navigate(`/dashboard?${params.toString()}`);
-        return;
-      }
       const query = tabKey === "home" ? "" : `?tab=${encodeURIComponent(tabKey)}`;
       navigate(`/dashboard${query}`);
     },
@@ -152,9 +140,7 @@ function ApplicantProfile() {
   }, [applicant?.countryName, applicant?.country]);
 
   const openEditProfile = (context = "default") => {
-    const params = new URLSearchParams(window.location.search);
-    if (context === "stage1") params.set("context", "stage1");
-    navigate(`/applicants/${id}/edit${params.toString() ? `?${params.toString()}` : ""}`);
+    navigate(`/applicants/${id}/edit${context === "stage1" ? "?context=stage1" : ""}`);
   };
 
   const openContractSection = () => {
@@ -307,9 +293,7 @@ function ApplicantProfile() {
       invalidateCache("/applicants");
       invalidateCache(`/applicants/${id}/workflow-bundle`);
       setShowCompleteProcessModal(false);
-      const params = new URLSearchParams(window.location.search);
-      params.set("tab", "applicants");
-      navigate(`/dashboard?${params.toString()}`);
+      navigate("/dashboard?tab=applicants");
     } catch (err) {
       console.error(err);
       setApplicant(previousApplicant);
@@ -341,7 +325,7 @@ function ApplicantProfile() {
 
   const handleShowDocuments = () => {
     prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 120000 });
-    navigate(`/applicants/${id}/documents${window.location.search || ""}`);
+    navigate(`/applicants/${id}/documents`);
   };
 
   const handleShowDispatch = () => {
@@ -439,7 +423,6 @@ function ApplicantProfile() {
         activeTab="applicants"
         onTabChange={handleDashboardTabChange}
       />
-      <BlockingLoader open={completingProcess} label="Completing candidate arrival..." />
       <div className="page-content applicantProfilePage">
         <div className="applicantProfileLayout">
           <aside className="applicantProfileSidebar">
@@ -461,7 +444,7 @@ function ApplicantProfile() {
               onEdit={() => openEditProfile("default")}
               onPendingClick={!isEmployer && !isCandidateApprovalPending ? () => {
                   prefetchCached(`/applicants/${id}/payments-page`, { ttlMs: 120000 });
-                navigate(`/applicants/${id}/payments${window.location.search || ""}`);
+                navigate(`/applicants/${id}/payments`);
               } : undefined}
               agencyName={resolvedAgencyName}
               countryName={resolvedCountryName}
