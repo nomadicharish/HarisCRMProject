@@ -1014,6 +1014,31 @@
   background:#f8fbff;
 }
 
+.docsFileActions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex:0 0 auto;
+}
+
+.docsIconAction{
+  width:44px;
+  height:44px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:0;
+  border:1px solid #dbe4f1;
+  border-radius:14px;
+  background:#ffffff;
+  color:#1767ea;
+  cursor:pointer;
+}
+
+.docsIconAction:hover{
+  background:#f8fbff;
+}
+
 .docsStatusCell{
   gap:10px;
 }
@@ -1256,14 +1281,14 @@
   border:0;
   border-radius:0;
   box-shadow:none;
-  min-height:118px;
+  min-height:84px;
   border-bottom:1px solid #e6edf5;
 }
 
 .docsUploadCard .docsTopBarContent{
   width:100%;
   background:#ffffff;
-  padding:28px 30px;
+  padding:6px 30px;
   color:#0f172a;
   gap:18px;
 }
@@ -1345,7 +1370,7 @@
   justify-content:end;
   gap:0;
   align-items:start;
-  padding:18px 24px 24px;
+  padding:8px 24px 12px;
 }
 
 .docsStandardReference{
@@ -1376,7 +1401,7 @@
 .docsPrepRowReview{
   display:flex;
   justify-content:flex-end;
-  padding-bottom:28px;
+  padding-bottom:12px;
 }
 
 .docsReviewBulkActions{
@@ -1385,8 +1410,8 @@
 }
 
 .docsApproveAllButton{
-  min-width:140px;
-  min-height:40px;
+  min-width:120px;
+  min-height:36px;
   border-radius:6px;
   background:#0052ff;
   border-color:#0052ff;
@@ -1410,7 +1435,7 @@
   gap:0;
   padding:0;
   min-width:0;
-  min-height:104px;
+  min-height:84px;
   border-bottom:1px solid #e8eef6;
   align-items:stretch;
 }
@@ -1424,17 +1449,17 @@
 }
 
 .docsUploadCard .docsTableHead{
-  min-height:56px;
+  min-height:44px;
   background:#fbfcff;
   color:#34405f;
-  font-size:15px;
-  font-weight:800;
+  font-size:14px;
+  font-weight:600;
 }
 
 .docsUploadCard .docsRow > div{
   display:flex;
   align-items:center;
-  padding:20px 18px;
+  padding:6px 12px;
   border-right:1px solid #e8eef6;
   min-width:0;
 }
@@ -1498,7 +1523,7 @@
 .docsUploadCard .docsFileBox{
   width:100%;
   max-width:none;
-  min-height:68px;
+  min-height:54px;
   border:1px dashed #cbd8ec;
   border-radius:10px;
   padding:0 14px;

@@ -48,23 +48,23 @@ function ApplicantsTable({
   formatPendingAmount
 }) {
   const gridTemplateColumns = isEmployer
-    ? "2fr 2fr 1.6fr 1.2fr 1fr"
+    ? "1.8fr 2fr 1.5fr 1.5fr 1.5fr"
     : showAgencyColumn
     ? showArrivalDateColumn
-      ? "2fr 2fr 1.2fr 1.2fr 1.3fr 1.2fr"
-      : "2fr 2fr 1.4fr 1.2fr 1.5fr"
+      ? "1.8fr 2fr 1.3fr 1.3fr 1.2fr 1.3fr 1.2fr"
+      : "1.8fr 2fr 1.4fr 1.4fr 1.2fr 1.5fr"
     : showArrivalDateColumn
-    ? "2fr 2fr 1.5fr 1.5fr 1.2fr"
-    : "2fr 2fr 1.5fr 1.5fr";
+    ? "1.8fr 2fr 1.5fr 1.5fr 1.5fr 1.2fr"
+    : "1.8fr 2fr 1.5fr 1.5fr 1.5fr";
   const tableColumnCount = isEmployer
     ? 5
     : showArrivalDateColumn
     ? showAgencyColumn
-      ? 6
-      : 5
+      ? 7
+      : 6
     : showAgencyColumn
-    ? 5
-    : 4;
+    ? 6
+    : 5;
 
   if (!rows.length) {
     return (
@@ -74,9 +74,9 @@ function ApplicantsTable({
             <th>Name</th>
             <th>Status</th>
             <th>Company</th>
+            <th>Job Position</th>
             {showArrivalDateColumn ? <th>Arrival Date</th> : null}
             {showAgencyColumn ? <th>Agent</th> : null}
-            {isEmployer ? <th>Actions</th> : null}
             {!isEmployer ? <th>Payment Status</th> : null}
           </tr>
         </thead>
@@ -99,9 +99,9 @@ function ApplicantsTable({
             <th>Name</th>
               <th>Status</th>
               <th>Company</th>
+              <th>Job Position</th>
               {showArrivalDateColumn ? <th>Arrival Date</th> : null}
               {showAgencyColumn ? <th>Agent</th> : null}
-              {isEmployer ? <th>Actions</th> : null}
               {!isEmployer ? <th>Payment Status</th> : null}
           </tr>
         </thead>
@@ -146,24 +146,27 @@ function ApplicantsTable({
                   </div>
                 </td>
                 <td>{applicant.companyName || "-"}</td>
-                {showArrivalDateColumn ? <td>{formatArrivalDate(applicant)}</td> : null}
-                {showAgencyColumn ? <td>{applicant.agencyName || "-"}</td> : null}
-                {isEmployer ? (
+                <td>{applicant.jobPositionName || "-"}</td>
+                {showArrivalDateColumn ? (
                   <td>
-                    {canQuickPrint ? (
-                      <button
-                        type="button"
-                        className="dashboardQuickPrintBtn"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onQuickPrint?.(applicant);
-                        }}
-                      >
-                        Quick Print
-                      </button>
-                    ) : "-"}
+                    <div className="dashboardStatusCell">
+                      <span>{formatArrivalDate(applicant)}</span>
+                      {isEmployer && canQuickPrint ? (
+                        <button
+                          type="button"
+                          className="dashboardQuickPrintBtn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            onQuickPrint?.(applicant);
+                          }}
+                        >
+                          Quick Print
+                        </button>
+                      ) : null}
+                    </div>
                   </td>
                 ) : null}
+                {showAgencyColumn ? <td>{applicant.agencyName || "-"}</td> : null}
                 {!isEmployer ? (
                   <td>
                     {isCandidateApprovalPending ? (
@@ -196,9 +199,9 @@ function ApplicantsTable({
         <div>Name</div>
         <div>Status</div>
         <div>Company</div>
+        <div>Job Position</div>
         {showArrivalDateColumn ? <div>Arrival Date</div> : null}
         {showAgencyColumn ? <div>Agent</div> : null}
-        {isEmployer ? <div>Actions</div> : null}
         {!isEmployer ? <div>Payment Status</div> : null}
       </div>
       <VirtualizedRows
@@ -242,11 +245,11 @@ function ApplicantsTable({
                 {workflow.subtitle ? <span className="dashboardStatusMetaSubtitle">{workflow.subtitle}</span> : null}
               </div>
               <div>{applicant.companyName || "-"}</div>
-              {showArrivalDateColumn ? <div>{formatArrivalDate(applicant)}</div> : null}
-              {showAgencyColumn ? <div>{applicant.agencyName || "-"}</div> : null}
-              {isEmployer ? (
-                <div>
-                  {canQuickPrint ? (
+              <div>{applicant.jobPositionName || "-"}</div>
+              {showArrivalDateColumn ? (
+                <div className="dashboardStatusCell">
+                  <span>{formatArrivalDate(applicant)}</span>
+                  {isEmployer && canQuickPrint ? (
                     <button
                       type="button"
                       className="dashboardQuickPrintBtn"
@@ -257,9 +260,10 @@ function ApplicantsTable({
                     >
                       Quick Print
                     </button>
-                  ) : "-"}
+                  ) : null}
                 </div>
               ) : null}
+              {showAgencyColumn ? <div>{applicant.agencyName || "-"}</div> : null}
               {!isEmployer ? (
                 <div className="dashboardStatusCell">
                   {isCandidateApprovalPending ? (

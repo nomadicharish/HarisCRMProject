@@ -37,7 +37,6 @@ function BellSvg() {
 function openNotification(navigate, item) {
   const params = new URLSearchParams();
   params.set("tab", "applicants");
-  params.set("markNotificationsRead", "true");
   if (item?.applicantIds?.length) params.set("notificationApplicants", item.applicantIds.join(","));
   if (item?.title) params.set("notificationTitle", item.title);
   navigate(`/dashboard?${params.toString()}`);
@@ -146,8 +145,17 @@ function NotificationBell() {
               <NotificationListItem
                 key={item.id}
                 item={item}
-                onOpen={(notification) => {
+                onOpen={async (notification) => {
                   setOpen(false);
+                  if (notification.unread) {
+                    try {
+                      const response = await API.patch(`/notifications/${notification.id}/read`);
+                      setUnreadCount(Number(response.data?.unreadCount || 0));
+                      setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, unread: false } : item));
+                    } catch (error) {
+                      console.error(error);
+                    }
+                  }
                   openNotification(navigate, notification);
                 }} 
               />

@@ -1011,14 +1011,14 @@
 }
 
 .dashboardQuickPrintBtn{
-  min-height:34px;
-  padding:0 12px;
+  min-height:24px;
+  padding:0 8px;
   border:1px solid #0052cc;
   border-radius:6px;
   background:#ffffff;
   color:#0052cc;
   font-size:12px;
-  font-weight:700;
+  font-weight:600;
   white-space:nowrap;
   cursor:pointer;
 }
@@ -1631,10 +1631,10 @@
 }
 
 .bulkDispatchSection h3{
-  margin:0 0 14px;
+  margin:0 0 10px;
   color:#101828;
-  font-size:15px;
-  font-weight:800;
+  font-size:13px;
+  font-weight:600;
 }
 
 .bulkDispatchGrid{
@@ -1756,7 +1756,7 @@
   display:flex;
   justify-content:flex-end;
   gap:12px;
-  padding:22px 28px 28px;
+  padding:22px 28px 8px;
 }
 
 .bulkContractModal{
@@ -1805,7 +1805,7 @@
 
 .bulkContractMainDrop,
 .bulkContractOptionalDrop{
-  min-height:64px;
+  min-height:54px;
   border:1.5px dashed #9fc3ff;
   border-radius:8px;
   background:#fff;
@@ -1823,8 +1823,8 @@
 }
 
 .bulkContractDropIcon{
-  width:44px;
-  height:44px;
+  width:40px;
+  height:40px;
   border-radius:50%;
   display:inline-flex;
   align-items:center;
@@ -1846,14 +1846,14 @@
   flex-direction:column;
   gap:6px;
   color:#344054;
-  font-size:13px;
+  font-size:10px;
   line-height:1.35;
 }
 
 .bulkContractDropCopy strong{
   color:#0052cc;
   font-size:14px;
-  font-weight:800;
+  font-weight:600;
 }
 
 .bulkContractDropCopy span{
@@ -1867,7 +1867,7 @@
 }
 
 .bulkContractOptionalDrop{
-  min-height:64px;
+  min-height:54px;
   position:relative;
 }
 
@@ -1882,7 +1882,7 @@
 }
 
 .bulkContractFooter{
-  padding-top:18px;
+  padding-top:8px;
 }
 
 .dashboardConfirmMessage{
@@ -2365,7 +2365,7 @@
 
 .dashboardPrimaryBtn,
 .dashboardSecondaryBtn{
-  min-height:44px;
+  min-height:40px;
   padding:0 16px;
   border-radius:10px;
   font-weight:700;

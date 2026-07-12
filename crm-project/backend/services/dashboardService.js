@@ -220,7 +220,7 @@ async function buildAgencyPaymentRows({ role, userId, agencyId, docs }) {
   });
 
   let agencyDocs = [];
-  if (isSuperUserLikeRole(role)) {
+  if (isSuperUserLikeRole(role) || role === "SENIOR_ACCOUNTANT") {
     agencyDocs = (await db.collection("agencies").get()).docs;
   } else if (role === "AGENCY") {
     const currentAgencyId = agencyId || userId;
@@ -378,6 +378,8 @@ async function getDashboard({ user, query }) {
 
   if (isAccountant) {
     summary.home.accountantPayments = await buildAccountantPaymentDashboard({ applicantDocs: scopedDocs, from, to });
+  }
+  if (role === "JUNIOR_ACCOUNTANT") {
     return summary;
   }
 
@@ -425,8 +427,10 @@ async function getDashboard({ user, query }) {
       summary.home.arrivedLastMonth.count += 1;
     }
     if (stage < 12 && isWithinRange(visaCollectionDate, from, to)) summary.home.upcoming.visaCollection.count += 1;
-    if (stage < 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
-    if (stage < 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
+    // Saving an approved appointment/interview advances the applicant to stages 7/9.
+    // Keep that current workflow stage in the selected-date Home card.
+    if (stage <= 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
+    if (stage <= 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
 
     if (canSeeUploadPendingCards && stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
       summary.home.overdue.trpPending.count += 1;

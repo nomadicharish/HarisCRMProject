@@ -159,8 +159,7 @@ function VisaCollectionModal({
   const canEditCollection =
     isCollectionMode &&
     (isSuperUser || user?.role === "EMPLOYER") &&
-    !hasResidencePermit &&
-    visaCollection?.status !== "APPROVED";
+    !hasResidencePermit;
   const canApprove = isCollectionMode && isSuperUser && visaCollection?.status === "PENDING" && !hasResidencePermit;
   const canAddCollectionTravel =
     isCollectionMode &&
@@ -447,9 +446,10 @@ function VisaCollectionModal({
                         <DetailRow
                           label="Document"
                           action={(
-                            <a href={visaCollection.documentUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
-                              View
-                            </a>
+                            <span className="workflowDetailActions">
+                              <a href={visaCollection.documentUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">View</a>
+                              <a href={visaCollection.documentUrl} download className="workflowFileActionBtn">Download</a>
+                            </span>
                           )}
                         />
                       ) : null}
@@ -470,9 +470,10 @@ function VisaCollectionModal({
                         <DetailRow
                           label="Travel Ticket"
                           action={(
-                            <a href={visaCollectionTravel.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
-                              View
-                            </a>
+                            <span className="workflowDetailActions">
+                              <a href={visaCollectionTravel.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">View</a>
+                              <a href={visaCollectionTravel.fileUrl} download className="workflowFileActionBtn">Download</a>
+                            </span>
                           )}
                         />
                       ) : null}
@@ -603,7 +604,7 @@ function VisaCollectionModal({
                       onChange={(date) => setCollectionDate(date)}
                       portalId="root"
                       popperPlacement="bottom-start"
-                      minDate={getTomorrow()}
+                      minDate={new Date()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
                       showYearDropdown
@@ -683,7 +684,7 @@ function VisaCollectionModal({
               <div className="workflowModalFooter">
                 {canEditCollection ? (
                   <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingCollectionDetails(true)}>
-                    Edit
+                    Update Visa Collection
                   </button>
                 ) : null}
                 {canApprove ? (

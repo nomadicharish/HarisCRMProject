@@ -41,9 +41,8 @@ function BiometricSection({ applicantId, user, loadApplicant }) {
       {/* VIEW */}
       {data && (
         <div>
-          <a href={data.fileUrl} target="_blank">
-            View / Download Slip
-          </a>
+          <a href={data.fileUrl} target="_blank" rel="noreferrer">View Slip</a>
+          <a href={data.fileUrl} download>Download Slip</a>
         </div>
       )}
 

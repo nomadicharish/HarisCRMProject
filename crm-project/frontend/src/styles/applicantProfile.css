@@ -88,7 +88,7 @@
 
 .btnSm{
   padding:0 20px;
-  min-height:34px;
+  min-height:30px;
   border-radius:9px;
   font-weight:500;
 }
@@ -970,7 +970,7 @@
   grid-template-columns:44px minmax(0, 1fr) auto;
   gap:14px;
   padding:0 22px;
-  min-height:82px;
+  min-height:72px;
 }
 
 .pipeRail{
@@ -1024,7 +1024,7 @@
 }
 
 .pipeLeft{
-  min-height:82px;
+  min-height:64px;
   gap:10px;
 }
 

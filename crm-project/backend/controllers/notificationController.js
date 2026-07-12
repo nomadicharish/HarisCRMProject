@@ -1,6 +1,7 @@
 const {
   getUnreadNotificationCount,
   listNotificationsForUser,
+  markNotificationRead,
   markNotificationsRead
 } = require("../services/notificationService");
 
@@ -21,8 +22,13 @@ async function markAllRead(req, res) {
   return res.json(payload);
 }
 
+async function markOneRead(req, res) {
+  return res.json(await markNotificationRead(req.user, req.params.id));
+}
+
 module.exports = {
   listNotifications,
   unreadCount,
+  markOneRead,
   markAllRead
 };

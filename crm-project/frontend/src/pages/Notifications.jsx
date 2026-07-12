@@ -51,6 +51,18 @@ function Notifications() {
     }
   };
 
+  const openItem = async (notification) => {
+    if (notification.unread) {
+      try {
+        await API.patch(`/notifications/${notification.id}/read`);
+        setItems((currentItems) => currentItems.map((item) => item.id === notification.id ? { ...item, unread: false } : item));
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    openNotification(navigate, notification);
+  };
+
   return (
     <div className="notificationsPage">
       <DashboardTopbar
@@ -81,7 +93,7 @@ function Notifications() {
               key={item.id}
               item={item}
               spacious
-              onOpen={(notification) => openNotification(navigate, notification)}
+              onOpen={openItem}
             />
           )) : !loading ? <div className="notificationEmpty notificationEmptyFull">No notifications yet.</div> : null}
         </div>

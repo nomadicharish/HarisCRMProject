@@ -197,9 +197,10 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
                     <DetailRow
                       label="Biometric Slip"
                       action={(
-                        <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                          View document
-                        </a>
+                        <span className="workflowDetailActions">
+                          <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">View document</a>
+                          <a href={resolvedInterviewBiometric.fileUrl} download className="workflowDetailAction">Download</a>
+                        </span>
                       )}
                     />
                     <DetailRow label="Uploaded On" value={formatDateTime(resolvedInterviewBiometric.uploadedAt)} />

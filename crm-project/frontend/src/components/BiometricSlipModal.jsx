@@ -199,9 +199,10 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
                     <DetailRow
                       label="Biometric Slip"
                       action={(
-                        <a href={resolvedBiometricSlip.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                          View document
-                        </a>
+                        <span className="workflowDetailActions">
+                          <a href={resolvedBiometricSlip.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">View</a>
+                          <a href={resolvedBiometricSlip.fileUrl} download className="workflowDetailAction">Download</a>
+                        </span>
                       )}
                     />
                     <DetailRow label="Uploaded On" value={formatDateTime(resolvedBiometricSlip.uploadedAt)} />

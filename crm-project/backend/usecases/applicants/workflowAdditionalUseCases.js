@@ -8,7 +8,8 @@ const { sendEmail } = require("../../services/emailService");
 const {
   recordAdminApproval,
   recordAgencyTask,
-  recordEmployerWorkflowInitiated
+  recordEmployerWorkflowInitiated,
+  recordNotificationAction
 } = require("../../services/notificationService");
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { decryptText } = require("../../utils/crypto");
@@ -50,7 +51,9 @@ async function addEmbassyAppointmentUseCase(req) {
   const previousAppointmentFileUrl = existingApplicantSnap.exists
     ? existingApplicantSnap.data()?.embassyAppointment?.fileUrl || ""
     : "";
-  const status = isSuperUserLikeRole(req.user.role) ? "APPROVED" : "PENDING";
+  const existingAppointment = existingApplicant.embassyAppointment || {};
+  const wasPreviouslyApproved = existingAppointment.approved === true || String(existingAppointment.status || "").toUpperCase() === "APPROVED";
+  const status = isSuperUserLikeRole(req.user.role) || wasPreviouslyApproved ? "APPROVED" : "PENDING";
 
   await docRef.set(
     {
@@ -61,8 +64,8 @@ async function addEmbassyAppointmentUseCase(req) {
         fileUrl: fileUrl || previousAppointmentFileUrl || "",
         status,
         approved: status === "APPROVED",
-        approvedBy: status === "APPROVED" ? req.user.uid : null,
-        approvedAt: status === "APPROVED" ? createdAt : null,
+        approvedBy: isSuperUserLikeRole(req.user.role) ? req.user.uid : (existingAppointment.approvedBy || null),
+        approvedAt: isSuperUserLikeRole(req.user.role) ? createdAt : (existingAppointment.approvedAt || null),
         createdBy: req.user.uid,
         createdByRole: req.user.role,
         createdAt
@@ -107,12 +110,11 @@ async function addEmbassyAppointmentUseCase(req) {
       includeAgency: true
     });
   }
-  await recordEmployerWorkflowInitiated({
-    applicantId,
-    applicant: existingApplicant,
-    user: req.user,
-    actionKey: "EMBASSY_APPOINTMENT_INITIATED"
-  });
+  if (isSuperUserLikeRole(req.user.role)) {
+    await recordNotificationAction({ actionKey: "EMBASSY_APPOINTMENT_INITIATED", applicantId, applicant: existingApplicant, user: req.user });
+  } else {
+    await recordEmployerWorkflowInitiated({ applicantId, applicant: existingApplicant, user: req.user, actionKey: "EMBASSY_APPOINTMENT_INITIATED" });
+  }
   return { message: "Embassy appointment added" };
 }
 
@@ -225,7 +227,7 @@ async function addTravelDetailsUseCase(req) {
         travelDate,
         time,
         ticketNumber: ticketNumber || "",
-        fileUrl,
+        fileUrl: fileUrl || "",
         uploadedBy: req.user.uid,
         uploadedByRole: req.user.role,
         createdAt: new Date()
@@ -234,8 +236,8 @@ async function addTravelDetailsUseCase(req) {
     { merge: true }
   );
 
-  if (fileUrl && bucket) {
-    await deleteStorageFileIfExists(bucket, previousTravelFileUrl);
+  if (previousTravelFileUrl) {
+    await deleteStorageFileIfExists(bucket || admin.storage().bucket(), previousTravelFileUrl);
   }
 
   await refreshApplicantDocumentSummary(applicantId);
@@ -420,7 +422,9 @@ async function addVisaCollectionUseCase(req) {
   const currentStage = Number(docSnap.data()?.stage || 1);
   if (currentStage < 10) throw new AppError("Cannot add visa collection before visa collection stage", 400);
 
-  const status = isSuperUserLikeRole(req.user.role) ? "APPROVED" : "PENDING";
+  const existingVisaCollection = docSnap.data()?.visaCollection || {};
+  const wasPreviouslyApproved = existingVisaCollection.approved === true || String(existingVisaCollection.status || "").toUpperCase() === "APPROVED";
+  const status = isSuperUserLikeRole(req.user.role) || wasPreviouslyApproved ? "APPROVED" : "PENDING";
   let documentUrl = "";
   let bucket = null;
   if (req.file) {
@@ -440,13 +444,13 @@ async function addVisaCollectionUseCase(req) {
       visaCollection: {
         date,
         time,
-        documentUrl,
+        documentUrl: documentUrl || previousDocumentUrl,
         status,
         createdBy: req.user.uid,
         createdByRole: req.user.role,
         createdAt: new Date(),
-        approvedBy: status === "APPROVED" ? req.user.uid : null,
-        approvedAt: status === "APPROVED" ? new Date() : null
+        approvedBy: isSuperUserLikeRole(req.user.role) ? req.user.uid : (existingVisaCollection.approvedBy || null),
+        approvedAt: isSuperUserLikeRole(req.user.role) ? new Date() : (existingVisaCollection.approvedAt || null)
       }
     },
     { merge: true }
@@ -474,12 +478,11 @@ async function addVisaCollectionUseCase(req) {
       includeAgency: true
     });
   }
-  await recordEmployerWorkflowInitiated({
-    applicantId,
-    applicant: docSnap.data() || {},
-    user: req.user,
-    actionKey: "VISA_COLLECTION_INITIATED"
-  });
+  if (isSuperUserLikeRole(req.user.role)) {
+    await recordNotificationAction({ actionKey: "VISA_COLLECTION_INITIATED", applicantId, applicant: docSnap.data() || {}, user: req.user });
+  } else {
+    await recordEmployerWorkflowInitiated({ applicantId, applicant: docSnap.data() || {}, user: req.user, actionKey: "VISA_COLLECTION_INITIATED" });
+  }
   return { message: "Visa collection saved" };
 }
 

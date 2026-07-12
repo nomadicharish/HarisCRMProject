@@ -920,11 +920,11 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
 
   const selectedCountry = countryOptions.find((option) => option.value === countryId) || null;
   const selectedCompany = companyOptions.find((option) => option.value === companyId) || null;
-  const selectedApplicants = applicantOptions.filter((option) => selectedApplicantIds.includes(option.value));
+  const selectedApplicant = applicantOptions.find((option) => option.value === selectedApplicantIds[0]) || null;
 
   const handleUpload = async () => {
     if (!countryId || !companyId || !selectedApplicantIds.length) {
-      toast.error("Select country, company and applicants");
+      toast.error("Select country, company and applicant");
       return;
     }
     if (!contractFile) {
@@ -947,7 +947,7 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
       formData.append("file", contractFile);
       additionalFiles.filter(Boolean).forEach((file) => formData.append("additionalDocuments", file));
       const response = await API.post("/applicants/bulk-contract", formData);
-      toast.success(`Contract uploaded for ${Number(response.data?.savedCount || selectedApplicantIds.length)} applicants.`);
+      toast.success("Contract uploaded successfully.");
       if (typeof onSaved === "function") await onSaved();
       resetState();
       onClose();
@@ -967,7 +967,7 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
           <span className="bulkContractHeaderIcon"><UploadGlyph type="upload" /></span>
           <div>
             <h2 id="bulk-contract-title">Bulk Contract Upload</h2>
-            <p>Upload contracts for multiple applicants at once. Select the country, company and applicants, then upload the contract file.</p>
+            <p>Select the country, company and applicant, then upload the contract file.</p>
           </div>
           <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close contract upload">
             x
@@ -1009,15 +1009,14 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
         </div>
 
         <div className="bulkDispatchSection bulkContractSection">
-          <h3>Select Applicants <RequiredMark /></h3>
+          <h3>Select Applicant <RequiredMark /></h3>
           <Select
-            isMulti
             options={applicantOptions}
-            value={selectedApplicants}
-            onChange={(options) => setSelectedApplicantIds((options || []).map((option) => option.value))}
+            value={selectedApplicant}
+            onChange={(option) => setSelectedApplicantIds(option?.value ? [option.value] : [])}
             isDisabled={saving || !companyId || loadingApplicants}
             isLoading={loadingApplicants}
-            placeholder="Search and select applicants"
+            placeholder="Search and select an applicant"
             formatOptionLabel={(option) => (
               <div className="bulkDispatchApplicantOption">
                 <span>{option.label}</span>
@@ -1498,7 +1497,6 @@ function ApplicantsDashboard() {
         company: companyIds.join(","),
         agency: agencyIds.join(","),
         notificationApplicants: notificationApplicantIds.join(","),
-        markNotificationsRead: searchParams.get("markNotificationsRead") || "",
         dashboardFilter,
         fromDate: searchParams.get("fromDate") || "",
         toDate: searchParams.get("toDate") || ""
@@ -2114,7 +2112,7 @@ function ApplicantsDashboard() {
 
   const handleQuickPrint = (applicant) => {
     if (!isEmployer || Number(applicant?.stage || 0) !== 12) return;
-    navigate(`/applicants/${applicant.id}/quick-print`);
+    navigate(`/applicants/${applicant.id}/quick-print${window.location.search || ""}`);
   };
 
   const applyHomeDateRange = () => {
@@ -2170,6 +2168,7 @@ function ApplicantsDashboard() {
   };
 
   const handleViewAllApplicants = () => {
+    sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
     const next = new URLSearchParams();
     next.set("tab", "applicants");
     setSearchParams(next, { replace: true });
@@ -2315,6 +2314,7 @@ function ApplicantsDashboard() {
     <div className="dashboardPage">
       <DashboardTopbar
         user={user}
+        showNotifications
         showTabs
         tabs={visibleTabs.map((key) => ({ key, label: TAB_CONFIG[key].label }))}
         activeTab={activeTab}
@@ -2338,13 +2338,13 @@ function ApplicantsDashboard() {
             onViewAll={() => handleTabChange("applicants")}
             applying={homeApplyLoading}
             showPaymentCard={!isEmployer && !isAccountantHomeUser}
-            showAgencyPaymentBreakdown={isSuperUser || isJuniorAccountant}
+            showAgencyPaymentBreakdown={isSuperUser || isSeniorAccountant}
             showUploadPendingCards={!isEmployer}
             showWorkflowPendingCards={isSuperUser || isAgency}
             showArrivedLastMonthCard={isSuperUser || isEmployer}
             showHomeSectionDivider={isSuperUser}
             isAccountantHome={isAccountantHomeUser}
-            showPaymentActions={!isEmployer}
+            showPaymentActions={!isEmployer && !isJuniorAccountant}
             showPaymentActionsTopDivider={isSuperUser || isAgency}
           />
         ) : (

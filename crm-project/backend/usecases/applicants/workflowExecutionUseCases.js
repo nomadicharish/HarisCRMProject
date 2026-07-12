@@ -228,12 +228,21 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
 
   await refreshApplicantDocumentSummary(applicantId);
   if (notify) {
-    await recordEmployerWorkflowInitiated({
-      applicantId,
-      applicant: applicantData,
-      user: req.user,
-      actionKey: "CONTRACT_ISSUED"
-    });
+    if (isSuperUser) {
+      await recordNotificationAction({
+        actionKey: "CONTRACT_ISSUED",
+        applicantId,
+        applicant: { ...applicantData, contract: { ...(applicantData.contract || {}), fileUrl, status: contractStatus } },
+        user: req.user
+      });
+    } else {
+      await recordEmployerWorkflowInitiated({
+        applicantId,
+        applicant: applicantData,
+        user: req.user,
+        actionKey: "CONTRACT_ISSUED"
+      });
+    }
   }
 
   return {
@@ -741,6 +750,8 @@ async function addEmbassyInterviewUseCase(req) {
   const isSuperUser = isSuperUserLikeRole(req.user.role);
   const docRef = db.collection("applicants").doc(applicantId);
   const existingApplicantSnap = await docRef.get();
+  const existingInterview = existingApplicantSnap.exists ? existingApplicantSnap.data()?.embassyInterview || {} : {};
+  const wasPreviouslyApproved = existingInterview.approved === true || String(existingInterview.status || "").toUpperCase() === "APPROVED";
   const previousDocumentUrl = existingApplicantSnap.exists
     ? existingApplicantSnap.data()?.embassyInterview?.documentUrl || ""
     : "";
@@ -762,12 +773,13 @@ async function addEmbassyInterviewUseCase(req) {
     {
       embassyInterview: {
         dateTime,
-        documentUrl,
-        status: isSuperUser ? "APPROVED" : "PENDING",
+        documentUrl: documentUrl || previousDocumentUrl,
+        status: isSuperUser || wasPreviouslyApproved ? "APPROVED" : "PENDING",
         createdBy: req.user.uid,
         createdByRole: req.user.role,
-        approved: isSuperUser,
-        approvedBy: isSuperUser ? req.user.uid : null,
+        approved: isSuperUser || wasPreviouslyApproved,
+        approvedBy: isSuperUser ? req.user.uid : (existingInterview.approvedBy || null),
+        approvedAt: isSuperUser ? new Date() : (existingInterview.approvedAt || null),
         createdAt: new Date()
       }
     },
@@ -803,12 +815,11 @@ async function addEmbassyInterviewUseCase(req) {
       includeAgency: true
     });
   }
-  await recordEmployerWorkflowInitiated({
-    applicantId,
-    applicant: existingApplicantSnap.data() || {},
-    user: req.user,
-    actionKey: "EMBASSY_INTERVIEW_INITIATED"
-  });
+  if (isSuperUser) {
+    await recordNotificationAction({ actionKey: "EMBASSY_INTERVIEW_INITIATED", applicantId, applicant: existingApplicantSnap.data() || {}, user: req.user });
+  } else {
+    await recordEmployerWorkflowInitiated({ applicantId, applicant: existingApplicantSnap.data() || {}, user: req.user, actionKey: "EMBASSY_INTERVIEW_INITIATED" });
+  }
   return { message: "Embassy interview added" };
 }
 

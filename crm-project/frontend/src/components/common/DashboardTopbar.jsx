@@ -18,7 +18,7 @@ function getInitials(name) {
   return parts.map((part) => part[0]).join("").toUpperCase();
 }
 
-function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", onTabChange }) {
+function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", onTabChange, showNotifications = false }) {
   const navigate = useNavigate();
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const userInitials = useMemo(() => getInitials(user?.name || "User"), [user?.name]);
@@ -53,7 +53,7 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
         )}
 
         <div className="dashboardTopbarRight">
-          <NotificationBell />
+          {showNotifications ? <NotificationBell /> : null}
           <button
             type="button"
             className="dashboardUserMenuBtn"

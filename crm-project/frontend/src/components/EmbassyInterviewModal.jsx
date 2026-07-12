@@ -119,16 +119,13 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const canEditInterview =
     (isSuperUser || user?.role === "EMPLOYER") &&
-    !hasInterviewBiometric &&
-    !interviewTicket &&
-    !interview?.approved &&
-    String(interview?.status || "").toUpperCase() !== "APPROVED";
+    !hasInterviewBiometric;
   const canApprove = isSuperUser && interview && !interview.approved && !hasInterviewBiometric;
   const canAddTicket =
     user?.role === "AGENCY" &&
     interview &&
     ((!interviewTicket && !hasInterviewBiometric) || editingTravel);
-  const canUpdateTravel = user?.role === "AGENCY" && interview && Boolean(interviewTicket);
+  const canUpdateTravel = user?.role === "AGENCY" && interview && Boolean(interviewTicket) && !hasInterviewBiometric;
   const isBusy = savingInterview || savingTicket;
   const showInterviewForm = canEditInterview && (!interview || editingInterview);
 
@@ -328,9 +325,10 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                       <DetailRow
                         label="Document"
                         action={(
-                          <a href={interview.documentUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                            View document
-                          </a>
+                          <span className="workflowDetailActions">
+                            <a href={interview.documentUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">View</a>
+                            <a href={interview.documentUrl} download className="workflowDetailAction">Download</a>
+                          </span>
                         )}
                       />
                     ) : null}
@@ -350,9 +348,10 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                         <DetailRow
                           label="Ticket"
                           action={(
-                            <a href={interviewTicket.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                              Open ticket
-                            </a>
+                          <span className="workflowDetailActions">
+                            <a href={interviewTicket.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">Open ticket</a>
+                            <a href={interviewTicket.fileUrl} download className="workflowDetailAction">Download</a>
+                          </span>
                           )}
                         />
                       ) : null}
@@ -371,9 +370,10 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                       <DetailRow
                         label="Biometric Slip"
                         action={(
-                          <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                            View document
-                          </a>
+                          <span className="workflowDetailActions">
+                            <a href={resolvedInterviewBiometric.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">View</a>
+                            <a href={resolvedInterviewBiometric.fileUrl} download className="workflowDetailAction">Download</a>
+                          </span>
                         )}
                       />
                       <DetailRow label="Uploaded On" value={formatDateTime(resolvedInterviewBiometric.uploadedAt)} />
@@ -395,7 +395,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                       onChange={(date) => setInterviewDate(date)}
                       portalId="root"
                       popperPlacement="bottom-start"
-                      minDate={getTomorrow()}
+                      minDate={new Date()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
                       showYearDropdown
@@ -553,7 +553,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
                 ) : null}
                 {interview && canEditInterview ? (
                   <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingInterview(true)}>
-                    Edit
+                    Update Interview
                   </button>
                 ) : null}
                 {canApprove ? (

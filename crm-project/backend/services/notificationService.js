@@ -85,6 +85,10 @@ const AGENCY_VISIBLE_ADMIN_ACTIONS = new Set([
   "APPLICANT_APPROVED",
   "DOCUMENT_APPROVED",
   "DOCUMENT_REJECTED",
+  "CONTRACT_ISSUED",
+  "EMBASSY_APPOINTMENT_INITIATED",
+  "EMBASSY_INTERVIEW_INITIATED",
+  "VISA_COLLECTION_INITIATED",
   "CONTRACT_APPROVED",
   "SIGNED_CONTRACT_REJECTED",
   "EMBASSY_APPOINTMENT_APPROVED",
@@ -388,7 +392,7 @@ function defaultRecipientRoles({ actionKey, applicant = {}, user = {} } = {}) {
   if (user?.role === SUPER_USER_ROLE) {
     return [
       ...(AGENCY_VISIBLE_ADMIN_ACTIONS.has(actionKey) ? ["AGENCY"] : []),
-      ...(actionKey === "PROCESS_COMPLETED" ? ["EMPLOYER"] : [])
+      ...(["PROCESS_COMPLETED", "EMBASSY_APPOINTMENT_INITIATED", "EMBASSY_INTERVIEW_INITIATED", "VISA_COLLECTION_INITIATED"].includes(actionKey) ? ["EMPLOYER"] : [])
     ];
   }
   if (actionKey === "APPLICANT_ADDED" && applicant?.approvalStatus === "approved") return ["EMPLOYER"];
@@ -585,9 +589,101 @@ function groupNotificationItems(items = []) {
     .sort((left, right) => right.latestAt - left.latestAt);
 }
 
+async function filterInactiveDocumentNotificationApplicants(items = [], user = {}) {
+  const applicantNotificationItems = items.filter((item) => item.applicantIds?.length);
+  if (!applicantNotificationItems.length) return items;
+
+  const applicantIds = [...new Set(applicantNotificationItems.flatMap((item) => item.applicantIds))];
+  const applicantDocs = [];
+  for (let offset = 0; offset < applicantIds.length; offset += 500) {
+    const refs = applicantIds.slice(offset, offset + 500).map((id) => db.collection("applicants").doc(id));
+    applicantDocs.push(...(refs.length ? await db.getAll(...refs) : []));
+  }
+  const applicantsById = new Map(
+    applicantDocs.filter((doc) => doc.exists).map((doc) => [doc.id, doc.data() || {}])
+  );
+
+  return items.reduce((filteredItems, item) => {
+    if (!item.applicantIds?.length) {
+      filteredItems.push(item);
+      return filteredItems;
+    }
+
+    const actionableApplicantIds = item.applicantIds.filter((applicantId) => {
+      const applicant = applicantsById.get(applicantId);
+      if (!applicant) return false;
+
+      // Completed applicants are relevant only to the completion notification itself.
+      if (item.actionKey !== "PROCESS_COMPLETED" && Number(applicant.stage || 1) >= 13) return false;
+
+      if (!["DOCUMENT_UPLOADED", "DOCUMENT_APPROVED", "DOCUMENT_REJECTED", "CONTRACT_ISSUED"].includes(item.actionKey)) {
+        return true;
+      }
+
+      if (item.actionKey === "DOCUMENT_UPLOADED" || item.actionKey === "DOCUMENT_APPROVED") {
+        // Once dispatch or a later workflow stage begins, document approval is no longer actionable.
+        return Number(applicant.stage || 1) < 4;
+      }
+
+      if (item.actionKey === "CONTRACT_ISSUED") {
+        const signedDocuments = Array.isArray(applicant?.signedContract?.documents)
+          ? applicant.signedContract.documents
+          : [];
+        const hasSignedContract = Boolean(applicant?.signedContract?.fileUrl || signedDocuments.some((document) => document?.fileUrl));
+        if (user.role === "AGENCY") return Number(applicant.stage || 1) <= 5 && !hasSignedContract;
+        return (
+          Number(applicant.stage || 1) <= 5 &&
+          String(applicant?.contract?.status || "").toUpperCase() !== "APPROVED" &&
+          !hasSignedContract
+        );
+      }
+
+      const documentSummary = applicant.docSummary || applicant.documentSummary || {};
+      // A later successful re-upload and approval clears this count, making the old rejection irrelevant.
+      return Number(applicant.stage || 1) < 4 && Number(documentSummary.rejectedCount || 0) > 0;
+    });
+
+    if (!actionableApplicantIds.length) return filteredItems;
+
+    const nextItem = {
+      ...item,
+      applicantIds: actionableApplicantIds,
+      count: actionableApplicantIds.length
+    };
+    filteredItems.push({ ...nextItem, message: buildNotificationMessage(nextItem) });
+    return filteredItems;
+  }, []);
+}
+
 async function getNotificationSummary(userId = "") {
   const doc = await db.collection("users").doc(userId).get();
   return { unreadCount: Math.max(0, Number(doc.data()?.notificationUnreadCount || 0)) };
+}
+
+function mapNotificationDocument(doc) {
+  const event = { id: doc.id, ...doc.data(), unread: doc.data()?.read !== true };
+  const applicantIds = Array.isArray(event.applicantIds) && event.applicantIds.length
+    ? event.applicantIds
+    : event.applicantId ? [event.applicantId] : [];
+  return {
+    ...event,
+    applicantIds,
+    count: applicantIds.length,
+    latestAt: normalizeTimestampMs(event.createdAt)
+  };
+}
+
+async function getActionableUnreadNotificationCount(user = {}) {
+  const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
+    .where("userId", "==", user.uid)
+    .where("read", "==", false)
+    .limit(400)
+    .get();
+  const items = await filterInactiveDocumentNotificationApplicants(
+    groupNotificationItems(snapshot.docs.map(mapNotificationDocument)),
+    user
+  );
+  return items.filter((item) => item.unread).length;
 }
 
 async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } = {}) {
@@ -600,21 +696,14 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
     const cursorDate = new Date(cursor);
     if (!Number.isNaN(cursorDate.getTime())) query = query.startAfter(cursorDate);
   }
-  const [userSummary, snapshot] = await Promise.all([getNotificationSummary(user.uid), query.get()]);
+  const [unreadCount, snapshot] = await Promise.all([getActionableUnreadNotificationCount(user), query.get()]);
   const hasMore = snapshot.docs.length > safeLimit;
   const pageDocs = snapshot.docs.slice(0, safeLimit);
-  const rawItems = pageDocs.map((doc) => {
-    const event = { id: doc.id, ...doc.data(), unread: doc.data()?.read !== true };
-    const applicantIds = Array.isArray(event.applicantIds) && event.applicantIds.length
-      ? event.applicantIds
-      : event.applicantId ? [event.applicantId] : [];
-    const item = { ...event, applicantIds, count: applicantIds.length, latestAt: normalizeTimestampMs(event.createdAt) };
-    return item;
-  });
-  const items = groupNotificationItems(rawItems);
+  const rawItems = pageDocs.map(mapNotificationDocument);
+  const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems), user);
   return {
     items,
-    unreadCount: userSummary.unreadCount,
+    unreadCount,
     limit: safeLimit,
     hasMore,
     nextCursor: hasMore && pageDocs.length ? pageDocs[pageDocs.length - 1].data().createdAt.toDate().toISOString() : null
@@ -622,7 +711,17 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
 }
 
 async function getUnreadNotificationCount(user = {}) {
-  return getNotificationSummary(user.uid);
+  return { unreadCount: await getActionableUnreadNotificationCount(user) };
+}
+
+async function markNotificationRead(user = {}, notificationId = "") {
+  if (!notificationId) return getUnreadNotificationCount(user);
+  const notificationRef = db.collection(APP_NOTIFICATION_COLLECTION).doc(notificationId);
+  const notification = await notificationRef.get();
+  if (notification.exists && notification.data()?.userId === user.uid && notification.data()?.read !== true) {
+    await notificationRef.update({ read: true, readAt: new Date() });
+  }
+  return getUnreadNotificationCount(user);
 }
 
 async function markNotificationsRead(user = {}) {
@@ -824,6 +923,7 @@ module.exports = {
   deleteOldReadNotifications,
   getUnreadNotificationCount,
   listNotificationsForUser,
+  markNotificationRead,
   markNotificationsRead,
   recordAdminApproval,
   recordAgencyTask,

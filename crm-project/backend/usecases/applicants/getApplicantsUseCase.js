@@ -14,6 +14,7 @@ const {
   roundCurrency
 } = require("../../services/applicantDomainService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../../utils/roles");
+const { normalizeCompanyJobPositions } = require("../../utils/normalizers");
 
 function parseList(value) {
   return String(value || "")
@@ -140,9 +141,9 @@ function matchesDashboardFilter(applicant, filter, fromDate, toDate) {
     case "visa_collection":
       return stage < 12 && isWithinRange(visaCollectionDate, fromDate, toDate);
     case "embassy_interview":
-      return stage < 9 && isWithinRange(interviewDate, fromDate, toDate);
+      return stage <= 9 && isWithinRange(interviewDate, fromDate, toDate);
     case "embassy_appointment":
-      return stage < 7 && isWithinRange(appointmentDate, fromDate, toDate);
+      return stage <= 7 && isWithinRange(appointmentDate, fromDate, toDate);
     case "pending_payment":
       return paymentStage.pending > 0;
     case "payment_received":
@@ -317,12 +318,13 @@ async function resolveReferenceMaps(docs = []) {
 
   docs.forEach((doc) => {
     const data = doc.data();
-    if (data?.companyId && !data?.companyName) companyIds.add(data.companyId);
+    if (data?.companyId && (!data?.companyName || !data?.jobPositionName)) companyIds.add(data.companyId);
     if (data?.countryId && !data?.countryName) countryIds.add(data.countryId);
     if (data?.agencyId && !data?.agencyName) agencyIds.add(data.agencyId);
   });
 
   const companyIdToName = {};
+  const companyIdToJobPositionName = {};
   const countryIdToName = {};
   const agencyIdToName = {};
 
@@ -337,7 +339,18 @@ async function resolveReferenceMaps(docs = []) {
   ]);
 
   companyDocs.forEach((doc) => {
-    companyIdToName[doc.id] = doc.exists ? doc.data()?.name || "" : "";
+    const company = doc.exists ? doc.data() || {} : {};
+    companyIdToName[doc.id] = company.name || "";
+    const positions = normalizeCompanyJobPositions(company.jobPositions, company.documentsNeeded);
+    const legacyPositions = Array.isArray(company.jobSpecifications) ? company.jobSpecifications : [];
+    companyIdToJobPositionName[doc.id] = Object.fromEntries(
+      [...positions, ...legacyPositions]
+        .map((position) => [
+          String(position?.id || "").trim(),
+          String(position?.title || position?.name || position?.label || "").trim()
+        ])
+        .filter(([id, name]) => id && name)
+    );
   });
   countryDocs.forEach((doc) => {
     countryIdToName[doc.id] = doc.exists ? doc.data()?.name || "" : "";
@@ -349,6 +362,7 @@ async function resolveReferenceMaps(docs = []) {
   return {
     agencyIdToName,
     companyIdToName,
+    companyIdToJobPositionName,
     countryIdToName
   };
 }
@@ -358,6 +372,7 @@ function mapApplicant({
   userRole,
   liteMode,
   companyIdToName,
+  companyIdToJobPositionName,
   countryIdToName,
   agencyIdToName
 }) {
@@ -402,12 +417,14 @@ function mapApplicant({
     Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
     String(data?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
     (Boolean(data?.embassyInterview?.dateTime) && !Boolean(data?.embassyInterview?.approved));
+  const isCandidateApprovalPending =
+    Number(data?.stage || 1) === 1 && String(data?.approvalStatus || "").toLowerCase() !== "approved";
 
   const attentionRequired =
     isSuperUserLikeRole(userRole)
       ? hasPendingDocumentApproval || hasPendingPipelineApproval || hasPendingEmbassyInterviewApproval
       : userRole === "AGENCY"
-      ? hasRejectedDocument || hasDocumentUploadPending
+      ? !isCandidateApprovalPending && (hasRejectedDocument || hasDocumentUploadPending)
       : false;
 
   const hasTravelDetails = Boolean(
@@ -475,6 +492,10 @@ function mapApplicant({
       countryId: data?.countryId || "",
       agencyId: data?.agencyId || "",
       companyName: data?.companyName || (data?.companyId ? companyIdToName[data.companyId] : ""),
+      jobPositionName:
+        data?.jobPositionName ||
+        (data?.companyId ? companyIdToJobPositionName[data.companyId]?.[data.jobPositionId] : "") ||
+        "",
       countryName: data?.countryName || (data?.countryId ? countryIdToName[data.countryId] : ""),
       agencyName: data?.agencyName || (data?.agencyId ? agencyIdToName[data.agencyId] : ""),
       attentionRequired,
@@ -504,6 +525,10 @@ function mapApplicant({
     firstName,
     lastName,
     companyName: data?.companyName || (data?.companyId ? companyIdToName[data.companyId] : ""),
+    jobPositionName:
+      data?.jobPositionName ||
+      (data?.companyId ? companyIdToJobPositionName[data.companyId]?.[data.jobPositionId] : "") ||
+      "",
     countryName: data?.countryName || (data?.countryId ? countryIdToName[data.countryId] : ""),
     agencyName: data?.agencyName || (data?.agencyId ? agencyIdToName[data.agencyId] : ""),
     attentionRequired,
@@ -533,24 +558,25 @@ async function getApplicantsFirestorePage({
   query = applyListFilter(query, "countryId", countryFilters);
   query = applyListFilter(query, "companyId", companyFilters);
   query = applyListFilter(query, "agencyId", agencyFilters);
+  query = query.orderBy("createdAt", "desc").orderBy(admin.firestore.FieldPath.documentId(), "desc");
 
   const safeLimit = Math.max(1, Math.min(100, limit));
   const safePage = Math.max(1, page);
   const total = await countQueryResults(query);
   const decodedCursor = decodeCursor(cursor);
-  query = query.orderBy("createdAt", "desc").orderBy(admin.firestore.FieldPath.documentId(), "desc");
   if (decodedCursor) query = query.startAfter(decodedCursor.createdAt, decodedCursor.id);
   else if (safePage > 1) query = query.offset((safePage - 1) * safeLimit);
   const snap = await query.limit(safeLimit + 1).get();
   const hasMore = snap.docs.length > safeLimit;
   const docs = snap.docs.slice(0, safeLimit);
-  const { agencyIdToName, companyIdToName, countryIdToName } = await resolveReferenceMaps(docs);
+  const { agencyIdToName, companyIdToName, companyIdToJobPositionName, countryIdToName } = await resolveReferenceMaps(docs);
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
       userRole,
       liteMode,
       companyIdToName,
+      companyIdToJobPositionName,
       countryIdToName,
       agencyIdToName
     })
@@ -706,13 +732,14 @@ async function getApplicantsUseCase(req) {
   const dashboardApplicantIds = dashboardFilter === "payment_received"
     ? await resolvePaymentApplicantIdsByDate({ applicantDocs: docs, fromDate, toDate })
     : null;
-  const { agencyIdToName, companyIdToName, countryIdToName } = await resolveReferenceMaps(docs);
+  const { agencyIdToName, companyIdToName, companyIdToJobPositionName, countryIdToName } = await resolveReferenceMaps(docs);
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
       userRole,
       liteMode: effectiveLiteMode,
       companyIdToName,
+      companyIdToJobPositionName,
       countryIdToName,
       agencyIdToName
     })

@@ -89,6 +89,12 @@ const PAYMENT_STATUS_LABELS = {
   CONFIRMED: "Confirmed"
 };
 
+const DASHBOARD_TAB_CONFIG = {
+  home: { label: "Home" },
+  applicants: { label: "Applicants" },
+  companies: { label: "Companies" }
+};
+
 function getPaymentStatus(payment = {}) {
   const status = String(payment.verificationStatus || payment.status || "").toUpperCase();
   if (PAYMENT_STATUS_LABELS[status]) return status;
@@ -139,6 +145,26 @@ function ApplicantPayments() {
     note: "",
     documents: []
   });
+  const paymentDashboardTabs = useMemo(() => {
+    if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
+    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["home", "applicants", "companies"];
+    if (user?.role === "SENIOR_ACCOUNTANT") return ["home", "applicants"];
+    return ["applicants"];
+  }, [user?.role]);
+  const handleDashboardTabChange = useCallback(
+    (tabKey) => {
+      if (!paymentDashboardTabs.includes(tabKey)) return;
+      if (tabKey === "applicants") {
+        const params = new URLSearchParams(window.location.search);
+        params.set("tab", "applicants");
+        navigate(`/dashboard?${params.toString()}`);
+        return;
+      }
+      const query = tabKey === "home" ? "" : `?tab=${encodeURIComponent(tabKey)}`;
+      navigate(`/dashboard${query}`);
+    },
+    [navigate, paymentDashboardTabs]
+  );
 
   const loadData = useCallback(async () => {
     try {
@@ -203,6 +229,7 @@ function ApplicantPayments() {
   const confirmedAmount = applicantPayment.confirmedAmount ?? paidAmount;
   const awaitingJuniorAmount = applicantPayment.awaitingJuniorAmount ?? 0;
   const awaitingSeniorAmount = applicantPayment.awaitingSeniorAmount ?? 0;
+  const hasPaymentReviewPending = Number(awaitingJuniorAmount || 0) > 0 || Number(awaitingSeniorAmount || 0) > 0;
   const paymentHistory = useMemo(() => {
     if (Array.isArray(paymentSummary?.applicant?.history)) {
       return paymentSummary.applicant.history;
@@ -455,15 +482,28 @@ function ApplicantPayments() {
 
   return (
     <div className="page-container dashboardPageContainer">
-      <DashboardTopbar user={user} />
+      <DashboardTopbar
+        user={user}
+        showTabs
+        tabs={paymentDashboardTabs.map((key) => ({
+          key,
+          label: DASHBOARD_TAB_CONFIG[key].label
+        }))}
+        activeTab="applicants"
+        onTabChange={handleDashboardTabChange}
+      />
       <div className="page-content paymentPage paymentLayout">
         <aside className="paymentSidebar">
           <ApplicantSummaryCard
             applicant={sidebarProfile?.applicant || applicant}
             pendingAmount={sidebarProfile?.pendingAmount ?? pendingAmount}
-            pendingDisplayValue={formatPaymentCurrency(sidebarProfile?.pendingAmount ?? pendingAmount)}
-            onPendingClick={() => navigate(`/applicants/${id}/payments`)}
-            onProfileClick={canOpenApplicantProfile ? () => navigate(`/applicants/${id}`) : undefined}
+            pendingDisplayValue={
+              Number((sidebarProfile?.pendingAmount ?? pendingAmount) || 0) <= 0 && hasPaymentReviewPending
+                ? "Payment completed"
+                : formatPaymentCurrency(sidebarProfile?.pendingAmount ?? pendingAmount)
+            }
+            onPendingClick={() => navigate(`/applicants/${id}/payments${window.location.search || ""}`)}
+            onProfileClick={canOpenApplicantProfile ? () => navigate(`/applicants/${id}${window.location.search || ""}`) : undefined}
             agencyName={sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || ""}
             countryName={sidebarProfile?.countryName || applicant?.countryName || applicant?.country || ""}
             showAgency={isAccountant || Boolean((sidebarProfile?.agencyName || applicant?.agencyName || applicant?.agency?.name || applicant?.agencyId))}

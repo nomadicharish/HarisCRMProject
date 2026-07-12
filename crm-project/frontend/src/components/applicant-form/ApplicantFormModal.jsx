@@ -1,5 +1,6 @@
-import React, { Suspense, lazy, useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import { getCached } from "../../services/cachedApi";
@@ -39,6 +40,11 @@ const EDUCATION_OPTIONS = [
   "Doctorate (Ph.D.)",
   "No Formal Education"
 ];
+const DASHBOARD_TAB_CONFIG = {
+  home: { label: "Home" },
+  applicants: { label: "Applicants" },
+  companies: { label: "Companies" }
+};
 
 function normalizeListResponse(response) {
   if (Array.isArray(response)) return response;
@@ -55,7 +61,8 @@ function ApplicantFormModal({
   autoApproveAfterSave = false,
   asPage = false,
   readOnly = false,
-  initialApplicationDetails = null
+  initialApplicationDetails = null,
+  keepOpenAfterCreate = false
 }) {
   const [companies, setCompanies] = useState([]);
   const [countries, setCountries] = useState([]);
@@ -69,6 +76,12 @@ function ApplicantFormModal({
   const [form, setForm] = useState(EMPTY_FORM);
 
   const navigate = useNavigate();
+  const pageDashboardTabs = useMemo(() => {
+    if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
+    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["home", "applicants", "companies"];
+    if (user?.role === "SENIOR_ACCOUNTANT") return ["home", "applicants"];
+    return ["applicants"];
+  }, [user?.role]);
 
   const getStep1Errors = () => {
     const newErrors = {};
@@ -117,9 +130,24 @@ function ApplicantFormModal({
     return Object.keys(newErrors).length === 0;
   };
 
-  const resetForm = () => {
-    setForm(EMPTY_FORM);
+  const resetForm = ({ retainApplicationDetails = false } = {}) => {
+    setForm((currentForm) =>
+      retainApplicationDetails
+        ? {
+            ...EMPTY_FORM,
+            countryId: currentForm.countryId,
+            companyId: currentForm.companyId,
+            jobPositionId: currentForm.jobPositionId,
+            agencyId: currentForm.agencyId,
+            paymentCurrency: currentForm.paymentCurrency,
+            totalAmount: currentForm.totalAmount,
+            paidAmount: currentForm.paidAmount
+          }
+        : EMPTY_FORM
+    );
     setErrors({});
+    setDob(null);
+    setStep(1);
   };
 
   const handleChange = (key, value) => {
@@ -387,11 +415,13 @@ function ApplicantFormModal({
         if (typeof onSaved === "function") {
           await onSaved({ operation: "create", id: response?.data?.applicantId || "", payload: savedPayload });
         }
-        resetForm();
+        resetForm({ retainApplicationDetails: Boolean(initialApplicationDetails) });
+        toast.success("Applicant created successfully");
       }
 
-      if (typeof onClose === "function") onClose();
-      if (typeof onSaved !== "function") {
+      const shouldStayOpen = !editData && keepOpenAfterCreate;
+      if (!shouldStayOpen && typeof onClose === "function") onClose();
+      if (!shouldStayOpen && typeof onSaved !== "function") {
         setTimeout(() => {
           navigate("/applicants");
         }, 1200);
@@ -442,7 +472,16 @@ function ApplicantFormModal({
   if (asPage) {
     return (
       <div className="page-container">
-        <DashboardTopbar user={user} />
+        <DashboardTopbar
+          user={user}
+          showTabs
+          tabs={pageDashboardTabs.map((key) => ({ key, label: DASHBOARD_TAB_CONFIG[key].label }))}
+          activeTab="applicants"
+          onTabChange={(tabKey) => {
+            if (!pageDashboardTabs.includes(tabKey)) return;
+            navigate(tabKey === "home" ? "/dashboard" : `/dashboard?tab=${encodeURIComponent(tabKey)}`);
+          }}
+        />
         <div className="page-content">
           <div
             style={{
