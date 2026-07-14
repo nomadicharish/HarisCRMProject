@@ -28,7 +28,8 @@ async function logAuditEvent({
     requestPath: String(requestContext?.requestPath || ""),
     method: String(requestContext?.method || ""),
     metadata: metadata && typeof metadata === "object" ? metadata : {},
-    createdAt: admin.firestore.FieldValue.serverTimestamp()
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    expiresAt: new Date(Date.now() + Number(process.env.AUDIT_LOG_TTL_DAYS || 90) * 24 * 60 * 60 * 1000)
   };
 
   try {

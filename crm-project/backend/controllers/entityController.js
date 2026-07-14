@@ -12,12 +12,12 @@ async function updateCountry(req, res) {
 }
 
 async function addCompany(req, res) {
-  const data = await entityService.addCompany(req.body);
+  const data = await entityService.addCompany({ ...req.body, actor: req.user });
   return res.json(data);
 }
 
 async function updateCompany(req, res) {
-  const data = await entityService.updateCompany(req.params.id, req.body);
+  const data = await entityService.updateCompany(req.params.id, { ...req.body, actor: req.user });
   return res.json(data);
 }
 
@@ -27,12 +27,12 @@ async function deleteCompany(req, res) {
 }
 
 async function addAgency(req, res) {
-  const data = await entityService.addAgency(req.body);
+  const data = await entityService.addAgency({ ...req.body, actor: req.user });
   return res.json(data);
 }
 
 async function updateAgency(req, res) {
-  const data = await entityService.updateAgency(req.params.id, req.body);
+  const data = await entityService.updateAgency(req.params.id, { ...req.body, actor: req.user });
   return res.json(data);
 }
 
@@ -42,12 +42,12 @@ async function deleteAgency(req, res) {
 }
 
 async function addEmployer(req, res) {
-  const data = await entityService.addEmployer(req.body);
+  const data = await entityService.addEmployer({ ...req.body, actor: req.user });
   return res.json(data);
 }
 
 async function updateEmployer(req, res) {
-  const data = await entityService.updateEmployer(req.params.id, req.body);
+  const data = await entityService.updateEmployer(req.params.id, { ...req.body, actor: req.user });
   return res.json(data);
 }
 

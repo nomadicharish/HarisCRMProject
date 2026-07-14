@@ -86,6 +86,7 @@ const listCompaniesQuerySchema = z.object({
     z.boolean()
   ).optional().default(true),
   page: z.coerce.number().int().min(1).optional().default(1),
+  cursor: optionalTrimmedString.optional().default(""),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   q: optionalTrimmedString.optional().default(""),
   fields: optionalTrimmedString.optional().default(""),
@@ -99,6 +100,7 @@ const listEmployersQuerySchema = z.object({
     z.boolean()
   ).optional().default(true),
   page: z.coerce.number().int().min(1).optional().default(1),
+  cursor: optionalTrimmedString.optional().default(""),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   q: optionalTrimmedString.optional().default(""),
   fields: optionalTrimmedString.optional().default(""),
@@ -114,6 +116,7 @@ const listAgenciesQuerySchema = z.object({
     z.boolean()
   ).optional().default(true),
   page: z.coerce.number().int().min(1).optional().default(1),
+  cursor: optionalTrimmedString.optional().default(""),
   limit: z.coerce.number().int().min(1).max(100).optional().default(25),
   q: optionalTrimmedString.optional().default(""),
   fields: optionalTrimmedString.optional().default(""),

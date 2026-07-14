@@ -1,7 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 function FilterSection({ title, items, selectedValues, onToggle, visible = true }) {
   const [collapsed, setCollapsed] = useState(() => !(Array.isArray(selectedValues) && selectedValues.length > 0));
+
+  useEffect(() => {
+    setCollapsed(!(Array.isArray(selectedValues) && selectedValues.length > 0));
+  }, [selectedValues]);
 
   if (!visible) return null;
 

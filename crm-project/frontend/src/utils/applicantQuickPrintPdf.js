@@ -8,9 +8,23 @@ const MUTED = rgb(0.38, 0.43, 0.52);
 const LINE = rgb(0.82, 0.87, 0.95);
 const PALE_BLUE = rgb(0.93, 0.96, 1);
 const WHITE = rgb(1, 1, 1);
+const QUICK_PRINT_ICON_URLS = {
+  title: "/quick-print-icons/person-luggage.png",
+  bus: "/quick-print-icons/bus-alt.png",
+  company: "/quick-print-icons/company.png",
+  hotel: "/quick-print-icons/hotel.png",
+  job: "/quick-print-icons/job-position.png",
+  phone: "/quick-print-icons/phone-flip.png",
+  flightTime: "/quick-print-icons/plane-clock.png",
+  flight: "/quick-print-icons/plane.png"
+};
 
 function valueOrDash(value) {
   return String(value || "").trim() || "-";
+}
+
+function combineDateTime(date, time) {
+  return [date, time].filter((value) => String(value || "").trim()).join(" ");
 }
 
 function calculateAge(applicant) {
@@ -122,22 +136,30 @@ function drawIcon(page, type, x, y) {
     page.drawLine({ start: { x: x1, y: y1 }, end: { x: x2, y: y2 }, thickness, color: BLUE });
 
   if (type === "phone") {
-    line(x + 13, y + 30, x + 18, y + 23, 4);
-    line(x + 18, y + 23, x + 25, y + 16, 4);
-    line(x + 25, y + 16, x + 31, y + 13, 4);
+    page.drawRectangle({ x: x + 14, y: y + 9, width: 14, height: 26, borderColor: BLUE, borderWidth: 2 });
+    line(x + 18, y + 31, x + 24, y + 31, 1.5);
+    page.drawCircle({ x: cx, y: y + 13, size: 1.8, color: BLUE });
     return;
   }
   if (type === "whatsapp") {
-    page.drawCircle({ x: cx, y: cy + 1, size: 11, borderColor: BLUE, borderWidth: 2 });
-    line(x + 13, y + 10, x + 16, y + 16, 2);
-    line(x + 16, y + 16, x + 21, y + 13, 2);
-    line(x + 18, y + 27, x + 25, y + 18, 3);
+    page.drawCircle({ x: cx, y: cy + 3, size: 12, borderColor: BLUE, borderWidth: 2 });
+    line(x + 13, y + 11, x + 16, y + 16, 2);
+    line(x + 16, y + 16, x + 21, y + 14, 2);
+    line(x + 17, y + 27, x + 20, y + 23, 2);
+    line(x + 20, y + 23, x + 26, y + 20, 2);
+    line(x + 26, y + 20, x + 29, y + 22, 2);
     return;
   }
   if (type === "company" || type === "hotel") {
-    page.drawRectangle({ x: x + 11, y: y + 9, width: 12, height: 24, borderColor: BLUE, borderWidth: 2 });
-    page.drawRectangle({ x: x + 24, y: y + 14, width: 8, height: 19, borderColor: BLUE, borderWidth: 2 });
-    [14, 19, 24].forEach((yy) => line(x + 15, y + yy, x + 19, y + yy, 1.5));
+    page.drawRectangle({ x: x + 10, y: y + 9, width: 22, height: 25, borderColor: BLUE, borderWidth: 2 });
+    if (type === "hotel") {
+      line(x + 15, y + 14, x + 15, y + 22, 2);
+      line(x + 15, y + 18, x + 28, y + 18, 2);
+      line(x + 28, y + 14, x + 28, y + 24, 2);
+    } else {
+      [15, 21, 27].forEach((yy) => line(x + 15, y + yy, x + 19, y + yy, 1.5));
+      [15, 21, 27].forEach((yy) => line(x + 23, y + yy, x + 27, y + yy, 1.5));
+    }
     return;
   }
   if (type === "job") {
@@ -146,28 +168,41 @@ function drawIcon(page, type, x, y) {
     line(x + 9, y + 22, x + 33, y + 22, 1.5);
     return;
   }
-  if (type === "calendar") {
+  if (type === "calendar" || type === "calendarClock") {
     page.drawRectangle({ x: x + 10, y: y + 10, width: 23, height: 22, borderColor: BLUE, borderWidth: 2 });
     line(x + 10, y + 25, x + 33, y + 25, 2);
     line(x + 16, y + 35, x + 16, y + 29, 2);
     line(x + 27, y + 35, x + 27, y + 29, 2);
+    if (type === "calendarClock") {
+      page.drawCircle({ x: x + 28, y: y + 14, size: 5, borderColor: BLUE, borderWidth: 1.5 });
+      line(x + 28, y + 14, x + 28, y + 17, 1.2);
+      line(x + 28, y + 14, x + 31, y + 14, 1.2);
+    } else {
+      line(x + 15, y + 20, x + 18, y + 20, 1.4);
+      line(x + 23, y + 20, x + 26, y + 20, 1.4);
+      line(x + 15, y + 15, x + 18, y + 15, 1.4);
+    }
     return;
   }
   if (type === "time") {
-    page.drawCircle({ x: cx, y: cy, size: 12, color: BLUE });
+    page.drawCircle({ x: cx, y: cy, size: 12, borderColor: BLUE, borderWidth: 2 });
     line(cx, cy, cx, cy + 7, 2);
     line(cx, cy, cx + 6, cy - 4, 2);
     return;
   }
   if (type === "flight") {
-    line(x + 8, y + 18, x + 34, y + 26, 3);
-    line(x + 19, y + 22, x + 13, y + 32, 2);
-    line(x + 23, y + 23, x + 29, y + 13, 2);
+    line(x + 8, y + 22, x + 34, y + 22, 2.5);
+    line(x + 24, y + 22, x + 14, y + 33, 2);
+    line(x + 24, y + 22, x + 14, y + 11, 2);
+    line(x + 10, y + 22, x + 7, y + 27, 1.8);
+    line(x + 10, y + 22, x + 7, y + 17, 1.8);
+    line(x + 31, y + 22, x + 35, y + 25, 1.8);
+    line(x + 31, y + 22, x + 35, y + 19, 1.8);
     return;
   }
   if (type === "pin") {
-    page.drawCircle({ x: cx, y: cy + 5, size: 10, color: BLUE });
-    page.drawCircle({ x: cx, y: cy + 5, size: 3, color: WHITE });
+    page.drawCircle({ x: cx, y: cy + 6, size: 10, borderColor: BLUE, borderWidth: 2 });
+    page.drawCircle({ x: cx, y: cy + 6, size: 3, borderColor: BLUE, borderWidth: 1.5 });
     line(cx - 7, cy - 1, cx, y + 7, 2);
     line(cx + 7, cy - 1, cx, y + 7, 2);
     return;
@@ -175,18 +210,33 @@ function drawIcon(page, type, x, y) {
   if (type === "bus") {
     page.drawRectangle({ x: x + 9, y: y + 11, width: 24, height: 22, borderColor: BLUE, borderWidth: 2 });
     line(x + 12, y + 25, x + 30, y + 25, 2);
+    line(x + 13, y + 18, x + 29, y + 18, 1.5);
     page.drawCircle({ x: x + 14, y: y + 10, size: 3, color: BLUE });
     page.drawCircle({ x: x + 28, y: y + 10, size: 3, color: BLUE });
+    return;
+  }
+  if (type === "busClock") {
+    page.drawRectangle({ x: x + 8, y: y + 14, width: 22, height: 18, borderColor: BLUE, borderWidth: 2 });
+    line(x + 11, y + 25, x + 27, y + 25, 1.8);
+    page.drawCircle({ x: x + 13, y: y + 13, size: 2.5, color: BLUE });
+    page.drawCircle({ x: x + 25, y: y + 13, size: 2.5, color: BLUE });
+    page.drawCircle({ x: x + 31, y: y + 13, size: 6, borderColor: BLUE, borderWidth: 1.5 });
+    line(x + 31, y + 13, x + 31, y + 16, 1.2);
+    line(x + 31, y + 13, x + 34, y + 13, 1.2);
   }
 }
 
-function drawIconBox(page, x, y, type) {
+function drawIconBox(page, x, y, type, image = null) {
   page.drawRectangle({ x, y, width: 42, height: 42, color: PALE_BLUE, borderColor: LINE, borderWidth: 0.5 });
-  drawIcon(page, type, x, y);
+  if (image) {
+    drawImageContained(page, image, { x: x + 7, y: y + 7, width: 28, height: 28 });
+  } else {
+    drawIcon(page, type, x, y);
+  }
 }
 
-function drawDetail(page, { x, y, width, icon, label, value, regularFont, boldFont }) {
-  drawIconBox(page, x, y - 34, icon);
+function drawDetail(page, { x, y, width, icon, iconImage, label, value, regularFont, boldFont }) {
+  drawIconBox(page, x, y - 34, icon, iconImage);
   page.drawText(label, { x: x + 58, y: y - 6, size: 10, font: boldFont, color: TEXT });
   const lines = wrapText(value, regularFont, 11, width - 62);
   lines.forEach((line, index) => {
@@ -240,8 +290,12 @@ async function drawDetailsPage(pdfDoc, applicant, assets, fonts) {
     page.drawText(`Age: ${age}`, { x: 230, y: height - 249, size: 10, font: fonts.regular, color: DARK_BLUE });
   }
 
-  page.drawCircle({ x: 45, y: height - 340, size: 13, color: BLUE });
-  page.drawText("TA", { x: 37, y: height - 344, size: 8, font: fonts.bold, color: WHITE });
+  if (assets.icons?.title) {
+    drawImageContained(page, assets.icons.title, { x: 32, y: height - 354, width: 28, height: 28 });
+  } else {
+    page.drawCircle({ x: 45, y: height - 340, size: 13, color: BLUE });
+    page.drawText("TA", { x: 37, y: height - 344, size: 8, font: fonts.bold, color: WHITE });
+  }
   page.drawText("Travel & Arrival Details", {
     x: 70,
     y: height - 347,
@@ -260,16 +314,16 @@ async function drawDetailsPage(pdfDoc, applicant, assets, fonts) {
   const rightX = 309;
   const columnWidth = 250;
   const rows = [height - 405, height - 485, height - 565, height - 645, height - 725];
-  drawDetail(page, { x: leftX, y: rows[0], width: columnWidth, icon: "phone", label: "Contact Number", value: applicant?.phone || personal.phone, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[0], width: columnWidth, icon: "whatsapp", label: "WhatsApp Number", value: applicant?.whatsappNumber || personal.whatsappNumber || personal.whatsapp, ...fonts });
-  drawDetail(page, { x: leftX, y: rows[1], width: columnWidth, icon: "company", label: "Company", value: applicant?.companyName, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[1], width: columnWidth, icon: "job", label: "Job Position", value: applicant?.jobPositionName, ...fonts });
-  drawDetail(page, { x: leftX, y: rows[2], width: columnWidth, icon: "calendar", label: "Arrival Date", value: arrival.date, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[2], width: columnWidth, icon: "time", label: "Arrival Time", value: arrival.time, ...fonts });
-  drawDetail(page, { x: leftX, y: rows[3], width: columnWidth, icon: "flight", label: "Flight Number", value: arrival.flightNumber, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[3], width: columnWidth, icon: "pin", label: "Arrival Place", value: arrival.arrivalPlace, ...fonts });
-  drawDetail(page, { x: leftX, y: rows[4], width: columnWidth, icon: "bus", label: "Arrival Bus Number", value: arrival.arrivalBusNumber, ...fonts });
-  drawDetail(page, { x: rightX, y: rows[4], width: columnWidth, icon: "hotel", label: "Hotel Name & Address", value: arrival.hotelNameAddress, ...fonts });
+  drawDetail(page, { x: leftX, y: rows[0], width: columnWidth, icon: "phone", iconImage: assets.icons?.phone, label: "Contact Number", value: applicant?.phone || personal.phone, ...fonts });
+  drawDetail(page, { x: leftX, y: rows[1], width: columnWidth, icon: "company", iconImage: assets.icons?.company, label: "Company", value: applicant?.companyName, ...fonts });
+  drawDetail(page, { x: leftX, y: rows[2], width: columnWidth, icon: "calendarClock", iconImage: assets.icons?.flightTime, label: "Flight Arrival Date & Time", value: combineDateTime(arrival.date, arrival.time), ...fonts });
+  drawDetail(page, { x: leftX, y: rows[3], width: columnWidth, icon: "flight", iconImage: assets.icons?.flight, label: "Flight Number", value: arrival.flightNumber, ...fonts });
+  drawDetail(page, { x: leftX, y: rows[4], width: columnWidth, icon: "bus", iconImage: assets.icons?.bus, label: "Arrival Bus Number", value: arrival.arrivalBusNumber, ...fonts });
+  drawDetail(page, { x: rightX, y: rows[0], width: columnWidth, icon: "job", iconImage: assets.icons?.job, label: "Job Position", value: applicant?.jobPositionName, ...fonts });
+  drawDetail(page, { x: rightX, y: rows[1], width: columnWidth, icon: "hotel", iconImage: assets.icons?.hotel, label: "Hotel Name & Address", value: arrival.hotelNameAddress, ...fonts });
+  drawDetail(page, { x: rightX, y: rows[2], width: columnWidth, icon: "pin", label: "Flight Arrival Place", value: arrival.arrivalPlace, ...fonts });
+  drawDetail(page, { x: rightX, y: rows[3], width: columnWidth, icon: "busClock", iconImage: assets.icons?.bus, label: "Bus Arrival Date & Time", value: combineDateTime(arrival.arrivalBusDate, arrival.arrivalBusTime), ...fonts });
+  drawDetail(page, { x: rightX, y: rows[4], width: columnWidth, icon: "bus", iconImage: assets.icons?.bus, label: "Bus Arrival Place", value: arrival.busArrivalPlace || arrival.arrivalBusPlace, ...fonts });
 }
 
 async function appendAttachment(pdfDoc, attachment, fonts, assetLoader) {
@@ -316,14 +370,19 @@ export async function generateApplicantArrivalPdf(applicant, assetLoader) {
   const fonts = { regular, bold, regularFont: regular, boldFont: bold };
   const generatedAt = new Date();
 
-  const [logo, photo] = await Promise.all([
+  const [logo, photo, iconEntries] = await Promise.all([
     embedImage(pdfDoc, "/talent-acquisition-logo.png").catch(() => null),
     applicant?.profilePhotoUrl
       ? embedImage(pdfDoc, applicant.profilePhotoUrl, assetLoader, "photo")
-      : Promise.resolve(null)
+      : Promise.resolve(null),
+    Promise.all(Object.entries(QUICK_PRINT_ICON_URLS).map(async ([key, url]) => [
+      key,
+      await embedImage(pdfDoc, url).catch(() => null)
+    ]))
   ]);
+  const icons = Object.fromEntries(iconEntries);
 
-  await drawDetailsPage(pdfDoc, applicant, { logo, photo }, fonts);
+  await drawDetailsPage(pdfDoc, applicant, { logo, photo, icons }, fonts);
   const arrival = applicant?.visaTravel || {};
   await appendAttachment(pdfDoc, { title: "Arrival Flight Ticket", url: arrival.fileUrl, assetType: "flight" }, fonts, assetLoader);
   await appendAttachment(pdfDoc, { title: "Arrival Bus Ticket", url: arrival.busTicketUrl, assetType: "bus" }, fonts, assetLoader);

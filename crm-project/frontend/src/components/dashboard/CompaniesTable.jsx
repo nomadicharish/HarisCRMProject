@@ -15,9 +15,9 @@ function CompaniesTable({
       <div className="dashboardVirtualTable">
         <div className="dashboardVirtualHeader" style={{ gridTemplateColumns }}>
           <div>Company Name</div>
-          <div>Country</div>
+          {isSuperUser ? <div>Job Positions</div> : <div>Country</div>}
           {!isSuperUser ? <div>Applicants</div> : null}
-          {isSuperUser ? <div>Employer POC</div> : null}
+          {isSuperUser ? <div>Agencies</div> : null}
           {isSuperUser ? <div>Applicants</div> : null}
         </div>
         <VirtualizedRows
@@ -48,7 +48,7 @@ function CompaniesTable({
                   <span>{company.name || "-"}</span>
                 )}
               </div>
-              <div>{company.countryName || "-"}</div>
+              <div>{isSuperUser ? company.jobPositionNames || "-" : company.countryName || "-"}</div>
               {!isSuperUser ? (
                 <div>
                   <button
@@ -63,7 +63,7 @@ function CompaniesTable({
                   </button>
                 </div>
               ) : null}
-              {isSuperUser ? <div>{company.employerNames || "-"}</div> : null}
+              {isSuperUser ? <div>{company.agencyNames || "-"}</div> : null}
               {isSuperUser ? (
                 <div>
                   <button
@@ -90,9 +90,9 @@ function CompaniesTable({
       <thead>
         <tr>
           <th>Company Name</th>
-          <th>Country</th>
+          {isSuperUser ? <th>Job Positions</th> : <th>Country</th>}
           {!isSuperUser ? <th>Applicants</th> : null}
-          {isSuperUser ? <th>Employer POC</th> : null}
+          {isSuperUser ? <th>Agencies</th> : null}
           {isSuperUser ? <th>Applicants</th> : null}
         </tr>
       </thead>
@@ -126,7 +126,7 @@ function CompaniesTable({
                   <span>{company.name || "-"}</span>
                 )}
               </td>
-              <td>{company.countryName}</td>
+              <td>{isSuperUser ? company.jobPositionNames || "-" : company.countryName || "-"}</td>
               {!isSuperUser ? (
                 <td>
                   <button
@@ -141,7 +141,7 @@ function CompaniesTable({
                   </button>
                 </td>
               ) : null}
-              {isSuperUser ? <td>{company.employerNames || "-"}</td> : null}
+              {isSuperUser ? <td>{company.agencyNames || "-"}</td> : null}
               {isSuperUser ? (
                 <td>
                   <button

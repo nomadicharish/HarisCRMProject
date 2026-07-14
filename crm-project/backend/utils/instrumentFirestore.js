@@ -13,6 +13,16 @@ function instrumentFirestore(db) {
   const documentRefProto = Object.getPrototypeOf(db.collection("_probe").doc("_probe"));
   const queryProto = Object.getPrototypeOf(db.collection("_probe").limit(1));
 
+  if (!db[PATCHED_FLAG]) {
+    const originalGetAll = db.getAll.bind(db);
+    db.getAll = async function patchedGetAll(...args) {
+      const snapshots = await originalGetAll(...args);
+      incrementFirestoreReads(Array.isArray(snapshots) ? snapshots.length : 0);
+      return snapshots;
+    };
+    db[PATCHED_FLAG] = true;
+  }
+
   if (!documentRefProto[PATCHED_FLAG]) {
     const originalDocGet = documentRefProto.get;
     documentRefProto.get = async function patchedDocumentGet(...args) {

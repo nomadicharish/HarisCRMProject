@@ -1,4 +1,4 @@
-const { db } = require("../config/firebase");
+const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
 const { readEncryptedUserEmail } = require("./accountService");
 const { sendEmail } = require("./emailService");
@@ -8,7 +8,6 @@ const { JUNIOR_ACCOUNTANT_ROLE, SENIOR_ACCOUNTANT_ROLE, SUPER_USER_ROLE } = requ
 const DAILY_NOTIFICATION_COLLECTION = "dailyNotificationEvents";
 const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
 const APP_NOTIFICATION_COLLECTION = "notificationEvents";
-const NOTIFICATION_READ_COLLECTION = "notificationReadStates";
 const DEFAULT_TIME_ZONE = process.env.DAILY_EMAIL_TIMEZONE || "Asia/Kolkata";
 const DEFAULT_SEND_HOUR = Number(process.env.DAILY_EMAIL_SEND_HOUR || 8);
 
@@ -40,7 +39,7 @@ const AGENCY_ACTIONS = {
 const ACTION_META = {
   APPLICANT_ADDED: { title: "Applicant Created", tone: "blue", icon: "document", verb: "created applicant" },
   APPLICANT_APPROVED: { title: "Applicant Approved", tone: "cyan", icon: "shield", verb: "approved applicant" },
-  DOCUMENT_UPLOADED: { title: "Document Uploaded", tone: "pink", icon: "document", verb: "uploaded document" },
+  DOCUMENT_UPLOADED: { title: "Document Uploaded", tone: "pink", icon: "document", verb: "added documents" },
   DOCUMENT_APPROVED: { title: "Document Approved", tone: "green", icon: "document", verb: "approved document" },
   DOCUMENT_REJECTED: { title: "Document Rejected", tone: "pink", icon: "document", verb: "rejected document" },
   DOCUMENT_DISPATCHED: { title: "Dispatch Details Added", tone: "orange", icon: "calendar", verb: "added dispatch details" },
@@ -66,6 +65,7 @@ const ACTION_META = {
   VISA_COLLECTION_COMPLETED: { title: "Visa Collection Travel Added", tone: "blue", icon: "calendar", verb: "added visa collection travel" },
   ARRIVAL_DETAILS_ADDED: { title: "Arrival Details Added", tone: "blue", icon: "send", verb: "added arrival details" },
   PROCESS_COMPLETED: { title: "Candidate Arrival Completed", tone: "green", icon: "send", verb: "marked candidate arrival and completion" },
+  COMPANY_ASSIGNED: { title: "New Company Added", tone: "blue", icon: "building", verb: "added company" },
   TRC_ADDED: { title: "TRC Added", tone: "green", icon: "document", verb: "added TRC" }
 };
 
@@ -85,6 +85,10 @@ const AGENCY_VISIBLE_ADMIN_ACTIONS = new Set([
   "APPLICANT_APPROVED",
   "DOCUMENT_APPROVED",
   "DOCUMENT_REJECTED",
+  "CONTRACT_ISSUED",
+  "EMBASSY_APPOINTMENT_INITIATED",
+  "EMBASSY_INTERVIEW_INITIATED",
+  "VISA_COLLECTION_INITIATED",
   "CONTRACT_APPROVED",
   "SIGNED_CONTRACT_REJECTED",
   "EMBASSY_APPOINTMENT_APPROVED",
@@ -219,12 +223,17 @@ function actorLabel(payload = {}) {
   return "User";
 }
 
-async function addAppNotificationEvent(payload = {}) {
+function getUnreadNotificationGroupId({ actionKey = "", actorId = "", userId = "" } = {}) {
+  return Buffer.from(`${actionKey}:${actorId}:${userId}`).toString("base64url");
+}
+
+async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}) {
   const actionKey = payload.actionKey || "";
   if (!actionKey) return;
   const meta = ACTION_META[actionKey] || { title: payload.actionLabel || actionKey, tone: "blue", icon: "document", verb: payload.actionLabel || "updated" };
   const now = new Date();
-  await db.collection(APP_NOTIFICATION_COLLECTION).add({
+  const createdAt = payload.createdAt || now;
+  const event = {
     actionKey,
     actionLabel: payload.actionLabel || meta.title,
     title: meta.title,
@@ -232,6 +241,10 @@ async function addAppNotificationEvent(payload = {}) {
     icon: meta.icon,
     verb: meta.verb,
     applicantId: payload.applicantId || "",
+    applicantIds: [...new Set([
+      ...(Array.isArray(payload.applicantIds) ? payload.applicantIds : []),
+      payload.applicantId || ""
+    ].filter(Boolean))],
     applicantName: payload.applicantName || "",
     actorId: payload.actorId || "",
     actorRole: payload.actorRole || "",
@@ -244,7 +257,125 @@ async function addAppNotificationEvent(payload = {}) {
     recipientAgencyId: payload.recipientAgencyId || "",
     recipientCompanyId: payload.recipientCompanyId || "",
     recipientEmployerId: payload.recipientEmployerId || "",
-    createdAt: now
+    companyName: payload.companyName || "",
+    createdAt,
+    read: false
+  };
+
+  // Fan notifications out once at write time. This makes every subsequent read
+  // a cheap, indexed query for the signed-in user instead of a scan of all events.
+  const roles = [...new Set(event.recipientRoles)];
+  if (!roles.length) return;
+  const roleSnapshots = await Promise.all(
+    roles.map((role) => db.collection("users").where("role", "==", role).where("active", "==", true).get())
+  );
+  const recipientCandidates = new Map();
+  roleSnapshots.flatMap((snapshot) => snapshot.docs).forEach((doc) => {
+    const recipient = doc.data() || {};
+    if (doc.id === event.actorId) return;
+    if (recipient.role === "AGENCY") {
+      const agencyId = recipient.agencyId || doc.id;
+      if (event.recipientAgencyId && event.recipientAgencyId !== agencyId) return;
+    }
+    recipientCandidates.set(doc.id, recipient);
+  });
+
+  const employerIds = [...new Set([...recipientCandidates.values()]
+    .filter((recipient) => recipient.role === "EMPLOYER" && recipient.employerId)
+    .map((recipient) => recipient.employerId))];
+  const employerDocs = await Promise.all(employerIds.map((id) => db.collection("employers").doc(id).get()));
+  const employers = new Map(employerDocs.filter((doc) => doc.exists).map((doc) => [doc.id, doc.data() || {}]));
+  const recipients = new Map([...recipientCandidates].filter(([, recipient]) => {
+    if (recipient.role !== "EMPLOYER") return true;
+    if (event.recipientEmployerId) return recipient.employerId === event.recipientEmployerId;
+    const companyId = event.recipientCompanyId || event.companyId || "";
+    if (!companyId) return true;
+    const employer = employers.get(recipient.employerId) || {};
+    const companyIds = Array.isArray(employer.companyIds) ? employer.companyIds : [employer.companyId].filter(Boolean);
+    return companyIds.includes(companyId);
+  }));
+
+  const recipientEntries = [...recipients.entries()];
+  for (let offset = 0; offset < recipientEntries.length; offset += 249) {
+    const batch = db.batch();
+    const chunk = recipientEntries.slice(offset, offset + 249);
+    const shouldGroupUnread = !sourceEventId && Boolean(event.actionKey && event.actorId);
+    const deterministicRefs = (sourceEventId || shouldGroupUnread)
+      ? chunk.map(([userId]) => db.collection(APP_NOTIFICATION_COLLECTION).doc(
+        sourceEventId
+          ? `${sourceEventId}_${userId}`
+          : `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId })}`
+      ))
+      : [];
+    const existingDocs = deterministicRefs.length ? await db.getAll(...deterministicRefs) : [];
+    const existingById = new Map(existingDocs.filter((doc) => doc.exists).map((doc) => [doc.id, doc]));
+    let hasWrites = false;
+    chunk.forEach(([userId]) => {
+      const eventRef = sourceEventId
+        ? db.collection(APP_NOTIFICATION_COLLECTION).doc(`${sourceEventId}_${userId}`)
+        : shouldGroupUnread
+          ? db.collection(APP_NOTIFICATION_COLLECTION).doc(
+            `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId })}`
+          )
+        : db.collection(APP_NOTIFICATION_COLLECTION).doc();
+      const existing = existingById.get(eventRef.id);
+      if (sourceEventId && existing) return;
+
+      if (shouldGroupUnread && existing) {
+        const wasRead = existing.data()?.read === true;
+        const update = {
+          ...event,
+          userId,
+          createdAt: now,
+          read: false
+        };
+        if (event.applicantIds.length) {
+          update.applicantIds = admin.firestore.FieldValue.arrayUnion(...event.applicantIds);
+        }
+        batch.set(eventRef, update, { merge: true });
+        if (wasRead) {
+          batch.set(db.collection("users").doc(userId), {
+            notificationUnreadCount: admin.firestore.FieldValue.increment(1),
+            notificationUpdatedAt: now
+          }, { merge: true });
+        }
+        hasWrites = true;
+        return;
+      }
+
+      batch.set(eventRef, { ...event, userId });
+      batch.set(db.collection("users").doc(userId), {
+        notificationUnreadCount: admin.firestore.FieldValue.increment(1),
+        notificationUpdatedAt: now
+      }, { merge: true });
+      hasWrites = true;
+    });
+    if (hasWrites) await batch.commit();
+  }
+}
+
+async function recordCompanyAssignmentNotification({
+  companyId = "",
+  companyName = "",
+  actor = {},
+  recipientRole = "",
+  recipientAgencyId = "",
+  recipientEmployerId = ""
+} = {}) {
+  if (!companyId || !recipientRole) return;
+  await safeAddDailyEvent({
+    type: "APP_NOTIFICATION",
+    actionKey: "COMPANY_ASSIGNED",
+    actionLabel: ACTION_META.COMPANY_ASSIGNED.title,
+    actorId: actor.uid || "",
+    actorRole: actor.role || "SUPER_USER",
+    actorName: actor.name || actor.displayName || "Super User",
+    companyId,
+    companyName,
+    recipientRoles: [recipientRole],
+    recipientAgencyId,
+    recipientCompanyId: companyId,
+    recipientEmployerId
   });
 }
 
@@ -261,7 +392,7 @@ function defaultRecipientRoles({ actionKey, applicant = {}, user = {} } = {}) {
   if (user?.role === SUPER_USER_ROLE) {
     return [
       ...(AGENCY_VISIBLE_ADMIN_ACTIONS.has(actionKey) ? ["AGENCY"] : []),
-      ...(actionKey === "PROCESS_COMPLETED" ? ["EMPLOYER"] : [])
+      ...(["CONTRACT_ISSUED", "PROCESS_COMPLETED", "EMBASSY_APPOINTMENT_INITIATED", "EMBASSY_INTERVIEW_INITIATED", "VISA_COLLECTION_INITIATED"].includes(actionKey) ? ["EMPLOYER"] : [])
     ];
   }
   if (actionKey === "APPLICANT_ADDED" && applicant?.approvalStatus === "approved") return ["EMPLOYER"];
@@ -285,6 +416,7 @@ async function recordNotificationAction({
   const resolvedRecipientRoles = Array.isArray(recipientRoles) && recipientRoles.length
     ? recipientRoles
     : defaultRecipientRoles({ actionKey, applicant, user });
+  const notifyAllCompanyEmployers = user?.role === SUPER_USER_ROLE && actionKey === "CONTRACT_ISSUED";
   await safeAddDailyEvent({
     type: "APP_NOTIFICATION",
     actionKey,
@@ -303,7 +435,9 @@ async function recordNotificationAction({
     recipientCompanyId: recipientCompanyId || applicant.companyId || "",
     recipientEmployerId: typeof recipientEmployerId !== "undefined"
       ? recipientEmployerId
-      : (typeof employerIdOverride !== "undefined" ? employerIdOverride : (user.employerId || applicant.employerId || ""))
+      : notifyAllCompanyEmployers
+        ? ""
+        : (typeof employerIdOverride !== "undefined" ? employerIdOverride : (user.employerId || applicant.employerId || ""))
   });
 }
 
@@ -324,6 +458,33 @@ async function recordEmployerWorkflowInitiated({ applicantId, applicant = {}, us
     recipientAgencyId: applicant.agencyId || "",
     recipientCompanyId: applicant.companyId || "",
     recipientEmployerId: applicant.employerId || ""
+  });
+}
+
+async function recordBulkContractUpload({ applicants = [], user = {}, companyId = "" } = {}) {
+  const applicantIds = applicants.map((applicant) => applicant.id).filter(Boolean);
+  if (!applicantIds.length) return;
+  const actorName = user?.role === "EMPLOYER"
+    ? await getEmployerName(user)
+    : await resolveActorName(user, "Super User");
+  const firstApplicant = applicants[0] || {};
+  await safeAddDailyEvent({
+    type: "APP_NOTIFICATION",
+    actionKey: "CONTRACT_ISSUED",
+    actionLabel: ACTION_META.CONTRACT_ISSUED.title,
+    applicantIds,
+    applicantId: applicantIds[0] || "",
+    applicantName: getApplicantDisplayName(firstApplicant),
+    actorId: user.uid || "",
+    actorRole: user.role || "",
+    actorName,
+    agencyId: firstApplicant.agencyId || "",
+    companyId: companyId || firstApplicant.companyId || "",
+    employerId: user.employerId || firstApplicant.employerId || "",
+    recipientRoles: user.role === "EMPLOYER" ? [SUPER_USER_ROLE] : ["AGENCY", "EMPLOYER"],
+    recipientAgencyId: firstApplicant.agencyId || "",
+    recipientCompanyId: companyId || firstApplicant.companyId || "",
+    recipientEmployerId: ""
   });
 }
 
@@ -378,80 +539,18 @@ async function recordAgencyTask({ applicantId, applicant = {}, user = {}, action
   });
 }
 
-async function getEmployerCompanyIds(employerId = "") {
-  if (!employerId) return [];
-  const employerDoc = await db.collection("employers").doc(employerId).get();
-  if (!employerDoc.exists) return [];
-  const employer = employerDoc.data() || {};
-  return Array.isArray(employer.companyIds) && employer.companyIds.length
-    ? employer.companyIds
-    : employer.companyId
-      ? [employer.companyId]
-      : [];
-}
-
-async function isEmployerTaggedToCompany(employerId = "", companyId = "") {
-  if (!employerId || !companyId) return false;
-  const companyDoc = await db.collection("companies").doc(companyId).get();
-  if (!companyDoc.exists) return false;
-  const company = companyDoc.data() || {};
-  return Array.isArray(company.employerIds) && company.employerIds.includes(employerId);
-}
-
-async function getScopedEventsForUser(user = {}) {
-  const since = new Date(Date.now() - 31 * 24 * 60 * 60 * 1000);
-  const snap = await db
-    .collection(APP_NOTIFICATION_COLLECTION)
-    .where("createdAt", ">=", since)
-    .orderBy("createdAt", "desc")
-    .limit(500)
-    .get();
-  let events = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-  const hasExplicitRecipients = (event) => Array.isArray(event.recipientRoles) && event.recipientRoles.length > 0;
-  const isExplicitRecipient = async (event) => {
-    if (!hasExplicitRecipients(event)) return null;
-    if (!event.recipientRoles.includes(user.role)) return false;
-    if (user.role === "AGENCY") {
-      const agencyId = user.agencyId || user.uid || "";
-      return !event.recipientAgencyId || event.recipientAgencyId === agencyId || event.agencyId === agencyId;
-    }
-    if (user.role === "EMPLOYER") {
-      const companyIds = await getEmployerCompanyIds(user.employerId);
-      const isTaggedToCompany = await isEmployerTaggedToCompany(user.employerId, event.recipientCompanyId || event.companyId || "");
-      return (
-        !event.recipientEmployerId && !event.recipientCompanyId
-      ) || event.recipientEmployerId === user.employerId || companyIds.includes(event.recipientCompanyId || "") || isTaggedToCompany;
-    }
-    return true;
-  };
-
-  const explicitChecks = await Promise.all(events.map((event) => isExplicitRecipient(event)));
-  events = events.filter((event, index) => explicitChecks[index] === true || explicitChecks[index] === null);
-  if (user.role === "AGENCY") {
-    const agencyId = user.agencyId || user.uid || "";
-    events = events.filter((event) => event.agencyId === agencyId);
-    // Agents shouldn't receive notifications about their own document uploads; only admins should
-    events = events.filter((event) => !(event.actionKey === "DOCUMENT_UPLOADED"));
-  } else if (user.role === "EMPLOYER") {
-    const companyIds = await getEmployerCompanyIds(user.employerId);
-    const employerChecks = await Promise.all(events.map(async (event) => (
-      companyIds.includes(event.companyId || "") ||
-      event.employerId === user.employerId ||
-      await isEmployerTaggedToCompany(user.employerId, event.companyId || event.recipientCompanyId || "")
-    )));
-    events = events.filter((event, index) => employerChecks[index]);
-  }
-  return events;
-}
-
 function buildNotificationMessage(group) {
   const actor = group.actorName || "User";
   const verb = group.verb || "updated";
   const count = group.count || group.applicantIds?.size || 0;
+  if (group.actionKey === "COMPANY_ASSIGNED") {
+    return `New company added: ${group.companyName || group.companyId || "Company"}.`;
+  }
   // For creation verbs prefer "{Actor} created {n} applicants." phrasing
   if (/created applicant/i.test(verb) || /applicants added/i.test(group.title || "")) {
     return `${actor} created ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   }
+  if (group.actionKey === "CONTRACT_ISSUED") return `${actor} added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   if (group.actionKey === "APPLICANT_APPROVED") return `${actor} approved ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   if (group.actionKey === "DOCUMENT_APPROVED") return `${actor} approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   if (group.actionKey === "DOCUMENT_REJECTED") return `${actor} rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
@@ -461,83 +560,202 @@ function buildNotificationMessage(group) {
   return `${actor} ${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
 }
 
-function aggregateNotificationEvents(events = [], lastReadAtMs = 0) {
-  const groups = new Map();
-  events.forEach((event) => {
-    const key = [event.actionKey, event.actorId || event.actorName || "", event.agencyId || "", event.companyId || ""].join("__");
-    const createdAtMs = normalizeTimestampMs(event.createdAt);
-    const current = groups.get(key) || {
-      id: key,
-      actionKey: event.actionKey || "",
-      title: event.title || event.actionLabel || event.actionKey || "Notification",
-      tone: event.tone || "blue",
-      icon: event.icon || "document",
-      verb: event.verb || "updated",
-      actorName: event.actorName || "User",
-      agencyId: event.agencyId || "",
-      companyId: event.companyId || "",
-      applicantIds: new Set(),
-      unreadApplicantIds: new Set(),
-      latestAt: createdAtMs,
-      unread: false
-    };
-    if (event.applicantId) current.applicantIds.add(event.applicantId);
-    if (event.applicantId && createdAtMs > lastReadAtMs) current.unreadApplicantIds.add(event.applicantId);
-    current.latestAt = Math.max(current.latestAt, createdAtMs);
-    current.unread = current.unread || createdAtMs > lastReadAtMs;
-    groups.set(key, current);
+function groupNotificationItems(items = []) {
+  const grouped = new Map();
+
+  items.forEach((item) => {
+    // A bulk dispatch creates one event per applicant. Combine unread dispatch
+    // events from the same agent so the recipient gets one actionable item.
+    if (!item.actorId || !item.applicantIds.length) {
+      grouped.set(`single:${item.id}`, item);
+      return;
+    }
+
+    const key = `action:${item.actionKey}:${item.actorId}`;
+    const current = grouped.get(key);
+    if (!current) {
+      grouped.set(key, { ...item, applicantIds: [...item.applicantIds] });
+      return;
+    }
+
+    current.applicantIds = [...new Set([...current.applicantIds, ...item.applicantIds])];
+    current.count = current.applicantIds.length;
+    current.unread = current.unread || item.unread;
+    if (item.latestAt > current.latestAt) {
+      current.latestAt = item.latestAt;
+      current.createdAt = item.createdAt;
+    }
   });
 
-  return Array.from(groups.values())
-    .sort((a, b) => b.latestAt - a.latestAt)
-    .map((group) => {
-      const applicantIds = Array.from(group.unread ? group.unreadApplicantIds : group.applicantIds);
-      const { unreadApplicantIds, ...serializableGroup } = group;
-      const item = {
-        ...serializableGroup,
-        applicantIds,
-        count: applicantIds.length,
-        latestAt: group.latestAt
-      };
-      return {
-        ...item,
-        message: buildNotificationMessage(item)
-      };
+  return [...grouped.values()]
+    .map((item) => ({ ...item, count: item.applicantIds.length, message: buildNotificationMessage(item) }))
+    .sort((left, right) => right.latestAt - left.latestAt);
+}
+
+async function filterInactiveDocumentNotificationApplicants(items = [], user = {}) {
+  const applicantNotificationItems = items.filter((item) => item.applicantIds?.length);
+  if (!applicantNotificationItems.length) return items;
+
+  const applicantIds = [...new Set(applicantNotificationItems.flatMap((item) => item.applicantIds))];
+  const applicantDocs = [];
+  for (let offset = 0; offset < applicantIds.length; offset += 500) {
+    const refs = applicantIds.slice(offset, offset + 500).map((id) => db.collection("applicants").doc(id));
+    applicantDocs.push(...(refs.length ? await db.getAll(...refs) : []));
+  }
+  const applicantsById = new Map(
+    applicantDocs.filter((doc) => doc.exists).map((doc) => [doc.id, doc.data() || {}])
+  );
+
+  return items.reduce((filteredItems, item) => {
+    if (!item.applicantIds?.length) {
+      filteredItems.push(item);
+      return filteredItems;
+    }
+
+    const actionableApplicantIds = item.applicantIds.filter((applicantId) => {
+      const applicant = applicantsById.get(applicantId);
+      if (!applicant) return false;
+
+      // Completed applicants are relevant only to the completion notification itself.
+      if (item.actionKey !== "PROCESS_COMPLETED" && Number(applicant.stage || 1) >= 13) return false;
+
+      if (!["DOCUMENT_UPLOADED", "DOCUMENT_APPROVED", "DOCUMENT_REJECTED", "CONTRACT_ISSUED"].includes(item.actionKey)) {
+        return true;
+      }
+
+      if (item.actionKey === "DOCUMENT_UPLOADED" || item.actionKey === "DOCUMENT_APPROVED") {
+        // Once dispatch or a later workflow stage begins, document approval is no longer actionable.
+        return Number(applicant.stage || 1) < 4;
+      }
+
+      if (item.actionKey === "CONTRACT_ISSUED") {
+        const signedDocuments = Array.isArray(applicant?.signedContract?.documents)
+          ? applicant.signedContract.documents
+          : [];
+        const hasSignedContract = Boolean(applicant?.signedContract?.fileUrl || signedDocuments.some((document) => document?.fileUrl));
+        if (user.role === "AGENCY") return Number(applicant.stage || 1) <= 5 && !hasSignedContract;
+        return (
+          Number(applicant.stage || 1) <= 5 &&
+          String(applicant?.contract?.status || "").toUpperCase() !== "APPROVED" &&
+          !hasSignedContract
+        );
+      }
+
+      const documentSummary = applicant.docSummary || applicant.documentSummary || {};
+      // A later successful re-upload and approval clears this count, making the old rejection irrelevant.
+      return Number(applicant.stage || 1) < 4 && Number(documentSummary.rejectedCount || 0) > 0;
     });
+
+    if (!actionableApplicantIds.length) return filteredItems;
+
+    const nextItem = {
+      ...item,
+      applicantIds: actionableApplicantIds,
+      count: actionableApplicantIds.length
+    };
+    filteredItems.push({ ...nextItem, message: buildNotificationMessage(nextItem) });
+    return filteredItems;
+  }, []);
 }
 
-async function getNotificationReadState(userId = "") {
-  if (!userId) return { lastReadAtMs: 0 };
-  const doc = await db.collection(NOTIFICATION_READ_COLLECTION).doc(userId).get();
-  return { lastReadAtMs: normalizeTimestampMs(doc.exists ? doc.data()?.lastReadAt : null) };
+async function getNotificationSummary(userId = "") {
+  const doc = await db.collection("users").doc(userId).get();
+  return { unreadCount: Math.max(0, Number(doc.data()?.notificationUnreadCount || 0)) };
 }
 
-async function listNotificationsForUser(user = {}, { limit = 10, page = 1 } = {}) {
-  const [{ lastReadAtMs }, events] = await Promise.all([
-    getNotificationReadState(user.uid),
-    getScopedEventsForUser(user)
-  ]);
-  const groups = aggregateNotificationEvents(events, lastReadAtMs);
-  const safeLimit = Math.max(1, Math.min(100, Number(limit || 10)));
-  const safePage = Math.max(1, Number(page || 1));
-  const offset = (safePage - 1) * safeLimit;
+function mapNotificationDocument(doc) {
+  const event = { id: doc.id, ...doc.data(), unread: doc.data()?.read !== true };
+  const applicantIds = Array.isArray(event.applicantIds) && event.applicantIds.length
+    ? event.applicantIds
+    : event.applicantId ? [event.applicantId] : [];
   return {
-    items: groups.slice(offset, offset + safeLimit),
-    unreadCount: groups.filter((item) => item.unread).length,
-    total: groups.length,
-    page: safePage,
-    limit: safeLimit,
-    totalPages: Math.max(1, Math.ceil(groups.length / safeLimit))
+    ...event,
+    applicantIds,
+    count: applicantIds.length,
+    latestAt: normalizeTimestampMs(event.createdAt)
   };
 }
 
+async function getActionableUnreadNotificationCount(user = {}) {
+  const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
+    .where("userId", "==", user.uid)
+    .where("read", "==", false)
+    .limit(400)
+    .get();
+  const items = await filterInactiveDocumentNotificationApplicants(
+    groupNotificationItems(snapshot.docs.map(mapNotificationDocument)),
+    user
+  );
+  return items.filter((item) => item.unread).length;
+}
+
+async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } = {}) {
+  const safeLimit = Math.max(1, Math.min(20, Number(limit || 20)));
+  let query = db.collection(APP_NOTIFICATION_COLLECTION)
+    .where("userId", "==", user.uid)
+    .orderBy("createdAt", "desc")
+    .limit(safeLimit + 1);
+  if (cursor) {
+    const cursorDate = new Date(cursor);
+    if (!Number.isNaN(cursorDate.getTime())) query = query.startAfter(cursorDate);
+  }
+  const [unreadCount, snapshot] = await Promise.all([getActionableUnreadNotificationCount(user), query.get()]);
+  const hasMore = snapshot.docs.length > safeLimit;
+  const pageDocs = snapshot.docs.slice(0, safeLimit);
+  const rawItems = pageDocs.map(mapNotificationDocument);
+  const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems), user);
+  return {
+    items,
+    unreadCount,
+    limit: safeLimit,
+    hasMore,
+    nextCursor: hasMore && pageDocs.length ? pageDocs[pageDocs.length - 1].data().createdAt.toDate().toISOString() : null
+  };
+}
+
+async function getUnreadNotificationCount(user = {}) {
+  return { unreadCount: await getActionableUnreadNotificationCount(user) };
+}
+
+async function markNotificationRead(user = {}, notificationId = "") {
+  if (!notificationId) return getUnreadNotificationCount(user);
+  const notificationRef = db.collection(APP_NOTIFICATION_COLLECTION).doc(notificationId);
+  const notification = await notificationRef.get();
+  if (notification.exists && notification.data()?.userId === user.uid && notification.data()?.read !== true) {
+    await notificationRef.update({ read: true, readAt: new Date() });
+  }
+  return getUnreadNotificationCount(user);
+}
+
 async function markNotificationsRead(user = {}) {
-  await db.collection(NOTIFICATION_READ_COLLECTION).doc(user.uid).set({
-    userId: user.uid,
-    lastReadAt: new Date(),
-    updatedAt: new Date()
+  while (true) {
+    const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
+      .where("userId", "==", user.uid).where("read", "==", false).limit(400).get();
+    if (snapshot.empty) break;
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.update(doc.ref, { read: true, readAt: new Date() }));
+    await batch.commit();
+  }
+  await db.collection("users").doc(user.uid).set({
+    notificationUnreadCount: 0,
+    notificationUpdatedAt: new Date()
   }, { merge: true });
   return { message: "Notifications marked as read" };
+}
+
+async function deleteOldReadNotifications() {
+  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  let deleted = 0;
+  while (true) {
+    const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
+      .where("read", "==", true).where("createdAt", "<", cutoff).limit(400).get();
+    if (snapshot.empty) break;
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+    deleted += snapshot.size;
+  }
+  return { deleted };
 }
 
 function buildRowsHtml(rows = []) {
@@ -620,39 +838,6 @@ async function sendAdminApprovalAgencySummaries(dateKey) {
   return { sent: results.length };
 }
 
-async function sendAgencyDailyTaskSummary(dateKey) {
-  const events = await getEvents(dateKey, "AGENCY_DAILY_TASK");
-  if (!events.length) return { skipped: true, reason: "no_events" };
-
-  const recipients = await getAdminRecipientEmails();
-  const grouped = new Map();
-  events.forEach((event) => {
-    const agencyName = event.agencyName || event.agencyId || "Agency";
-    const key = `${agencyName}__${event.actionKey || ""}`;
-    const current = grouped.get(key) || {
-      agencyName,
-      actionLabel: event.actionLabel || event.actionKey || "-",
-      applicantIds: new Set()
-    };
-    current.applicantIds.add(event.applicantId || `${event.actorId}_${event.createdAt?.seconds || Date.now()}`);
-    grouped.set(key, current);
-  });
-
-  const rows = [
-    ["Agency", "Task", "Applicant count"],
-    ...Array.from(grouped.values())
-      .sort((a, b) => a.agencyName.localeCompare(b.agencyName) || a.actionLabel.localeCompare(b.actionLabel))
-      .map((item) => [item.agencyName, item.actionLabel, String(item.applicantIds.size)])
-  ];
-
-  return sendEmail({
-    to: recipients,
-    subject: `Agency daily task summary - ${dateKey}`,
-    text: buildRowsText(rows),
-    html: buildRowsHtml(rows)
-  });
-}
-
 async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1)) {
   const runRef = db.collection(DAILY_RUN_COLLECTION).doc(dateKey);
   const runDoc = await runRef.get();
@@ -661,26 +846,31 @@ async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1
   }
 
   await runRef.set({ startedAt: new Date(), dateKey }, { merge: true });
-  const [employerWorkflow, adminApprovals, agencyTasks] = await Promise.all([
+  const [employerWorkflow, adminApprovals] = await Promise.all([
     sendEmployerWorkflowSummary(dateKey),
-    sendAdminApprovalAgencySummaries(dateKey),
-    sendAgencyDailyTaskSummary(dateKey)
+    sendAdminApprovalAgencySummaries(dateKey)
   ]);
   await runRef.set({
     completedAt: new Date(),
     employerWorkflow,
-    adminApprovals,
-    agencyTasks
+    adminApprovals
   }, { merge: true });
 
-  return { dateKey, employerWorkflow, adminApprovals, agencyTasks };
+  return { dateKey, employerWorkflow, adminApprovals };
 }
 
 function startDailyNotificationScheduler() {
-  if (String(process.env.DISABLE_DAILY_EMAIL_SCHEDULER || "").toLowerCase() === "true") return;
+  const emailSchedulerDisabled = String(process.env.DISABLE_DAILY_EMAIL_SCHEDULER || "").toLowerCase() === "true";
+  let lastCleanupDateKey = "";
 
   async function tick() {
     try {
+      const today = getDateKey();
+      if (lastCleanupDateKey !== today) {
+        await deleteOldReadNotifications();
+        lastCleanupDateKey = today;
+      }
+      if (emailSchedulerDisabled) return;
       if (getHourInTimeZone(new Date()) < DEFAULT_SEND_HOUR) return;
       await runDailyNotificationSummaries(getDateKey(new Date(), -1));
     } catch (error) {
@@ -697,11 +887,17 @@ function startDailyNotificationScheduler() {
 }
 
 module.exports = {
+  addAppNotificationEvent,
+  deleteOldReadNotifications,
+  getUnreadNotificationCount,
   listNotificationsForUser,
+  markNotificationRead,
   markNotificationsRead,
   recordAdminApproval,
   recordAgencyTask,
+  recordCompanyAssignmentNotification,
   recordEmployerWorkflowInitiated,
+  recordBulkContractUpload,
   recordNotificationAction,
   getUserName,
   runDailyNotificationSummaries,

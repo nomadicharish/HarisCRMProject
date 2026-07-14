@@ -255,6 +255,11 @@ async function updatePaymentSummaryAfterPayment(applicantId, payment = {}, appli
   const current = resolvedApplicant.paymentSummary || {};
   const applicantSummary = current.applicant || {};
   const employerSummary = current.employer || {};
+  // Legacy applicants may not have a trustworthy baseline. Rebuild once, then
+  // all subsequent payment additions can use the constant-read incremental path.
+  if (!current.applicant || !current.employer) {
+    return refreshApplicantSummaries(applicantId, resolvedApplicant).then((result) => result?.paymentSummary || null);
+  }
   const amount = roundCurrency(payment.amount);
   const totalApplicant = roundCurrency(
     applicantSummary.total ??

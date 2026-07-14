@@ -19,6 +19,10 @@ function Field({ label, value }) {
   );
 }
 
+function combineDateTime(date, time) {
+  return [date, time].filter((value) => String(value || "").trim()).join(" ");
+}
+
 function ApplicantQuickPrint() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -133,11 +137,12 @@ function ApplicantQuickPrint() {
           <Field label="WhatsApp Number" value={details.whatsapp} />
           <Field label="Company" value={applicant.companyName} />
           <Field label="Job Position" value={applicant.jobPositionName} />
-          <Field label="Arrival Date" value={details.arrival.date} />
-          <Field label="Arrival Time" value={details.arrival.time} />
+          <Field label="Flight Arrival Date & Time" value={combineDateTime(details.arrival.date, details.arrival.time)} />
           <Field label="Flight Number" value={details.arrival.flightNumber} />
-          <Field label="Arrival Place" value={details.arrival.arrivalPlace} />
+          <Field label="Flight Arrival Place" value={details.arrival.arrivalPlace} />
           <Field label="Arrival Bus Number" value={details.arrival.arrivalBusNumber} />
+          <Field label="Bus Arrival Date & Time" value={combineDateTime(details.arrival.arrivalBusDate, details.arrival.arrivalBusTime)} />
+          <Field label="Bus Arrival Place" value={details.arrival.busArrivalPlace} />
           <Field label="Hotel Name & Address" value={details.arrival.hotelNameAddress} />
         </section>
 

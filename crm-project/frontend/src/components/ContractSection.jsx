@@ -174,13 +174,16 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
                       </span>
                       Contract
                     </span>
-                    <a href={contract.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                        <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                      </svg>
-                      View
-                    </a>
+                    <span className="workflowDetailActions">
+                      <a href={contract.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+                        </svg>
+                        View
+                      </a>
+                      <a href={contract.fileUrl} download className="workflowFileActionBtn">Download</a>
+                    </span>
                   </div>
                   {Array.isArray(contract.additionalDocuments) && contract.additionalDocuments.length ? (
                     <div className="workflowDetailRow">
@@ -194,9 +197,10 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
                       </span>
                       <span className="workflowDetailRowValue workflowAdditionalDocLinks">
                         {contract.additionalDocuments.map((document, index) => (
-                          <a key={document.fileUrl || index} href={document.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                            {document.name || `Document ${index + 1}`}
-                          </a>
+                          <span key={document.fileUrl || index} className="workflowDetailActions">
+                            <a href={document.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">{document.name || `Document ${index + 1}`}</a>
+                            <a href={document.fileUrl} download className="workflowDetailAction">Download</a>
+                          </span>
                         ))}
                       </span>
                     </div>
