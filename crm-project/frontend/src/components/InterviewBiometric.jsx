@@ -41,9 +41,8 @@ function InterviewBiometric({ applicantId, user, loadApplicant }) {
       {/* VIEW */}
       {data && (
         <div>
-          <a href={data.fileUrl} target="_blank">
-            View / Download
-          </a>
+          <a href={data.fileUrl} target="_blank" rel="noreferrer">View</a>
+          <a href={data.fileUrl} download>Download</a>
         </div>
       )}
 

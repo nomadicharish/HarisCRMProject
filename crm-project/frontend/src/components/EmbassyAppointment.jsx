@@ -109,14 +109,13 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const canEditAppointment =
     (isSuperUser || user?.role === "EMPLOYER") &&
-    !hasBiometricSlip &&
-    (!appointment || isAppointmentPending);
+    !hasBiometricSlip;
   const canApprove = isSuperUser && appointment && isAppointmentPending && !hasBiometricSlip;
   const canAddTicket =
     user?.role === "AGENCY" &&
     appointment &&
     ((!travelDetails && !hasBiometricSlip) || editingTravel);
-  const canUpdateTravel = user?.role === "AGENCY" && appointment && Boolean(travelDetails);
+  const canUpdateTravel = user?.role === "AGENCY" && appointment && Boolean(travelDetails) && !hasBiometricSlip;
   const isBusy = savingAppointment || savingTicket || approvingAppointment;
   const showAppointmentForm = canEditAppointment && (!appointment || editingAppointment);
 
@@ -327,9 +326,10 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                       <DetailRow
                         label="Appointment Document"
                         action={(
-                          <a href={appointment.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                            Open document
-                          </a>
+                          <span className="workflowDetailActions">
+                            <a href={appointment.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">Open</a>
+                            <a href={appointment.fileUrl} download className="workflowDetailAction">Download</a>
+                          </span>
                         )}
                       />
                     ) : null}
@@ -349,9 +349,10 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                         <DetailRow
                           label="Ticket"
                           action={(
-                            <a href={travelDetails.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">
-                              Open ticket
-                            </a>
+                            <span className="workflowDetailActions">
+                              <a href={travelDetails.fileUrl} target="_blank" rel="noreferrer" className="workflowDetailAction">Open ticket</a>
+                              <a href={travelDetails.fileUrl} download className="workflowDetailAction">Download</a>
+                            </span>
                           )}
                         />
                       ) : null}
@@ -370,14 +371,10 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                       <DetailRow
                         label="Biometric Slip"
                         action={(
-                          <a
-                            href={(biometricFromApi?.fileUrl || biometricSlip?.fileUrl || "")}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="workflowDetailAction"
-                          >
-                            View document
-                          </a>
+                          <span className="workflowDetailActions">
+                            <a href={(biometricFromApi?.fileUrl || biometricSlip?.fileUrl || "")} target="_blank" rel="noreferrer" className="workflowDetailAction">View document</a>
+                            <a href={(biometricFromApi?.fileUrl || biometricSlip?.fileUrl || "")} download className="workflowDetailAction">Download</a>
+                          </span>
                         )}
                       />
                     </DetailCard>
@@ -398,7 +395,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                       onChange={(date) => setAppointmentDate(date)}
                       portalId="root"
                       popperPlacement="bottom-start"
-                      minDate={getTomorrow()}
+                      minDate={new Date()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
                       showYearDropdown
@@ -558,7 +555,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
                 ) : null}
                 {appointment && canEditAppointment ? (
                   <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingAppointment(true)}>
-                    Edit
+                    Update Appointment
                   </button>
                 ) : null}
                 {canApprove ? (

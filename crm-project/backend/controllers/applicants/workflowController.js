@@ -1,5 +1,4 @@
 const { getApplicantsUseCase } = require("../../usecases/applicants/getApplicantsUseCase");
-const { markNotificationsRead } = require("../../services/notificationService");
 const {
   getApplicantByIdUseCase,
   getApplicantDocumentsPageUseCase,
@@ -27,6 +26,7 @@ const {
   getSignedContractUseCase,
   getInterviewTicketUseCase,
   rejectSignedContractDocumentUseCase,
+  uploadBulkContractUseCase,
   uploadContractUseCase,
   uploadInterviewBiometricUseCase,
   uploadSignedContractUseCase
@@ -54,10 +54,6 @@ const { handleApplicantControllerError } = require("./controllerHelpers");
 
 async function getApplicants(req, res) {
   try {
-    // If request indicates it originated from a notification click, mark notifications read
-    if (["1", "true", "yes"].includes(String(req.query?.markNotificationsRead || "").toLowerCase())) {
-      await markNotificationsRead(req.user);
-    }
     const payload = await getApplicantsUseCase(req);
     return res.json(payload);
   } catch (error) {
@@ -161,6 +157,15 @@ async function uploadContract(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Upload Contract Error", error);
+  }
+}
+
+async function uploadBulkContract(req, res) {
+  try {
+    const payload = await uploadBulkContractUseCase(req);
+    return res.json(payload);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Upload Bulk Contract Error", error);
   }
 }
 
@@ -458,6 +463,7 @@ module.exports = {
   approveAndMoveStage,
   addDispatch,
   getDispatches,
+  uploadBulkContract,
   uploadContract,
   approveContract,
   getContract,

@@ -39,6 +39,14 @@ function CreateApplicant() {
   }
 
   const shouldAutoApprove = Boolean(id) && searchParams.get("context") === "stage1";
+  const applicantContextParams = new URLSearchParams(searchParams);
+  applicantContextParams.delete("context");
+  const applicantContextSuffix = applicantContextParams.toString() ? `?${applicantContextParams.toString()}` : "";
+  const applicantListPath = () => {
+    const params = new URLSearchParams(applicantContextParams);
+    params.set("tab", "applicants");
+    return `/dashboard?${params.toString()}`;
+  };
   const initialApplicationDetails = !id && searchParams.get("source") === "job-position-link"
     ? {
         countryId: searchParams.get("countryId") || "",
@@ -53,6 +61,7 @@ function CreateApplicant() {
       user={user}
       editData={editData}
       initialApplicationDetails={initialApplicationDetails}
+      keepOpenAfterCreate={!id}
       autoApproveAfterSave={shouldAutoApprove}
       onApproveStage={
         shouldAutoApprove
@@ -61,24 +70,21 @@ function CreateApplicant() {
             }
           : undefined
       }
-      onClose={() => navigate(id ? `/applicants/${id}` : "/dashboard")}
+      onClose={() => navigate(shouldAutoApprove ? applicantListPath() : id ? `/applicants/${id}${applicantContextSuffix}` : "/dashboard")}
       onSaved={(change) => {
         invalidateCache("/applicants");
         if (id) {
           invalidateCache(`/applicants/${id}`);
           invalidateCache(`/applicants/${id}/workflow-bundle`);
-          navigate(`/applicants/${id}`);
+          navigate(shouldAutoApprove ? applicantListPath() : `/applicants/${id}${applicantContextSuffix}`);
           return;
         }
 
         if (change?.id) {
           invalidateCache(`/applicants/${change.id}`);
           invalidateCache(`/applicants/${change.id}/workflow-bundle`);
-          navigate(`/applicants/${change.id}`);
           return;
         }
-
-        navigate("/dashboard");
       }}
     />
   );

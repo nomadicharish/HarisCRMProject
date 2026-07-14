@@ -160,6 +160,23 @@
           },
           {
             "in": "query",
+            "name": "cursor",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": true,
             "schema": {
@@ -657,6 +674,23 @@
           },
           {
             "in": "query",
+            "name": "cursor",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": true,
             "schema": {
@@ -754,6 +788,40 @@
           {
             "in": "query",
             "name": "agency",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "notificationApplicants",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "markNotificationsRead",
             "required": true,
             "schema": {
               "default": "",
@@ -1766,6 +1834,30 @@
         ]
       }
     },
+    "/api/applicants/:id/quick-print-assets/:assetType": {
+      "get": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "GET applicants :id quick-print-assets :assetType",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/api/applicants/:id/residence-permit": {
       "get": {
         "tags": [
@@ -2144,6 +2236,54 @@
           "Applicants"
         ],
         "summary": "PATCH applicants approve :applicantId",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/bulk-contract": {
+      "post": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "POST applicants bulk-contract",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/applicants/bulk-dispatch": {
+      "post": {
+        "tags": [
+          "Applicants"
+        ],
+        "summary": "POST applicants bulk-dispatch",
         "responses": {
           "200": {
             "description": "Success"
@@ -2971,6 +3111,23 @@
           },
           {
             "in": "query",
+            "name": "cursor",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": true,
             "schema": {
@@ -3230,6 +3387,23 @@
           },
           {
             "in": "query",
+            "name": "cursor",
+            "required": true,
+            "schema": {
+              "default": "",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string",
+                  "const": ""
+                }
+              ]
+            }
+          },
+          {
+            "in": "query",
             "name": "limit",
             "required": true,
             "schema": {
@@ -3364,6 +3538,78 @@
           "Entities"
         ],
         "summary": "PATCH employers :id",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "GET notifications",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/notifications/read": {
+      "patch": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "PATCH notifications read",
+        "responses": {
+          "200": {
+            "description": "Success"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "tags": [
+          "Entities"
+        ],
+        "summary": "GET notifications unread-count",
         "responses": {
           "200": {
             "description": "Success"

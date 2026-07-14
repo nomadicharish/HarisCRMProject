@@ -9,6 +9,16 @@ function formatContactNumber(value) {
   return String(value || "").trim() || "-";
 }
 
+function getAgencyCompanyIds(agency = {}, companyMap = {}) {
+  const ids = new Set(Array.isArray(agency.assignedCompanyIds) ? agency.assignedCompanyIds : []);
+  Object.values(companyMap).forEach((company) => {
+    if (Array.isArray(company?.agencyIds) && company.agencyIds.includes(agency.id)) {
+      ids.add(company.id);
+    }
+  });
+  return Array.from(ids);
+}
+
 function AgenciesTable({ rows = [], companyMap = {}, countryMap = {}, onOpenAgency }) {
   const gridTemplateColumns = "2fr 2fr 2fr 1.5fr 2fr";
 
@@ -27,12 +37,13 @@ function AgenciesTable({ rows = [], companyMap = {}, countryMap = {}, onOpenAgen
           rowHeight={58}
           height={460}
           renderItem={(agency) => {
-            const assignedCompanyNames = (agency.assignedCompanyIds || [])
+            const assignedCompanyIds = getAgencyCompanyIds(agency, companyMap);
+            const assignedCompanyNames = assignedCompanyIds
               .map((companyId) => companyMap[companyId]?.name)
               .filter(Boolean);
             const assignedCountryNames = Array.from(
               new Set(
-                (agency.assignedCompanyIds || [])
+                assignedCompanyIds
                   .map((companyId) => companyMap[companyId]?.countryId)
                   .filter(Boolean)
                   .map((countryId) => countryMap[countryId])
@@ -81,12 +92,13 @@ function AgenciesTable({ rows = [], companyMap = {}, countryMap = {}, onOpenAgen
           </tr>
         ) : (
           rows.map((agency) => {
-            const assignedCompanyNames = (agency.assignedCompanyIds || [])
+            const assignedCompanyIds = getAgencyCompanyIds(agency, companyMap);
+            const assignedCompanyNames = assignedCompanyIds
               .map((companyId) => companyMap[companyId]?.name)
               .filter(Boolean);
             const assignedCountryNames = Array.from(
               new Set(
-                (agency.assignedCompanyIds || [])
+                assignedCompanyIds
                   .map((companyId) => companyMap[companyId]?.countryId)
                   .filter(Boolean)
                   .map((countryId) => countryMap[countryId])

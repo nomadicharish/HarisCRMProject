@@ -29,7 +29,11 @@ export async function getCached(url, { params = {}, ttlMs = 30000, force = false
   return queryClient.fetchQuery({
     queryKey,
     queryFn: async () => {
-      const response = await API.get(url, { params });
+      // React Query's cache can be cleared after a mutation while the browser
+      // still has a fresh HTTP response. Use a unique URL for forced reads so
+      // the browser fetches current data without adding a CORS preflight header.
+      const requestParams = force ? { ...params, _fresh: Date.now() } : params;
+      const response = await API.get(url, { params: requestParams });
       return response.data;
     },
     staleTime

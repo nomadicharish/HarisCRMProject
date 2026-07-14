@@ -15,7 +15,7 @@ const navigate = useNavigate();
           <th>Status</th>
           <th>Company</th>
           <th>Employer POC</th>
-          <th>Payment Status</th>
+          <th>Payment Pending</th>
           <th>Edit</th>
         </tr>
       </thead>

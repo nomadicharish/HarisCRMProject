@@ -19,6 +19,30 @@ function formatDate(value) {
   });
 }
 
+async function downloadDocument(fileUrl, fileName) {
+  if (!fileUrl) return;
+  try {
+    const response = await fetch(fileUrl);
+    if (!response.ok) throw new Error("Unable to download document");
+    const objectUrl = URL.createObjectURL(await response.blob());
+    const link = document.createElement("a");
+    link.href = objectUrl;
+    link.download = fileName || "signed-document";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (error) {
+    console.error(error);
+    const link = document.createElement("a");
+    link.href = fileUrl;
+    link.download = fileName || "signed-document";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }
+}
+
 function getDefaultDocuments(signedContract = null) {
   const defaults = [
     { id: "signed-contract", label: "Signed Contract", required: true, status: "PENDING" },
@@ -84,6 +108,7 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
   const isAgent = user?.role === "AGENCY";
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const canSubmit = isAgent && Object.keys(filesById).some((id) => filesById[id]);
+  const canShowUploadAction = isAgent && (!hasAnyUploaded || rejectedCount > 0);
 
   const loadSignedContract = useCallback(async () => {
     try {
@@ -245,9 +270,18 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
           </span>
         </div>
         {document.fileUrl ? (
-          <a href={document.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn signedDocViewBtn">
-            View
-          </a>
+          <>
+            <a href={document.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn signedDocViewBtn">
+              View
+            </a>
+            <button
+              type="button"
+              className="workflowFileActionBtn signedDocViewBtn"
+              onClick={() => downloadDocument(document.fileUrl, document.name || document.label || "signed-document")}
+            >
+              Download
+            </button>
+          </>
         ) : null}
         {isRejected ? <span className="signedDocBadge">Rejected</span> : null}
         {isSuperUser && document.fileUrl && !isRejected ? (
@@ -340,7 +374,7 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
               <button type="button" className="btn btnSecondary" onClick={onClose} disabled={saving || Boolean(rejectingId)}>
                 {isAgent && canSubmit ? "Cancel" : "Close"}
               </button>
-              {isAgent ? (
+              {canShowUploadAction ? (
                 <button type="button" className="btn btnPrimary" disabled={saving || !canSubmit} onClick={handleUpload}>
                   {saving ? "Uploading..." : "Upload Documents"}
                 </button>

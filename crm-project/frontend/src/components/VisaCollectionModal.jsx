@@ -138,6 +138,9 @@ function VisaCollectionModal({
   const [flightNumber, setFlightNumber] = useState("");
   const [arrivalPlace, setArrivalPlace] = useState("");
   const [arrivalBusNumber, setArrivalBusNumber] = useState("");
+  const [arrivalBusDate, setArrivalBusDate] = useState(null);
+  const [arrivalBusTime, setArrivalBusTime] = useState("");
+  const [busArrivalPlace, setBusArrivalPlace] = useState("");
   const [hotelNameAddress, setHotelNameAddress] = useState("");
   const [busTicketFile, setBusTicketFile] = useState(null);
   const [removeTravelFile, setRemoveTravelFile] = useState(false);
@@ -152,11 +155,11 @@ function VisaCollectionModal({
   const isApplicantTravelMode = mode === "applicantTravel";
   const isCollectionMode = !isApplicantTravelMode;
   const isSuperUser = isSuperUserLikeRole(user?.role);
+  const hasApplicantArrived = Number(applicant?.stage || 0) >= 13 || String(applicant?.workflowStatus || "").toLowerCase() === "completed";
   const canEditCollection =
     isCollectionMode &&
     (isSuperUser || user?.role === "EMPLOYER") &&
-    !hasResidencePermit &&
-    visaCollection?.status !== "APPROVED";
+    !hasResidencePermit;
   const canApprove = isCollectionMode && isSuperUser && visaCollection?.status === "PENDING" && !hasResidencePermit;
   const canAddCollectionTravel =
     isCollectionMode &&
@@ -175,6 +178,7 @@ function VisaCollectionModal({
     user?.role === "AGENCY" &&
     Number(applicant?.stage || 1) >= 12 &&
     Boolean(visaTravel) &&
+    !hasApplicantArrived &&
     editingArrivalDetails;
   const isBusy = savingCollection || savingTicket;
   const showCollectionForm = canEditCollection && (!visaCollection || editingCollectionDetails);
@@ -207,6 +211,9 @@ function VisaCollectionModal({
       setFlightNumber(travelData?.flightNumber || "");
       setArrivalPlace(travelData?.arrivalPlace || "");
       setArrivalBusNumber(travelData?.arrivalBusNumber || "");
+      setArrivalBusDate(travelData?.arrivalBusDate ? new Date(travelData.arrivalBusDate) : null);
+      setArrivalBusTime(travelData?.arrivalBusTime || "");
+      setBusArrivalPlace(travelData?.busArrivalPlace || "");
       setHotelNameAddress(travelData?.hotelNameAddress || "");
       setRemoveTravelFile(false);
       setRemoveBusTicketFile(false);
@@ -226,6 +233,9 @@ function VisaCollectionModal({
       setFlightNumber("");
       setArrivalPlace("");
       setArrivalBusNumber("");
+      setArrivalBusDate(null);
+      setArrivalBusTime("");
+      setBusArrivalPlace("");
       setHotelNameAddress("");
       setRemoveTravelFile(false);
       setRemoveBusTicketFile(false);
@@ -343,9 +353,11 @@ function VisaCollectionModal({
   const handleSaveTicket = async () => {
     const formattedDate = formatDateForInput(travelDate);
     const trimmedTime = typeof travelTime === "string" ? travelTime.trim() : "";
+    const formattedBusDate = formatDateForInput(arrivalBusDate);
+    const trimmedBusTime = typeof arrivalBusTime === "string" ? arrivalBusTime.trim() : "";
 
     if (!formattedDate || !trimmedTime || !flightNumber.trim() || !arrivalPlace.trim()) {
-      toast.error("Arrival date, arrival time, flight number and arrival place are required");
+      toast.error("Flight arrival date, flight arrival time, flight number and flight arrival place are required");
       return;
     }
     const fileValidation = validateDocumentFiles([travelFile, busTicketFile]);
@@ -363,6 +375,9 @@ function VisaCollectionModal({
       formData.append("flightNumber", flightNumber.trim());
       formData.append("arrivalPlace", arrivalPlace.trim());
       formData.append("arrivalBusNumber", arrivalBusNumber.trim());
+      formData.append("arrivalBusDate", formattedBusDate || "");
+      formData.append("arrivalBusTime", trimmedBusTime);
+      formData.append("busArrivalPlace", busArrivalPlace.trim());
       formData.append("hotelNameAddress", hotelNameAddress.trim());
       if (removeTravelFile && !travelFile) formData.append("removeTravelFile", "true");
       if (removeBusTicketFile && !busTicketFile) formData.append("removeBusTicket", "true");
@@ -431,9 +446,10 @@ function VisaCollectionModal({
                         <DetailRow
                           label="Document"
                           action={(
-                            <a href={visaCollection.documentUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
-                              View
-                            </a>
+                            <span className="workflowDetailActions">
+                              <a href={visaCollection.documentUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">View</a>
+                              <a href={visaCollection.documentUrl} download className="workflowFileActionBtn">Download</a>
+                            </span>
                           )}
                         />
                       ) : null}
@@ -454,9 +470,10 @@ function VisaCollectionModal({
                         <DetailRow
                           label="Travel Ticket"
                           action={(
-                            <a href={visaCollectionTravel.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">
-                              View
-                            </a>
+                            <span className="workflowDetailActions">
+                              <a href={visaCollectionTravel.fileUrl} target="_blank" rel="noreferrer" className="workflowFileActionBtn">View</a>
+                              <a href={visaCollectionTravel.fileUrl} download className="workflowFileActionBtn">Download</a>
+                            </span>
                           )}
                         />
                       ) : null}
@@ -516,10 +533,11 @@ function VisaCollectionModal({
                         </svg>
                       )}
                     >
-                      <DetailRow label="Arrival Date & Time" value={formatArrivalDateTime(visaTravel.date, visaTravel.time)} />
+                      <DetailRow label="Flight Arrival Date & Time" value={formatArrivalDateTime(visaTravel.date, visaTravel.time)} />
                       <DetailRow label="Flight Number" value={visaTravel.flightNumber || "-"} />
-                      <DetailRow label="Arrival Place" value={visaTravel.arrivalPlace || "-"} />
+                      <DetailRow label="Flight Arrival Place" value={visaTravel.arrivalPlace || "-"} />
                       <DetailRow label="Arrival Bus Number" value={visaTravel.arrivalBusNumber || "-"} />
+                      <DetailRow label="Bus Arrival Date & Time" value={formatArrivalDateTime(visaTravel.arrivalBusDate, visaTravel.arrivalBusTime)} />
                       <DetailRow label="Hotel Name & Address" value={visaTravel.hotelNameAddress || "-"} />
                       {visaTravel.fileUrl ? (
                         <DetailRow
@@ -558,7 +576,7 @@ function VisaCollectionModal({
               </div>
             ) : null}
 
-            {isApplicantTravelMode && visaTravel && user?.role === "AGENCY" && !editingArrivalDetails ? (
+            {isApplicantTravelMode && visaTravel && user?.role === "AGENCY" && !hasApplicantArrived && !editingArrivalDetails ? (
               <div className="workflowModalFooter">
                 <button
                   type="button"
@@ -586,7 +604,7 @@ function VisaCollectionModal({
                       onChange={(date) => setCollectionDate(date)}
                       portalId="root"
                       popperPlacement="bottom-start"
-                      minDate={getTomorrow()}
+                      minDate={new Date()}
                       dateFormat="dd/MM/yyyy"
                       showMonthDropdown
                       showYearDropdown
@@ -666,7 +684,7 @@ function VisaCollectionModal({
               <div className="workflowModalFooter">
                 {canEditCollection ? (
                   <button type="button" className="workflowFileActionBtn" disabled={isBusy} onClick={() => setEditingCollectionDetails(true)}>
-                    Edit
+                    Update Visa Collection
                   </button>
                 ) : null}
                 {canApprove ? (
@@ -781,7 +799,7 @@ function VisaCollectionModal({
                   <div className="workflowDetailBody workflowTicketUploadBody">
                     <div className="workflowTravelEntryGrid">
                       <div className="input-field">
-                        <label className="contractUploadLabel">Arrival Date</label>
+                        <label className="contractUploadLabel">Flight Arrival Date</label>
                         <DatePicker
                           selected={travelDate}
                           onChange={(date) => setTravelDate(date)}
@@ -792,13 +810,13 @@ function VisaCollectionModal({
                           showMonthDropdown
                           showYearDropdown
                           dropdownMode="select"
-                          customInput={<CustomDateInput placeholder="Select arrival date" />}
+                          customInput={<CustomDateInput placeholder="Select flight arrival date" />}
                         />
                       </div>
 
                       <div className="input-field">
                         <label className="contractUploadLabel" htmlFor="visa-travel-time">
-                          Arrival Time
+                          Flight Arrival Time
                         </label>
                         <input
                           id="visa-travel-time"
@@ -826,13 +844,13 @@ function VisaCollectionModal({
 
                       <div className="input-field">
                         <label className="contractUploadLabel" htmlFor="arrival-place">
-                          Arrival Place
+                          Flight Arrival Place
                         </label>
                         <input
                           id="arrival-place"
                           value={arrivalPlace}
                           disabled={isBusy}
-                          placeholder="Enter arrival place"
+                          placeholder="Enter flight arrival place"
                           onChange={(event) => setArrivalPlace(event.target.value)}
                         />
                       </div>
@@ -847,6 +865,50 @@ function VisaCollectionModal({
                           disabled={isBusy}
                           placeholder="Enter bus number"
                           onChange={(event) => setArrivalBusNumber(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel">Bus Arrival Date (Optional)</label>
+                        <DatePicker
+                          selected={arrivalBusDate}
+                          onChange={(date) => setArrivalBusDate(date)}
+                          portalId="root"
+                          popperPlacement="bottom-start"
+                          minDate={getTomorrow()}
+                          dateFormat="dd/MM/yyyy"
+                          showMonthDropdown
+                          showYearDropdown
+                          dropdownMode="select"
+                          customInput={<CustomDateInput placeholder="Select bus arrival date" />}
+                        />
+                      </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="arrival-bus-time">
+                          Arrival Bus Time (Optional)
+                        </label>
+                        <input
+                          id="arrival-bus-time"
+                          type="time"
+                          value={arrivalBusTime}
+                          disabled={isBusy}
+                          onClick={openTimePicker}
+                          onFocus={openTimePicker}
+                          onChange={(event) => setArrivalBusTime(event.target.value)}
+                        />
+                      </div>
+
+                      <div className="input-field">
+                        <label className="contractUploadLabel" htmlFor="bus-arrival-place">
+                          Bus Arrival Place (Optional)
+                        </label>
+                        <input
+                          id="bus-arrival-place"
+                          value={busArrivalPlace}
+                          disabled={isBusy}
+                          placeholder="Enter bus arrival place"
+                          onChange={(event) => setBusArrivalPlace(event.target.value)}
                         />
                       </div>
 

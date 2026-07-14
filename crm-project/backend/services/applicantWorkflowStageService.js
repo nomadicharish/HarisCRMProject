@@ -64,11 +64,17 @@ async function syncApplicantDocumentStage(applicantId, applicant, actorId, actor
   if (currentStage < 2) return applicant;
 
   const allApproved = await areLatestRequiredDocumentsApproved(applicantId, applicant);
-  if (!allApproved || currentStage >= 3) return applicant;
+  if (!allApproved || currentStage >= 4) return applicant;
+
+  const dispatchAlreadyAdded =
+    applicant?.documentDispatch?.hasDispatch === true ||
+    Number(applicant?.dispatchSummary?.count || 0) > 0;
+  const nextStage = dispatchAlreadyAdded ? 4 : 3;
+  if (currentStage >= nextStage) return applicant;
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   await applicantRef.update({
-    stage: 3,
+    stage: nextStage,
     stageUpdatedAt: new Date(),
     lastActionBy: actorId || null
   });
@@ -76,14 +82,16 @@ async function syncApplicantDocumentStage(applicantId, applicant, actorId, actor
   await addStageLog({
     applicantId,
     fromStage: currentStage,
-    toStage: 3,
+    toStage: nextStage,
     role: actorRole,
-    action: "ALL_REQUIRED_DOCUMENTS_APPROVED"
+    action: dispatchAlreadyAdded
+      ? "ALL_REQUIRED_DOCUMENTS_APPROVED_AFTER_DISPATCH"
+      : "ALL_REQUIRED_DOCUMENTS_APPROVED"
   });
 
   return {
     ...applicant,
-    stage: 3,
+    stage: nextStage,
     stageUpdatedAt: new Date()
   };
 }

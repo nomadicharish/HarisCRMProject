@@ -157,9 +157,9 @@ function Settings() {
       setError("");
       const [countriesData, companiesData, employersData, agenciesData] = await Promise.all([
         getCached("/countries", { ttlMs: 120000 }),
-        getCached("/companies", { params: { paginated: "false" }, ttlMs: 60000 }),
-        getCached("/employers", { params: { paginated: "false" }, ttlMs: 60000 }),
-        getCached("/agencies", { params: { paginated: "false" }, ttlMs: 60000 })
+        getCached("/companies", { params: { paginated: "false" }, ttlMs: 600000 }),
+        getCached("/employers", { params: { paginated: "false" }, ttlMs: 600000 }),
+        getCached("/agencies", { params: { paginated: "false" }, ttlMs: 600000 })
       ]);
       setCountries(normalizeListResponse(countriesData));
       setCompanies(normalizeListResponse(companiesData));
@@ -216,7 +216,12 @@ function Settings() {
   const filteredAgencies = useMemo(() => {
     const query = organizationSearch.trim().toLowerCase();
     return agencies.filter((agency) => {
-      const assignedCompanyIds = agency.assignedCompanyIds || [];
+      const assignedCompanyIds = Array.from(new Set([
+        ...(Array.isArray(agency.assignedCompanyIds) ? agency.assignedCompanyIds : []),
+        ...Object.values(companyMap)
+          .filter((company) => Array.isArray(company?.agencyIds) && company.agencyIds.includes(agency.id))
+          .map((company) => company.id)
+      ]));
       if (organizationCompanyId && !assignedCompanyIds.includes(organizationCompanyId)) return false;
       if (
         organizationCountryId &&
@@ -224,12 +229,14 @@ function Settings() {
       ) return false;
       if (!query) return true;
       const companyNames = assignedCompanyIds.map((id) => companyMap[id]?.name).filter(Boolean);
-      return [agency.name, agency.email, agency.contactNumber, ...companyNames]
+      const countryNames = assignedCompanyIds.map((id) => countryMap[companyMap[id]?.countryId]).filter(Boolean);
+      return [agency.name, agency.email, agency.contactNumber, ...companyNames, ...countryNames]
         .some((value) => String(value || "").toLowerCase().includes(query));
     });
   }, [
     agencies,
     companyMap,
+    countryMap,
     organizationCompanyId,
     organizationCountryId,
     organizationSearch
@@ -240,38 +247,13 @@ function Settings() {
     setEntityEditData(editData);
   };
 
-  const handleEntitySaved = async (change) => {
+  const handleEntitySaved = async () => {
     setEntityModalType("");
     setEntityEditData(null);
     invalidateCache("/employers");
     invalidateCache("/agencies");
     invalidateCache("/companies");
-
-    if (change?.type === "employer") {
-      setEmployers((current) => {
-        if (change.operation === "delete") return current.filter((item) => item.id !== change.id);
-        if (change.operation === "update") {
-          return current.map((item) => item.id === change.id ? { ...item, ...change.payload } : item);
-        }
-        if (change.operation === "create" && change.id) {
-          return [{ id: change.id, ...change.payload }, ...current];
-        }
-        return current;
-      });
-    }
-
-    if (change?.type === "agency") {
-      setAgencies((current) => {
-        if (change.operation === "delete") return current.filter((item) => item.id !== change.id);
-        if (change.operation === "update") {
-          return current.map((item) => item.id === change.id ? { ...item, ...change.payload } : item);
-        }
-        if (change.operation === "create" && change.id) {
-          return [{ id: change.id, ...change.payload }, ...current];
-        }
-        return current;
-      });
-    }
+    await loadOrganizationData();
   };
 
   const handleSave = async () => {

@@ -1,4 +1,3 @@
-const { logger } = require("../lib/logger");
 const { runWithPerfContext } = require("../lib/perfContext");
 const { recordRequestMetric } = require("../services/observabilityService");
 
@@ -42,14 +41,8 @@ function performanceMetrics(req, res, next) {
         correlationId: req.correlationId || ""
       });
 
-      logger.info("Request completed", {
-        method: req.method,
-        path: req.originalUrl,
-        statusCode: res.statusCode,
-        correlationId: req.correlationId || "",
-        latencyMs: roundedLatencyMs,
-        firestoreReads
-      });
+      // Successful request metrics remain available through observability storage.
+      // Avoid flooding the terminal; request failures are logged by errorHandler.
     });
 
     next();

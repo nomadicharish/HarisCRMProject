@@ -67,6 +67,7 @@ function ApplicantProfile() {
   const [readOnlyProfileData, setReadOnlyProfileData] = useState(null);
   const [showDispatchHistoryModal, setShowDispatchHistoryModal] = useState(false);
   const [approvingStage, setApprovingStage] = useState(false);
+  const [completingProcess, setCompletingProcess] = useState(false);
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 120000;
   const profileDashboardTabs = useMemo(() => {
@@ -276,6 +277,7 @@ function ApplicantProfile() {
   const confirmCompleteProcess = async () => {
     const previousApplicant = applicant;
     const optimisticNow = Date.now();
+    setCompletingProcess(true);
     setApplicant((prev) => {
       if (!prev) return prev;
       return {
@@ -287,16 +289,17 @@ function ApplicantProfile() {
 
     try {
       await API.patch(`/applicants/${id}/complete`);
-      alert("Process completed successfully");
       invalidateCache(`/applicants/${id}`);
       invalidateCache("/applicants");
       invalidateCache(`/applicants/${id}/workflow-bundle`);
-      loadProfileWorkflowData({ force: true });
       setShowCompleteProcessModal(false);
+      navigate("/dashboard?tab=applicants");
     } catch (err) {
       console.error(err);
       setApplicant(previousApplicant);
       alert("Error completing process");
+    } finally {
+      setCompletingProcess(false);
     }
   };
 
@@ -431,6 +434,8 @@ function ApplicantProfile() {
                   ? "-"
                   : isTotalAmountMissing
                   ? "Enter Total Amount"
+                  : Number(pending || 0) <= 0 && (hasPendingAcknowledgement || hasPendingConfirmation)
+                  ? "Payment completed"
                   : sidebarPendingOverride !== null && sidebarPendingOverride !== undefined
                   ? formatCurrencyAmount(sidebarPendingOverride, currency, true)
                   : formattedPendingAmount
@@ -446,17 +451,6 @@ function ApplicantProfile() {
               showAgency={isSuperUserLikeRole(user?.role) || isSeniorAccountant}
               showPendingAmount={!isEmployer}
               accountantView={isSeniorAccountant}
-              pendingStatusText={
-                user?.role === "EMPLOYER"
-                  ? ""
-                  : hasPendingAcknowledgement && hasPendingConfirmation
-                  ? "Acknowledgement & confirmation pending"
-                  : hasPendingAcknowledgement
-                  ? "Acknowledgement pending"
-                  : hasPendingConfirmation
-                  ? "Confirmation pending"
-                  : ""
-              }
             />
           </aside>
 
@@ -636,7 +630,10 @@ function ApplicantProfile() {
           </div>
         ) : null}
 
-        <BlockingLoader open={approvingStage} label="Approving candidate and updating pipeline..." />
+        <BlockingLoader
+          open={approvingStage || completingProcess}
+          label={completingProcess ? "Completing candidate arrival..." : "Approving candidate and updating pipeline..."}
+        />
       </div>
     </div>
   );

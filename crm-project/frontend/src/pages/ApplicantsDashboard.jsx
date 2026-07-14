@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useMemo, useState } from "react";
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import Select from "react-select";
 import { toast } from "react-toastify";
@@ -21,6 +21,7 @@ import {
   isSuperUserLikeRole
 } from "../utils/auth";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
+import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
@@ -30,12 +31,15 @@ const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
 const SEARCH_DEBOUNCE_MS = 300;
+const DASHBOARD_FILTER_STORAGE_KEY = "dashboard_sidebar_filters";
+const SIDEBAR_FILTER_KEYS = ["type", "country", "company", "agency"];
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
 const DASHBOARD_FILTER_DESCRIPTIONS = {
   pending_payment: "having pending payment",
   arriving: "arriving",
+  arrived_last_month: "arrived in the last one month",
   visa_collection: "for visa collection",
   embassy_interview: "having embassy interviews",
   embassy_appointment: "having embassy appointments",
@@ -469,6 +473,24 @@ function getApplicantDisplayName(applicant) {
   );
 }
 
+function hasApplicantDocumentDispatch(applicant = {}) {
+  return Boolean(
+    applicant?.documentDispatch?.hasDispatch === true ||
+    Number(applicant?.dispatchSummary?.count || 0) > 0
+  );
+}
+
+function isContractUploadEligibleApplicant(applicant = {}) {
+  const stage = Number(applicant.stage || 1);
+  const contractStatus = String(applicant.contract?.status || "").toUpperCase();
+  return (
+    hasApplicantDocumentDispatch(applicant) &&
+    stage < 6 &&
+    !applicant.contract?.fileUrl &&
+    contractStatus !== "APPROVED"
+  );
+}
+
 const BulkDispatchDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
   <button type="button" className="bulkDispatchDateInput" onClick={onClick} ref={ref}>
     <span>{value || placeholder}</span>
@@ -600,8 +622,8 @@ function BulkDispatchModal({
   };
 
   const handleSave = async () => {
-    if (!form.awbNumber.trim() || !form.trackingUrl.trim() || !form.dispatchDate) {
-      toast.error("AWB number, tracking URL and dispatch date are required");
+    if (!form.awbNumber.trim() || !form.trackingUrl.trim() || !form.dispatchDate || !form.note.trim()) {
+      toast.error("AWB number, tracking URL, dispatch date and dispatch note are required");
       return;
     }
     if (!countryId || !selectedCompanyIds.length || !selectedApplicantIds.length) {
@@ -642,6 +664,7 @@ function BulkDispatchModal({
 
   return (
     <div className="bulkDispatchOverlay" role="presentation">
+      <BlockingLoader open={saving} label="Saving dispatch details..." />
       <div className="bulkDispatchModal" role="dialog" aria-modal="true" aria-labelledby="bulk-dispatch-title">
         <div className="bulkDispatchHeader">
           <div>
@@ -680,7 +703,7 @@ function BulkDispatchModal({
           </div>
 
           <label className="bulkDispatchNoteField">
-            <span>Dispatch Note</span>
+            <span>Dispatch Note <RequiredMark /></span>
             <textarea
               name="note"
               value={form.note}
@@ -764,6 +787,297 @@ function BulkDispatchModal({
   );
 }
 
+function UploadGlyph({ type = "document" }) {
+  if (type === "upload") {
+    return (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M12 16V8m0 0-3.5 3.5M12 8l3.5 3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M20 16.5a4 4 0 0 0-3.8-4A5.5 5.5 0 0 0 5.7 14 3.5 3.5 0 0 0 6.5 21H18a3 3 0 0 0 2-5.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M7 3h8l4 4v14H7z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15 3v4h4M11 15h5M13 12v6M10 15h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ContractFileDrop({ id, label, file, onChange, main = false, disabled = false }) {
+  return (
+    <label className={main ? "bulkContractMainDrop" : "bulkContractOptionalDrop"} htmlFor={id}>
+      <input
+        id={id}
+        type="file"
+        accept={ALLOWED_DOCUMENT_ACCEPT}
+        className="contractFileInput"
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.files?.[0] || null)}
+      />
+      <span className="bulkContractDropIcon"><UploadGlyph type={main ? "document" : "upload"} /></span>
+      <span className="bulkContractDropCopy">
+        <strong>{file?.name || label}</strong>
+        <span>{file ? `${Math.max(1, Math.round(file.size / 1024))} KB` : main ? "PDF, PNG, JPG, JPEG | Max file size: 5MB" : "PDF, PNG, JPG, JPEG | Max file size: 5MB"}</span>
+      </span>
+      {!main ? <span className="bulkContractOptionalBadge">Optional</span> : null}
+    </label>
+  );
+}
+
+function BulkContractUploadModal({ open, countries, companies, onClose }) {
+  const [countryId, setCountryId] = useState("");
+  const [companyId, setCompanyId] = useState("");
+  const [selectedApplicantIds, setSelectedApplicantIds] = useState([]);
+  const [applicantOptions, setApplicantOptions] = useState([]);
+  const [contractFile, setContractFile] = useState(null);
+  const [additionalFiles, setAdditionalFiles] = useState([null, null, null]);
+  const [loadingApplicants, setLoadingApplicants] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [applicantSearchRefreshKey, setApplicantSearchRefreshKey] = useState(0);
+  const modalRef = useRef(null);
+
+  const resetState = useCallback(() => {
+    setCountryId("");
+    setCompanyId("");
+    setSelectedApplicantIds([]);
+    setApplicantOptions([]);
+    setContractFile(null);
+    setAdditionalFiles([null, null, null]);
+    setLoadingApplicants(false);
+    setSaving(false);
+  }, []);
+
+  useEffect(() => {
+    if (!open) resetState();
+  }, [open, resetState]);
+
+  const countryOptions = useMemo(
+    () => countries.map((country) => ({ value: country.id, label: country.name })),
+    [countries]
+  );
+  const companyOptions = useMemo(
+    () =>
+      companies
+        .filter((company) => !countryId || company.countryId === countryId)
+        .map((company) => ({ value: company.id, label: company.name })),
+    [companies, countryId]
+  );
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function loadApplicants() {
+      if (!countryId || !companyId) {
+        setApplicantOptions([]);
+        setSelectedApplicantIds([]);
+        return;
+      }
+
+      try {
+        setLoadingApplicants(true);
+        const response = await API.get("/applicants", {
+          params: {
+            paginated: "false",
+            country: countryId,
+            company: companyId
+          }
+        });
+        const records = normalizeListResponse(response.data);
+        const options = records
+          .filter(isContractUploadEligibleApplicant)
+          .map((applicant) => ({
+            value: applicant.id,
+            label: getApplicantDisplayName(applicant),
+            meta: [
+              applicant.passportNumber || applicant.personalDetails?.passportNumber || "",
+              applicant.referenceId || applicant.refId || applicant.applicationRef || "",
+              resolveApplicantWorkflowMeta(applicant).title
+            ].filter(Boolean).join(" - ")
+          }));
+
+        if (isActive) {
+          setApplicantOptions(options);
+          setSelectedApplicantIds((current) => current.filter((id) => options.some((option) => option.value === id)));
+        }
+      } catch (error) {
+        console.error(error);
+        if (isActive) {
+          setApplicantOptions([]);
+          setSelectedApplicantIds([]);
+          toast.error("Failed to load applicants");
+        }
+      } finally {
+        if (isActive) setLoadingApplicants(false);
+      }
+    }
+
+    loadApplicants();
+    return () => {
+      isActive = false;
+    };
+  }, [applicantSearchRefreshKey, companyId, countryId]);
+
+  if (!open) return null;
+
+  const selectedCountry = countryOptions.find((option) => option.value === countryId) || null;
+  const selectedCompany = companyOptions.find((option) => option.value === companyId) || null;
+  const selectedApplicant = applicantOptions.find((option) => option.value === selectedApplicantIds[0]) || null;
+
+  const handleUpload = async () => {
+    if (!countryId || !companyId || !selectedApplicantIds.length) {
+      toast.error("Select country, company and applicant");
+      return;
+    }
+    if (!contractFile) {
+      toast.error("Select main contract file");
+      return;
+    }
+    const files = [contractFile, ...additionalFiles.filter(Boolean)];
+    const validation = validateDocumentFiles(files);
+    if (!validation.valid) {
+      toast.error(validation.message);
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const formData = new FormData();
+      formData.append("countryId", countryId);
+      formData.append("companyId", companyId);
+      formData.append("applicantIds", JSON.stringify(selectedApplicantIds));
+      formData.append("file", contractFile);
+      additionalFiles.filter(Boolean).forEach((file) => formData.append("additionalDocuments", file));
+      await API.post("/applicants/bulk-contract", formData);
+      toast.success("Contract uploaded successfully.");
+      // Keep the selected country and company so another contract can be uploaded
+      // without reopening the modal. Reloading locally removes the saved applicant
+      // from the searchable options without refreshing the dashboard.
+      setSelectedApplicantIds([]);
+      setApplicantOptions([]);
+      setContractFile(null);
+      setAdditionalFiles([null, null, null]);
+      setApplicantSearchRefreshKey((value) => value + 1);
+      modalRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to upload contracts");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="bulkDispatchOverlay bulkContractOverlay" role="presentation">
+      <BlockingLoader open={saving} label="Uploading contracts..." />
+      <div ref={modalRef} className="bulkDispatchModal bulkContractModal" role="dialog" aria-modal="true" aria-labelledby="bulk-contract-title">
+        <div className="bulkDispatchHeader bulkContractHeader">
+          <span className="bulkContractHeaderIcon"><UploadGlyph type="upload" /></span>
+          <div>
+            <h2 id="bulk-contract-title">Upload Contract</h2>
+            <p>Select the country, company and applicant, then upload the contract file.</p>
+          </div>
+          <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close contract upload">
+            x
+          </button>
+        </div>
+
+        <div className="bulkDispatchSection bulkContractSection">
+          <div className="bulkDispatchGrid bulkDispatchRecipientGrid">
+            <label>
+              <span>Country <RequiredMark /></span>
+              <Select
+                options={countryOptions}
+                value={selectedCountry}
+                onChange={(option) => {
+                  setCountryId(option?.value || "");
+                  setCompanyId("");
+                  setSelectedApplicantIds([]);
+                }}
+                isDisabled={saving}
+                placeholder="Select Country"
+                styles={bulkDispatchSelectStyles}
+              />
+            </label>
+            <label>
+              <span>Company <RequiredMark /></span>
+              <Select
+                options={companyOptions}
+                value={selectedCompany}
+                onChange={(option) => {
+                  setCompanyId(option?.value || "");
+                  setSelectedApplicantIds([]);
+                }}
+                isDisabled={saving || !countryId}
+                placeholder="Select Company"
+                styles={bulkDispatchSelectStyles}
+              />
+            </label>
+          </div>
+        </div>
+
+        <div className="bulkDispatchSection bulkContractSection">
+          <h3>Select Applicant <RequiredMark /></h3>
+          <Select
+            options={applicantOptions}
+            value={selectedApplicant}
+            onChange={(option) => setSelectedApplicantIds(option?.value ? [option.value] : [])}
+            isDisabled={saving || !companyId || loadingApplicants}
+            isLoading={loadingApplicants}
+            placeholder="Search and select an applicant"
+            formatOptionLabel={(option) => (
+              <div className="bulkDispatchApplicantOption">
+                <span>{option.label}</span>
+                {option.meta ? <small>{option.meta}</small> : null}
+              </div>
+            )}
+            styles={bulkDispatchSelectStyles}
+          />
+        </div>
+
+        <div className="bulkDispatchSection bulkContractSection">
+          <h3>Upload Main Contract <RequiredMark /></h3>
+          <ContractFileDrop
+            id="bulk-contract-main-file"
+            main
+            label="Choose contract document"
+            file={contractFile}
+            disabled={saving}
+            onChange={(file) => setContractFile(getValidatedDocumentFile(file, toast.error))}
+          />
+        </div>
+
+        <div className="bulkDispatchSection bulkContractSection">
+          <h3>Additional Documents <span>(Optional)</span></h3>
+          <p className="bulkContractHelpText">Upload any supporting documents if required. You can upload up to 3 files.</p>
+          <div className="bulkContractOptionalList">
+            {additionalFiles.map((file, index) => (
+              <ContractFileDrop
+                key={index}
+                id={`bulk-contract-additional-${index}`}
+                label="Choose document"
+                file={file}
+                disabled={saving}
+                onChange={(selectedFile) => {
+                  const nextFile = getValidatedDocumentFile(selectedFile, toast.error);
+                  setAdditionalFiles((current) => current.map((item, itemIndex) => itemIndex === index ? nextFile : item));
+                }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <div className="bulkDispatchFooter bulkContractFooter">
+          <button type="button" className="dashboardSecondaryBtn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button type="button" className="dashboardPrimaryBtn" onClick={handleUpload} disabled={saving}>
+            {saving ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DashboardHome({
   summary,
   fromDate,
@@ -778,12 +1092,17 @@ function DashboardHome({
   showAgencyPaymentBreakdown = false,
   showUploadPendingCards = true,
   showWorkflowPendingCards = false,
-  isAccountantHome = false
+  showArrivedLastMonthCard = false,
+  showHomeSectionDivider = false,
+  isAccountantHome = false,
+  showPaymentActions = true,
+  showPaymentActionsTopDivider = false
 }) {
   const [showStagePaymentModal, setShowStagePaymentModal] = useState(false);
   const [showAgencyPaymentModal, setShowAgencyPaymentModal] = useState(false);
   const upcoming = summary?.upcoming || {};
   const overdue = summary?.overdue || {};
+  const arrivedLastMonth = summary?.arrivedLastMonth || {};
   const payments = summary?.payments || {};
   const pendingByCurrency = payments.pendingByCurrency || {};
   const paymentStages = payments.stages || {};
@@ -828,39 +1147,42 @@ function DashboardHome({
                 View Applicants <span aria-hidden="true">→</span>
               </button>
             </div>
-            <div className="homePaymentOverviewActions">
-              <button type="button" onClick={() => setShowStagePaymentModal(true)}>
-                <span className="homePaymentActionLabel">
-                  <span className="homePaymentActionIcon"><HomeIcon type="calendar" /></span>
-                  <span>View Pending Payment by stage</span>
-                </span>
-                <span className="homePaymentActionMeta">View details -&gt;</span>
-              </button>
-              {showAgencyPaymentBreakdown ? (
-                <button type="button" onClick={() => setShowAgencyPaymentModal(true)}>
-                  <span className="homePaymentActionLabel">
-                    <span className="homePaymentActionIcon"><HomeIcon type="people" /></span>
-                    <span>View Pending payment by Agencies</span>
-                  </span>
-                  <span className="homePaymentActionMeta">View details -&gt;</span>
-                </button>
-              ) : null}
-            </div>
           </div>
 
-          <HomePaymentStageModal
-            open={showStagePaymentModal}
-            paymentStages={paymentStages}
-            onClose={() => setShowStagePaymentModal(false)}
-            onOpenFilter={onOpenFilter}
-          />
-          <HomePaymentAgencyModal
-            open={showAgencyPaymentModal}
-            agencies={paymentAgencies}
-            onClose={() => setShowAgencyPaymentModal(false)}
-          />
-
         </section>
+      ) : null}
+
+      <HomePaymentStageModal
+        open={showStagePaymentModal}
+        paymentStages={paymentStages}
+        onClose={() => setShowStagePaymentModal(false)}
+        onOpenFilter={onOpenFilter}
+      />
+      <HomePaymentAgencyModal
+        open={showAgencyPaymentModal}
+        agencies={paymentAgencies}
+        onClose={() => setShowAgencyPaymentModal(false)}
+      />
+
+      {showPaymentActions ? (
+      <div className={`homePaymentOverviewActions ${showPaymentActionsTopDivider ? "homePaymentOverviewActionsTopDivider" : ""}`}>
+        <button type="button" onClick={() => setShowStagePaymentModal(true)}>
+          <span className="homePaymentActionLabel">
+            <span className="homePaymentActionIcon"><HomeIcon type="calendar" /></span>
+            <span>View Pending Payment by stage</span>
+          </span>
+          <span className="homePaymentActionMeta">View details -&gt;</span>
+        </button>
+        {showAgencyPaymentBreakdown ? (
+          <button type="button" onClick={() => setShowAgencyPaymentModal(true)}>
+            <span className="homePaymentActionLabel">
+              <span className="homePaymentActionIcon"><HomeIcon type="people" /></span>
+              <span>View Pending payment by Agencies</span>
+            </span>
+            <span className="homePaymentActionMeta">View details -&gt;</span>
+          </button>
+        ) : null}
+      </div>
       ) : null}
 
       <section className="homeDateCard">
@@ -919,6 +1241,8 @@ function DashboardHome({
         </div>
       </section>
 
+      {showHomeSectionDivider ? <div className="homeSectionDivider" aria-hidden="true" /> : null}
+
       {showUploadPendingCards ? (
       <section className="homeSection">
         {/* <h2>Action Pending (Overdue)</h2> */}
@@ -932,9 +1256,32 @@ function DashboardHome({
 
       {showWorkflowPendingCards ? (
         <section className="homeSection">
-          <div className="homeCardGrid homeCardGridTwo">
+          <div className={`homeCardGrid ${showArrivedLastMonthCard ? "homeCardGridThree" : "homeCardGridTwo"}`}>
             <HomeMetricCard title="Arrival Ticket Upload Pending" count={overdue.arrivalTicketPending?.count} tone="orange" icon="plane" onClick={() => onOpenFilter("arrival_ticket_pending", false)} />
             <HomeMetricCard title="Document Dispatch Pending" count={overdue.documentDispatchPending?.count} tone="purple" icon="document" onClick={() => onOpenFilter("document_dispatch_pending", false)} />
+            {showArrivedLastMonthCard ? (
+              <HomeMetricCard
+                title="Applicants Arrived in last one month"
+                count={arrivedLastMonth.count}
+                tone="green"
+                icon="people"
+                onClick={() => onOpenFilter("arrived_last_month", false)}
+              />
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {showArrivedLastMonthCard && !showWorkflowPendingCards ? (
+        <section className="homeSection">
+          <div className="homeCardGrid homeCardGridTwo">
+            <HomeMetricCard
+              title="Applicants Arrived in last one month"
+              count={arrivedLastMonth.count}
+              tone="green"
+              icon="people"
+              onClick={() => onOpenFilter("arrived_last_month", false)}
+            />
           </div>
         </section>
       ) : null}
@@ -964,35 +1311,6 @@ function parseDate(value) {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-function formatExcelDate(value) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "-";
-  return date.toLocaleDateString("en-IN");
-}
-
-function resolveAge(applicant) {
-  const directAge = Number(applicant?.age ?? applicant?.personalDetails?.age);
-  if (Number.isFinite(directAge) && directAge > 0) return directAge;
-  const dob = applicant?.dob || applicant?.personalDetails?.dob;
-  if (!dob) return "-";
-  const dobDate = new Date(dob);
-  if (Number.isNaN(dobDate.getTime())) return "-";
-  const now = new Date();
-  let age = now.getFullYear() - dobDate.getFullYear();
-  const monthDiff = now.getMonth() - dobDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dobDate.getDate())) age -= 1;
-  return age >= 0 ? age : "-";
-}
-
 function normalizeListResponse(response) {
   if (Array.isArray(response)) return response;
   if (Array.isArray(response?.items)) return response.items;
@@ -1012,11 +1330,26 @@ function countBy(items, keyResolver) {
   return counts;
 }
 
+function retainSelectedOptions(options = [], selectedValues = [], resolveLabel = (value) => value) {
+  if (!selectedValues.length) return options;
+  const existing = new Set(options.map((item) => item.value));
+  const retained = selectedValues
+    .filter((value) => value && !existing.has(value))
+    .map((value) => ({
+      value,
+      label: resolveLabel(value) || value,
+      count: 0
+    }));
+  return retained.length ? [...retained, ...options] : options;
+}
+
 function ApplicantsDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const hasRestoredSidebarFilters = useRef(false);
   const [user, setUser] = useState(() => getStoredUser());
   const [applicants, setApplicants] = useState([]);
+  const [applicantTypeCounts, setApplicantTypeCounts] = useState(null);
   const [countries, setCountries] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [employers, setEmployers] = useState([]);
@@ -1025,13 +1358,15 @@ function ApplicantsDashboard() {
     page: 1,
     limit: PAGE_SIZE,
     total: 0,
-    totalPages: 1
+    totalPages: 1,
+    nextCursor: null
   });
   const [entityPagination, setEntityPagination] = useState({
     page: 1,
     limit: PAGE_SIZE,
     total: 0,
-    totalPages: 1
+    totalPages: 1,
+    nextCursor: null
   });
   const [loading, setLoading] = useState(true);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
@@ -1040,8 +1375,8 @@ function ApplicantsDashboard() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [searchInput, setSearchInput] = useState("");
-  const [isExporting, setIsExporting] = useState(false);
   const [showBulkDispatchModal, setShowBulkDispatchModal] = useState(false);
+  const [showBulkContractModal, setShowBulkContractModal] = useState(false);
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const isSuperUser = isSuperUserLikeRole(user?.role);
@@ -1076,6 +1411,37 @@ function ApplicantsDashboard() {
   const homeFromDate = searchParams.get("fromDate") || retainedHomeRange.fromDate;
   const homeToDate = searchParams.get("toDate") || retainedHomeRange.toDate;
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
+  const currentCursor = searchParams.get("cursor") || "";
+
+  useEffect(() => {
+    if (hasRestoredSidebarFilters.current) return;
+    hasRestoredSidebarFilters.current = true;
+
+    const hasUrlFilters = SIDEBAR_FILTER_KEYS.some((key) => searchParams.has(key));
+    if (hasUrlFilters) return;
+
+    try {
+      const storedFilters = JSON.parse(sessionStorage.getItem(DASHBOARD_FILTER_STORAGE_KEY) || "{}");
+      const next = new URLSearchParams(searchParams);
+      SIDEBAR_FILTER_KEYS.forEach((key) => {
+        if (storedFilters[key]) next.set(key, storedFilters[key]);
+      });
+      if (next.toString() !== searchParams.toString()) setSearchParams(next, { replace: true });
+    } catch {
+      sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
+    }
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
+    const filters = Object.fromEntries(
+      SIDEBAR_FILTER_KEYS
+        .map((key) => [key, searchParams.get(key) || ""])
+        .filter(([, value]) => value)
+    );
+    if (Object.keys(filters).length) {
+      sessionStorage.setItem(DASHBOARD_FILTER_STORAGE_KEY, JSON.stringify(filters));
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (searchParams.get("fromDate") || searchParams.get("toDate")) return;
@@ -1112,6 +1478,9 @@ function ApplicantsDashboard() {
 
       if (!Object.prototype.hasOwnProperty.call(updates, "page")) {
         next.delete("page");
+        next.delete("cursor");
+      } else if (Number(updates.page || 1) <= 1) {
+        next.delete("cursor");
       }
 
       if (next.toString() === searchParams.toString()) {
@@ -1129,6 +1498,7 @@ function ApplicantsDashboard() {
         lite: "true",
         paginated: "true",
         page: currentPage,
+        cursor: currentCursor,
         limit: PAGE_SIZE,
         q: searchText || "",
         type: applicantTypes.join(","),
@@ -1136,7 +1506,6 @@ function ApplicantsDashboard() {
         company: companyIds.join(","),
         agency: agencyIds.join(","),
         notificationApplicants: notificationApplicantIds.join(","),
-        markNotificationsRead: searchParams.get("markNotificationsRead") || "",
         dashboardFilter,
         fromDate: searchParams.get("fromDate") || "",
         toDate: searchParams.get("toDate") || ""
@@ -1144,6 +1513,7 @@ function ApplicantsDashboard() {
       const entityParams = {
         paginated: "true",
         page: currentPage,
+        cursor: currentCursor,
         limit: PAGE_SIZE,
         q: searchText || "",
         country: countryIds.join(","),
@@ -1163,7 +1533,7 @@ function ApplicantsDashboard() {
 
       const [userData, countriesData, applicantsData] = await Promise.all([
         user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 }),
-        getCached("/countries", { ttlMs: 120000 }),
+        getCached("/countries", { ttlMs: 600000 }),
         activeTab === "home"
           ? Promise.resolve({ items: [], pagination: { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 } })
           : getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
@@ -1177,11 +1547,13 @@ function ApplicantsDashboard() {
           ? applicantsData.items
           : [];
       setApplicants(normalizedApplicants);
+      setApplicantTypeCounts(applicantsData?.typeCounts || null);
       setApplicantsPagination({
         page: Number(applicantsData?.pagination?.page || currentPage),
         limit: Number(applicantsData?.pagination?.limit || PAGE_SIZE),
         total: Number(applicantsData?.pagination?.total || normalizedApplicants.length),
-        totalPages: Number(applicantsData?.pagination?.totalPages || 1)
+        totalPages: Number(applicantsData?.pagination?.totalPages || 1),
+        nextCursor: applicantsData?.pagination?.nextCursor || null
       });
 
       if (activeTab === "home" && canViewHomeDashboard) {
@@ -1200,6 +1572,7 @@ function ApplicantsDashboard() {
           params: {
             paginated: "true",
             page: currentPage,
+            cursor: currentCursor,
             limit: PAGE_SIZE,
             q: searchText || "",
             countryId: countryIds[0] || "",
@@ -1220,18 +1593,26 @@ function ApplicantsDashboard() {
           page: Number(companiesData?.pagination?.page || currentPage),
           limit: Number(companiesData?.pagination?.limit || PAGE_SIZE),
           total: Number(companiesData?.pagination?.total || normalizedCompanies.length),
-          totalPages: Number(companiesData?.pagination?.totalPages || 1)
+          totalPages: Number(companiesData?.pagination?.totalPages || 1),
+          nextCursor: companiesData?.pagination?.nextCursor || null
         });
-        const employersData = await getCached("/employers", {
-          params: { paginated: "false", fields: EMPLOYER_LOOKUP_FIELDS },
-          ttlMs: 60000
-        });
+        const [employersData, agenciesData] = await Promise.all([
+          getCached("/employers", {
+            params: { paginated: "false", fields: EMPLOYER_LOOKUP_FIELDS },
+            ttlMs: 600000
+          }),
+          getCached("/agencies", {
+            params: { paginated: "false", fields: AGENCY_LOOKUP_FIELDS },
+            ttlMs: 600000
+          })
+        ]);
         setEmployers(Array.isArray(employersData) ? employersData : []);
+        setAgencies(Array.isArray(agenciesData) ? agenciesData : []);
       } else if (activeTab === "employers") {
         const [companiesData, employersData] = await Promise.all([
           getCached("/companies", {
             params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
-            ttlMs: 60000
+            ttlMs: 600000
           }),
           getCached("/employers", {
             params: { ...entityParams, fields: EMPLOYER_LOOKUP_FIELDS },
@@ -1249,13 +1630,14 @@ function ApplicantsDashboard() {
           page: Number(employersData?.pagination?.page || currentPage),
           limit: Number(employersData?.pagination?.limit || PAGE_SIZE),
           total: Number(employersData?.pagination?.total || normalizedEmployers.length),
-          totalPages: Number(employersData?.pagination?.totalPages || 1)
+          totalPages: Number(employersData?.pagination?.totalPages || 1),
+          nextCursor: employersData?.pagination?.nextCursor || null
         });
       } else if (activeTab === "agencies") {
         const [companiesData, agenciesData] = await Promise.all([
           getCached("/companies", {
             params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
-            ttlMs: 60000
+            ttlMs: 600000
           }),
           getCached("/agencies", {
             params: { ...entityParams, fields: AGENCY_LOOKUP_FIELDS },
@@ -1273,13 +1655,14 @@ function ApplicantsDashboard() {
           page: Number(agenciesData?.pagination?.page || currentPage),
           limit: Number(agenciesData?.pagination?.limit || PAGE_SIZE),
           total: Number(agenciesData?.pagination?.total || normalizedAgencies.length),
-          totalPages: Number(agenciesData?.pagination?.totalPages || 1)
+          totalPages: Number(agenciesData?.pagination?.totalPages || 1),
+          nextCursor: agenciesData?.pagination?.nextCursor || null
         });
       } else {
         const [companiesData, agenciesData] = await Promise.all([
           getCached("/companies", {
             params: { paginated: "false", fields: COMPANY_LOOKUP_FIELDS },
-            ttlMs: 60000
+            ttlMs: 600000
           }),
           isSuperUser
             ? getCached("/agencies", {
@@ -1307,6 +1690,7 @@ function ApplicantsDashboard() {
     applicantTypes,
     companyIds,
     countryIds,
+    currentCursor,
     currentPage,
     dashboardFilter,
     hasLoadedOnce,
@@ -1332,11 +1716,6 @@ function ApplicantsDashboard() {
     () => Object.fromEntries(companies.map((company) => [company.id, company])),
     [companies]
   );
-  const employerMap = useMemo(
-    () => Object.fromEntries(employers.map((employer) => [employer.id, employer])),
-    [employers]
-  );
-
   const visibleCompanies = useMemo(() => {
     if (!countryIds.length) return companies;
     return companies.filter((company) => countryIds.includes(company.countryId));
@@ -1398,15 +1777,6 @@ function ApplicantsDashboard() {
     [applicants]
   );
 
-  useEffect(() => {
-    if (companyIds.length && companyIds.some((id) => !visibleCompanies.some((company) => company.id === id))) {
-      updateFilters({
-        company: companyIds.filter((id) => visibleCompanies.some((company) => company.id === id)),
-        page: 1
-      });
-    }
-  }, [companyIds, updateFilters, visibleCompanies]);
-
   const toggleFilterValue = useCallback(
     (key, selectedValues, value) => {
       const nextValues = selectedValues.includes(value)
@@ -1423,12 +1793,16 @@ function ApplicantsDashboard() {
     return companies.map((company) => ({
         ...company,
         countryName: countryMap[company.countryId] || "-",
-        employerNames: (company.employerIds || [])
-          .map((id) => employerMap[id]?.name)
+        agencyNames: (company.agencyIds || [])
+          .map((id) => agencies.find((agency) => agency.id === id)?.name)
+          .filter(Boolean)
+          .join(", "),
+        jobPositionNames: (company.jobPositions || company.jobSpecifications || [])
+          .map((position) => position.title || position.name || position.label)
           .filter(Boolean)
           .join(", ")
       }));
-  }, [companies, countryMap, employerMap]);
+  }, [agencies, companies, countryMap]);
 
   const employerRows = useMemo(() => {
     return employers;
@@ -1481,7 +1855,7 @@ function ApplicantsDashboard() {
       {
         value: "in_progress",
         label: "In Progress",
-        count: applicantWorkflowCounts.get("in_progress") || 0
+        count: applicantTypeCounts?.in_progress ?? applicantWorkflowCounts.get("in_progress") ?? 0
       }
     ];
 
@@ -1489,18 +1863,18 @@ function ApplicantsDashboard() {
       options.push({
         value: "attention_required",
         label: "Attention required",
-        count: attentionRequiredCount
+        count: applicantTypeCounts?.attention_required ?? attentionRequiredCount
       });
     }
 
     options.push({
       value: "completed",
       label: "Completed",
-      count: applicantWorkflowCounts.get("completed") || 0
+      count: applicantTypeCounts?.completed ?? applicantWorkflowCounts.get("completed") ?? 0
     });
 
     return options;
-  }, [applicantWorkflowCounts, attentionRequiredCount, isEmployer]);
+  }, [applicantTypeCounts, applicantWorkflowCounts, attentionRequiredCount, isEmployer]);
 
   const countryOptions = useMemo(() => {
     const mappedCountryIds =
@@ -1598,22 +1972,55 @@ function ApplicantsDashboard() {
     [agencies, applicantAgencyCounts]
   );
 
+  const sidebarCountryOptions = useMemo(
+    () => retainSelectedOptions(countryOptions, countryIds, (id) => countryMap[id]),
+    [countryIds, countryMap, countryOptions]
+  );
+  const sidebarCompanyCountryOptions = useMemo(
+    () => retainSelectedOptions(companyCountryOptions, countryIds, (id) => countryMap[id]),
+    [companyCountryOptions, countryIds, countryMap]
+  );
+  const sidebarEmployerCountryOptions = useMemo(
+    () => retainSelectedOptions(employerCountryOptions, countryIds, (id) => countryMap[id]),
+    [countryIds, countryMap, employerCountryOptions]
+  );
+  const sidebarAgencyCountryOptions = useMemo(
+    () => retainSelectedOptions(agencyCountryOptions, countryIds, (id) => countryMap[id]),
+    [agencyCountryOptions, countryIds, countryMap]
+  );
+  const sidebarCompanyOptions = useMemo(
+    () => retainSelectedOptions(companyOptions, companyIds, (id) => companyMap[id]?.name),
+    [companyIds, companyMap, companyOptions]
+  );
+  const sidebarEmployerCompanyOptions = useMemo(
+    () => retainSelectedOptions(employerCompanyOptions, companyIds, (id) => companyMap[id]?.name),
+    [companyIds, companyMap, employerCompanyOptions]
+  );
+  const sidebarAgencyCompanyOptions = useMemo(
+    () => retainSelectedOptions(agencyCompanyOptions, companyIds, (id) => companyMap[id]?.name),
+    [agencyCompanyOptions, companyIds, companyMap]
+  );
+  const sidebarAgencyOptions = useMemo(
+    () => retainSelectedOptions(agencyOptions, agencyIds, (id) => agencies.find((agency) => agency.id === id)?.name),
+    [agencies, agencyIds, agencyOptions]
+  );
+
   const activeFilterChips = useMemo(() => {
     const chips = [];
     const countrySource =
       activeTab === "companies"
-        ? companyCountryOptions
+        ? sidebarCompanyCountryOptions
         : activeTab === "employers"
-          ? employerCountryOptions
+          ? sidebarEmployerCountryOptions
           : activeTab === "agencies"
-            ? agencyCountryOptions
-            : countryOptions;
+            ? sidebarAgencyCountryOptions
+            : sidebarCountryOptions;
     const companySource =
       activeTab === "employers"
-        ? employerCompanyOptions
+        ? sidebarEmployerCompanyOptions
         : activeTab === "agencies"
-          ? agencyCompanyOptions
-          : companyOptions;
+          ? sidebarAgencyCompanyOptions
+          : sidebarCompanyOptions;
 
     if (activeTab === "applicants") {
       applicantTypeOptions.forEach((item) => {
@@ -1630,32 +2037,33 @@ function ApplicantsDashboard() {
     });
 
     if (activeTab === "applicants") {
-      agencies.forEach((item) => {
-        if (agencyIds.includes(item.id)) chips.push({ key: "agency", value: item.id, label: item.name });
+      sidebarAgencyOptions.forEach((item) => {
+        if (agencyIds.includes(item.value)) chips.push({ key: "agency", value: item.value, label: item.label });
       });
     }
 
     return chips;
   }, [
     activeTab,
-    agencies,
-    agencyCompanyOptions,
-    agencyCountryOptions,
+    sidebarAgencyCompanyOptions,
+    sidebarAgencyCountryOptions,
     agencyIds,
     applicantTypeOptions,
     applicantTypes,
     companyIds,
-    companyCountryOptions,
-    companyOptions,
+    sidebarCompanyCountryOptions,
+    sidebarCompanyOptions,
     countryIds,
-    countryOptions,
-    employerCompanyOptions,
-    employerCountryOptions
+    sidebarCountryOptions,
+    sidebarEmployerCompanyOptions,
+    sidebarEmployerCountryOptions,
+    sidebarAgencyOptions
   ]);
 
   const resetFilters = () => {
+    sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
     const next = new URLSearchParams();
-    if (activeTab !== "applicants" && activeTab !== "home") {
+    if (activeTab !== "home") {
       next.set("tab", activeTab);
     }
     setSearchParams(next, { replace: true });
@@ -1692,12 +2100,15 @@ function ApplicantsDashboard() {
 
   const handleTabChange = (tabKey) => {
     if (!visibleTabs.includes(tabKey)) return;
-    const next = new URLSearchParams();
+    const next = new URLSearchParams(searchParams);
     if (tabKey !== "home" && tabKey !== "applicants") {
       next.set("tab", tabKey);
     } else if (tabKey === "applicants") {
       next.set("tab", "applicants");
+    } else {
+      next.set("tab", "home");
     }
+    next.delete("page");
     setSearchParams(next, { replace: true });
   };
 
@@ -1711,7 +2122,7 @@ function ApplicantsDashboard() {
 
   const handleQuickPrint = (applicant) => {
     if (!isEmployer || Number(applicant?.stage || 0) !== 12) return;
-    navigate(`/applicants/${applicant.id}/quick-print`);
+    navigate(`/applicants/${applicant.id}/quick-print${window.location.search || ""}`);
   };
 
   const applyHomeDateRange = () => {
@@ -1742,6 +2153,7 @@ function ApplicantsDashboard() {
   };
 
   const openHomeFilter = (filter, includeDateRange = true) => {
+    sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
     const next = new URLSearchParams();
     next.set("tab", "applicants");
     next.set("dashboardFilter", filter);
@@ -1766,10 +2178,33 @@ function ApplicantsDashboard() {
   };
 
   const handleViewAllApplicants = () => {
+    sessionStorage.removeItem(DASHBOARD_FILTER_STORAGE_KEY);
     const next = new URLSearchParams();
     next.set("tab", "applicants");
     setSearchParams(next, { replace: true });
   };
+
+  const hasApplicantListScope = useMemo(() => {
+    if (activeTab !== "applicants") return false;
+    return Boolean(
+      searchText ||
+      applicantTypes.length ||
+      countryIds.length ||
+      companyIds.length ||
+      agencyIds.length ||
+      dashboardFilter ||
+      notificationApplicantIds.length
+    );
+  }, [
+    activeTab,
+    agencyIds.length,
+    applicantTypes.length,
+    companyIds.length,
+    countryIds.length,
+    dashboardFilter,
+    notificationApplicantIds.length,
+    searchText
+  ]);
 
   const headerText = useMemo(() => {
     if (activeTab === "companies") return `Showing ${totalRows} companies`;
@@ -1819,106 +2254,6 @@ function ApplicantsDashboard() {
     invalidateCache("/dashboard");
     setRefreshKey((value) => value + 1);
   }, []);
-
-  const handleExportApplicants = useCallback(async () => {
-    try {
-      setIsExporting(true);
-      const response = await API.get("/applicants", {
-        params: {
-          paginated: "false",
-          q: searchText || "",
-          type: applicantTypes.join(","),
-          country: countryIds.join(","),
-          company: companyIds.join(","),
-          agency: agencyIds.join(",")
-        }
-      });
-      const records = Array.isArray(response?.data) ? response.data : [];
-      const rows = records.map((applicant) => {
-        const fullName =
-          applicant.fullName ||
-          [applicant.firstName, applicant.lastName].filter(Boolean).join(" ").trim() ||
-          "-";
-        const dob = applicant?.dob || applicant?.personalDetails?.dob || "";
-        const totalPayment = Number(applicant?.payment?.totalInr ?? applicant?.payment?.total ?? 0);
-        const paidPayment = Number(applicant?.payment?.paidInr ?? applicant?.payment?.paid ?? 0);
-        const pendingPayment = Number(applicant?.payment?.pendingInr ?? applicant?.payment?.pending ?? 0);
-        const paymentCurrency = normalizeCurrency(applicant?.payment?.currency || applicant?.paymentCurrency || applicant?.currency);
-        return {
-          candidateName: fullName,
-          dateOfBirth: formatExcelDate(dob),
-          age: resolveAge(applicant),
-          address: applicant?.address || applicant?.personalDetails?.address || "-",
-          contactNumber: applicant?.phone || applicant?.personalDetails?.phone || "-",
-          currentStatus: resolveApplicantWorkflowMeta(applicant).title || "-",
-          company: applicant?.companyName || "-",
-          country: applicant?.countryName || applicant?.country || "-",
-          totalPayment: formatCurrencyAmount(totalPayment, paymentCurrency),
-          paymentDone: formatCurrencyAmount(paidPayment, paymentCurrency),
-          pendingPayment: formatCurrencyAmount(pendingPayment, paymentCurrency)
-        };
-      });
-
-      const tableRows = rows
-        .map(
-          (row) => `
-          <tr>
-            <td>${escapeHtml(row.candidateName)}</td>
-            <td>${escapeHtml(row.dateOfBirth)}</td>
-            <td>${escapeHtml(row.age)}</td>
-            <td>${escapeHtml(row.address)}</td>
-            <td>${escapeHtml(row.contactNumber)}</td>
-            <td>${escapeHtml(row.currentStatus)}</td>
-            <td>${escapeHtml(row.company)}</td>
-            <td>${escapeHtml(row.country)}</td>
-            <td>${escapeHtml(row.totalPayment || "-")}</td>
-            <td>${escapeHtml(row.paymentDone || "-")}</td>
-            <td>${escapeHtml(row.pendingPayment || "-")}</td>
-          </tr>`
-        )
-        .join("");
-
-      const content = `
-        <html>
-          <head><meta charset="UTF-8" /></head>
-          <body>
-            <table border="1">
-              <thead>
-                <tr>
-                  <th>Candidate Name</th>
-                  <th>Date of Birth</th>
-                  <th>Age</th>
-                  <th>Address</th>
-                  <th>Contact number</th>
-                  <th>Current status</th>
-                  <th>Company</th>
-                  <th>Country</th>
-                  <th>Total payment</th>
-                  <th>Payment done</th>
-                  <th>Pending payment</th>
-                </tr>
-              </thead>
-              <tbody>${tableRows}</tbody>
-            </table>
-          </body>
-        </html>
-      `;
-
-      const blob = new Blob([content], { type: "application/vnd.ms-excel;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = `dashboard-applicants-${new Date().toISOString().slice(0, 10)}.xls`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsExporting(false);
-    }
-  }, [agencyIds, applicantTypes, companyIds, countryIds, searchText]);
 
   const applyOptimisticEntityChange = useCallback(
     (change) => {
@@ -1989,6 +2324,7 @@ function ApplicantsDashboard() {
     <div className="dashboardPage">
       <DashboardTopbar
         user={user}
+        showNotifications
         showTabs
         tabs={visibleTabs.map((key) => ({ key, label: TAB_CONFIG[key].label }))}
         activeTab={activeTab}
@@ -2012,10 +2348,14 @@ function ApplicantsDashboard() {
             onViewAll={() => handleTabChange("applicants")}
             applying={homeApplyLoading}
             showPaymentCard={!isEmployer && !isAccountantHomeUser}
-            showAgencyPaymentBreakdown={isSuperUser || isJuniorAccountant}
+            showAgencyPaymentBreakdown={isSuperUser || isSeniorAccountant}
             showUploadPendingCards={!isEmployer}
             showWorkflowPendingCards={isSuperUser || isAgency}
+            showArrivedLastMonthCard={isSuperUser || isEmployer}
+            showHomeSectionDivider={isSuperUser}
             isAccountantHome={isAccountantHomeUser}
+            showPaymentActions={!isEmployer && !isJuniorAccountant}
+            showPaymentActionsTopDivider={isSuperUser || isAgency}
           />
         ) : (
           <>
@@ -2030,14 +2370,14 @@ function ApplicantsDashboard() {
               countryIds={countryIds}
               companyIds={companyIds}
               agencyIds={agencyIds}
-              companyCountryOptions={companyCountryOptions}
-              employerCountryOptions={employerCountryOptions}
-              agencyCountryOptions={agencyCountryOptions}
-              countryOptions={countryOptions}
-              employerCompanyOptions={employerCompanyOptions}
-              agencyCompanyOptions={agencyCompanyOptions}
-              companyOptions={companyOptions}
-              agencyOptions={agencyOptions}
+              companyCountryOptions={sidebarCompanyCountryOptions}
+              employerCountryOptions={sidebarEmployerCountryOptions}
+              agencyCountryOptions={sidebarAgencyCountryOptions}
+              countryOptions={sidebarCountryOptions}
+              employerCompanyOptions={sidebarEmployerCompanyOptions}
+              agencyCompanyOptions={sidebarAgencyCompanyOptions}
+              companyOptions={sidebarCompanyOptions}
+              agencyOptions={sidebarAgencyOptions}
               isSuperUser={isSuperUser}
               onToggleFilterValue={toggleFilterValue}
             />
@@ -2057,29 +2397,36 @@ function ApplicantsDashboard() {
                 currentActionLabel={currentActionLabel}
                 showBulkDispatchAction={isAgency && activeTab === "applicants"}
                 onOpenBulkDispatch={() => setShowBulkDispatchModal(true)}
-                showExportAction={isSuperUser && activeTab === "applicants"}
-                onExport={handleExportApplicants}
-                exportLoading={isExporting}
+                showContractUploadAction={(isSuperUser || isEmployer) && activeTab === "applicants"}
+                onOpenContractUpload={() => setShowBulkContractModal(true)}
                 showViewAllApplicants={
-                  activeTab === "applicants" &&
-                  Boolean(DASHBOARD_FILTER_DESCRIPTIONS[dashboardFilter])
+                  hasApplicantListScope
                 }
                 onViewAllApplicants={handleViewAllApplicants}
               />
 
               <div className="dashboardTableCard">
-                {activeTab === "applicants" ? (
+                {activeTab === "applicants" && isRefreshing ? (
+                  <PageLoader label="Loading applicants..." />
+                ) : null}
+
+                {activeTab === "applicants" && !isRefreshing ? (
                   <ApplicantsTable
                     rows={paginatedRows}
                     isEmployer={isEmployer}
                     showAgencyColumn={isSuperUser || isSeniorAccountant}
+                    showArrivalDateColumn={isEmployer || (isSuperUser && dashboardFilter === "arrived_last_month")}
                     onOpenApplicant={handleOpenApplicant}
                     onQuickPrint={handleQuickPrint}
                     formatPendingAmount={formatApplicantPendingAmount}
                   />
                 ) : null}
 
-                {activeTab === "companies" ? (
+                {activeTab === "companies" && isRefreshing ? (
+                  <PageLoader label="Loading companies..." />
+                ) : null}
+
+                {activeTab === "companies" && !isRefreshing ? (
                   <CompaniesTable
                     rows={paginatedRows}
                     isSuperUser={isSuperUser}
@@ -2126,7 +2473,12 @@ function ApplicantsDashboard() {
               type="button"
               className="dashboardPaginationBtn"
               disabled={safePage >= totalPages}
-              onClick={() => updateFilters({ page: safePage + 1 })}
+              onClick={() => updateFilters({
+                page: safePage + 1,
+                cursor: activeTab === "applicants"
+                  ? applicantsPagination.nextCursor
+                  : entityPagination.nextCursor
+              })}
             >
               Next
             </button>
@@ -2142,6 +2494,13 @@ function ApplicantsDashboard() {
         companies={companies}
         onClose={() => setShowBulkDispatchModal(false)}
         onSaved={handleBulkDispatchSaved}
+      />
+
+      <BulkContractUploadModal
+        open={showBulkContractModal}
+        countries={countries}
+        companies={companies}
+        onClose={() => setShowBulkContractModal(false)}
       />
 
       {entityModalType ? (

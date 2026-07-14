@@ -32,6 +32,15 @@ function getDateRange(fromDate = "", toDateValue = "") {
   return { from, to };
 }
 
+function getLastOneMonthRange() {
+  const to = new Date();
+  to.setHours(23, 59, 59, 999);
+  const from = new Date(to);
+  from.setMonth(from.getMonth() - 1);
+  from.setHours(0, 0, 0, 0);
+  return { from, to };
+}
+
 function hasResidencePermit(applicant) {
   const permit = applicant?.residencePermit || {};
   return Boolean(permit.trpUrl || permit.fileUrl || permit.frontUrl || permit.backUrl || permit.frontFileUrl || permit.backFileUrl);
@@ -125,6 +134,21 @@ async function buildAccountantPaymentDashboard({ applicantDocs, from, to }) {
   });
 
   await Promise.all(applicantDocs.map(async (applicantDoc) => {
+    const applicant = applicantDoc.exists ? applicantDoc.data() || {} : {};
+    const cachedSummary = applicant?.paymentSummary?.applicant;
+    if (!from && !to && cachedSummary && Number.isFinite(Number(cachedSummary.paid))) {
+      if (Number(cachedSummary.paid) > 0) {
+        paymentRows.push({
+          applicantId: applicantDoc.id,
+          installmentCount: Number(cachedSummary.installmentCount || 0),
+          payment: {
+            amount: Number(cachedSummary.paid || 0),
+            currency: cachedSummary.currency || applicant.paymentCurrency || applicant.currency
+          }
+        });
+      }
+      return;
+    }
     const paymentsSnapshot = await applicantDoc.ref.collection("payments").get();
     paymentsSnapshot.docs.forEach((paymentDoc) => {
       const payment = paymentDoc.data() || {};
@@ -132,6 +156,7 @@ async function buildAccountantPaymentDashboard({ applicantDocs, from, to }) {
       if (!isPaymentInRange(payment, from, to)) return;
       paymentRows.push({
         applicantId: applicantDoc.id,
+        installmentCount: 1,
         payment
       });
     });
@@ -172,7 +197,7 @@ async function buildAccountantPaymentDashboard({ applicantDocs, from, to }) {
   return {
     totalByCurrency,
     applicantCount: applicantIds.size,
-    paymentCount: paymentRows.length,
+    paymentCount: paymentRows.reduce((total, row) => total + Number(row.installmentCount || 1), 0),
     applicantIds: [...applicantIds],
     agencies: [...agencyRows.values()].sort((a, b) => {
       const left = a.receivedByCurrency || {};
@@ -195,7 +220,7 @@ async function buildAgencyPaymentRows({ role, userId, agencyId, docs }) {
   });
 
   let agencyDocs = [];
-  if (isSuperUserLikeRole(role)) {
+  if (isSuperUserLikeRole(role) || role === "SENIOR_ACCOUNTANT") {
     agencyDocs = (await db.collection("agencies").get()).docs;
   } else if (role === "AGENCY") {
     const currentAgencyId = agencyId || userId;
@@ -305,6 +330,7 @@ async function getDashboard({ user, query }) {
       embassyInterview: createMetric("embassyInterview", "Embassy Interviews", "embassy_interview", "purple"),
       embassyAppointment: createMetric("embassyAppointment", "Embassy Appointments", "embassy_appointment", "orange")
     },
+    arrivedLastMonth: createMetric("arrivedLastMonth", "Applicants Arrived in last one month", "arrived_last_month", "green"),
     overdue: {},
     payments: {
       applicantsWithPendingPayment: 0,
@@ -352,6 +378,8 @@ async function getDashboard({ user, query }) {
 
   if (isAccountant) {
     summary.home.accountantPayments = await buildAccountantPaymentDashboard({ applicantDocs: scopedDocs, from, to });
+  }
+  if (role === "JUNIOR_ACCOUNTANT") {
     return summary;
   }
 
@@ -370,6 +398,7 @@ async function getDashboard({ user, query }) {
         docs
       })).rows
     : new Map();
+  const arrivedLastMonthRange = getLastOneMonthRange();
 
   for (const doc of docs) {
     const data = doc.data() || {};
@@ -380,6 +409,7 @@ async function getDashboard({ user, query }) {
     const interviewDate = resolveWorkflowDate(data?.embassyInterview?.dateTime, data?.embassyInterview?.date, data?.embassyInterview?.createdAt);
     const visaCollectionDate = resolveWorkflowDate(data?.visaCollection?.dateTime, data?.visaCollection?.date, data?.visaCollection?.createdAt);
     const arrivalDate = resolveWorkflowDate(data?.visaTravel?.dateTime, data?.visaTravel?.date, data?.visaTravel?.createdAt);
+    const arrivedDate = resolveWorkflowDate(data?.completedAt, data?.stageUpdatedAt, data?.visaTravel?.dateTime, data?.visaTravel?.date, data?.visaTravel?.createdAt);
 
     summary.totalApplicants += 1;
     summary.stageCounts[stage] = (summary.stageCounts[stage] || 0) + 1;
@@ -393,9 +423,14 @@ async function getDashboard({ user, query }) {
     summary.payments.totalPending += payment.pending;
 
     if (stage < 13 && isWithinRange(arrivalDate, from, to)) summary.home.upcoming.arriving.count += 1;
+    if (stage >= 13 && isWithinRange(arrivedDate, arrivedLastMonthRange.from, arrivedLastMonthRange.to)) {
+      summary.home.arrivedLastMonth.count += 1;
+    }
     if (stage < 12 && isWithinRange(visaCollectionDate, from, to)) summary.home.upcoming.visaCollection.count += 1;
-    if (stage < 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
-    if (stage < 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
+    // Saving an approved appointment/interview advances the applicant to stages 7/9.
+    // Keep that current workflow stage in the selected-date Home card.
+    if (stage <= 9 && isWithinRange(interviewDate, from, to)) summary.home.upcoming.embassyInterview.count += 1;
+    if (stage <= 7 && isWithinRange(appointmentDate, from, to)) summary.home.upcoming.embassyAppointment.count += 1;
 
     if (canSeeUploadPendingCards && stage === 11 && visaCollectionDate && visaCollectionDate < now && !hasResidencePermit(data)) {
       summary.home.overdue.trpPending.count += 1;

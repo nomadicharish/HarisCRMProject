@@ -22,6 +22,12 @@ import {
   validateDocumentFile
 } from "../utils/fileValidation";
 
+const DASHBOARD_TAB_CONFIG = {
+  home: { label: "Home" },
+  applicants: { label: "Applicants" },
+  companies: { label: "Companies" }
+};
+
 function StatusIcon({ tone = "success" }) {
   if (tone === "danger") {
     return <img src="/error.png" alt="" className="docsErrorIcon" aria-hidden="true" />;
@@ -239,6 +245,27 @@ function DocumentRejectModal({ open, onClose, onSubmit, loading }) {
   );
 }
 
+function ApproveAllConfirmModal({ open, onClose, onConfirm, loading }) {
+  if (!open) return null;
+
+  return (
+    <div className="docModalOverlay">
+      <div className="docModalCard" role="dialog" aria-modal="true" aria-labelledby="approve-all-confirm-title">
+        <h3 id="approve-all-confirm-title">Approve all documents</h3>
+        <p>This will approve all the non-rejected documents.</p>
+        <div className="docModalActions">
+          <button type="button" className="btn btnSecondary" disabled={loading} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="btn btnSuccess" disabled={loading} onClick={onConfirm}>
+            {loading ? "Approving..." : "Approve all"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ApplicantDocumentsWorkspace() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -252,6 +279,14 @@ function ApplicantDocumentsWorkspace() {
   const [selectedFiles, setSelectedFiles] = useState({});
   const [saving, setSaving] = useState(false);
   const [rejectState, setRejectState] = useState({ open: false, docKey: "", versionId: "" });
+  const [showApproveAllConfirm, setShowApproveAllConfirm] = useState(false);
+  const documentDashboardTabs = isSuperUserLikeRole(user?.role)
+    ? ["home", "applicants", "companies"]
+    : user?.role === "AGENCY" || user?.role === "EMPLOYER"
+    ? ["home", "applicants", "companies"]
+    : user?.role === "SENIOR_ACCOUNTANT"
+    ? ["home", "applicants"]
+    : ["applicants"];
 
   useEffect(() => {
     let cancelled = false;
@@ -333,6 +368,32 @@ function ApplicantDocumentsWorkspace() {
     }
     return "";
   };
+
+  const handleDocumentDownload = async (fileUrl, fileName) => {
+    if (!fileUrl) return;
+
+    try {
+      const response = await fetch(fileUrl);
+      if (!response.ok) throw new Error("Unable to download document");
+
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = fileName || "document";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      console.error(error);
+      const link = document.createElement("a");
+      link.href = fileUrl;
+      link.download = fileName || "document";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    }
+  };
   const applicantName = getApplicantDisplayName(applicant);
   const standardReference = applicant?.standardReferenceUrl
     ? {
@@ -365,19 +426,23 @@ function ApplicantDocumentsWorkspace() {
 
     try {
       setSaving(true);
-      await Promise.all(uploads.map(async ([docKey, file]) => {
+      // Keep uploads within one save sequential. The server groups the resulting
+      // document events by action and agent, so this produces one notification
+      // for the save instead of racing multiple notification writes.
+      for (const [docKey, file] of uploads) {
         const formData = new FormData();
         formData.append("file", file);
         formData.append("documentType", docKey);
         await API.post(`/applicants/${id}/upload-document`, formData);
-      }));
+      }
 
       invalidateCache(`/applicants/${id}/documents`);
       invalidateCache(`/applicants/${id}/documents-page`);
       invalidateCache(`/applicants/${id}`);
       invalidateCache("/applicants");
 
-      navigate(`/applicants/${id}`);
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+      navigate(`/applicants/${id}${window.location.search || ""}`);
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Document upload failed");
@@ -450,6 +515,10 @@ function ApplicantDocumentsWorkspace() {
       invalidateCache(`/applicants/${id}/documents-page`);
       invalidateCache(`/applicants/${id}`);
       invalidateCache("/applicants");
+      setShowApproveAllConfirm(false);
+      const params = new URLSearchParams(window.location.search);
+      params.set("tab", "applicants");
+      navigate(`/dashboard?${params.toString()}`);
     } catch (error) {
       console.error(error);
       setDocuments(previousDocuments);
@@ -497,7 +566,25 @@ function ApplicantDocumentsWorkspace() {
   return (
     <div className="page-container dashboardPageContainer">
       <BlockingLoader open={saving} label="Saving document updates..." />
-      <DashboardTopbar user={user} />
+      <DashboardTopbar
+        user={user}
+        showTabs
+        tabs={documentDashboardTabs.map((key) => ({
+          key,
+          label: DASHBOARD_TAB_CONFIG[key].label
+        }))}
+        activeTab="applicants"
+        onTabChange={(tabKey) => {
+          if (!documentDashboardTabs.includes(tabKey)) return;
+          if (tabKey === "applicants") {
+            const params = new URLSearchParams(window.location.search);
+            params.set("tab", "applicants");
+            navigate(`/dashboard?${params.toString()}`);
+            return;
+          }
+          navigate(tabKey === "home" ? "/dashboard" : `/dashboard?tab=${encodeURIComponent(tabKey)}`);
+        }}
+      />
       <div className="page-content docsWorkspacePage">
         <main className="docsUploadCard">
             <div className={`docsTopBar docsTopBar-${topBar.tone}`}>
@@ -517,7 +604,7 @@ function ApplicantDocumentsWorkspace() {
                 <button
                   type="button"
                   className="docsApplicantSummary docsApplicantSummaryAction"
-                  onClick={() => navigate(`/applicants/${id}`)}
+                  onClick={() => navigate(`/applicants/${id}${window.location.search || ""}`)}
                 >
                   <span className="docsApplicantIcon" aria-hidden="true">
                     {applicant.profilePhotoUrl ? (
@@ -552,7 +639,7 @@ function ApplicantDocumentsWorkspace() {
                     type="button"
                     className="btn docsApproveAllButton"
                     disabled={!canApproveAll || saving}
-                    onClick={handleApproveAll}
+                  onClick={() => setShowApproveAllConfirm(true)}
                   >
                     {saving ? "Approving..." : "Approve all"}
                   </button>
@@ -689,13 +776,27 @@ function ApplicantDocumentsWorkspace() {
                           <div className="docsFileMeta">{isPending ? "Awaiting review" : "Latest uploaded file"}</div>
                         </div>
                       </div>
-                      <a className="docsViewBtn" href={latest.fileUrl} target="_blank" rel="noreferrer">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                          <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                          <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
-                        </svg>
-                        View
-                      </a>
+                      <div className="docsFileActions">
+                        <a
+                          className="docsIconAction"
+                          href={latest.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={`View ${fileName || doc.label}`}
+                          title="View document"
+                        >
+                          <ReferenceIcon />
+                        </a>
+                        <button
+                          type="button"
+                          className="docsIconAction"
+                          onClick={() => handleDocumentDownload(latest.fileUrl, fileName || `${doc.label}.file`)}
+                          aria-label={`Download ${fileName || doc.label}`}
+                          title="Download document"
+                        >
+                          <DownloadIcon />
+                        </button>
+                      </div>
                     </div>
                   ) : (
                     <div className="docsFileBox docsFileBoxEmpty">
@@ -766,6 +867,12 @@ function ApplicantDocumentsWorkspace() {
         loading={saving}
         onClose={() => setRejectState({ open: false, docKey: "", versionId: "" })}
         onSubmit={handleReject}
+      />
+      <ApproveAllConfirmModal
+        open={showApproveAllConfirm}
+        loading={saving}
+        onClose={() => setShowApproveAllConfirm(false)}
+        onConfirm={handleApproveAll}
       />
     </div>
   );

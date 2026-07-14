@@ -39,12 +39,20 @@ function formatMessage(level, message, meta) {
   return `[${timestamp}] ${level.toUpperCase()}: ${message}${suffix}`;
 }
 
+const LOG_LEVELS = { info: 1, warn: 2, error: 3 };
+const configuredLevel = String(process.env.LOG_LEVEL || "error").trim().toLowerCase();
+const minimumLevel = LOG_LEVELS[configuredLevel] || LOG_LEVELS.error;
+
+function shouldLog(level) {
+  return LOG_LEVELS[level] >= minimumLevel;
+}
+
 const logger = {
   info(message, meta) {
-    console.info(formatMessage("info", message, meta));
+    if (shouldLog("info")) console.info(formatMessage("info", message, meta));
   },
   warn(message, meta) {
-    console.warn(formatMessage("warn", message, meta));
+    if (shouldLog("warn")) console.warn(formatMessage("warn", message, meta));
   },
   error(message, meta) {
     console.error(formatMessage("error", message, meta));
