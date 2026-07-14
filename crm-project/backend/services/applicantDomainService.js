@@ -24,6 +24,7 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "companyPaymentPerApplicant",
   "searchText",
   "workflowStatus",
+  "attentionRequired",
   "approvalStatus",
   "applicantBannerStatus",
   "stage",

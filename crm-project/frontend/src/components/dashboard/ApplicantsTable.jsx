@@ -77,7 +77,7 @@ function ApplicantsTable({
             <th>Job Position</th>
             {showArrivalDateColumn ? <th>Arrival Date</th> : null}
             {showAgencyColumn ? <th>Agent</th> : null}
-            {!isEmployer ? <th>Payment Status</th> : null}
+            {!isEmployer ? <th>Payment Pending</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -102,7 +102,7 @@ function ApplicantsTable({
               <th>Job Position</th>
               {showArrivalDateColumn ? <th>Arrival Date</th> : null}
               {showAgencyColumn ? <th>Agent</th> : null}
-              {!isEmployer ? <th>Payment Status</th> : null}
+              {!isEmployer ? <th>Payment Pending</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -202,7 +202,7 @@ function ApplicantsTable({
         <div>Job Position</div>
         {showArrivalDateColumn ? <div>Arrival Date</div> : null}
         {showAgencyColumn ? <div>Agent</div> : null}
-        {!isEmployer ? <div>Payment Status</div> : null}
+        {!isEmployer ? <div>Payment Pending</div> : null}
       </div>
       <VirtualizedRows
         items={rows}

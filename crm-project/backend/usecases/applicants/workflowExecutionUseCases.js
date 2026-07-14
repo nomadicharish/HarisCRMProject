@@ -315,7 +315,7 @@ async function uploadBulkContractUseCase(req) {
   });
 
   return {
-    message: "Bulk contract uploaded successfully",
+    message: "Contract uploaded successfully",
     savedCount: results.length,
     applicantIds
   };

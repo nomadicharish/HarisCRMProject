@@ -14,6 +14,7 @@
     "migrate:normalized-fields": "node scripts/migrate-normalized-fields.js",
     "generate:openapi": "node scripts/generate-openapi.js",
     "backfill:search-index": "node scripts/backfill-search-index.js",
+    "backfill:applicant-workflow-fields": "node scripts/backfill-applicant-workflow-fields.js",
     "migrate:notification-recipients": "node scripts/migrate-notification-recipients.js"
   },
   "keywords": [],

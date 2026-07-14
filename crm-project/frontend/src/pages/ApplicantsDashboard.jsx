@@ -825,7 +825,7 @@ function ContractFileDrop({ id, label, file, onChange, main = false, disabled = 
   );
 }
 
-function BulkContractUploadModal({ open, countries, companies, onClose, onSaved }) {
+function BulkContractUploadModal({ open, countries, companies, onClose }) {
   const [countryId, setCountryId] = useState("");
   const [companyId, setCompanyId] = useState("");
   const [selectedApplicantIds, setSelectedApplicantIds] = useState([]);
@@ -834,6 +834,8 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
   const [additionalFiles, setAdditionalFiles] = useState([null, null, null]);
   const [loadingApplicants, setLoadingApplicants] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [applicantSearchRefreshKey, setApplicantSearchRefreshKey] = useState(0);
+  const modalRef = useRef(null);
 
   const resetState = useCallback(() => {
     setCountryId("");
@@ -914,7 +916,7 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
     return () => {
       isActive = false;
     };
-  }, [companyId, countryId]);
+  }, [applicantSearchRefreshKey, companyId, countryId]);
 
   if (!open) return null;
 
@@ -946,11 +948,17 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
       formData.append("applicantIds", JSON.stringify(selectedApplicantIds));
       formData.append("file", contractFile);
       additionalFiles.filter(Boolean).forEach((file) => formData.append("additionalDocuments", file));
-      const response = await API.post("/applicants/bulk-contract", formData);
+      await API.post("/applicants/bulk-contract", formData);
       toast.success("Contract uploaded successfully.");
-      if (typeof onSaved === "function") await onSaved();
-      resetState();
-      onClose();
+      // Keep the selected country and company so another contract can be uploaded
+      // without reopening the modal. Reloading locally removes the saved applicant
+      // from the searchable options without refreshing the dashboard.
+      setSelectedApplicantIds([]);
+      setApplicantOptions([]);
+      setContractFile(null);
+      setAdditionalFiles([null, null, null]);
+      setApplicantSearchRefreshKey((value) => value + 1);
+      modalRef.current?.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to upload contracts");
@@ -962,11 +970,11 @@ function BulkContractUploadModal({ open, countries, companies, onClose, onSaved 
   return (
     <div className="bulkDispatchOverlay bulkContractOverlay" role="presentation">
       <BlockingLoader open={saving} label="Uploading contracts..." />
-      <div className="bulkDispatchModal bulkContractModal" role="dialog" aria-modal="true" aria-labelledby="bulk-contract-title">
+      <div ref={modalRef} className="bulkDispatchModal bulkContractModal" role="dialog" aria-modal="true" aria-labelledby="bulk-contract-title">
         <div className="bulkDispatchHeader bulkContractHeader">
           <span className="bulkContractHeaderIcon"><UploadGlyph type="upload" /></span>
           <div>
-            <h2 id="bulk-contract-title">Bulk Contract Upload</h2>
+            <h2 id="bulk-contract-title">Upload Contract</h2>
             <p>Select the country, company and applicant, then upload the contract file.</p>
           </div>
           <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close contract upload">
@@ -1341,6 +1349,7 @@ function ApplicantsDashboard() {
   const hasRestoredSidebarFilters = useRef(false);
   const [user, setUser] = useState(() => getStoredUser());
   const [applicants, setApplicants] = useState([]);
+  const [applicantTypeCounts, setApplicantTypeCounts] = useState(null);
   const [countries, setCountries] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [employers, setEmployers] = useState([]);
@@ -1538,6 +1547,7 @@ function ApplicantsDashboard() {
           ? applicantsData.items
           : [];
       setApplicants(normalizedApplicants);
+      setApplicantTypeCounts(applicantsData?.typeCounts || null);
       setApplicantsPagination({
         page: Number(applicantsData?.pagination?.page || currentPage),
         limit: Number(applicantsData?.pagination?.limit || PAGE_SIZE),
@@ -1845,7 +1855,7 @@ function ApplicantsDashboard() {
       {
         value: "in_progress",
         label: "In Progress",
-        count: applicantWorkflowCounts.get("in_progress") || 0
+        count: applicantTypeCounts?.in_progress ?? applicantWorkflowCounts.get("in_progress") ?? 0
       }
     ];
 
@@ -1853,18 +1863,18 @@ function ApplicantsDashboard() {
       options.push({
         value: "attention_required",
         label: "Attention required",
-        count: attentionRequiredCount
+        count: applicantTypeCounts?.attention_required ?? attentionRequiredCount
       });
     }
 
     options.push({
       value: "completed",
       label: "Completed",
-      count: applicantWorkflowCounts.get("completed") || 0
+      count: applicantTypeCounts?.completed ?? applicantWorkflowCounts.get("completed") ?? 0
     });
 
     return options;
-  }, [applicantWorkflowCounts, attentionRequiredCount, isEmployer]);
+  }, [applicantTypeCounts, applicantWorkflowCounts, attentionRequiredCount, isEmployer]);
 
   const countryOptions = useMemo(() => {
     const mappedCountryIds =
@@ -2491,7 +2501,6 @@ function ApplicantsDashboard() {
         countries={countries}
         companies={companies}
         onClose={() => setShowBulkContractModal(false)}
-        onSaved={handleBulkDispatchSaved}
       />
 
       {entityModalType ? (

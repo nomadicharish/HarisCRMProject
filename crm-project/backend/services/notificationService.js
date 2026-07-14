@@ -392,7 +392,7 @@ function defaultRecipientRoles({ actionKey, applicant = {}, user = {} } = {}) {
   if (user?.role === SUPER_USER_ROLE) {
     return [
       ...(AGENCY_VISIBLE_ADMIN_ACTIONS.has(actionKey) ? ["AGENCY"] : []),
-      ...(["PROCESS_COMPLETED", "EMBASSY_APPOINTMENT_INITIATED", "EMBASSY_INTERVIEW_INITIATED", "VISA_COLLECTION_INITIATED"].includes(actionKey) ? ["EMPLOYER"] : [])
+      ...(["CONTRACT_ISSUED", "PROCESS_COMPLETED", "EMBASSY_APPOINTMENT_INITIATED", "EMBASSY_INTERVIEW_INITIATED", "VISA_COLLECTION_INITIATED"].includes(actionKey) ? ["EMPLOYER"] : [])
     ];
   }
   if (actionKey === "APPLICANT_ADDED" && applicant?.approvalStatus === "approved") return ["EMPLOYER"];
@@ -416,6 +416,7 @@ async function recordNotificationAction({
   const resolvedRecipientRoles = Array.isArray(recipientRoles) && recipientRoles.length
     ? recipientRoles
     : defaultRecipientRoles({ actionKey, applicant, user });
+  const notifyAllCompanyEmployers = user?.role === SUPER_USER_ROLE && actionKey === "CONTRACT_ISSUED";
   await safeAddDailyEvent({
     type: "APP_NOTIFICATION",
     actionKey,
@@ -434,7 +435,9 @@ async function recordNotificationAction({
     recipientCompanyId: recipientCompanyId || applicant.companyId || "",
     recipientEmployerId: typeof recipientEmployerId !== "undefined"
       ? recipientEmployerId
-      : (typeof employerIdOverride !== "undefined" ? employerIdOverride : (user.employerId || applicant.employerId || ""))
+      : notifyAllCompanyEmployers
+        ? ""
+        : (typeof employerIdOverride !== "undefined" ? employerIdOverride : (user.employerId || applicant.employerId || ""))
   });
 }
 
@@ -478,10 +481,10 @@ async function recordBulkContractUpload({ applicants = [], user = {}, companyId 
     agencyId: firstApplicant.agencyId || "",
     companyId: companyId || firstApplicant.companyId || "",
     employerId: user.employerId || firstApplicant.employerId || "",
-    recipientRoles: user.role === "EMPLOYER" ? [SUPER_USER_ROLE] : ["EMPLOYER"],
+    recipientRoles: user.role === "EMPLOYER" ? [SUPER_USER_ROLE] : ["AGENCY", "EMPLOYER"],
     recipientAgencyId: firstApplicant.agencyId || "",
     recipientCompanyId: companyId || firstApplicant.companyId || "",
-    recipientEmployerId: user.role === "EMPLOYER" ? "" : firstApplicant.employerId || ""
+    recipientEmployerId: ""
   });
 }
 
@@ -835,39 +838,6 @@ async function sendAdminApprovalAgencySummaries(dateKey) {
   return { sent: results.length };
 }
 
-async function sendAgencyDailyTaskSummary(dateKey) {
-  const events = await getEvents(dateKey, "AGENCY_DAILY_TASK");
-  if (!events.length) return { skipped: true, reason: "no_events" };
-
-  const recipients = await getAdminRecipientEmails();
-  const grouped = new Map();
-  events.forEach((event) => {
-    const agencyName = event.agencyName || event.agencyId || "Agency";
-    const key = `${agencyName}__${event.actionKey || ""}`;
-    const current = grouped.get(key) || {
-      agencyName,
-      actionLabel: event.actionLabel || event.actionKey || "-",
-      applicantIds: new Set()
-    };
-    current.applicantIds.add(event.applicantId || `${event.actorId}_${event.createdAt?.seconds || Date.now()}`);
-    grouped.set(key, current);
-  });
-
-  const rows = [
-    ["Agency", "Task", "Applicant count"],
-    ...Array.from(grouped.values())
-      .sort((a, b) => a.agencyName.localeCompare(b.agencyName) || a.actionLabel.localeCompare(b.actionLabel))
-      .map((item) => [item.agencyName, item.actionLabel, String(item.applicantIds.size)])
-  ];
-
-  return sendEmail({
-    to: recipients,
-    subject: `Agency daily task summary - ${dateKey}`,
-    text: buildRowsText(rows),
-    html: buildRowsHtml(rows)
-  });
-}
-
 async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1)) {
   const runRef = db.collection(DAILY_RUN_COLLECTION).doc(dateKey);
   const runDoc = await runRef.get();
@@ -876,19 +846,17 @@ async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1
   }
 
   await runRef.set({ startedAt: new Date(), dateKey }, { merge: true });
-  const [employerWorkflow, adminApprovals, agencyTasks] = await Promise.all([
+  const [employerWorkflow, adminApprovals] = await Promise.all([
     sendEmployerWorkflowSummary(dateKey),
-    sendAdminApprovalAgencySummaries(dateKey),
-    sendAgencyDailyTaskSummary(dateKey)
+    sendAdminApprovalAgencySummaries(dateKey)
   ]);
   await runRef.set({
     completedAt: new Date(),
     employerWorkflow,
-    adminApprovals,
-    agencyTasks
+    adminApprovals
   }, { merge: true });
 
-  return { dateKey, employerWorkflow, adminApprovals, agencyTasks };
+  return { dateKey, employerWorkflow, adminApprovals };
 }
 
 function startDailyNotificationScheduler() {

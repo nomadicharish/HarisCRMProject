@@ -210,8 +210,9 @@ function canUseFirestorePaginatedPath({
   agencyId
 }) {
   if (!paginated) return false;
-  if (searchQuery || typeFilters.length) return false;
-  if (userRole === "EMPLOYER") return false;
+  // Dashboard filters use this internal marker to force the in-memory matcher,
+  // because their rules depend on dates and nested workflow data.
+  if (searchQuery || typeFilters.length > 1 || typeFilters.includes("dashboard")) return false;
   if (agencyId && agencyId !== userId && userRole === "AGENCY") return false;
   if (hasMultipleMultiValueFilters(countryFilters, companyFilters, agencyFilters)) return false;
   return [countryFilters, companyFilters, agencyFilters].every((items) => items.length <= 10);
@@ -268,8 +269,10 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId, emplo
 
   if (userRole === "EMPLOYER") {
     const companyIds = await resolveEmployerCompanyIds(userId, employerId);
-    if (companyIds.length === 1) return query.where("companyId", "==", companyIds[0]);
-    return query.where("companyId", "in", companyIds.slice(0, 10));
+    query = companyIds.length === 1
+      ? query.where("companyId", "==", companyIds[0])
+      : query.where("companyId", "in", companyIds.slice(0, 10));
+    return query.where("approvalStatus", "==", "approved");
   }
 
   if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
@@ -277,6 +280,33 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId, emplo
   }
 
   throw new AppError("Unauthorized", 403);
+}
+
+function applyApplicantTypeFilter(query, typeFilters = []) {
+  const type = typeFilters[0];
+  if (!type) return query;
+  if (type === "attention_required") return query.where("attentionRequired", "==", true);
+  if (["in_progress", "completed"].includes(type)) return query.where("workflowStatus", "==", type);
+  return query;
+}
+
+async function getApplicantTypeCounts({ userRole, userId, agencyId, employerId, countryFilters, companyFilters, agencyFilters }) {
+  try {
+    let baseQuery = await buildRoleScopedApplicantQuery({ userRole, userId, agencyId, employerId });
+    baseQuery = applyListFilter(baseQuery, "countryId", countryFilters);
+    baseQuery = applyListFilter(baseQuery, "companyId", companyFilters);
+    baseQuery = applyListFilter(baseQuery, "agencyId", agencyFilters);
+    const [inProgress, attentionRequired, completed] = await Promise.all([
+      countQueryResults(baseQuery.where("workflowStatus", "==", "in_progress")),
+      countQueryResults(baseQuery.where("attentionRequired", "==", true)),
+      countQueryResults(baseQuery.where("workflowStatus", "==", "completed"))
+    ]);
+    return { in_progress: inProgress, attention_required: attentionRequired, completed };
+  } catch (error) {
+    // A missing composite index should not prevent the applicant list from loading.
+    if (isMissingFirestoreIndexError(error)) return null;
+    throw error;
+  }
 }
 
 async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId, employerId }) {
@@ -552,17 +582,20 @@ async function getApplicantsFirestorePage({
   requestedFieldSet,
   countryFilters,
   companyFilters,
-  agencyFilters
+  agencyFilters,
+  typeFilters
 }) {
   let query = await buildRoleScopedApplicantQuery({ userRole, userId, agencyId, employerId });
   query = applyListFilter(query, "countryId", countryFilters);
   query = applyListFilter(query, "companyId", companyFilters);
   query = applyListFilter(query, "agencyId", agencyFilters);
+  query = applyApplicantTypeFilter(query, typeFilters);
   query = query.orderBy("createdAt", "desc").orderBy(admin.firestore.FieldPath.documentId(), "desc");
 
   const safeLimit = Math.max(1, Math.min(100, limit));
   const safePage = Math.max(1, page);
-  const total = await countQueryResults(query);
+  const countQuery = query;
+  const total = await countQueryResults(countQuery);
   const decodedCursor = decodeCursor(cursor);
   if (decodedCursor) query = query.startAfter(decodedCursor.createdAt, decodedCursor.id);
   else if (safePage > 1) query = query.offset((safePage - 1) * safeLimit);
@@ -570,6 +603,15 @@ async function getApplicantsFirestorePage({
   const hasMore = snap.docs.length > safeLimit;
   const docs = snap.docs.slice(0, safeLimit);
   const { agencyIdToName, companyIdToName, companyIdToJobPositionName, countryIdToName } = await resolveReferenceMaps(docs);
+  const typeCounts = await getApplicantTypeCounts({
+    userRole,
+    userId,
+    agencyId,
+    employerId,
+    countryFilters,
+    companyFilters,
+    agencyFilters
+  });
   const mapped = docs.map((doc) =>
     mapApplicant({
       doc,
@@ -595,7 +637,8 @@ async function getApplicantsFirestorePage({
       totalPages,
       hasMore,
       nextCursor: hasMore && docs.length ? encodeCursor(docs[docs.length - 1]) : null
-    }
+    },
+    typeCounts
   };
 }
 
@@ -719,7 +762,8 @@ async function getApplicantsUseCase(req) {
         requestedFieldSet,
         countryFilters,
         companyFilters,
-        agencyFilters
+        agencyFilters,
+        typeFilters
       });
     } catch (error) {
       if (!isMissingFirestoreIndexError(error)) {
