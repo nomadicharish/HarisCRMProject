@@ -1,7 +1,10 @@
 const { db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { getCompanyDocumentsForApplicant } = require("../../utils/normalizers");
-const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
+const {
+  areLatestRequiredDocumentsApproved,
+  syncApplicantDocumentStage
+} = require("../../services/applicantWorkflowStageService");
 const { buildPaymentSummaryResponse } = require("./paymentUseCases");
 const { getLatestDocumentsMap } = require("./documentFlowUseCases");
 const {
@@ -640,6 +643,14 @@ async function getApplicantDocumentsPageUseCase(req) {
     getApplicantDocumentsContextUseCase(req),
     getLatestDocumentsMap(applicantId)
   ]);
+
+  if (req.user?.role === "EMPLOYER") {
+    await assertEmployerApplicantAccess(req, context.applicant);
+    const allRequiredDocumentsApproved = await areLatestRequiredDocumentsApproved(applicantId, context.applicant);
+    if (!allRequiredDocumentsApproved) {
+      throw new AppError("Documents are available after all required documents are approved", 403);
+    }
+  }
 
   return {
     applicant: context.applicant,

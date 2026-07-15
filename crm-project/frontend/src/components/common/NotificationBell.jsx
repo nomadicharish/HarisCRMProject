@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../../services/api";
+import { getStoredUser } from "../../utils/auth";
 import "../../styles/notifications.css";
 
 function NotificationIcon({ type = "document" }) {
@@ -42,7 +43,16 @@ function openNotification(navigate, item) {
   navigate(`/dashboard?${params.toString()}`);
 }
 
-export function NotificationListItem({ item, onOpen, spacious = false }) {
+function sanitizeNotificationMessage(item = {}, userRole = "") {
+  const message = item?.message || "";
+  if (userRole !== "EMPLOYER" || !item?.actorName || !message) return message;
+  const escapedActorName = item.actorName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const sanitized = message.replace(new RegExp(`^${escapedActorName}\\s+`), "");
+  return sanitized ? `${sanitized.charAt(0).toUpperCase()}${sanitized.slice(1)}` : sanitized;
+}
+
+export function NotificationListItem({ item, onOpen, spacious = false, userRole = "" }) {
+  const displayMessage = sanitizeNotificationMessage(item, userRole);
   return (
     <button
       type="button"
@@ -55,7 +65,7 @@ export function NotificationListItem({ item, onOpen, spacious = false }) {
       </span>
       <span className="notificationCopy">
         <strong>{item.title || "Notification"}</strong>
-        <span>{item.message || ""}</span>
+        <span>{displayMessage}</span>
       </span>
       {spacious ? <span className="notificationChevron">›</span> : null}
     </button>
@@ -66,6 +76,7 @@ function NotificationBell() {
   const navigate = useNavigate();
   const panelRef = useRef(null);
   const [open, setOpen] = useState(false);
+  const userRole = getStoredUser()?.role || "";
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
@@ -145,6 +156,7 @@ function NotificationBell() {
               <NotificationListItem
                 key={item.id}
                 item={item}
+                userRole={userRole}
                 onOpen={async (notification) => {
                   setOpen(false);
                   if (notification.unread) {

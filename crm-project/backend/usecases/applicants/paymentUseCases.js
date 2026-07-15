@@ -208,10 +208,9 @@ async function addPaymentUseCase(req) {
       await fileUpload.save(file.buffer, {
         metadata: { contentType: file.mimetype }
       });
-      await fileUpload.makePublic();
       documents.push({
         name: documentFileName,
-        url: `https://storage.googleapis.com/${bucket.name}/${fileName}`
+        url: fileName
       });
     }
   }

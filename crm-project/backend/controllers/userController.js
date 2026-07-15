@@ -1,18 +1,11 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
 const { isSuperUserLikeRole } = require("../utils/roles");
+const { encryptText } = require("../utils/crypto");
+const { sendAccountSetupEmail } = require("../services/accountService");
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
-}
-
-function isStrongPassword(password) {
-  if (typeof password !== "string" || password.length < 8) return false;
-  if (!/[A-Z]/.test(password)) return false;
-  if (!/[a-z]/.test(password)) return false;
-  if (!/[0-9]/.test(password)) return false;
-  if (!/[^A-Za-z0-9]/.test(password)) return false;
-  return true;
 }
 
 const createUser = async (req, res) => {
@@ -37,17 +30,9 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "Valid email is required" });
     }
 
-    // Default password
-    const defaultPassword = "ChangeMe@123";
-
-    if (!isStrongPassword(defaultPassword)) {
-      return res.status(500).json({ message: "Default password policy is invalid" });
-    }
-
     // Create Firebase Auth user
     const userRecord = await admin.auth().createUser({
-      email,
-      password: defaultPassword
+      email
     });
 
     const uid = userRecord.uid;
@@ -58,7 +43,8 @@ const createUser = async (req, res) => {
     // Store user profile in Firestore
     await db.collection("users").doc(uid).set({
       name,
-      email,
+      emailEncrypted: await encryptText(String(email).trim().toLowerCase()),
+      normalizedEmail: String(email).trim().toLowerCase(),
       role,
       agencyId: agencyId || null,
       employerId: employerId || null,
@@ -67,10 +53,18 @@ const createUser = async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
+    try {
+      await sendAccountSetupEmail({ email, name, role });
+    } catch (setupEmailError) {
+      logger.error("Account setup email failed", {
+        uid,
+        message: setupEmailError?.message
+      });
+    }
+
     return res.status(201).json({
-      message: "User created successfully",
       uid,
-      defaultPassword
+      message: "User created successfully. A password-setup email has been sent if SMTP is configured."
     });
 
   } catch (error) {

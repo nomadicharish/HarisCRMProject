@@ -93,6 +93,7 @@ function Notifications() {
               key={item.id}
               item={item}
               spacious
+              userRole={user?.role || ""}
               onOpen={openItem}
             />
           )) : !loading ? <div className="notificationEmpty notificationEmptyFull">No notifications yet.</div> : null}

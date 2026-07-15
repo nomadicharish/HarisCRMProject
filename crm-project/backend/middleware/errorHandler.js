@@ -3,6 +3,10 @@ const { AppError } = require("../lib/AppError");
 const { logger } = require("../lib/logger");
 
 function errorHandler(error, req, res, next) { // eslint-disable-line no-unused-vars
+  if (error?.name === "MulterError") {
+    return res.status(400).json({ message: `Upload rejected: ${error.message}` });
+  }
+
   if (error instanceof ZodError) {
     return res.status(400).json({
       message: "Validation failed",

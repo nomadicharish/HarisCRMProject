@@ -5,7 +5,6 @@ const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalize
 const { decryptText, encryptText } = require("../utils/crypto");
 const { sendEmail } = require("./emailService");
 
-const DEFAULT_ENTITY_PASSWORD = "ChangeMe@123";
 const DEFAULT_APP_LOGIN_URL = "http://localhost:5173/login";
 
 function getAppLoginUrl() {
@@ -60,7 +59,6 @@ async function createLinkedUserAccount({ email, name, role, agencyId = null, emp
 
   const userRecord = await admin.auth().createUser({
     email: normalizedEmail,
-    password: DEFAULT_ENTITY_PASSWORD,
     displayName: normalizedName
   });
 
@@ -82,7 +80,7 @@ async function createLinkedUserAccount({ email, name, role, agencyId = null, emp
 
   let welcomeEmailResult;
   try {
-    welcomeEmailResult = await sendWelcomeEmail({
+    welcomeEmailResult = await sendAccountSetupEmail({
       email: normalizedEmail,
       name: normalizedName,
       role
@@ -111,27 +109,28 @@ async function createLinkedUserAccount({ email, name, role, agencyId = null, emp
   };
 }
 
-async function sendWelcomeEmail({ email, name, role }) {
+async function sendAccountSetupEmail({ email, name, role }) {
   const displayRole = role === "AGENCY" ? "agency" : role === "EMPLOYER" ? "employer" : String(role || "user").toLowerCase();
   const loginUrl = getAppLoginUrl();
+  const setupUrl = await admin.auth().generatePasswordResetLink(email, { url: loginUrl });
   const subject = "Welcome to Talent Acquisition CRM";
   const greetingName = name || "User";
   const text = [
     `Hi ${greetingName},`,
     "",
     `Your ${displayRole} account has been created for Talent Acquisition CRM.`,
-    `Login here: ${loginUrl}`,
-    `Temporary password: ${DEFAULT_ENTITY_PASSWORD}`,
+    `Set your password: ${setupUrl}`,
+    `Login to Talent Acquisition CRM: ${loginUrl}`,
     "",
-    "Please sign in and update your password."
+    "After setting your password, use the login link above to sign in."
   ].join("\n");
 
   const html = `
     <p>Hi ${greetingName},</p>
     <p>Your ${displayRole} account has been created for Talent Acquisition CRM.</p>
-    <p><a href="${loginUrl}">Open Talent Acquisition CRM</a></p>
-    <p>Temporary password: <strong>${DEFAULT_ENTITY_PASSWORD}</strong></p>
-    <p>Please sign in and update your password.</p>
+    <p><a href="${setupUrl}">Set your password</a></p>
+    <p>This one-time link lets you create your password securely.</p>
+    <p>Afterward, <a href="${loginUrl}">log in to Talent Acquisition CRM</a>.</p>
   `;
 
   return sendEmail({ to: email, subject, text, html });
@@ -184,12 +183,12 @@ async function deleteLinkedUserAccount(role, entityId) {
 }
 
 module.exports = {
-  DEFAULT_ENTITY_PASSWORD,
   buildUserProfileRecord,
   createLinkedUserAccount,
   deleteLinkedUserAccount,
   findLinkedUserByField,
   readEncryptedUserContactNumber,
   readEncryptedUserEmail,
+  sendAccountSetupEmail,
   syncLinkedUserAccount
 };
