@@ -230,12 +230,31 @@ function getUnreadNotificationGroupId({ actionKey = "", actorId = "", userId = "
   return Buffer.from(`${actionKey}:${actorId}:${userId}`).toString("base64url");
 }
 
+async function getApplicantStages(applicantIds = []) {
+  if (!applicantIds.length) return {};
+  const applicantDocs = await db.getAll(
+    ...applicantIds.map((applicantId) => db.collection("applicants").doc(applicantId))
+  );
+  return applicantDocs.reduce((stages, applicantDoc) => {
+    if (applicantDoc.exists) stages[applicantDoc.id] = Number(applicantDoc.data()?.stage || 1);
+    return stages;
+  }, {});
+}
+
 async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}) {
   const actionKey = payload.actionKey || "";
   if (!actionKey) return;
   const meta = ACTION_META[actionKey] || { title: payload.actionLabel || actionKey, tone: "blue", icon: "document", verb: payload.actionLabel || "updated" };
   const now = new Date();
   const createdAt = payload.createdAt || now;
+  const applicantIds = [...new Set([
+    ...(Array.isArray(payload.applicantIds) ? payload.applicantIds : []),
+    payload.applicantId || ""
+  ].filter(Boolean))];
+  // Capture the current workflow stage when the notification is written. The
+  // list endpoint uses this to remove an applicant from an old stage group as
+  // soon as they progress.
+  const applicantStages = await getApplicantStages(applicantIds);
   const event = {
     actionKey,
     actionLabel: payload.actionLabel || meta.title,
@@ -244,10 +263,8 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
     icon: meta.icon,
     verb: meta.verb,
     applicantId: payload.applicantId || "",
-    applicantIds: [...new Set([
-      ...(Array.isArray(payload.applicantIds) ? payload.applicantIds : []),
-      payload.applicantId || ""
-    ].filter(Boolean))],
+    applicantIds,
+    applicantStages,
     applicantName: payload.applicantName || "",
     actorId: payload.actorId || "",
     actorRole: payload.actorRole || "",
@@ -330,7 +347,11 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
           ...event,
           userId,
           createdAt: now,
-          read: false
+          read: false,
+          applicantStages: {
+            ...(existing.data()?.applicantStages || {}),
+            ...event.applicantStages
+          }
         };
         if (event.applicantIds.length) {
           update.applicantIds = admin.firestore.FieldValue.arrayUnion(...event.applicantIds);
@@ -601,6 +622,10 @@ function groupNotificationItems(items = [], recipientRole = "") {
     }
 
     current.applicantIds = [...new Set([...current.applicantIds, ...item.applicantIds])];
+    current.applicantStages = {
+      ...(current.applicantStages || {}),
+      ...(item.applicantStages || {})
+    };
     current.count = current.applicantIds.length;
     current.unread = current.unread || item.unread;
     if (item.latestAt > current.latestAt) {
@@ -637,6 +662,12 @@ async function filterInactiveDocumentNotificationApplicants(items = [], user = {
     const actionableApplicantIds = item.applicantIds.filter((applicantId) => {
       const applicant = applicantsById.get(applicantId);
       if (!applicant) return false;
+
+      const recordedStage = Number(item.applicantStages?.[applicantId]);
+      // A notification belongs to the stage at which it was created. Once an
+      // applicant advances, exclude them from that old notification group and
+      // recalculate its count from the remaining applicants.
+      if (recordedStage > 0 && Number(applicant.stage || 1) !== recordedStage) return false;
 
       // Completed applicants are relevant only to the completion notification itself.
       if (item.actionKey !== "PROCESS_COMPLETED" && Number(applicant.stage || 1) >= 13) return false;
@@ -675,7 +706,7 @@ async function filterInactiveDocumentNotificationApplicants(items = [], user = {
       applicantIds: actionableApplicantIds,
       count: actionableApplicantIds.length
     };
-    filteredItems.push({ ...nextItem, message: buildNotificationMessage(nextItem) });
+    filteredItems.push({ ...nextItem, message: buildNotificationMessage(nextItem, { recipientRole: user.role }) });
     return filteredItems;
   }, []);
 }

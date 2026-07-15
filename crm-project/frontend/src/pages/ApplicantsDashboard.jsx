@@ -668,7 +668,7 @@ function BulkDispatchModal({
       <div className="bulkDispatchModal" role="dialog" aria-modal="true" aria-labelledby="bulk-dispatch-title">
         <div className="bulkDispatchHeader">
           <div>
-            <h2 id="bulk-dispatch-title">Add Bulk Dispatch</h2>
+            <h2 id="bulk-dispatch-title">Add Dispatch</h2>
             <p>Add dispatch details and apply to multiple applicants.</p>
           </div>
           <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close bulk dispatch">

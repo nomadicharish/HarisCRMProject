@@ -29,7 +29,13 @@ function isApplicantDocumentUpload(req, file) {
 
 const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 },
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 5,
+    fields: 30,
+    parts: 40,
+    fieldNameSize: 100
+  },
   fileFilter(req, file, callback) {
     if (!ALLOWED_MIME_TYPES.has(file.mimetype) && !isApplicantDocumentUpload(req, file)) {
       return callback(new AppError("Only PDF, JPEG, JPG, PNG, DOC and DOCX files are allowed", 400));

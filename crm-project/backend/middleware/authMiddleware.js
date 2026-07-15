@@ -106,7 +106,9 @@ const verifyToken = async (req, res, next) => {
       }
     }
 
-    const role = decoded.role || userProfile?.role;
+    // Firestore is authoritative so a role downgrade takes effect immediately;
+    // custom claims remain useful only as an identity hint.
+    const role = userProfile?.role;
 
     if (!role) {
       return res.status(401).json({ message: "Unauthorized" });
