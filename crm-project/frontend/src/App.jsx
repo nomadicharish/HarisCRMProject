@@ -150,7 +150,7 @@ function App() {
         <Route
           path="/applicants/:id/documents"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY"]}>
+            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "EMPLOYER"]}>
               <ApplicantDocumentsWorkspace />
             </ProtectedRoute>
           }

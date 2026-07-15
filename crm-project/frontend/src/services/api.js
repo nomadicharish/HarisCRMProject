@@ -70,6 +70,9 @@ API.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error?.config;
+    if (error?.response?.data?.details?.malwareDetected && typeof window !== "undefined") {
+      window.alert(error.response.data.message || "Upload rejected: a potential malware threat was detected.");
+    }
     if (isAuthTokenError(error) && originalRequest && !originalRequest._retry) {
       const currentUser = auth.currentUser;
       if (currentUser) {

@@ -3,6 +3,7 @@ import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, validateDocumentFile } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { downloadSecureFile } from "../utils/secureFiles";
 import "../styles/applicantContract.css";
 
 const ACCEPTED_FILE_TYPES = ALLOWED_DOCUMENT_ACCEPT;
@@ -22,24 +23,9 @@ function formatDate(value) {
 async function downloadDocument(fileUrl, fileName) {
   if (!fileUrl) return;
   try {
-    const response = await fetch(fileUrl);
-    if (!response.ok) throw new Error("Unable to download document");
-    const objectUrl = URL.createObjectURL(await response.blob());
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = fileName || "signed-document";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(objectUrl);
+    await downloadSecureFile(fileUrl, fileName || "signed-document");
   } catch (error) {
     console.error(error);
-    const link = document.createElement("a");
-    link.href = fileUrl;
-    link.download = fileName || "signed-document";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
   }
 }
 

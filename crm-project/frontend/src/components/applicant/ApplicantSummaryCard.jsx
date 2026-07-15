@@ -1,5 +1,6 @@
 import React from "react";
 import { getCurrencySymbol, normalizeCurrency } from "../../utils/currency";
+import SecureImage from "../common/SecureImage";
 
 function getInitials(name) {
   if (!name) return "?";
@@ -135,7 +136,7 @@ function ApplicantSummaryCard({
         }
       >
         <div className="sideAvatar" aria-hidden="true">
-          {photoUrl ? <img src={photoUrl} alt="" className="sideAvatarImage" /> : getInitials(fullName)}
+          {photoUrl ? <SecureImage src={photoUrl} alt="" className="sideAvatarImage" fallback={getInitials(fullName)} /> : getInitials(fullName)}
         </div>
         <div className="sideTopMeta">
           <div className="sideName">{fullName}</div>

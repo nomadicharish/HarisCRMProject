@@ -181,9 +181,7 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
   await fileUpload.save(contractFile.buffer, {
     metadata: { contentType: contractFile.mimetype }
   });
-  await fileUpload.makePublic();
-
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  const fileUrl = fileName;
   const previousContractUrl = applicantSnapBeforeUpdate.exists
     ? applicantSnapBeforeUpdate.data()?.contract?.fileUrl || ""
     : "";
@@ -335,10 +333,9 @@ async function uploadAdditionalContractDocuments(req, applicantId) {
     await fileUpload.save(file.buffer, {
       metadata: { contentType: file.mimetype }
     });
-    await fileUpload.makePublic();
     uploads.push({
       name: file.originalname || `Additional Document ${index + 1}`,
-      fileUrl: `https://storage.googleapis.com/${bucket.name}/${fileName}`,
+      fileUrl: fileName,
       uploadedAt
     });
   }
@@ -625,11 +622,9 @@ async function uploadSignedDocumentFile(bucket, applicantId, file, documentId) {
   await fileUpload.save(file.buffer, {
     metadata: { contentType: file.mimetype }
   });
-  await fileUpload.makePublic();
-
   return {
     name: file.originalname || "Signed Document",
-    fileUrl: `https://storage.googleapis.com/${bucket.name}/${fileName}`,
+    fileUrl: fileName,
     contentType: file.mimetype,
     size: file.size || 0
   };
@@ -765,8 +760,7 @@ async function addEmbassyInterviewUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    documentUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    documentUrl = fileName;
   }
 
   await docRef.set(
@@ -892,8 +886,7 @@ async function addInterviewTicketUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    fileUrl = fileName;
     await deleteStorageFileIfExists(bucket, existingTicket.fileUrl);
   }
 
@@ -942,8 +935,7 @@ async function uploadInterviewBiometricUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  const fileUrl = fileName;
 
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();

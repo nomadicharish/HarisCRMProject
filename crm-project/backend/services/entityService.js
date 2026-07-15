@@ -1067,9 +1067,7 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
   await fileRef.save(file.buffer, {
     metadata: { contentType: file.mimetype }
   });
-  await fileRef.makePublic();
-
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${storagePath}`;
+  const fileUrl = storagePath;
 
   if (templateType === "standardReference") {
     await companyRef.set(

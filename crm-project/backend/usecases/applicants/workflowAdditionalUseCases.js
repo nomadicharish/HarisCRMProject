@@ -38,8 +38,7 @@ async function addEmbassyAppointmentUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    fileUrl = fileName;
   }
 
   const appointmentDateTime = `${resolvedDate}T${resolvedTime}`;
@@ -206,8 +205,7 @@ async function addTravelDetailsUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    fileUrl = fileName;
   }
 
   const applicantRef = db.collection("applicants").doc(applicantId);
@@ -271,8 +269,7 @@ async function uploadBiometricSlipUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  const fileUrl = fileName;
 
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
@@ -369,10 +366,9 @@ async function uploadWorkflowFile({ file, storagePath, previousUrl = "" }) {
   await fileUpload.save(file.buffer, {
     metadata: { contentType: file.mimetype }
   });
-  await fileUpload.makePublic();
   if (previousUrl) await deleteStorageFileIfExists(bucket, previousUrl);
   return {
-    fileUrl: `https://storage.googleapis.com/${bucket.name}/${fileName}`,
+    fileUrl: fileName,
     bucket
   };
 }
@@ -434,8 +430,7 @@ async function addVisaCollectionUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    documentUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    documentUrl = fileName;
   }
   const previousDocumentUrl = docSnap.data()?.visaCollection?.documentUrl || "";
 
@@ -728,8 +723,7 @@ async function addVisaTravelUseCase(req) {
     await fileUpload.save(travelTicketFile.buffer, {
       metadata: { contentType: travelTicketFile.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    fileUrl = fileName;
   }
   const busTicketFile = Array.isArray(req.files?.busTicket) ? req.files.busTicket[0] : null;
   if (busTicketFile) {
@@ -739,8 +733,7 @@ async function addVisaTravelUseCase(req) {
     await busFileUpload.save(busTicketFile.buffer, {
       metadata: { contentType: busTicketFile.mimetype }
     });
-    await busFileUpload.makePublic();
-    busTicketUrl = `https://storage.googleapis.com/${bucket.name}/${busFileName}`;
+    busTicketUrl = busFileName;
   }
 
   const previousVisaTravel = applicantData?.visaTravel || {};
@@ -842,8 +835,7 @@ async function uploadResidencePermitUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  const fileUrl = fileName;
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();

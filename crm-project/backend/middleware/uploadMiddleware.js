@@ -1,5 +1,6 @@
 const multer = require("multer");
 const { AppError } = require("../lib/AppError");
+const { withMalwareScan } = require("./malwareScanUpload");
 
 const storage = multer.memoryStorage();
 const ALLOWED_MIME_TYPES = new Set([
@@ -38,4 +39,4 @@ const upload = multer({
   }
 });
 
-module.exports = upload;
+module.exports = withMalwareScan(upload);

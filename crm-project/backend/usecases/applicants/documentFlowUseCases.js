@@ -138,10 +138,7 @@ async function uploadDocumentByTypeUseCase(req) {
     metadata: { contentType: file.mimetype }
   });
 
-  const [fileUrl] = await fileUpload.getSignedUrl({
-    action: "read",
-    expires: "03-01-2035"
-  });
+  const fileUrl = filePath;
 
   const docRef = db.collection("applicants").doc(applicantId).collection("documents").doc(docType);
   const existingDoc = await docRef.get();
@@ -251,9 +248,7 @@ async function uploadDocumentGenericUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  const fileUrl = fileName;
   const docRef = db.collection("applicants").doc(id).collection("documents").doc(documentType);
   const latestVersionSnap = await docRef
     .collection("versions")
@@ -362,7 +357,10 @@ async function rejectDocumentUseCase(req) {
     actionKey: "DOCUMENT_REJECTED",
     applicantId: id,
     applicant: applicantSnap.exists ? applicantSnap.data() || {} : {},
-    user: req.user
+    user: req.user,
+    // Rejections require action from the agency; employers should not receive
+    // this notification.
+    recipientRoles: ["AGENCY"]
   });
   return { message: "Rejected" };
 }
@@ -414,7 +412,11 @@ async function approveDocumentUseCase(req) {
       actionKey: "DOCUMENT_APPROVED",
       applicantId: id,
       applicant: applicant || {},
-      user: req.user
+      user: req.user,
+      recipientRoles: ["AGENCY", "EMPLOYER"],
+      // Notify every employer tagged to the applicant's company, not only a
+      // possible legacy applicant.employerId value.
+      recipientEmployerId: ""
     });
   }
   return { message: "Document approved" };

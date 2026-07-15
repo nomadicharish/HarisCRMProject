@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import API from "../services/api";
 import PageLoader from "../components/common/PageLoader";
 import { generateApplicantArrivalPdf } from "../utils/applicantQuickPrintPdf";
+import SecureImage from "../components/common/SecureImage";
 import "../styles/applicantsDashboard.css";
 
 function Value({ children }) {
@@ -122,7 +123,7 @@ function ApplicantQuickPrint() {
       <main className="quickPrintSheet">
         <header className="quickPrintHeader">
           {applicant.profilePhotoUrl ? (
-            <img className="quickPrintPhoto" src={applicant.profilePhotoUrl} alt={details.fullName} />
+            <SecureImage className="quickPrintPhoto" src={applicant.profilePhotoUrl} alt={details.fullName} fallback={<div className="quickPrintPhotoMissing">No photo</div>} />
           ) : (
             <div className="quickPrintPhotoMissing">No photo</div>
           )}

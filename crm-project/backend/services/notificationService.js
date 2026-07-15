@@ -10,6 +10,9 @@ const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
 const APP_NOTIFICATION_COLLECTION = "notificationEvents";
 const DEFAULT_TIME_ZONE = process.env.DAILY_EMAIL_TIMEZONE || "Asia/Kolkata";
 const DEFAULT_SEND_HOUR = Number(process.env.DAILY_EMAIL_SEND_HOUR || 8);
+// Daily status emails are intentionally disabled. Notifications remain
+// available in the application; transactional emails are unaffected.
+const DAILY_STATUS_EMAILS_ENABLED = false;
 
 const EMPLOYER_ACTIONS = {
   CONTRACT_ISSUED: "Contract issued",
@@ -858,6 +861,10 @@ async function sendAdminApprovalAgencySummaries(dateKey) {
 }
 
 async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1)) {
+  if (!DAILY_STATUS_EMAILS_ENABLED) {
+    return { skipped: true, reason: "daily_status_emails_disabled", dateKey };
+  }
+
   const runRef = db.collection(DAILY_RUN_COLLECTION).doc(dateKey);
   const runDoc = await runRef.get();
   if (runDoc.exists && runDoc.data()?.completedAt) {
@@ -879,7 +886,6 @@ async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1
 }
 
 function startDailyNotificationScheduler() {
-  const emailSchedulerDisabled = String(process.env.DISABLE_DAILY_EMAIL_SCHEDULER || "").toLowerCase() === "true";
   let lastCleanupDateKey = "";
 
   async function tick() {
@@ -889,7 +895,7 @@ function startDailyNotificationScheduler() {
         await deleteOldReadNotifications();
         lastCleanupDateKey = today;
       }
-      if (emailSchedulerDisabled) return;
+      if (!DAILY_STATUS_EMAILS_ENABLED) return;
       if (getHourInTimeZone(new Date()) < DEFAULT_SEND_HOUR) return;
       await runDailyNotificationSummaries(getDateKey(new Date(), -1));
     } catch (error) {
