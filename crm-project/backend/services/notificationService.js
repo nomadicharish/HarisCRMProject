@@ -539,28 +539,47 @@ async function recordAgencyTask({ applicantId, applicant = {}, user = {}, action
   });
 }
 
-function buildNotificationMessage(group) {
+function buildNotificationMessage(group = {}, { recipientRole = "" } = {}) {
   const actor = group.actorName || "User";
   const verb = group.verb || "updated";
-  const count = group.count || group.applicantIds?.size || 0;
+  const count = Number(group.count || group.applicantIds?.length || group.applicantIds?.size || 0);
+  const hideActorName = recipientRole === "EMPLOYER";
   if (group.actionKey === "COMPANY_ASSIGNED") {
     return `New company added: ${group.companyName || group.companyId || "Company"}.`;
   }
   // For creation verbs prefer "{Actor} created {n} applicants." phrasing
   if (/created applicant/i.test(verb) || /applicants added/i.test(group.title || "")) {
-    return `${actor} created ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+    return hideActorName
+      ? `Created ${count} ${count === 1 ? "applicant" : "applicants"}.`
+      : `${actor} created ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   }
-  if (group.actionKey === "CONTRACT_ISSUED") return `${actor} added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "APPLICANT_APPROVED") return `${actor} approved ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "DOCUMENT_APPROVED") return `${actor} approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "DOCUMENT_REJECTED") return `${actor} rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "EMBASSY_APPOINTMENT_COMPLETED") return `${actor} uploaded biometric of embassy appointment for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "EMBASSY_INTERVIEW_COMPLETED") return `${actor} uploaded biometric of embassy interview for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "PROCESS_COMPLETED") return `${actor} marked candidate arrival and completion for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  return `${actor} ${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "CONTRACT_ISSUED") return hideActorName
+    ? `Added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "APPLICANT_APPROVED") return hideActorName
+    ? `Approved ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} approved ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "DOCUMENT_APPROVED") return hideActorName
+    ? `Approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "DOCUMENT_REJECTED") return hideActorName
+    ? `Rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "EMBASSY_APPOINTMENT_COMPLETED") return hideActorName
+    ? `Uploaded biometric of embassy appointment for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} uploaded biometric of embassy appointment for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "EMBASSY_INTERVIEW_COMPLETED") return hideActorName
+    ? `Uploaded biometric of embassy interview for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} uploaded biometric of embassy interview for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "PROCESS_COMPLETED") return hideActorName
+    ? `Marked candidate arrival and completion for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} marked candidate arrival and completion for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  return hideActorName
+    ? `${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} ${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
 }
 
-function groupNotificationItems(items = []) {
+function groupNotificationItems(items = [], recipientRole = "") {
   const grouped = new Map();
 
   items.forEach((item) => {
@@ -588,7 +607,7 @@ function groupNotificationItems(items = []) {
   });
 
   return [...grouped.values()]
-    .map((item) => ({ ...item, count: item.applicantIds.length, message: buildNotificationMessage(item) }))
+    .map((item) => ({ ...item, count: item.applicantIds.length, message: buildNotificationMessage(item, { recipientRole }) }))
     .sort((left, right) => right.latestAt - left.latestAt);
 }
 
@@ -683,7 +702,7 @@ async function getActionableUnreadNotificationCount(user = {}) {
     .limit(400)
     .get();
   const items = await filterInactiveDocumentNotificationApplicants(
-    groupNotificationItems(snapshot.docs.map(mapNotificationDocument)),
+    groupNotificationItems(snapshot.docs.map(mapNotificationDocument), user.role),
     user
   );
   return items.filter((item) => item.unread).length;
@@ -703,7 +722,7 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
   const hasMore = snapshot.docs.length > safeLimit;
   const pageDocs = snapshot.docs.slice(0, safeLimit);
   const rawItems = pageDocs.map(mapNotificationDocument);
-  const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems), user);
+  const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems, user.role), user);
   return {
     items,
     unreadCount,
@@ -900,6 +919,7 @@ module.exports = {
   recordBulkContractUpload,
   recordNotificationAction,
   getUserName,
+  buildNotificationMessage,
   runDailyNotificationSummaries,
   startDailyNotificationScheduler
 };
