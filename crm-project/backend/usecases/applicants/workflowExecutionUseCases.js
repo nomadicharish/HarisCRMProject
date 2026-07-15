@@ -12,7 +12,7 @@ const {
   recordNotificationAction
 } = require("../../services/notificationService");
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
-const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
+const { deleteStorageFileIfExists, getAuthorizedReadUrl } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -181,9 +181,8 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
   await fileUpload.save(contractFile.buffer, {
     metadata: { contentType: contractFile.mimetype }
   });
-  await fileUpload.makePublic();
-
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  // Store internal storage path; generate per-request signed URLs for authenticated users
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
   const previousContractUrl = applicantSnapBeforeUpdate.exists
     ? applicantSnapBeforeUpdate.data()?.contract?.fileUrl || ""
     : "";
@@ -245,10 +244,11 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
     }
   }
 
+  const authorizedUrl = await getAuthorizedReadUrl(admin.storage().bucket(), fileUrl);
   return {
     applicantId,
     applicant: { id: applicantId, ...applicantData },
-    fileUrl,
+    fileUrl: authorizedUrl,
     status: contractStatus
   };
 }
@@ -335,10 +335,11 @@ async function uploadAdditionalContractDocuments(req, applicantId) {
     await fileUpload.save(file.buffer, {
       metadata: { contentType: file.mimetype }
     });
-    await fileUpload.makePublic();
+    // Store internal path; generate signed URL on read
+    const fileUrl = `gs://${bucket.name}/${fileName}`;
     uploads.push({
       name: file.originalname || `Additional Document ${index + 1}`,
-      fileUrl: `https://storage.googleapis.com/${bucket.name}/${fileName}`,
+      fileUrl,
       uploadedAt
     });
   }
@@ -451,7 +452,8 @@ async function uploadSignedContractUseCase(req) {
     user: req.user,
     actionKey: "SIGNED_CONTRACT_UPLOADED"
   });
-  return { message: "Signed contract uploaded successfully", fileUrl: activeMainDocument.fileUrl };
+  const authorizedUrl = await getAuthorizedReadUrl(admin.storage().bucket(), activeMainDocument.fileUrl);
+  return { message: "Signed contract uploaded successfully", fileUrl: authorizedUrl };
 }
 
 async function getSignedContractUseCase(req) {
@@ -602,14 +604,14 @@ function normalizeSignedContractDocuments(signedContract = null) {
   return documents;
 }
 
-function normalizeSignedContractResponse(signedContract) {
+async function normalizeSignedContractResponse(signedContract) {
   const documents = normalizeSignedContractDocuments(signedContract).map((document) => ({
     ...document,
     uploadedAt: normalizeDate(document.uploadedAt),
     rejectedAt: normalizeDate(document.rejectedAt)
   }));
   const activeMainDocument = documents[0]?.status === "UPLOADED" ? documents[0] : null;
-  return {
+  const result = {
     ...signedContract,
     fileUrl: activeMainDocument?.fileUrl || signedContract.fileUrl || "",
     documents,
@@ -617,6 +619,21 @@ function normalizeSignedContractResponse(signedContract) {
     rejectedAt: normalizeDate(signedContract.rejectedAt),
     rejectedDocumentCount: documents.filter((document) => document.status === "REJECTED").length
   };
+
+  if (result.fileUrl) {
+    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
+  }
+
+  if (Array.isArray(result.documents)) {
+    result.documents = await Promise.all(
+      result.documents.map(async (d) => ({
+        ...d,
+        fileUrl: d.fileUrl ? await getAuthorizedReadUrl(admin.storage().bucket(), d.fileUrl) : d.fileUrl || ""
+      }))
+    );
+  }
+
+  return result;
 }
 
 async function uploadSignedDocumentFile(bucket, applicantId, file, documentId) {
@@ -625,11 +642,12 @@ async function uploadSignedDocumentFile(bucket, applicantId, file, documentId) {
   await fileUpload.save(file.buffer, {
     metadata: { contentType: file.mimetype }
   });
-  await fileUpload.makePublic();
+  // Store internal path for the uploaded file; signed URL will be generated on read
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
 
   return {
     name: file.originalname || "Signed Document",
-    fileUrl: `https://storage.googleapis.com/${bucket.name}/${fileName}`,
+    fileUrl,
     contentType: file.mimetype,
     size: file.size || 0
   };
@@ -729,7 +747,8 @@ async function getContractUseCase(req) {
     approvedByName = approvedByDoc.exists ? approvedByDoc.data()?.name || "" : "";
   }
 
-  return {
+  // Generate authorized read URLs for stored files for authenticated clients
+  const result = {
     ...contract,
     uploadedByName,
     approvedByName,
@@ -737,6 +756,30 @@ async function getContractUseCase(req) {
     issuedAt: normalizeDate(contract.issuedAt),
     approvedAt: normalizeDate(contract.approvedAt)
   };
+
+  if (result.fileUrl) {
+    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
+  }
+
+  if (Array.isArray(result.additionalDocuments)) {
+    result.additionalDocuments = await Promise.all(
+      result.additionalDocuments.map(async (doc) => ({
+        ...doc,
+        fileUrl: doc.fileUrl ? await getAuthorizedReadUrl(admin.storage().bucket(), doc.fileUrl) : ""
+      }))
+    );
+  }
+
+  if (result.signedContract && Array.isArray(result.signedContract.documents)) {
+    result.signedContract.documents = await Promise.all(
+      result.signedContract.documents.map(async (d) => ({
+        ...d,
+        fileUrl: d.fileUrl ? await getAuthorizedReadUrl(admin.storage().bucket(), d.fileUrl) : d.fileUrl || ""
+      }))
+    );
+  }
+
+  return result;
 }
 
 async function addEmbassyInterviewUseCase(req) {
@@ -765,8 +808,8 @@ async function addEmbassyInterviewUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    documentUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    // Store internal path for uploaded file; generate signed URL on read
+    documentUrl = `gs://${bucket.name}/${fileName}`;
   }
 
   await docRef.set(
@@ -892,8 +935,8 @@ async function addInterviewTicketUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    // Store internal path; generate signed URL only for authenticated reads
+    fileUrl = `gs://${bucket.name}/${fileName}`;
     await deleteStorageFileIfExists(bucket, existingTicket.fileUrl);
   }
 
@@ -942,8 +985,8 @@ async function uploadInterviewBiometricUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  // Store internal path; generate signed URLs on read for authenticated users
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
 
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
@@ -966,20 +1009,22 @@ async function uploadInterviewBiometricUseCase(req) {
   );
 
   await deleteStorageFileIfExists(bucket, previousBiometricUrl);
-
+ 
   await docRef.update({
     stage: 10,
     stageUpdatedAt: new Date()
   });
-
+ 
   await recordAgencyTask({
     applicantId,
     applicant: docSnap.data() || {},
     user: req.user,
     actionKey: "EMBASSY_INTERVIEW_COMPLETED"
   });
-
-  return { message: "Interview biometric uploaded & stage completed" };
+ 
+ // Return a short-lived authorized URL for immediate download in the frontend
+ const authorizedUrl = await getAuthorizedReadUrl(admin.storage().bucket(), fileUrl);
+ return { message: "Interview biometric uploaded & stage completed", fileUrl: authorizedUrl };
 }
 
 async function getInterviewBiometricUseCase(req) {
@@ -987,10 +1032,16 @@ async function getInterviewBiometricUseCase(req) {
   const interviewBiometric = doc.data()?.interviewBiometric || null;
   if (!interviewBiometric) return null;
 
-  return {
+  const result = {
     ...interviewBiometric,
     uploadedAt: normalizeDate(interviewBiometric.uploadedAt)
   };
+
+  if (result.fileUrl) {
+    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
+  }
+
+  return result;
 }
 
 async function getInterviewWorkflowUseCase(req) {
@@ -1008,15 +1059,24 @@ async function getInterviewWorkflowUseCase(req) {
   const interviewTicket = data.interviewTicket
     ? {
         ...data.interviewTicket,
+        fileUrl: data.interviewTicket.fileUrl
+          ? await getAuthorizedReadUrl(admin.storage().bucket(), data.interviewTicket.fileUrl)
+          : "",
         createdAt: normalizeDate(data.interviewTicket.createdAt)
       }
     : null;
 
   const interviewBiometric = data.interviewBiometric
-    ? {
-        ...data.interviewBiometric,
-        uploadedAt: normalizeDate(data.interviewBiometric.uploadedAt)
-      }
+    ? (async () => {
+        const ib = {
+          ...data.interviewBiometric,
+          uploadedAt: normalizeDate(data.interviewBiometric.uploadedAt)
+        };
+        if (ib.fileUrl) {
+          ib.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), ib.fileUrl);
+        }
+        return ib;
+      })()
     : null;
 
   return {

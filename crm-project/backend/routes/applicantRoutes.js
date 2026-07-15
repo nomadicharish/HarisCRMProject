@@ -99,6 +99,7 @@ router.patch(
 router.get("/", readCache(20), validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
 
 // Get Applicant by ID
+router.get("/:id/private-file", validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantPrivateFile));
 router.get(
   "/:id/quick-print-assets/:assetType",
   allowRoles("EMPLOYER"),

@@ -21,6 +21,10 @@ function buildCorsOptions() {
     .map((origin) => origin.trim())
     .filter(Boolean);
 
+  if (process.env.NODE_ENV === "production" && !allowedOrigins.length) {
+    throw new Error("CORS_ALLOWED_ORIGINS must be configured in production");
+  }
+
   return {
     origin(origin, callback) {
       if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
@@ -67,7 +71,20 @@ function createAuthRateLimiter() {
 function createHelmetMiddleware() {
   return helmet({
     crossOriginEmbedderPolicy: false,
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        objectSrc: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https://identitytoolkit.googleapis.com", "https://securetoken.googleapis.com", "https://firestore.googleapis.com"],
+        fontSrc: ["'self'", "data:"],
+        upgradeInsecureRequests: []
+      }
+    },
     referrerPolicy: { policy: "no-referrer" }
   });
 }

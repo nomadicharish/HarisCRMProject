@@ -208,10 +208,11 @@ async function addPaymentUseCase(req) {
       await fileUpload.save(file.buffer, {
         metadata: { contentType: file.mimetype }
       });
-      await fileUpload.makePublic();
+      // Store internal path; signed URLs generated for authenticated reads
+      const fileUrl = `gs://${bucket.name}/${fileName}`;
       documents.push({
         name: documentFileName,
-        url: `https://storage.googleapis.com/${bucket.name}/${fileName}`
+        url: fileUrl
       });
     }
   }

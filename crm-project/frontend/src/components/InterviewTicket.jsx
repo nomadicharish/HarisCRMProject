@@ -18,6 +18,17 @@ function InterviewTicket({ applicantId, user }) {
     setData(res.data);
   };
 
+  const openPrivateFile = async () => {
+    if (!data?.fileUrl) return;
+    const response = await API.get(`/applicants/${applicantId}/private-file`, {
+      params: { url: data.fileUrl },
+      responseType: "blob"
+    });
+    const url = URL.createObjectURL(response.data);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -63,9 +74,9 @@ function InterviewTicket({ applicantId, user }) {
           <p>Time: {data.time}</p>
 
           {data.fileUrl && (
-            <a href={data.fileUrl} target="_blank">
+            <button type="button" onClick={openPrivateFile}>
               Download Ticket
-            </a>
+            </button>
           )}
 
         </div>

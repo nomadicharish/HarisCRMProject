@@ -25,8 +25,22 @@ async function deleteStorageFileIfExists(bucket, fileUrl) {
   }
 }
 
+async function getAuthorizedReadUrl(bucket, fileUrl, expiresInMs = 15 * 60 * 1000) {
+  const path = extractStoragePath(fileUrl, bucket.name);
+  // Preserve legacy/external URLs during the public-file transition.
+  if (!path) return fileUrl || "";
+
+  const [signedUrl] = await bucket.file(path).getSignedUrl({
+    version: "v4",
+    action: "read",
+    expires: Date.now() + expiresInMs
+  });
+  return signedUrl;
+}
+
 module.exports = {
   deleteStorageFileIfExists,
-  extractStoragePath
+  extractStoragePath,
+  getAuthorizedReadUrl
 };
 

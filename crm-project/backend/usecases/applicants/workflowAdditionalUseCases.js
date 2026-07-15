@@ -13,7 +13,7 @@ const {
 } = require("../../services/notificationService");
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { decryptText } = require("../../utils/crypto");
-const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
+const { deleteStorageFileIfExists, getAuthorizedReadUrl } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole, SUPER_USER_ROLE } = require("../../utils/roles");
 const { assertNoRejectedSignedDocuments } = require("./workflowExecutionUseCases");
 
@@ -38,8 +38,8 @@ async function addEmbassyAppointmentUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    // Store internal path; signed URLs generated on read for authenticated users
+    fileUrl = `gs://${bucket.name}/${fileName}`;
   }
 
   const appointmentDateTime = `${resolvedDate}T${resolvedTime}`;
@@ -178,7 +178,7 @@ async function getEmbassyAppointmentUseCase(req) {
   const doc = await db.collection("applicants").doc(req.params.id).get();
   const appointment = doc.data()?.embassyAppointment || null;
   if (!appointment) return null;
-  return {
+  const result = {
     ...appointment,
     time:
       appointment.time ||
@@ -188,6 +188,12 @@ async function getEmbassyAppointmentUseCase(req) {
     createdAt: normalizeDate(appointment.createdAt),
     approvedAt: normalizeDate(appointment.approvedAt)
   };
+
+  if (result.fileUrl) {
+    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
+  }
+
+  return result;
 }
 
 async function addTravelDetailsUseCase(req) {
@@ -206,8 +212,8 @@ async function addTravelDetailsUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    // Store internal path; signed URLs generated on read for authenticated users
+    fileUrl = `gs://${bucket.name}/${fileName}`;
   }
 
   const applicantRef = db.collection("applicants").doc(applicantId);
@@ -254,10 +260,14 @@ async function getTravelDetailsUseCase(req) {
   const doc = await db.collection("applicants").doc(req.params.id).get();
   const travelDetails = doc.data()?.travelDetails || null;
   if (!travelDetails) return null;
-  return {
+  const result = {
     ...travelDetails,
     createdAt: normalizeDate(travelDetails.createdAt)
   };
+  if (result.fileUrl) {
+    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
+  }
+  return result;
 }
 
 async function uploadBiometricSlipUseCase(req) {
@@ -271,8 +281,8 @@ async function uploadBiometricSlipUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  // Store internal path; generate signed URL when serving to authenticated users
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
 
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
@@ -313,10 +323,14 @@ async function getBiometricSlipUseCase(req) {
   const doc = await db.collection("applicants").doc(req.params.id).get();
   const biometricSlip = doc.data()?.biometricSlip || null;
   if (!biometricSlip) return null;
-  return {
+  const result = {
     ...biometricSlip,
     uploadedAt: normalizeDate(biometricSlip.uploadedAt)
   };
+  if (result.fileUrl) {
+    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
+  }
+  return result;
 }
 
 async function getEmbassyWorkflowUseCase(req) {
@@ -369,10 +383,11 @@ async function uploadWorkflowFile({ file, storagePath, previousUrl = "" }) {
   await fileUpload.save(file.buffer, {
     metadata: { contentType: file.mimetype }
   });
-  await fileUpload.makePublic();
+  // Store internal path; signed URLs created on read for authenticated users
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
   if (previousUrl) await deleteStorageFileIfExists(bucket, previousUrl);
   return {
-    fileUrl: `https://storage.googleapis.com/${bucket.name}/${fileName}`,
+    fileUrl,
     bucket
   };
 }
@@ -434,8 +449,7 @@ async function addVisaCollectionUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    await fileUpload.makePublic();
-    documentUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    documentUrl = `gs://${bucket.name}/${fileName}`;
   }
   const previousDocumentUrl = docSnap.data()?.visaCollection?.documentUrl || "";
 
@@ -728,8 +742,8 @@ async function addVisaTravelUseCase(req) {
     await fileUpload.save(travelTicketFile.buffer, {
       metadata: { contentType: travelTicketFile.mimetype }
     });
-    await fileUpload.makePublic();
-    fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    // Store internal path; signed URLs created on read for authenticated users
+    fileUrl = `gs://${bucket.name}/${fileName}`;
   }
   const busTicketFile = Array.isArray(req.files?.busTicket) ? req.files.busTicket[0] : null;
   if (busTicketFile) {
@@ -739,8 +753,8 @@ async function addVisaTravelUseCase(req) {
     await busFileUpload.save(busTicketFile.buffer, {
       metadata: { contentType: busTicketFile.mimetype }
     });
-    await busFileUpload.makePublic();
-    busTicketUrl = `https://storage.googleapis.com/${bucket.name}/${busFileName}`;
+    // Store internal path; signed URLs created on read for authenticated users
+    busTicketUrl = `gs://${bucket.name}/${busFileName}`;
   }
 
   const previousVisaTravel = applicantData?.visaTravel || {};
@@ -842,8 +856,8 @@ async function uploadResidencePermitUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  // Store internal path; generate signed URLs when serving to authenticated users
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();

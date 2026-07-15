@@ -8,7 +8,7 @@ const {
   syncApplicantDocumentStage
 } = require("../../services/applicantWorkflowStageService");
 const { getCompanyDocumentsForApplicant, normalizeAllowedDocumentExtensions } = require("../../utils/normalizers");
-const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
+const { deleteStorageFileIfExists, getAuthorizedReadUrl } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 
 const DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpeg", "jpg", "png"];
@@ -38,13 +38,17 @@ async function readLatestVersionRecord(docSnap) {
   const docData = docSnap.data() || {};
 
   if (docData?.latestVersion?.id || docData?.latestVersion?.status || docData?.latestVersion?.fileUrl) {
-    return {
+    const latest = {
       id: docData.latestVersion.id || "latest",
       ...docData.latestVersion,
       uploadedAt: normalizeDateValue(docData.latestVersion.uploadedAt),
       reviewedAt: normalizeDateValue(docData.latestVersion.reviewedAt),
       createdAt: normalizeDateValue(docData.latestVersion.createdAt)
     };
+    if (latest.fileUrl) {
+      latest.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), latest.fileUrl);
+    }
+    return latest;
   }
 
   const latestSnap = await docSnap.ref.collection("versions").orderBy("uploadedAt", "desc").limit(1).get();
@@ -60,7 +64,7 @@ async function readLatestVersionRecord(docSnap) {
   }
 
   if (docData?.fileUrl) {
-    return {
+    const legacy = {
       id: "legacy-root",
       fileUrl: docData.fileUrl,
       status: String(docData.status || "PENDING").toUpperCase(),
@@ -70,6 +74,10 @@ async function readLatestVersionRecord(docSnap) {
       rejectedReason: docData.rejectedReason || "",
       fileName: docData.fileName || ""
     };
+    if (legacy.fileUrl) {
+      legacy.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), legacy.fileUrl);
+    }
+    return legacy;
   }
 
   return null;
@@ -138,10 +146,8 @@ async function uploadDocumentByTypeUseCase(req) {
     metadata: { contentType: file.mimetype }
   });
 
-  const [fileUrl] = await fileUpload.getSignedUrl({
-    action: "read",
-    expires: "03-01-2035"
-  });
+  // Store internal storage path; signed URLs are generated on read for authenticated users
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
 
   const docRef = db.collection("applicants").doc(applicantId).collection("documents").doc(docType);
   const existingDoc = await docRef.get();
@@ -251,9 +257,8 @@ async function uploadDocumentGenericUseCase(req) {
   await fileUpload.save(req.file.buffer, {
     metadata: { contentType: req.file.mimetype }
   });
-  await fileUpload.makePublic();
-
-  const fileUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+  // Store internal path; generate signed URLs when serving to authenticated clients
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
   const docRef = db.collection("applicants").doc(id).collection("documents").doc(documentType);
   const latestVersionSnap = await docRef
     .collection("versions")

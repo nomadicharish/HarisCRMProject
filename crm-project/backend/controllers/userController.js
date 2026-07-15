@@ -1,18 +1,11 @@
 const { admin, db } = require("../config/firebase");
+const { randomBytes } = require("node:crypto");
 const { logger } = require("../lib/logger");
 const { isSuperUserLikeRole } = require("../utils/roles");
+const { isEmailConfigured, sendEmail } = require("../services/emailService");
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
-}
-
-function isStrongPassword(password) {
-  if (typeof password !== "string" || password.length < 8) return false;
-  if (!/[A-Z]/.test(password)) return false;
-  if (!/[a-z]/.test(password)) return false;
-  if (!/[0-9]/.test(password)) return false;
-  if (!/[^A-Za-z0-9]/.test(password)) return false;
-  return true;
 }
 
 const createUser = async (req, res) => {
@@ -37,17 +30,18 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "Valid email is required" });
     }
 
-    // Default password
-    const defaultPassword = "ChangeMe@123";
-
-    if (!isStrongPassword(defaultPassword)) {
-      return res.status(500).json({ message: "Default password policy is invalid" });
+    if (!isEmailConfigured()) {
+      return res.status(503).json({ message: "Account invitation email is not configured" });
     }
+
+    // Firebase needs a password-backed account before it can issue a password
+    // reset link. This random value is never returned, logged, or shared.
+    const temporaryPassword = `${randomBytes(32).toString("base64url")}Aa1!`;
 
     // Create Firebase Auth user
     const userRecord = await admin.auth().createUser({
       email,
-      password: defaultPassword
+      password: temporaryPassword
     });
 
     const uid = userRecord.uid;
@@ -63,14 +57,34 @@ const createUser = async (req, res) => {
       agencyId: agencyId || null,
       employerId: employerId || null,
       active: true,
-      forcePasswordReset: true,
+      // The invitation link requires the recipient to set a password before
+      // the account can be used, so no temporary-password reset is needed.
+      forcePasswordReset: false,
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
+    try {
+      const setupLink = await admin.auth().generatePasswordResetLink(email, {
+        url: process.env.PASSWORD_SETUP_CONTINUE_URL || "https://haris-business-crm.web.app/login",
+        handleCodeInApp: false
+      });
+      await sendEmail({
+        to: email,
+        subject: "Set up your CRM account",
+        text: `Your CRM account has been created. Set your password using this one-time link: ${setupLink}`,
+        html: `<p>Your CRM account has been created.</p><p><a href="${setupLink}">Set your password</a></p><p>This link expires according to your Firebase Authentication settings.</p>`
+      });
+    } catch (invitationError) {
+      await Promise.allSettled([
+        admin.auth().deleteUser(uid),
+        db.collection("users").doc(uid).delete()
+      ]);
+      throw invitationError;
+    }
+
     return res.status(201).json({
       message: "User created successfully",
-      uid,
-      defaultPassword
+      uid
     });
 
   } catch (error) {
