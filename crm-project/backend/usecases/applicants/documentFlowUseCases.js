@@ -10,6 +10,11 @@ const {
 const { getCompanyDocumentsForApplicant, normalizeAllowedDocumentExtensions } = require("../../utils/normalizers");
 const { deleteStorageFileIfExists, getAuthorizedReadUrl } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+const {
+  getLatestDocumentsCache,
+  setLatestDocumentsCache,
+  invalidateLatestDocumentsCache
+} = require("../../services/applicantDocumentCache");
 
 const DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "jpeg", "jpg", "png"];
 const CV_WORD_DOCUMENT_ID = "cv_word_format_with_photo";
@@ -84,16 +89,21 @@ async function readLatestVersionRecord(docSnap) {
 }
 
 async function getLatestDocumentsMap(applicantId) {
+  const cachedDocuments = getLatestDocumentsCache(applicantId);
+  if (cachedDocuments) return cachedDocuments;
+
   const snapshot = await db.collection("applicants").doc(applicantId).collection("documents").get();
   const entries = await Promise.all(
     snapshot.docs.map(async (docSnap) => [docSnap.id, await readLatestVersionRecord(docSnap)])
   );
 
-  return Object.fromEntries(
+  const documents = Object.fromEntries(
     entries
       .filter(([, latestVersion]) => Boolean(latestVersion))
       .map(([docType, latestVersion]) => [docType, [latestVersion]])
   );
+  setLatestDocumentsCache(applicantId, documents);
+  return documents;
 }
 
 function normalizeAllowedExtensionsForUpload(documentType, documentConfig = null) {
@@ -147,38 +157,44 @@ async function uploadDocumentByTypeUseCase(req) {
   });
 
   // Store internal storage path; signed URLs are generated on read for authenticated users
-  const fileUrl = `gs://${bucket.name}/${fileName}`;
+  const fileUrl = `gs://${bucket.name}/${filePath}`;
 
   const docRef = db.collection("applicants").doc(applicantId).collection("documents").doc(docType);
   const existingDoc = await docRef.get();
   const previousFileUrl = existingDoc.exists ? existingDoc.data()?.fileUrl : "";
   const uploadedAt = new Date();
-  await docRef.set({
-    uploaded: true,
-    fileUrl,
-    fileName: file.originalname || "",
-    status: "PENDING",
-    uploadedBy: userId,
-    uploadedAt,
-    deferred: false,
-    deferredAt: null,
-    deferredBy: null,
-    deferReason: null,
-    latestStatus: "PENDING",
-    latestVersion: {
-      id: "legacy-root",
+  try {
+    await docRef.set({
+      uploaded: true,
       fileUrl,
-      status: "PENDING",
-      uploadedAt,
-      uploadedBy: userId,
       fileName: file.originalname || "",
-      contentType: file.mimetype || "",
-      sizeBytes: Number(file.size || 0)
-    }
-  }, { merge: true });
+      status: "PENDING",
+      uploadedBy: userId,
+      uploadedAt,
+      deferred: false,
+      deferredAt: null,
+      deferredBy: null,
+      deferReason: null,
+      latestStatus: "PENDING",
+      latestVersion: {
+        id: "legacy-root",
+        fileUrl,
+        status: "PENDING",
+        uploadedAt,
+        uploadedBy: userId,
+        fileName: file.originalname || "",
+        contentType: file.mimetype || "",
+        sizeBytes: Number(file.size || 0)
+      }
+    }, { merge: true });
+  } catch (error) {
+    await deleteStorageFileIfExists(bucket, fileUrl);
+    throw error;
+  }
 
   await deleteStorageFileIfExists(bucket, previousFileUrl);
 
+  invalidateLatestDocumentsCache(applicantId);
   await refreshApplicantDocumentSummary(applicantId);
   const applicantSnap = await db.collection("applicants").doc(applicantId).get();
   await recordAgencyTask({
@@ -203,6 +219,7 @@ async function markDocumentSeenUseCase(req) {
   await docRef.update({
     [`seenBy.${roleKey}`]: admin.firestore.FieldValue.arrayUnion(userId)
   });
+  invalidateLatestDocumentsCache(applicantId);
   return { message: "Document marked as seen" };
 }
 
@@ -240,6 +257,7 @@ async function deferDocumentUseCase(req) {
       });
   }
 
+  invalidateLatestDocumentsCache(applicantId);
   await refreshApplicantDocumentSummary(applicantId);
   return { message: "Document deferred" };
 }
@@ -280,19 +298,25 @@ async function uploadDocumentGenericUseCase(req) {
     sizeBytes: Number(req.file.size || 0)
   };
 
-  await versionRef.set(versionPayload);
-  await docRef.set({
-    documentType,
-    updatedAt: new Date(),
-    latestStatus: "PENDING",
-    latestVersion: {
-      id: versionRef.id,
-      ...versionPayload
-    }
-  }, { merge: true });
+  try {
+    await versionRef.set(versionPayload);
+    await docRef.set({
+      documentType,
+      updatedAt: new Date(),
+      latestStatus: "PENDING",
+      latestVersion: {
+        id: versionRef.id,
+        ...versionPayload
+      }
+    }, { merge: true });
+  } catch (error) {
+    await deleteStorageFileIfExists(bucket, fileUrl);
+    throw error;
+  }
 
   await deleteStorageFileIfExists(bucket, previousVersionFileUrl);
 
+  invalidateLatestDocumentsCache(id);
   await refreshApplicantDocumentSummary(id);
   const applicantSnap = await db.collection("applicants").doc(id).get();
   await recordAgencyTask({
@@ -361,6 +385,7 @@ async function rejectDocumentUseCase(req) {
     updatedAt: reviewedAt
   }, { merge: true });
 
+  invalidateLatestDocumentsCache(id);
   await refreshApplicantDocumentSummary(id);
   const applicantSnap = await db.collection("applicants").doc(id).get();
   await recordNotificationAction({
@@ -411,6 +436,7 @@ async function approveDocumentUseCase(req) {
     updatedAt: reviewedAt
   }, { merge: true });
 
+  invalidateLatestDocumentsCache(id);
   await syncApplicantDocumentStage(id, applicant, req.user.uid, req.user.role);
   await refreshApplicantDocumentSummary(id);
   const hasAllRequiredApproved = await areLatestRequiredDocumentsApproved(id, applicant || {});

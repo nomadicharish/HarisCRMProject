@@ -25,6 +25,12 @@ async function deleteStorageFileIfExists(bucket, fileUrl) {
   }
 }
 
+async function deleteStoragePrefix(bucket, prefix) {
+  const normalizedPrefix = String(prefix || "").replace(/^\/+/, "");
+  if (!normalizedPrefix) return;
+  await bucket.deleteFiles({ prefix: normalizedPrefix });
+}
+
 async function getAuthorizedReadUrl(bucket, fileUrl, expiresInMs = 15 * 60 * 1000) {
   const path = extractStoragePath(fileUrl, bucket.name);
   // Preserve legacy/external URLs during the public-file transition.
@@ -40,6 +46,7 @@ async function getAuthorizedReadUrl(bucket, fileUrl, expiresInMs = 15 * 60 * 100
 
 module.exports = {
   deleteStorageFileIfExists,
+  deleteStoragePrefix,
   extractStoragePath,
   getAuthorizedReadUrl
 };

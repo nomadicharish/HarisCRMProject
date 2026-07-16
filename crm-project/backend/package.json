@@ -15,6 +15,7 @@
     "generate:openapi": "node scripts/generate-openapi.js",
     "backfill:search-index": "node scripts/backfill-search-index.js",
     "backfill:applicant-workflow-fields": "node scripts/backfill-applicant-workflow-fields.js",
+    "backfill:document-latest-versions": "node scripts/backfill-document-latest-versions.js",
     "migrate:notification-recipients": "node scripts/migrate-notification-recipients.js"
   },
   "keywords": [],

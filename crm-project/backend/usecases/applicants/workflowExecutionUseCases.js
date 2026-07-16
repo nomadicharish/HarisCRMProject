@@ -793,6 +793,7 @@ async function addEmbassyInterviewUseCase(req) {
   const isSuperUser = isSuperUserLikeRole(req.user.role);
   const docRef = db.collection("applicants").doc(applicantId);
   const existingApplicantSnap = await docRef.get();
+  if (!existingApplicantSnap.exists) throw new AppError("Applicant not found", 404);
   const existingInterview = existingApplicantSnap.exists ? existingApplicantSnap.data()?.embassyInterview || {} : {};
   const wasPreviouslyApproved = existingInterview.approved === true || String(existingInterview.status || "").toUpperCase() === "APPROVED";
   const previousDocumentUrl = existingApplicantSnap.exists
@@ -979,15 +980,6 @@ async function uploadInterviewBiometricUseCase(req) {
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency can upload interview biometric slip", 403);
   if (!req.file) throw new AppError("File required", 400);
 
-  const bucket = admin.storage().bucket();
-  const fileName = `interview-biometric/${applicantId}_${Date.now()}`;
-  const fileUpload = bucket.file(fileName);
-  await fileUpload.save(req.file.buffer, {
-    metadata: { contentType: req.file.mimetype }
-  });
-  // Store internal path; generate signed URLs on read for authenticated users
-  const fileUrl = `gs://${bucket.name}/${fileName}`;
-
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
   if (!docSnap.exists) throw new AppError("Applicant not found", 404);
@@ -996,7 +988,13 @@ async function uploadInterviewBiometricUseCase(req) {
   const previousBiometricUrl = docSnap.data()?.interviewBiometric?.fileUrl || "";
   if (currentStage < 9) throw new AppError("Cannot add interview biometric before interview completion stage", 400);
 
-  await docRef.set(
+  const bucket = admin.storage().bucket();
+  const fileName = `interview-biometric/${applicantId}_${Date.now()}`;
+  await bucket.file(fileName).save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
+
+  try {
+    await docRef.set(
     {
       interviewBiometric: {
         fileUrl,
@@ -1005,8 +1003,12 @@ async function uploadInterviewBiometricUseCase(req) {
         uploadedAt: new Date()
       }
     },
-    { merge: true }
-  );
+      { merge: true }
+    );
+  } catch (error) {
+    await deleteStorageFileIfExists(bucket, fileUrl);
+    throw error;
+  }
 
   await deleteStorageFileIfExists(bucket, previousBiometricUrl);
  

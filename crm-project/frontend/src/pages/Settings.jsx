@@ -10,7 +10,7 @@ import EntityFormModal from "../components/dashboard/EntityFormModal";
 import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
-import { getStoredUser, isRootSuperUserRole } from "../utils/auth";
+import { getStoredUser, isRootSuperUserRole, updateStoredUser } from "../utils/auth";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
 
@@ -257,6 +257,10 @@ function Settings() {
   };
 
   const handleSave = async () => {
+    if (!form.name.trim()) {
+      setError("Name is required");
+      return;
+    }
     if (!form.contactNumber.trim()) {
       setError("Contact number is required");
       return;
@@ -264,8 +268,13 @@ function Settings() {
     try {
       setSaving(true);
       setError("");
-      await API.patch("/auth/settings", { contactNumber: form.contactNumber.trim() });
-      writeCached("/auth/settings", { ...form, contactNumber: form.contactNumber.trim() }, { ttlMs: 120000 });
+      const name = form.name.trim();
+      const contactNumber = form.contactNumber.trim();
+      const response = await API.patch("/auth/settings", { name, contactNumber });
+      const nextSettings = { ...form, name: response.data?.name || name, contactNumber };
+      setForm(nextSettings);
+      updateStoredUser({ name: nextSettings.name });
+      writeCached("/auth/settings", nextSettings, { ttlMs: 120000 });
       setSuccessMessage("Settings updated successfully.");
     } catch (saveError) {
       setError(saveError?.response?.data?.message || "Unable to update settings");
@@ -444,6 +453,10 @@ function Settings() {
                 <div className="settingsProfileHead">
                   <div className="settingsAvatar">{initials}</div>
                   <div><div className="settingsProfileName">{form.name || "-"}</div><div className="settingsProfileEmail">{form.email || "-"}</div></div>
+                </div>
+                <div className="settingsBlock">
+                  <label className="settingsLabel" htmlFor="settings-name">Name</label>
+                  <input id="settings-name" className="settingsInput" value={form.name} maxLength={100} autoComplete="name" onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
                 </div>
                 <div className="settingsBlock">
                   <label className="settingsLabel" htmlFor="settings-contact">Phone number</label>

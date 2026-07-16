@@ -29,19 +29,6 @@ async function addEmbassyAppointmentUseCase(req) {
   const resolvedTime = time || (dateTime ? String(dateTime).split("T")[1]?.slice(0, 5) : "");
   if (!resolvedDate || !resolvedTime) throw new AppError("Date & Time required", 400);
 
-  let fileUrl = "";
-  let bucket = null;
-  if (req.file) {
-    bucket = admin.storage().bucket();
-    const fileName = `appointments/${applicantId}_${Date.now()}`;
-    const fileUpload = bucket.file(fileName);
-    await fileUpload.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype }
-    });
-    // Store internal path; signed URLs generated on read for authenticated users
-    fileUrl = `gs://${bucket.name}/${fileName}`;
-  }
-
   const appointmentDateTime = `${resolvedDate}T${resolvedTime}`;
   const createdAt = new Date();
   const docRef = db.collection("applicants").doc(applicantId);
@@ -54,8 +41,17 @@ async function addEmbassyAppointmentUseCase(req) {
   const existingAppointment = existingApplicant.embassyAppointment || {};
   const wasPreviouslyApproved = existingAppointment.approved === true || String(existingAppointment.status || "").toUpperCase() === "APPROVED";
   const status = isSuperUserLikeRole(req.user.role) || wasPreviouslyApproved ? "APPROVED" : "PENDING";
+  let fileUrl = "";
+  let bucket = null;
+  if (req.file) {
+    bucket = admin.storage().bucket();
+    const fileName = `appointments/${applicantId}_${Date.now()}`;
+    await bucket.file(fileName).save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
+    fileUrl = `gs://${bucket.name}/${fileName}`;
+  }
 
-  await docRef.set(
+  try {
+    await docRef.set(
     {
       embassyAppointment: {
         date: resolvedDate,
@@ -72,8 +68,12 @@ async function addEmbassyAppointmentUseCase(req) {
       },
       hasPendingAppointmentApproval: status === "PENDING"
     },
-    { merge: true }
-  );
+      { merge: true }
+    );
+  } catch (error) {
+    if (fileUrl) await deleteStorageFileIfExists(bucket, fileUrl);
+    throw error;
+  }
 
   if (fileUrl && bucket) {
     await deleteStorageFileIfExists(bucket, previousAppointmentFileUrl);
@@ -203,19 +203,6 @@ async function addTravelDetailsUseCase(req) {
   if (req.user.role !== "AGENCY") throw new AppError("Only Agent can upload travel details", 403);
   if (!travelDate || !time) throw new AppError("Travel Date and Time are required", 400);
 
-  let fileUrl = "";
-  let bucket = null;
-  if (req.file) {
-    bucket = admin.storage().bucket();
-    const fileName = `travel/${applicantId}_${Date.now()}`;
-    const fileUpload = bucket.file(fileName);
-    await fileUpload.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype }
-    });
-    // Store internal path; signed URLs generated on read for authenticated users
-    fileUrl = `gs://${bucket.name}/${fileName}`;
-  }
-
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
@@ -227,7 +214,16 @@ async function addTravelDetailsUseCase(req) {
   }
 
   const previousTravelFileUrl = applicantSnap.data()?.travelDetails?.fileUrl || "";
-  await applicantRef.set(
+  let fileUrl = "";
+  let bucket = null;
+  if (req.file) {
+    bucket = admin.storage().bucket();
+    const fileName = `travel/${applicantId}_${Date.now()}`;
+    await bucket.file(fileName).save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
+    fileUrl = `gs://${bucket.name}/${fileName}`;
+  }
+  try {
+    await applicantRef.set(
     {
       travelDetails: {
         travelDate,
@@ -239,8 +235,12 @@ async function addTravelDetailsUseCase(req) {
         createdAt: new Date()
       }
     },
-    { merge: true }
-  );
+      { merge: true }
+    );
+  } catch (error) {
+    if (fileUrl) await deleteStorageFileIfExists(bucket, fileUrl);
+    throw error;
+  }
 
   if (previousTravelFileUrl) {
     await deleteStorageFileIfExists(bucket || admin.storage().bucket(), previousTravelFileUrl);
@@ -275,15 +275,6 @@ async function uploadBiometricSlipUseCase(req) {
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency can upload biometric slip", 403);
   if (!req.file) throw new AppError("File required", 400);
 
-  const bucket = admin.storage().bucket();
-  const fileName = `biometric/${applicantId}_${Date.now()}`;
-  const fileUpload = bucket.file(fileName);
-  await fileUpload.save(req.file.buffer, {
-    metadata: { contentType: req.file.mimetype }
-  });
-  // Store internal path; generate signed URL when serving to authenticated users
-  const fileUrl = `gs://${bucket.name}/${fileName}`;
-
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
   if (!docSnap.exists) throw new AppError("Applicant not found", 404);
@@ -292,7 +283,12 @@ async function uploadBiometricSlipUseCase(req) {
   if (currentStage < 7) throw new AppError("Cannot add biometric slip before ticket upload stage", 400);
 
   const previousBiometricUrl = docSnap.data()?.biometricSlip?.fileUrl || "";
-  await docRef.set(
+  const bucket = admin.storage().bucket();
+  const fileName = `biometric/${applicantId}_${Date.now()}`;
+  await bucket.file(fileName).save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
+  try {
+    await docRef.set(
     {
       biometricSlip: {
         fileUrl,
@@ -301,8 +297,12 @@ async function uploadBiometricSlipUseCase(req) {
         uploadedAt: new Date()
       }
     },
-    { merge: true }
-  );
+      { merge: true }
+    );
+  } catch (error) {
+    await deleteStorageFileIfExists(bucket, fileUrl);
+    throw error;
+  }
   await deleteStorageFileIfExists(bucket, previousBiometricUrl);
   await docRef.update({
     stage: 8,
@@ -849,16 +849,7 @@ async function uploadResidencePermitUseCase(req) {
     throw new AppError("type must be TRP, FRONT or BACK", 400);
   }
 
-  const bucket = admin.storage().bucket();
   const side = String(type || "TRP").toUpperCase();
-  const fileName = `residence/${applicantId}_${side}_${Date.now()}`;
-  const fileUpload = bucket.file(fileName);
-  await fileUpload.save(req.file.buffer, {
-    metadata: { contentType: req.file.mimetype }
-  });
-  // Store internal path; generate signed URLs when serving to authenticated users
-  const fileUrl = `gs://${bucket.name}/${fileName}`;
-
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();
   if (!doc.exists) throw new AppError("Applicant not found", 404);
@@ -880,6 +871,10 @@ async function uploadResidencePermitUseCase(req) {
   const existing = applicantData.residencePermit || {};
   const previousSideUrl = side === "FRONT" ? existing.frontUrl : side === "BACK" ? existing.backUrl : existing.trpUrl || existing.fileUrl;
   const fileField = side === "FRONT" ? "frontUrl" : side === "BACK" ? "backUrl" : "trpUrl";
+  const bucket = admin.storage().bucket();
+  const fileName = `residence/${applicantId}_${side}_${Date.now()}`;
+  await bucket.file(fileName).save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
+  const fileUrl = `gs://${bucket.name}/${fileName}`;
   const updatedPermit = {
     ...existing,
     [fileField]: fileUrl,
@@ -889,7 +884,12 @@ async function uploadResidencePermitUseCase(req) {
     uploadedAt: new Date()
   };
 
-  await docRef.set({ residencePermit: updatedPermit }, { merge: true });
+  try {
+    await docRef.set({ residencePermit: updatedPermit }, { merge: true });
+  } catch (error) {
+    await deleteStorageFileIfExists(bucket, fileUrl);
+    throw error;
+  }
   await deleteStorageFileIfExists(bucket, previousSideUrl);
 
   let advancedToArrival = false;
