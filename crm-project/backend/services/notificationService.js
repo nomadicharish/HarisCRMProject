@@ -748,7 +748,7 @@ async function deleteOldReadNotifications() {
   let deleted = 0;
   while (true) {
     const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
-      .where("read", "==", true).where("createdAt", "<", cutoff).limit(400).get();
+      .where("read", "==", true).where("readAt", "<", cutoff).limit(400).get();
     if (snapshot.empty) break;
     const batch = db.batch();
     snapshot.docs.forEach((doc) => batch.delete(doc.ref));

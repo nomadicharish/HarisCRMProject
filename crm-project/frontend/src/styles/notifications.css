@@ -131,6 +131,10 @@
   border-left: 4px solid #005dfd;
 }
 
+.notificationOverlayList .notificationItemUnread{
+  border-left: 3px solid #005dfd;
+}
+
 .notificationUnreadDot{
   width: 11px;
   height: 11px;

@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import Select from "react-select";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ApplicantsTable, { resolveApplicantWorkflowMeta } from "../components/dashboard/ApplicantsTable";
@@ -22,6 +22,7 @@ import {
 } from "../utils/auth";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { downloadApplicantsExcel } from "../utils/applicantExcelExport";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
@@ -30,12 +31,25 @@ const EntityFormModal = lazy(() => import("../components/dashboard/EntityFormMod
 const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
+const APPLICANT_PAGE_SIZE = 15;
 const SEARCH_DEBOUNCE_MS = 300;
 const DASHBOARD_FILTER_STORAGE_KEY = "dashboard_sidebar_filters";
 const SIDEBAR_FILTER_KEYS = ["type", "country", "company", "agency"];
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
+
+async function mapWithConcurrency(items, worker, concurrency = 6) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await worker(items[index]);
+    }
+  }));
+  return results;
+}
 const DASHBOARD_FILTER_DESCRIPTIONS = {
   pending_payment: "having pending payment",
   arriving: "arriving",
@@ -1356,7 +1370,7 @@ function ApplicantsDashboard() {
   const [agencies, setAgencies] = useState([]);
   const [applicantsPagination, setApplicantsPagination] = useState({
     page: 1,
-    limit: PAGE_SIZE,
+    limit: APPLICANT_PAGE_SIZE,
     total: 0,
     totalPages: 1,
     nextCursor: null
@@ -1377,6 +1391,7 @@ function ApplicantsDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const [showBulkDispatchModal, setShowBulkDispatchModal] = useState(false);
   const [showBulkContractModal, setShowBulkContractModal] = useState(false);
+  const [isExportingApplicants, setIsExportingApplicants] = useState(false);
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const isSuperUser = isSuperUserLikeRole(user?.role);
@@ -1499,7 +1514,7 @@ function ApplicantsDashboard() {
         paginated: "true",
         page: currentPage,
         cursor: currentCursor,
-        limit: PAGE_SIZE,
+        limit: APPLICANT_PAGE_SIZE,
         q: searchText || "",
         type: applicantTypes.join(","),
         country: countryIds.join(","),
@@ -1535,7 +1550,7 @@ function ApplicantsDashboard() {
         user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 }),
         getCached("/countries", { ttlMs: 600000 }),
         activeTab === "home"
-          ? Promise.resolve({ items: [], pagination: { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 } })
+          ? Promise.resolve({ items: [], pagination: { page: 1, limit: APPLICANT_PAGE_SIZE, total: 0, totalPages: 1 } })
           : getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
       ]);
 
@@ -1550,7 +1565,7 @@ function ApplicantsDashboard() {
       setApplicantTypeCounts(applicantsData?.typeCounts || null);
       setApplicantsPagination({
         page: Number(applicantsData?.pagination?.page || currentPage),
-        limit: Number(applicantsData?.pagination?.limit || PAGE_SIZE),
+        limit: Number(applicantsData?.pagination?.limit || APPLICANT_PAGE_SIZE),
         total: Number(applicantsData?.pagination?.total || normalizedApplicants.length),
         totalPages: Number(applicantsData?.pagination?.totalPages || 1),
         nextCursor: applicantsData?.pagination?.nextCursor || null
@@ -1703,6 +1718,51 @@ function ApplicantsDashboard() {
     searchParams,
     user
   ]);
+
+  const handleExportApplicants = async () => {
+    try {
+      setIsExportingApplicants(true);
+      const response = await API.get("/applicants", {
+        params: {
+          paginated: "false",
+          q: searchText || "",
+          type: applicantTypes.join(","),
+          country: countryIds.join(","),
+          company: companyIds.join(","),
+          agency: agencyIds.join(","),
+          notificationApplicants: notificationApplicantIds.join(","),
+          dashboardFilter,
+          fromDate: searchParams.get("fromDate") || "",
+          toDate: searchParams.get("toDate") || ""
+        }
+      });
+      const matchingApplicants = normalizeListResponse(response.data);
+      if (!matchingApplicants.length) {
+        toast.info("There are no applicants matching the current filters.");
+        return;
+      }
+
+      const exportRows = await mapWithConcurrency(matchingApplicants, async (applicant) => {
+        const [documentsResponse, paymentsResponse] = await Promise.all([
+          API.get(`/applicants/${applicant.id}/documents`),
+          API.get(`/applicants/${applicant.id}/payments-page`)
+        ]);
+        return {
+          applicant,
+          documents: documentsResponse.data || {},
+          paymentSummary: paymentsResponse.data?.paymentSummary || {}
+        };
+      });
+
+      await downloadApplicantsExcel(exportRows);
+      toast.success(`${matchingApplicants.length} applicant${matchingApplicants.length === 1 ? "" : "s"} exported successfully`);
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to export applicants");
+    } finally {
+      setIsExportingApplicants(false);
+    }
+  };
 
   useEffect(() => {
     loadDashboardData();
@@ -2399,6 +2459,9 @@ function ApplicantsDashboard() {
                 onOpenBulkDispatch={() => setShowBulkDispatchModal(true)}
                 showContractUploadAction={(isSuperUser || isEmployer) && activeTab === "applicants"}
                 onOpenContractUpload={() => setShowBulkContractModal(true)}
+                showExportApplicantsAction={isSuperUser && activeTab === "applicants"}
+                onExportApplicants={handleExportApplicants}
+                isExportingApplicants={isExportingApplicants}
                 showViewAllApplicants={
                   hasApplicantListScope
                 }

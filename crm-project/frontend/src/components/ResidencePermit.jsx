@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { toast } from "../utils/toast";
 
 function ResidencePermit({ applicantId, user, loadApplicant }) {
 
@@ -18,9 +19,9 @@ function ResidencePermit({ applicantId, user, loadApplicant }) {
   }, []);
 
   const upload = async (type, file) => {
-    if (!file) return alert("Select file");
+    if (!file) return toast.error("Select a file to upload");
     const fileValidation = validateDocumentFiles([file]);
-    if (!fileValidation.valid) return alert(fileValidation.message);
+    if (!fileValidation.valid) return toast.error(fileValidation.message);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -71,7 +72,7 @@ function ResidencePermit({ applicantId, user, loadApplicant }) {
       <input
         type="file"
         accept={ALLOWED_DOCUMENT_ACCEPT}
-        onChange={(e) => setFrontFile(getValidatedDocumentFile(e.target.files[0], alert))}
+        onChange={(e) => setFrontFile(getValidatedDocumentFile(e.target.files[0], toast.error))}
       />
 
       {frontFile && (
@@ -92,7 +93,7 @@ function ResidencePermit({ applicantId, user, loadApplicant }) {
       <input
         type="file"
         accept={ALLOWED_DOCUMENT_ACCEPT}
-        onChange={(e) => setBackFile(getValidatedDocumentFile(e.target.files[0], alert))}
+        onChange={(e) => setBackFile(getValidatedDocumentFile(e.target.files[0], toast.error))}
       />
 
       {backFile && (

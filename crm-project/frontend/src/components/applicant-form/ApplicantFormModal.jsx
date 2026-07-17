@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "../../utils/toast";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import { getCached } from "../../services/cachedApi";
@@ -127,6 +127,9 @@ function ApplicantFormModal({
   const validateStep2 = () => {
     const newErrors = getStep2Errors();
     setErrors(newErrors);
+    if (Object.keys(newErrors).length) {
+      toast.warning(`Please complete: ${[...new Set(Object.values(newErrors))].join(", ")}`);
+    }
     return Object.keys(newErrors).length === 0;
   };
 
@@ -410,6 +413,7 @@ function ApplicantFormModal({
         if (typeof onSaved === "function") {
           await onSaved({ operation: "update", id: editData.id, payload: savedPayload });
         }
+        toast.success("Applicant updated successfully");
       } else {
         const response = await API.post("/applicants/create", applicantPayload);
         if (typeof onSaved === "function") {
@@ -465,7 +469,10 @@ function ApplicantFormModal({
     const step2Errors = getStep2Errors();
     const combinedErrors = { ...step1Errors, ...step2Errors };
     setErrors(combinedErrors);
-    if (Object.keys(combinedErrors).length > 0) return;
+    if (Object.keys(combinedErrors).length > 0) {
+      toast.warning(`Please complete: ${[...new Set(Object.values(combinedErrors))].join(", ")}`);
+      return;
+    }
     handleSubmit();
   };
 

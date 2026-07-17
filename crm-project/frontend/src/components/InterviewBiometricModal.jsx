@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";

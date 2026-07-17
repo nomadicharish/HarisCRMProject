@@ -17,6 +17,7 @@ import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
 import { formatCurrencyAmount } from "../utils/currency";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
+import { toast } from "../utils/toast";
 
 const DASHBOARD_TAB_CONFIG = {
   home: { label: "Home" },
@@ -297,7 +298,7 @@ function ApplicantProfile() {
     } catch (err) {
       console.error(err);
       setApplicant(previousApplicant);
-      alert("Error completing process");
+      toast.error("Error completing process");
     } finally {
       setCompletingProcess(false);
     }

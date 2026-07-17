@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import API from "../services/api";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { toast } from "../utils/toast";
 
 function DocumentUploader({ applicantId }) {
 
@@ -8,9 +9,9 @@ function DocumentUploader({ applicantId }) {
 
   const handleUpload = async () => {
 
-    if (!file) return alert("Select file");
+    if (!file) return toast.error("Select a file to upload");
     const fileValidation = validateDocumentFiles([file]);
-    if (!fileValidation.valid) return alert(fileValidation.message);
+    if (!fileValidation.valid) return toast.error(fileValidation.message);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -27,11 +28,11 @@ function DocumentUploader({ applicantId }) {
         }
       );
 
-      alert("Uploaded successfully");
+      toast.success("Document uploaded successfully");
 
     } catch (err) {
       console.error(err);
-      alert("Upload failed");
+      toast.error("Document upload failed");
     }
   };
 
@@ -41,7 +42,7 @@ function DocumentUploader({ applicantId }) {
       <input
         type="file"
         accept={ALLOWED_DOCUMENT_ACCEPT}
-        onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
+        onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], toast.error))}
       />
 
       <button onClick={handleUpload}>

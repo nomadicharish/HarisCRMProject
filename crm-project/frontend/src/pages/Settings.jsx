@@ -11,6 +11,7 @@ import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
 import { getStoredUser, isRootSuperUserRole, updateStoredUser } from "../utils/auth";
+import { toast } from "../utils/toast";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
 
@@ -259,10 +260,12 @@ function Settings() {
   const handleSave = async () => {
     if (!form.name.trim()) {
       setError("Name is required");
+      toast.warning("Please complete: Name is required");
       return;
     }
     if (!form.contactNumber.trim()) {
       setError("Contact number is required");
+      toast.warning("Please complete: Contact number is required");
       return;
     }
     try {
@@ -305,7 +308,10 @@ function Settings() {
     if (!bankForm.accountNumber.trim()) nextErrors.accountNumber = "Account number is required";
     if (!bankForm.bankNameBranch.trim()) nextErrors.bankNameBranch = "Bank name and branch are required";
     setBankFormErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    if (Object.keys(nextErrors).length) {
+      toast.warning(`Please complete: ${Object.values(nextErrors).join(", ")}`);
+      return;
+    }
     try {
       setBankSaving(true);
       const response = editingBankAccount
@@ -365,7 +371,10 @@ function Settings() {
     if (!accountantForm.contactNumber.trim()) nextErrors.contactNumber = "Contact with country code is required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountantForm.email.trim())) nextErrors.email = "Valid email is required";
     setAccountantFormErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    if (Object.keys(nextErrors).length) {
+      toast.warning(`Please complete: ${Object.values(nextErrors).join(", ")}`);
+      return;
+    }
 
     try {
       setAccountantSaving(true);
@@ -387,6 +396,7 @@ function Settings() {
       setShowAddAccountantModal(false);
       setEditingAccountant(null);
       resetAccountantForm();
+      toast.success(editingAccountant ? "User updated successfully" : "User added successfully");
     } catch (saveError) {
       setAccountantFormErrors((current) => ({
         ...current,
