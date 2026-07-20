@@ -746,14 +746,24 @@ async function markNotificationsRead(user = {}) {
 async function deleteOldReadNotifications() {
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   let deleted = 0;
-  while (true) {
-    const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
-      .where("read", "==", true).where("readAt", "<", cutoff).limit(400).get();
-    if (snapshot.empty) break;
+  // Keep this as a single-field query to avoid requiring a composite Firestore
+  // index for the scheduled cleanup. The collection is then filtered by readAt
+  // before deleting in Firestore-safe batch sizes.
+  const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
+    .where("read", "==", true)
+    .get();
+  const expiredDocs = snapshot.docs.filter((doc) => {
+    const readAt = doc.data()?.readAt;
+    const readDate = typeof readAt?.toDate === "function" ? readAt.toDate() : new Date(readAt || 0);
+    return !Number.isNaN(readDate.getTime()) && readDate < cutoff;
+  });
+
+  for (let index = 0; index < expiredDocs.length; index += 400) {
     const batch = db.batch();
-    snapshot.docs.forEach((doc) => batch.delete(doc.ref));
+    const batchDocs = expiredDocs.slice(index, index + 400);
+    batchDocs.forEach((doc) => batch.delete(doc.ref));
     await batch.commit();
-    deleted += snapshot.size;
+    deleted += batchDocs.length;
   }
   return { deleted };
 }

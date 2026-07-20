@@ -186,6 +186,35 @@ function firstDate(...values) {
   return null;
 }
 
+function resolveWorkflowFilterKey(statusText = "") {
+  const status = String(statusText).toLowerCase();
+  if (status.includes("candidate created. pending")) return "stage_candidate_pending_approval";
+  if (status.includes("documents pending admin approval")) return "stage_documents_pending_approval";
+  if (status.includes("rejected few documents")) return "stage_documents_rejected";
+  if (status.includes("document dispatch pending")) return "stage_document_dispatch_pending";
+  if (status.includes("contract issued. pending")) return "stage_contract_pending_approval";
+  if (status.includes("issue of the contract")) return "stage_issue_contract_pending";
+  if (status.includes("signed contract upload")) return "stage_signed_contract_upload_pending";
+  if (status.includes("embassy appointment initiated. pending admin")) return "stage_embassy_appointment_pending_approval";
+  if (status.includes("pending embassy appointment initiation")) return "stage_embassy_appointment_initiation_pending";
+  if (status.includes("pending embassy appointment")) return "stage_embassy_appointment_initiation_pending";
+  if (status.includes("appointment initiated. travel")) return "stage_embassy_appointment_travel_pending";
+  if (status.includes("appointment initiated. biometric")) return "stage_embassy_appointment_biometric_pending";
+  if (status.includes("embassy interview initiated. pending")) return "stage_embassy_interview_pending_approval";
+  if (status.includes("embassy interview initiation pending")) return "stage_embassy_interview_initiation_pending";
+  if (status.includes("interview initiated. travel")) return "stage_embassy_interview_travel_pending";
+  if (status.includes("interview initiated. biometric")) return "stage_embassy_interview_biometric_pending";
+  if (status.includes("visa collection initiated. pending")) return "stage_visa_collection_pending_approval";
+  if (status.includes("visa collection initiation pending")) return "stage_visa_collection_initiation_pending";
+  if (status.includes("visa collection initiated")) return "stage_visa_collection_travel_pending";
+  if (status.includes("complete visa collection")) return "stage_trc_upload_pending";
+  if (status.includes("applicant arrival details pending")) return "stage_applicant_arrival_details_pending";
+  if (status.includes("candidate arrival pending")) return "stage_candidate_arrival_pending";
+  if (status.includes("arrived and process completed")) return "stage_candidate_arrived_completed";
+  if (status.includes("document upload pending")) return "stage_document_upload_pending";
+  return "stage_document_upload_pending";
+}
+
 function sortByCreatedAtDesc(items = []) {
   return [...items].sort((a, b) => {
     const aDate = a.createdAt && a.createdAt.toDate ? a.createdAt.toDate() : new Date(a.createdAt || 0);
@@ -210,9 +239,16 @@ function canUseFirestorePaginatedPath({
   agencyId
 }) {
   if (!paginated) return false;
+  // Detailed sidebar stages are calculated from nested workflow data.  The
+  // paginated Firestore path only has aggregate counts for the retired
+  // workflow-status filters, so it cannot return correct stage counts.  Keep
+  // employer and super-user requests on the single scoped read/mapping path:
+  // that path supplies the list, pagination total, stage counts, and stage
+  // filtering from one result set instead of issuing separate count queries.
+  if (userRole === "EMPLOYER" || isSuperUserLikeRole(userRole)) return false;
   // Dashboard filters use this internal marker to force the in-memory matcher,
   // because their rules depend on dates and nested workflow data.
-  if (searchQuery || typeFilters.length > 1 || typeFilters.includes("dashboard")) return false;
+  if (searchQuery || typeFilters.length > 1 || typeFilters.includes("dashboard") || typeFilters.some((type) => type.startsWith("stage_"))) return false;
   if (agencyId && agencyId !== userId && userRole === "AGENCY") return false;
   if (hasMultipleMultiValueFilters(countryFilters, companyFilters, agencyFilters)) return false;
   return [countryFilters, companyFilters, agencyFilters].every((items) => items.length <= 10);
@@ -501,6 +537,7 @@ function mapApplicant({
   });
   const applicantBannerStatus = String(computedStatusText || data?.applicantBannerStatus || "");
   const statusText = applicantBannerStatus;
+  const workflowFilterKey = resolveWorkflowFilterKey(statusText);
 
   const workflowStatus =
     Number(data?.stage || 1) >= 13
@@ -533,6 +570,7 @@ function mapApplicant({
       stageLabel,
       applicantBannerStatus,
       statusText,
+      workflowFilterKey,
       arrivalDate: data?.visaTravel?.date || data?.visaTravel?.dateTime || "",
       visaTravel: data?.visaTravel
         ? {
@@ -566,6 +604,7 @@ function mapApplicant({
     stageLabel,
     applicantBannerStatus,
     statusText,
+    workflowFilterKey,
     payment
   };
 }
@@ -675,6 +714,7 @@ function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilt
   if (typeFilters.length) {
     applicants = applicants.filter((applicant) =>
       typeFilters.some((type) => {
+        if (type.startsWith("stage_")) return applicant.workflowFilterKey === type;
         if (type === "attention_required") return Boolean(applicant.attentionRequired);
         return applicant.workflowStatus === type;
       })
@@ -803,12 +843,19 @@ async function getApplicantsUseCase(req) {
     dashboardApplicantIds
   });
 
-  return paginateApplicants(filtered, {
+  const paged = paginateApplicants(filtered, {
     paginated,
     page,
     limit,
     requestedFieldSet
   });
+  if (!paginated) return paged;
+  const stageCounts = mapped.reduce((counts, applicant) => {
+    const key = applicant.workflowFilterKey;
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+  return { ...paged, stageCounts };
 }
 
 module.exports = {

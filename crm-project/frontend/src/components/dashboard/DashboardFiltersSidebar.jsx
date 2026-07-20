@@ -21,8 +21,28 @@ function DashboardFiltersSidebar({
   companyOptions,
   agencyOptions,
   isSuperUser,
+  userRole,
   onToggleFilterValue
 }) {
+  const hiddenStagesByRole = {
+    EMPLOYER: new Set([
+      "stage_documents_pending_approval",
+      "stage_documents_rejected",
+      "stage_contract_pending_approval",
+      "stage_embassy_appointment_pending_approval",
+      "stage_embassy_interview_pending_approval",
+      "stage_visa_collection_pending_approval"
+    ]),
+    AGENCY: new Set([
+      "stage_contract_pending_approval",
+      "stage_embassy_appointment_pending_approval",
+      "stage_embassy_interview_pending_approval",
+      "stage_visa_collection_pending_approval"
+    ])
+  };
+  const visibleApplicantStages = (hiddenStagesByRole[userRole] || new Set()).size
+    ? applicantTypeOptions.filter((item) => !hiddenStagesByRole[userRole].has(item.value))
+    : applicantTypeOptions;
   return (
     <aside className="dashboardSidebar">
       <div className="dashboardFilterCard">
@@ -54,11 +74,11 @@ function DashboardFiltersSidebar({
         </div>
 
         <FilterSection
-          title="Applicant Type"
-          items={applicantTypeOptions}
+          title="Applicant Stage"
+          items={visibleApplicantStages}
           selectedValues={applicantTypes}
           onToggle={(value) => onToggleFilterValue("type", applicantTypes, value)}
-          visible={activeTab === "applicants"}
+          visible={activeTab === "applicants" && userRole !== "JUNIOR_ACCOUNTANT"}
         />
 
         <FilterSection

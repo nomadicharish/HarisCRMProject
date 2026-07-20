@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 function FilterSection({ title, items, selectedValues, onToggle, visible = true }) {
-  const [collapsed, setCollapsed] = useState(() => !(Array.isArray(selectedValues) && selectedValues.length > 0));
-
-  useEffect(() => {
-    setCollapsed(!(Array.isArray(selectedValues) && selectedValues.length > 0));
-  }, [selectedValues]);
+  // Sections start collapsed, and only the user can change that state.  In
+  // particular, clearing the final selected checkbox must not re-collapse an
+  // open section.
+  const [collapsed, setCollapsed] = useState(true);
 
   if (!visible) return null;
 

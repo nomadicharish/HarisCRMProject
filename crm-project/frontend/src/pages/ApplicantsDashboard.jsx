@@ -1562,7 +1562,7 @@ function ApplicantsDashboard() {
           ? applicantsData.items
           : [];
       setApplicants(normalizedApplicants);
-      setApplicantTypeCounts(applicantsData?.typeCounts || null);
+      setApplicantTypeCounts(applicantsData?.stageCounts || applicantsData?.typeCounts || null);
       setApplicantsPagination({
         page: Number(applicantsData?.pagination?.page || currentPage),
         limit: Number(applicantsData?.pagination?.limit || APPLICANT_PAGE_SIZE),
@@ -1781,10 +1781,6 @@ function ApplicantsDashboard() {
     return companies.filter((company) => countryIds.includes(company.countryId));
   }, [companies, countryIds]);
 
-  const applicantWorkflowCounts = useMemo(
-    () => countBy(applicants, (applicant) => applicant.workflowStatus),
-    [applicants]
-  );
   const applicantCountryCounts = useMemo(
     () => countBy(applicants, (applicant) => applicant.countryId),
     [applicants]
@@ -1832,11 +1828,6 @@ function ApplicantsDashboard() {
     });
     return counts;
   }, [agencies, companyMap]);
-  const attentionRequiredCount = useMemo(
-    () => applicants.reduce((total, applicant) => total + (applicant.attentionRequired ? 1 : 0), 0),
-    [applicants]
-  );
-
   const toggleFilterValue = useCallback(
     (key, selectedValues, value) => {
       const nextValues = selectedValues.includes(value)
@@ -1911,30 +1902,22 @@ function ApplicantsDashboard() {
   }, [currentRows]);
 
   const applicantTypeOptions = useMemo(() => {
-    const options = [
-      {
-        value: "in_progress",
-        label: "In Progress",
-        count: applicantTypeCounts?.in_progress ?? applicantWorkflowCounts.get("in_progress") ?? 0
-      }
+    const stages = [
+      ["stage_candidate_pending_approval", "Candidate pending admin approval"], ["stage_document_upload_pending", "Document upload pending"],
+      ["stage_documents_pending_approval", "Documents pending approval"], ["stage_documents_rejected", "Documents rejected"],
+      ["stage_document_dispatch_pending", "Document dispatch pending"], ["stage_issue_contract_pending", "Issue of contract pending"],
+      ["stage_contract_pending_approval", "Contract pending admin approval"], ["stage_signed_contract_upload_pending", "Signed contract upload pending"],
+      ["stage_embassy_appointment_initiation_pending", "Embassy appointment initiation pending"], ["stage_embassy_appointment_pending_approval", "Embassy appointment pending admin approval"],
+      ["stage_embassy_appointment_travel_pending", "Embassy appointment travel details pending"], ["stage_embassy_appointment_biometric_pending", "Embassy appointment biometric pending"],
+      ["stage_embassy_interview_initiation_pending", "Embassy interview initiation pending"], ["stage_embassy_interview_pending_approval", "Embassy interview pending approval"],
+      ["stage_embassy_interview_travel_pending", "Embassy interview travel details pending"], ["stage_embassy_interview_biometric_pending", "Embassy interview biometric pending"],
+      ["stage_visa_collection_initiation_pending", "Visa collection initiation pending"], ["stage_visa_collection_pending_approval", "Visa collection pending approval"],
+      ["stage_visa_collection_travel_pending", "Visa collection travel details pending"], ["stage_trc_upload_pending", "TRC upload pending"],
+      ["stage_applicant_arrival_details_pending", "Applicant arrival details pending"], ["stage_candidate_arrival_pending", "Candidate arrival pending"],
+      ["stage_candidate_arrived_completed", "Candidate arrived and process completed"]
     ];
-
-    if (!isEmployer) {
-      options.push({
-        value: "attention_required",
-        label: "Attention required",
-        count: applicantTypeCounts?.attention_required ?? attentionRequiredCount
-      });
-    }
-
-    options.push({
-      value: "completed",
-      label: "Completed",
-      count: applicantTypeCounts?.completed ?? applicantWorkflowCounts.get("completed") ?? 0
-    });
-
-    return options;
-  }, [applicantTypeCounts, applicantWorkflowCounts, attentionRequiredCount, isEmployer]);
+    return stages.map(([value, label]) => ({ value, label, count: applicantTypeCounts?.[value] ?? 0 }));
+  }, [applicantTypeCounts]);
 
   const countryOptions = useMemo(() => {
     const mappedCountryIds =
@@ -2439,6 +2422,7 @@ function ApplicantsDashboard() {
               companyOptions={sidebarCompanyOptions}
               agencyOptions={sidebarAgencyOptions}
               isSuperUser={isSuperUser}
+              userRole={user?.role}
               onToggleFilterValue={toggleFilterValue}
             />
 
