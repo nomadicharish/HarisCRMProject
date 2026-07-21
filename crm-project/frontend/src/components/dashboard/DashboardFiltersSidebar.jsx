@@ -9,13 +9,8 @@ function DashboardFiltersSidebar({
   activeTab,
   applicantTypeOptions,
   applicantTypes,
-  countryIds,
   companyIds,
   agencyIds,
-  companyCountryOptions,
-  employerCountryOptions,
-  agencyCountryOptions,
-  countryOptions,
   employerCompanyOptions,
   agencyCompanyOptions,
   companyOptions,
@@ -79,21 +74,6 @@ function DashboardFiltersSidebar({
           selectedValues={applicantTypes}
           onToggle={(value) => onToggleFilterValue("type", applicantTypes, value)}
           visible={activeTab === "applicants" && userRole !== "JUNIOR_ACCOUNTANT"}
-        />
-
-        <FilterSection
-          title="Countries"
-          items={
-            activeTab === "companies"
-              ? companyCountryOptions
-              : activeTab === "employers"
-                ? employerCountryOptions
-                : activeTab === "agencies"
-                  ? agencyCountryOptions
-                  : countryOptions
-          }
-          selectedValues={countryIds}
-          onToggle={(value) => onToggleFilterValue("country", countryIds, value)}
         />
 
         <FilterSection

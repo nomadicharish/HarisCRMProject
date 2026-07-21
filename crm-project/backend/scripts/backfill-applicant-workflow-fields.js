@@ -17,6 +17,7 @@ async function run() {
       batch.set(doc.ref, {
         workflowStatus: derived.workflowStatus,
         attentionRequired: derived.attentionRequired,
+        workflowFilterKey: derived.workflowFilterKey,
         searchText: derived.searchText,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });

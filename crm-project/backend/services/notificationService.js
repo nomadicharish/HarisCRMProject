@@ -10,6 +10,9 @@ const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
 const APP_NOTIFICATION_COLLECTION = "notificationEvents";
 const DEFAULT_TIME_ZONE = process.env.DAILY_EMAIL_TIMEZONE || "Asia/Kolkata";
 const DEFAULT_SEND_HOUR = Number(process.env.DAILY_EMAIL_SEND_HOUR || 8);
+const RECIPIENT_LOOKUP_CACHE_TTL_MS = Number(process.env.NOTIFICATION_RECIPIENT_CACHE_TTL_MS || 60_000);
+const recipientRoleCache = new Map();
+const employerCache = new Map();
 
 const EMPLOYER_ACTIONS = {
   CONTRACT_ISSUED: "Contract issued",
@@ -266,25 +269,22 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
   // a cheap, indexed query for the signed-in user instead of a scan of all events.
   const roles = [...new Set(event.recipientRoles)];
   if (!roles.length) return;
-  const roleSnapshots = await Promise.all(
-    roles.map((role) => db.collection("users").where("role", "==", role).where("active", "==", true).get())
-  );
+  const roleRecipients = await Promise.all(roles.map(getActiveRecipientsForRole));
   const recipientCandidates = new Map();
-  roleSnapshots.flatMap((snapshot) => snapshot.docs).forEach((doc) => {
-    const recipient = doc.data() || {};
-    if (doc.id === event.actorId) return;
+  roleRecipients.flat().forEach(({ id, data: recipient }) => {
+    if (id === event.actorId) return;
     if (recipient.role === "AGENCY") {
-      const agencyId = recipient.agencyId || doc.id;
+      const agencyId = recipient.agencyId || id;
       if (event.recipientAgencyId && event.recipientAgencyId !== agencyId) return;
     }
-    recipientCandidates.set(doc.id, recipient);
+    recipientCandidates.set(id, recipient);
   });
 
   const employerIds = [...new Set([...recipientCandidates.values()]
     .filter((recipient) => recipient.role === "EMPLOYER" && recipient.employerId)
     .map((recipient) => recipient.employerId))];
-  const employerDocs = await Promise.all(employerIds.map((id) => db.collection("employers").doc(id).get()));
-  const employers = new Map(employerDocs.filter((doc) => doc.exists).map((doc) => [doc.id, doc.data() || {}]));
+  const employerData = await Promise.all(employerIds.map(async (id) => [id, await getEmployerCached(id)]));
+  const employers = new Map(employerData.filter(([, employer]) => employer));
   const recipients = new Map([...recipientCandidates].filter(([, recipient]) => {
     if (recipient.role !== "EMPLOYER") return true;
     if (event.recipientEmployerId) return recipient.employerId === event.recipientEmployerId;
@@ -699,14 +699,14 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
     const cursorDate = new Date(cursor);
     if (!Number.isNaN(cursorDate.getTime())) query = query.startAfter(cursorDate);
   }
-  const [unreadCount, snapshot] = await Promise.all([getActionableUnreadNotificationCount(user), query.get()]);
+  const [summary, snapshot] = await Promise.all([getNotificationSummary(user.uid), query.get()]);
   const hasMore = snapshot.docs.length > safeLimit;
   const pageDocs = snapshot.docs.slice(0, safeLimit);
   const rawItems = pageDocs.map(mapNotificationDocument);
   const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems), user);
   return {
     items,
-    unreadCount,
+    unreadCount: summary.unreadCount,
     limit: safeLimit,
     hasMore,
     nextCursor: hasMore && pageDocs.length ? pageDocs[pageDocs.length - 1].data().createdAt.toDate().toISOString() : null
@@ -714,7 +714,9 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
 }
 
 async function getUnreadNotificationCount(user = {}) {
-  return { unreadCount: await getActionableUnreadNotificationCount(user) };
+  // This endpoint is polled by every open client. The counter is maintained
+  // with delivery/read writes, avoiding an event and applicant scan per poll.
+  return getNotificationSummary(user.uid);
 }
 
 async function markNotificationRead(user = {}, notificationId = "") {
@@ -722,9 +724,20 @@ async function markNotificationRead(user = {}, notificationId = "") {
   const notificationRef = db.collection(APP_NOTIFICATION_COLLECTION).doc(notificationId);
   const notification = await notificationRef.get();
   if (notification.exists && notification.data()?.userId === user.uid && notification.data()?.read !== true) {
-    await notificationRef.update({ read: true, readAt: new Date() });
+    const now = new Date();
+    const batch = db.batch();
+    batch.update(notificationRef, {
+      read: true,
+      readAt: now,
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    });
+    batch.set(db.collection("users").doc(user.uid), {
+      notificationUnreadCount: admin.firestore.FieldValue.increment(-1),
+      notificationUpdatedAt: now
+    }, { merge: true });
+    await batch.commit();
   }
-  return getUnreadNotificationCount(user);
+  return getNotificationSummary(user.uid);
 }
 
 async function markNotificationsRead(user = {}) {
@@ -733,7 +746,9 @@ async function markNotificationsRead(user = {}) {
       .where("userId", "==", user.uid).where("read", "==", false).limit(400).get();
     if (snapshot.empty) break;
     const batch = db.batch();
-    snapshot.docs.forEach((doc) => batch.update(doc.ref, { read: true, readAt: new Date() }));
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    snapshot.docs.forEach((doc) => batch.update(doc.ref, { read: true, readAt: now, expiresAt }));
     await batch.commit();
   }
   await db.collection("users").doc(user.uid).set({
@@ -746,17 +761,13 @@ async function markNotificationsRead(user = {}) {
 async function deleteOldReadNotifications() {
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
   let deleted = 0;
-  // Keep this as a single-field query to avoid requiring a composite Firestore
-  // index for the scheduled cleanup. The collection is then filtered by readAt
-  // before deleting in Firestore-safe batch sizes.
+  // Query only expired notifications. The TTL policy below is the primary
+  // cleanup mechanism; this handles existing records and delayed TTL cleanup.
   const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
     .where("read", "==", true)
+    .where("readAt", "<", cutoff)
     .get();
-  const expiredDocs = snapshot.docs.filter((doc) => {
-    const readAt = doc.data()?.readAt;
-    const readDate = typeof readAt?.toDate === "function" ? readAt.toDate() : new Date(readAt || 0);
-    return !Number.isNaN(readDate.getTime()) && readDate < cutoff;
-  });
+  const expiredDocs = snapshot.docs;
 
   for (let index = 0; index < expiredDocs.length; index += 400) {
     const batch = db.batch();
@@ -766,6 +777,34 @@ async function deleteOldReadNotifications() {
     deleted += batchDocs.length;
   }
   return { deleted };
+}
+
+function getCachedValue(cache, key) {
+  const cached = cache.get(key);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+function setCachedValue(cache, key, value) {
+  cache.set(key, { value, expiresAt: Date.now() + Math.max(1_000, RECIPIENT_LOOKUP_CACHE_TTL_MS) });
+  return value;
+}
+
+async function getActiveRecipientsForRole(role) {
+  const cached = getCachedValue(recipientRoleCache, role);
+  if (cached) return cached;
+  const snapshot = await db.collection("users").where("role", "==", role).where("active", "==", true).get();
+  return setCachedValue(recipientRoleCache, role, snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() || {} })));
+}
+
+async function getEmployerCached(id) {
+  const cached = getCachedValue(employerCache, id);
+  if (cached) return cached;
+  const doc = await db.collection("employers").doc(id).get();
+  return setCachedValue(employerCache, id, doc.exists ? doc.data() || {} : null);
 }
 
 function buildRowsHtml(rows = []) {

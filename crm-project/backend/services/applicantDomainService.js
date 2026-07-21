@@ -36,6 +36,7 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "companyPaymentPerApplicant",
   "searchText",
   "workflowStatus",
+  "workflowFilterKey",
   "attentionRequired",
   "approvalStatus",
   "applicantBannerStatus",
@@ -183,6 +184,66 @@ function normalizeTextForSearch(value) {
   return String(value || "").trim().toLowerCase();
 }
 
+function resolveWorkflowFilterKey(statusText = "") {
+  const status = String(statusText || "").trim().toLowerCase();
+  if (status.includes("candidate created. pending")) return "stage_candidate_pending_approval";
+  if (status.includes("documents pending admin approval")) return "stage_documents_pending_approval";
+  if (status.includes("rejected few documents")) return "stage_documents_rejected";
+  if (status.includes("document dispatch pending")) return "stage_document_dispatch_pending";
+  if (status.includes("contract issued. pending")) return "stage_contract_pending_approval";
+  if (status.includes("issue of the contract")) return "stage_issue_contract_pending";
+  if (status.includes("signed contract upload")) return "stage_signed_contract_upload_pending";
+  if (status.includes("embassy appointment initiated. pending admin")) return "stage_embassy_appointment_pending_approval";
+  if (status.includes("pending embassy appointment initiation") || status.includes("pending embassy appointment")) return "stage_embassy_appointment_initiation_pending";
+  if (status.includes("appointment initiated. travel")) return "stage_embassy_appointment_travel_pending";
+  if (status.includes("appointment initiated. biometric")) return "stage_embassy_appointment_biometric_pending";
+  if (status.includes("embassy interview initiated. pending")) return "stage_embassy_interview_pending_approval";
+  if (status.includes("embassy interview initiation pending")) return "stage_embassy_interview_initiation_pending";
+  if (status.includes("interview initiated. travel")) return "stage_embassy_interview_travel_pending";
+  if (status.includes("interview initiated. biometric")) return "stage_embassy_interview_biometric_pending";
+  if (status.includes("visa collection initiated. pending")) return "stage_visa_collection_pending_approval";
+  if (status.includes("visa collection initiation pending")) return "stage_visa_collection_initiation_pending";
+  if (status.includes("visa collection initiated")) return "stage_visa_collection_travel_pending";
+  if (status.includes("complete visa collection")) return "stage_trc_upload_pending";
+  if (status.includes("applicant arrival details pending")) return "stage_applicant_arrival_details_pending";
+  if (status.includes("candidate arrival pending")) return "stage_candidate_arrival_pending";
+  if (status.includes("arrived and process completed")) return "stage_candidate_arrived_completed";
+  return "stage_document_upload_pending";
+}
+
+function resolveApplicantWorkflowFilterKey(applicant = {}) {
+  const docSummary = applicant?.docSummary || applicant?.documentSummary || {};
+  const approvalFlags = applicant?.approvalFlags || {};
+  const pendingRequired = Number(docSummary.pendingCount || 0) > 0;
+  const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
+  const uploadedRequired = Number(docSummary.totalCount || 0) > 0;
+  const approvedRequired = Number(docSummary.approvedCount || 0) > 0 && !pendingRequired;
+  const hasPendingEmbassyAppointmentApproval = Boolean(approvalFlags?.hasPendingAppointmentApproval) ||
+    String(applicant?.embassyAppointment?.status || "").toUpperCase() === "PENDING";
+  const hasPendingEmbassyInterviewApproval = Boolean(approvalFlags?.hasPendingEmbassyInterviewApproval) ||
+    String(applicant?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
+    (Boolean(applicant?.embassyInterview?.dateTime) && !Boolean(applicant?.embassyInterview?.approved));
+  const statusText = getApplicantBannerStatusText(applicant, {
+    hasCompletedDocumentStage: Number(applicant?.stage || 1) >= 3 && approvedRequired,
+    pendingRequired,
+    rejectedRequired,
+    uploadedRequired,
+    hasDocuments: uploadedRequired,
+    hasTravelDetails: Boolean(applicant?.travelDetails?.travelDate || applicant?.travelDetails?.time || applicant?.travelDetails?.fileUrl),
+    hasBiometricSlip: Boolean(applicant?.biometricSlip?.fileUrl),
+    hasInterviewTicket: Boolean(applicant?.interviewTicket?.date || applicant?.interviewTicket?.time || applicant?.interviewTicket?.fileUrl),
+    hasInterviewBiometric: Boolean(applicant?.interviewBiometric?.fileUrl),
+    hasVisaTravel: Boolean(applicant?.visaTravel?.date || applicant?.visaTravel?.time || applicant?.visaTravel?.fileUrl),
+    hasResidencePermit: Boolean(applicant?.residencePermit?.trpUrl || applicant?.residencePermit?.frontUrl || applicant?.residencePermit?.backUrl || applicant?.residencePermit?.frontFileUrl || applicant?.residencePermit?.backFileUrl || applicant?.residencePermit?.fileUrl),
+    hasPendingEmbassyAppointmentApproval,
+    hasPendingEmbassyInterviewApproval,
+    hasPendingVisaCollectionApproval: String(applicant?.visaCollection?.status || "").toUpperCase() === "PENDING",
+    hasEmbassyAppointment: Boolean(applicant?.embassyAppointment?.date || applicant?.embassyAppointment?.time || applicant?.embassyAppointment?.fileUrl),
+    hasRejectedSignedContractDocuments: String(applicant?.signedContract?.status || "").toUpperCase() === "REJECTED" || Number(applicant?.signedContract?.rejectedDocumentCount || 0) > 0
+  });
+  return resolveWorkflowFilterKey(statusText);
+}
+
 function normalizePaymentMode(value) {
   const normalized = String(value || "").trim().toLowerCase();
   if (normalized === "bank transfer") return "Bank Transfer";
@@ -263,6 +324,7 @@ function buildApplicantListDerivedFields(applicant = {}) {
     fullName,
     attentionRequired,
     workflowStatus,
+    workflowFilterKey: resolveApplicantWorkflowFilterKey(applicant),
     searchText: normalizeTextForSearch([
       fullName,
       applicant?.email || applicant?.personalDetails?.email || "",
@@ -429,6 +491,8 @@ module.exports = {
   resolveApplicantPaymentSnapshot,
   resolveApplicantPaymentStage,
   resolveApplicantPaymentCurrency,
+  resolveApplicantWorkflowFilterKey,
+  resolveWorkflowFilterKey,
   resolveApplicantTotalAmount,
   resolveApplicantTotalEur,
   roundCurrency,

@@ -25,6 +25,14 @@
       ]
     },
     {
+      "collectionGroup": "notificationEvents",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "read", "order": "ASCENDING" },
+        { "fieldPath": "readAt", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "applicants",
       "queryScope": "COLLECTION",
       "fields": [
@@ -175,6 +183,12 @@
     },
     {
       "collectionGroup": "idempotencyKeys",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "notificationEvents",
       "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": []

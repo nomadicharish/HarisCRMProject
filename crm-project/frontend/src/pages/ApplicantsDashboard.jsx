@@ -34,7 +34,7 @@ const PAGE_SIZE = 25;
 const APPLICANT_PAGE_SIZE = 15;
 const SEARCH_DEBOUNCE_MS = 300;
 const DASHBOARD_FILTER_STORAGE_KEY = "dashboard_sidebar_filters";
-const SIDEBAR_FILTER_KEYS = ["type", "country", "company", "agency"];
+const SIDEBAR_FILTER_KEYS = ["type", "company", "agency"];
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
@@ -1417,7 +1417,6 @@ function ApplicantsDashboard() {
       : "applicants";
   const searchText = searchParams.get("q") || "";
   const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParams]);
-  const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParams]);
   const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParams]);
   const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParams]);
   const notificationApplicantIds = useMemo(() => getMultiParam(searchParams, "notificationApplicants"), [searchParams]);
@@ -1517,7 +1516,6 @@ function ApplicantsDashboard() {
         limit: APPLICANT_PAGE_SIZE,
         q: searchText || "",
         type: applicantTypes.join(","),
-        country: countryIds.join(","),
         company: companyIds.join(","),
         agency: agencyIds.join(","),
         notificationApplicants: notificationApplicantIds.join(","),
@@ -1531,7 +1529,6 @@ function ApplicantsDashboard() {
         cursor: currentCursor,
         limit: PAGE_SIZE,
         q: searchText || "",
-        country: countryIds.join(","),
         company: companyIds.join(","),
         sortBy: "createdAt",
         sortOrder: "desc"
@@ -1590,7 +1587,6 @@ function ApplicantsDashboard() {
             cursor: currentCursor,
             limit: PAGE_SIZE,
             q: searchText || "",
-            countryId: countryIds[0] || "",
             company: companyIds.join(","),
             fields: COMPANY_LOOKUP_FIELDS,
             sortBy: "createdAt",
@@ -1704,7 +1700,6 @@ function ApplicantsDashboard() {
     agencyIds,
     applicantTypes,
     companyIds,
-    countryIds,
     currentCursor,
     currentPage,
     dashboardFilter,
@@ -1727,7 +1722,6 @@ function ApplicantsDashboard() {
           paginated: "false",
           q: searchText || "",
           type: applicantTypes.join(","),
-          country: countryIds.join(","),
           company: companyIds.join(","),
           agency: agencyIds.join(","),
           notificationApplicants: notificationApplicantIds.join(","),
@@ -1776,15 +1770,7 @@ function ApplicantsDashboard() {
     () => Object.fromEntries(companies.map((company) => [company.id, company])),
     [companies]
   );
-  const visibleCompanies = useMemo(() => {
-    if (!countryIds.length) return companies;
-    return companies.filter((company) => countryIds.includes(company.countryId));
-  }, [companies, countryIds]);
-
-  const applicantCountryCounts = useMemo(
-    () => countBy(applicants, (applicant) => applicant.countryId),
-    [applicants]
-  );
+  const visibleCompanies = companies;
   const applicantCompanyCounts = useMemo(
     () => countBy(applicants, (applicant) => applicant.companyId),
     [applicants]
@@ -1793,21 +1779,9 @@ function ApplicantsDashboard() {
     () => countBy(applicants, (applicant) => applicant.agencyId),
     [applicants]
   );
-  const companyCountryCounts = useMemo(
-    () => countBy(companies, (company) => company.countryId),
-    [companies]
-  );
-  const employerCountryCounts = useMemo(
-    () => countBy(employers, (employer) => employer.countryId),
-    [employers]
-  );
   const employerCompanyCounts = useMemo(
     () => countBy(employers, (employer) => employer.companyId),
     [employers]
-  );
-  const visibleCompanyCountryCounts = useMemo(
-    () => countBy(visibleCompanies, (company) => company.countryId),
-    [visibleCompanies]
   );
   const agencyCompanyCounts = useMemo(() => {
     const counts = new Map();
@@ -1816,18 +1790,6 @@ function ApplicantsDashboard() {
     });
     return counts;
   }, [agencies]);
-  const agencyCountryCounts = useMemo(() => {
-    const counts = new Map();
-    agencies.forEach((agency) => {
-      const countryIdsForAgency = new Set(
-        (agency.assignedCompanyIds || [])
-          .map((companyId) => companyMap[companyId]?.countryId)
-          .filter(Boolean)
-      );
-      countryIdsForAgency.forEach((countryId) => incrementCount(counts, countryId));
-    });
-    return counts;
-  }, [agencies, companyMap]);
   const toggleFilterValue = useCallback(
     (key, selectedValues, value) => {
       const nextValues = selectedValues.includes(value)
@@ -1919,60 +1881,6 @@ function ApplicantsDashboard() {
     return stages.map(([value, label]) => ({ value, label, count: applicantTypeCounts?.[value] ?? 0 }));
   }, [applicantTypeCounts]);
 
-  const countryOptions = useMemo(() => {
-    const mappedCountryIds =
-      isAgency || isEmployer
-        ? new Set(visibleCompanies.map((company) => company.countryId).filter(Boolean))
-        : null;
-
-    return countries
-      .filter((country) => !mappedCountryIds || mappedCountryIds.has(country.id))
-      .map((country) => ({
-        value: country.id,
-        label: country.name,
-        count: mappedCountryIds
-          ? visibleCompanyCountryCounts.get(country.id) || 0
-          : applicantCountryCounts.get(country.id) || 0
-      }))
-      .filter((item) => item.count > 0 || !mappedCountryIds);
-  }, [applicantCountryCounts, countries, isAgency, isEmployer, visibleCompanies, visibleCompanyCountryCounts]);
-
-  const companyCountryOptions = useMemo(
-    () =>
-      countries
-        .map((country) => ({
-          value: country.id,
-          label: country.name,
-          count: companyCountryCounts.get(country.id) || 0
-        }))
-        .filter((item) => item.count > 0),
-    [companyCountryCounts, countries]
-  );
-
-  const employerCountryOptions = useMemo(
-    () =>
-      countries
-        .map((country) => ({
-          value: country.id,
-          label: country.name,
-          count: employerCountryCounts.get(country.id) || 0
-        }))
-        .filter((item) => item.count > 0),
-    [countries, employerCountryCounts]
-  );
-
-  const agencyCountryOptions = useMemo(
-    () =>
-      countries
-        .map((country) => ({
-          value: country.id,
-          label: country.name,
-          count: agencyCountryCounts.get(country.id) || 0
-        }))
-        .filter((item) => item.count > 0),
-    [agencyCountryCounts, countries]
-  );
-
   const companyOptions = useMemo(
     () =>
       visibleCompanies.map((company) => ({
@@ -2015,22 +1923,6 @@ function ApplicantsDashboard() {
     [agencies, applicantAgencyCounts]
   );
 
-  const sidebarCountryOptions = useMemo(
-    () => retainSelectedOptions(countryOptions, countryIds, (id) => countryMap[id]),
-    [countryIds, countryMap, countryOptions]
-  );
-  const sidebarCompanyCountryOptions = useMemo(
-    () => retainSelectedOptions(companyCountryOptions, countryIds, (id) => countryMap[id]),
-    [companyCountryOptions, countryIds, countryMap]
-  );
-  const sidebarEmployerCountryOptions = useMemo(
-    () => retainSelectedOptions(employerCountryOptions, countryIds, (id) => countryMap[id]),
-    [countryIds, countryMap, employerCountryOptions]
-  );
-  const sidebarAgencyCountryOptions = useMemo(
-    () => retainSelectedOptions(agencyCountryOptions, countryIds, (id) => countryMap[id]),
-    [agencyCountryOptions, countryIds, countryMap]
-  );
   const sidebarCompanyOptions = useMemo(
     () => retainSelectedOptions(companyOptions, companyIds, (id) => companyMap[id]?.name),
     [companyIds, companyMap, companyOptions]
@@ -2050,14 +1942,6 @@ function ApplicantsDashboard() {
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
-    const countrySource =
-      activeTab === "companies"
-        ? sidebarCompanyCountryOptions
-        : activeTab === "employers"
-          ? sidebarEmployerCountryOptions
-          : activeTab === "agencies"
-            ? sidebarAgencyCountryOptions
-            : sidebarCountryOptions;
     const companySource =
       activeTab === "employers"
         ? sidebarEmployerCompanyOptions
@@ -2070,10 +1954,6 @@ function ApplicantsDashboard() {
         if (applicantTypes.includes(item.value)) chips.push({ key: "type", value: item.value, label: item.label });
       });
     }
-
-    countrySource.forEach((item) => {
-      if (countryIds.includes(item.value)) chips.push({ key: "country", value: item.value, label: item.label });
-    });
 
     companySource.forEach((item) => {
       if (companyIds.includes(item.value)) chips.push({ key: "company", value: item.value, label: item.label });
@@ -2089,17 +1969,12 @@ function ApplicantsDashboard() {
   }, [
     activeTab,
     sidebarAgencyCompanyOptions,
-    sidebarAgencyCountryOptions,
     agencyIds,
     applicantTypeOptions,
     applicantTypes,
     companyIds,
-    sidebarCompanyCountryOptions,
     sidebarCompanyOptions,
-    countryIds,
-    sidebarCountryOptions,
     sidebarEmployerCompanyOptions,
-    sidebarEmployerCountryOptions,
     sidebarAgencyOptions
   ]);
 
@@ -2232,7 +2107,6 @@ function ApplicantsDashboard() {
     return Boolean(
       searchText ||
       applicantTypes.length ||
-      countryIds.length ||
       companyIds.length ||
       agencyIds.length ||
       dashboardFilter ||
@@ -2243,7 +2117,6 @@ function ApplicantsDashboard() {
     agencyIds.length,
     applicantTypes.length,
     companyIds.length,
-    countryIds.length,
     dashboardFilter,
     notificationApplicantIds.length,
     searchText
@@ -2410,13 +2283,8 @@ function ApplicantsDashboard() {
               activeTab={activeTab}
               applicantTypeOptions={applicantTypeOptions}
               applicantTypes={applicantTypes}
-              countryIds={countryIds}
               companyIds={companyIds}
               agencyIds={agencyIds}
-              companyCountryOptions={sidebarCompanyCountryOptions}
-              employerCountryOptions={sidebarEmployerCountryOptions}
-              agencyCountryOptions={sidebarAgencyCountryOptions}
-              countryOptions={sidebarCountryOptions}
               employerCompanyOptions={sidebarEmployerCompanyOptions}
               agencyCompanyOptions={sidebarAgencyCompanyOptions}
               companyOptions={sidebarCompanyOptions}
@@ -2432,7 +2300,6 @@ function ApplicantsDashboard() {
                 isRefreshing={isRefreshing}
                 activeFilterChips={activeFilterChips}
                 applicantTypes={applicantTypes}
-                countryIds={countryIds}
                 companyIds={companyIds}
                 agencyIds={agencyIds}
                 onToggleFilterValue={toggleFilterValue}
