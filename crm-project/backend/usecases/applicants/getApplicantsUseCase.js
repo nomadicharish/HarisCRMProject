@@ -11,6 +11,7 @@ const {
   projectApplicantFields,
   resolveApplicantPaymentStage,
   resolveApplicantPaymentSnapshot,
+  resolveWorkflowFilterKey,
   roundCurrency
 } = require("../../services/applicantDomainService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../../utils/roles");
@@ -210,9 +211,15 @@ function canUseFirestorePaginatedPath({
   agencyId
 }) {
   if (!paginated) return false;
+  // The sidebar's detailed stage values are derived from nested workflow data
+  // at read time. They are not stored as queryable Firestore fields, so its
+  // exact counts require the compatibility mapper until those fields are
+  // materialized and backfilled. Returning only the three aggregate workflow
+  // counts here makes every detailed stage appear as zero.
+  if (userRole === "EMPLOYER" || isSuperUserLikeRole(userRole) || userRole === "SENIOR_ACCOUNTANT") return false;
   // Dashboard filters use this internal marker to force the in-memory matcher,
   // because their rules depend on dates and nested workflow data.
-  if (searchQuery || typeFilters.length > 1 || typeFilters.includes("dashboard")) return false;
+  if (searchQuery || typeFilters.length > 1 || typeFilters.includes("dashboard") || typeFilters.some((type) => type.startsWith("stage_"))) return false;
   if (agencyId && agencyId !== userId && userRole === "AGENCY") return false;
   if (hasMultipleMultiValueFilters(countryFilters, companyFilters, agencyFilters)) return false;
   return [countryFilters, companyFilters, agencyFilters].every((items) => items.length <= 10);
@@ -501,6 +508,7 @@ function mapApplicant({
   });
   const applicantBannerStatus = String(computedStatusText || data?.applicantBannerStatus || "");
   const statusText = applicantBannerStatus;
+  const workflowFilterKey = resolveWorkflowFilterKey(statusText);
 
   const workflowStatus =
     Number(data?.stage || 1) >= 13
@@ -533,6 +541,7 @@ function mapApplicant({
       stageLabel,
       applicantBannerStatus,
       statusText,
+      workflowFilterKey,
       arrivalDate: data?.visaTravel?.date || data?.visaTravel?.dateTime || "",
       visaTravel: data?.visaTravel
         ? {
@@ -566,6 +575,7 @@ function mapApplicant({
     stageLabel,
     applicantBannerStatus,
     statusText,
+    workflowFilterKey,
     payment
   };
 }
@@ -675,6 +685,7 @@ function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilt
   if (typeFilters.length) {
     applicants = applicants.filter((applicant) =>
       typeFilters.some((type) => {
+        if (type.startsWith("stage_")) return applicant.workflowFilterKey === type;
         if (type === "attention_required") return Boolean(applicant.attentionRequired);
         return applicant.workflowStatus === type;
       })
@@ -803,12 +814,19 @@ async function getApplicantsUseCase(req) {
     dashboardApplicantIds
   });
 
-  return paginateApplicants(filtered, {
+  const paged = paginateApplicants(filtered, {
     paginated,
     page,
     limit,
     requestedFieldSet
   });
+  if (!paginated) return paged;
+  const stageCounts = mapped.reduce((counts, applicant) => {
+    const key = applicant.workflowFilterKey;
+    counts[key] = (counts[key] || 0) + 1;
+    return counts;
+  }, {});
+  return { ...paged, stageCounts };
 }
 
 module.exports = {

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import API from "../services/api";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantDispatch.css";

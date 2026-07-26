@@ -1,0 +1,94 @@
+.crmToastContainer {
+  --toastify-toast-width: min(390px, calc(100vw - 28px));
+  width: var(--toastify-toast-width);
+  padding: 0;
+}
+
+.crmToast {
+  --crm-toast-accent: #1769e0;
+  --crm-toast-soft: #edf5ff;
+  align-items: center;
+  min-height: 48px;
+  margin: 0 0 12px;
+  padding: 13px 22px 13px 14px;
+  overflow: hidden;
+  color: #183153;
+  border: 1px solid rgba(32, 91, 168, 0.12);
+  border-left: 4px solid var(--crm-toast-accent);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 30px rgba(21, 67, 125, 0.16), 0 2px 8px rgba(21, 67, 125, 0.08);
+  backdrop-filter: blur(12px);
+}
+
+.crmToast--success { --crm-toast-accent: #169b5c; --crm-toast-soft: #e8f8ef; }
+.crmToast--error { --crm-toast-accent: #dc3e4c; --crm-toast-soft: #fff0f1; }
+.crmToast--warning { --crm-toast-accent: #db8a09; --crm-toast-soft: #fff6df; }
+.crmToast--info { --crm-toast-accent: #1769e0; --crm-toast-soft: #edf5ff; }
+
+.crmToastBody {
+  align-items: center;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.crmToastIcon {
+  display: inline-grid;
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--crm-toast-accent);
+  background: var(--crm-toast-soft);
+}
+
+.crmToast .Toastify__close-button {
+  position: absolute;
+  top: 11px;
+  right: 10px;
+  width: 24px;
+  height: 24px;
+  color: #58708d;
+  opacity: 0.75;
+  transition: color 160ms ease, opacity 160ms ease, background 160ms ease;
+}
+
+.crmToast .Toastify__close-button:hover {
+  color: var(--crm-toast-accent);
+  opacity: 1;
+  border-radius: 6px;
+  background: var(--crm-toast-soft);
+}
+
+.crmToastProgress {
+  height: 3px;
+  background: var(--crm-toast-accent);
+  opacity: 0.8;
+}
+
+@keyframes crmToastSlideIn {
+  from { transform: translate3d(110%, 0, 0); opacity: 0; }
+  to { transform: translate3d(0, 0, 0); opacity: 1; }
+}
+
+@keyframes crmToastFadeOut {
+  from { transform: translate3d(0, 0, 0); opacity: 1; }
+  to { transform: translate3d(18px, 0, 0); opacity: 0; }
+}
+
+.crmToastSlideIn { animation: crmToastSlideIn 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.crmToastFadeOut { animation: crmToastFadeOut 240ms ease-in both; }
+
+@media (max-width: 480px) {
+  .crmToastContainer { --toastify-toast-width: calc(100vw - 20px); }
+  .crmToast { min-height: 62px; margin-bottom: 9px; padding: 11px 38px 11px 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crmToastSlideIn, .crmToastFadeOut { animation-duration: 1ms; }
+}

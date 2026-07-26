@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { toast } from "../utils/toast";
 
 function BiometricSection({ applicantId, user, loadApplicant }) {
 
@@ -18,9 +19,9 @@ function BiometricSection({ applicantId, user, loadApplicant }) {
 
   const upload = async () => {
 
-    if (!file) return alert("Select file");
+    if (!file) return toast.error("Select a file to upload");
     const fileValidation = validateDocumentFiles([file]);
-    if (!fileValidation.valid) return alert(fileValidation.message);
+    if (!fileValidation.valid) return toast.error(fileValidation.message);
 
     const formData = new FormData();
     formData.append("file", file);
@@ -53,7 +54,7 @@ function BiometricSection({ applicantId, user, loadApplicant }) {
           <input
             type="file"
             accept={ALLOWED_DOCUMENT_ACCEPT}
-            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
+            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], toast.error))}
           />
 
           {file && (

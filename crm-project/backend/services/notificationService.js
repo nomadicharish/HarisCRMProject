@@ -10,6 +10,11 @@ const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
 const APP_NOTIFICATION_COLLECTION = "notificationEvents";
 const DEFAULT_TIME_ZONE = process.env.DAILY_EMAIL_TIMEZONE || "Asia/Kolkata";
 const DEFAULT_SEND_HOUR = Number(process.env.DAILY_EMAIL_SEND_HOUR || 8);
+// Recipient and employer records change infrequently. Caching these short-lived
+// lookups prevents every notification from re-reading the same documents.
+const RECIPIENT_LOOKUP_CACHE_TTL_MS = Number(process.env.NOTIFICATION_RECIPIENT_CACHE_TTL_MS || 60_000);
+const recipientRoleCache = new Map();
+const employerCache = new Map();
 // Daily status emails are intentionally disabled. Notifications remain
 // available in the application; transactional emails are unaffected.
 const DAILY_STATUS_EMAILS_ENABLED = false;
@@ -286,25 +291,22 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
   // a cheap, indexed query for the signed-in user instead of a scan of all events.
   const roles = [...new Set(event.recipientRoles)];
   if (!roles.length) return;
-  const roleSnapshots = await Promise.all(
-    roles.map((role) => db.collection("users").where("role", "==", role).where("active", "==", true).get())
-  );
+  const roleRecipients = await Promise.all(roles.map(getActiveRecipientsForRole));
   const recipientCandidates = new Map();
-  roleSnapshots.flatMap((snapshot) => snapshot.docs).forEach((doc) => {
-    const recipient = doc.data() || {};
-    if (doc.id === event.actorId) return;
+  roleRecipients.flat().forEach(({ id, data: recipient }) => {
+    if (id === event.actorId) return;
     if (recipient.role === "AGENCY") {
-      const agencyId = recipient.agencyId || doc.id;
+      const agencyId = recipient.agencyId || id;
       if (event.recipientAgencyId && event.recipientAgencyId !== agencyId) return;
     }
-    recipientCandidates.set(doc.id, recipient);
+    recipientCandidates.set(id, recipient);
   });
 
   const employerIds = [...new Set([...recipientCandidates.values()]
     .filter((recipient) => recipient.role === "EMPLOYER" && recipient.employerId)
     .map((recipient) => recipient.employerId))];
-  const employerDocs = await Promise.all(employerIds.map((id) => db.collection("employers").doc(id).get()));
-  const employers = new Map(employerDocs.filter((doc) => doc.exists).map((doc) => [doc.id, doc.data() || {}]));
+  const employerData = await Promise.all(employerIds.map(async (id) => [id, await getEmployerCached(id)]));
+  const employers = new Map(employerData.filter(([, employer]) => employer));
   const recipients = new Map([...recipientCandidates].filter(([, recipient]) => {
     if (recipient.role !== "EMPLOYER") return true;
     if (event.recipientEmployerId) return recipient.employerId === event.recipientEmployerId;
@@ -809,6 +811,34 @@ async function deleteOldReadNotifications() {
     deleted += snapshot.size;
   }
   return { deleted };
+}
+
+function getCachedValue(cache, key) {
+  const cached = cache.get(key);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+function setCachedValue(cache, key, value) {
+  cache.set(key, { value, expiresAt: Date.now() + Math.max(1_000, RECIPIENT_LOOKUP_CACHE_TTL_MS) });
+  return value;
+}
+
+async function getActiveRecipientsForRole(role) {
+  const cached = getCachedValue(recipientRoleCache, role);
+  if (cached) return cached;
+  const snapshot = await db.collection("users").where("role", "==", role).where("active", "==", true).get();
+  return setCachedValue(recipientRoleCache, role, snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() || {} })));
+}
+
+async function getEmployerCached(id) {
+  const cached = getCachedValue(employerCache, id);
+  if (cached) return cached;
+  const doc = await db.collection("employers").doc(id).get();
+  return setCachedValue(employerCache, id, doc.exists ? doc.data() || {} : null);
 }
 
 function buildRowsHtml(rows = []) {

@@ -14,6 +14,11 @@ const AUTH_ADMIN_PATH_PREFIXES = String(
 const tokenCache = new Map();
 const userProfileCache = new Map();
 const authUserCache = new Map();
+const PASSWORD_RESET_ALLOWED_PATHS = new Set([
+  "/api/auth/me",
+  "/api/auth/change-password",
+  "/api/auth/password-updated"
+]);
 
 function getBearerToken(req) {
   const authHeader = req.headers.authorization;
@@ -124,6 +129,11 @@ const verifyToken = async (req, res, next) => {
       forcePasswordReset: Boolean(userProfile?.forcePasswordReset),
       active: Boolean(userProfile?.active)
     };
+
+    const requestPath = String(req.originalUrl || req.path || "").split("?")[0];
+    if (req.user.forcePasswordReset && !PASSWORD_RESET_ALLOWED_PATHS.has(requestPath)) {
+      return res.status(403).json({ message: "Password reset is required", code: "PASSWORD_RESET_REQUIRED" });
+    }
 
     next();
 

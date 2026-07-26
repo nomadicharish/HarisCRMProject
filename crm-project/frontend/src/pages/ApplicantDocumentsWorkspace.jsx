@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import API from "../services/api";
 import { downloadSecureFile } from "../utils/secureFiles";
 import { getCached, invalidateCache, readCached } from "../services/cachedApi";
@@ -427,6 +427,7 @@ function ApplicantDocumentsWorkspace() {
       invalidateCache(`/applicants/${id}`);
       invalidateCache("/applicants");
 
+      toast.success(uploads.length === 1 ? "Document uploaded successfully" : "Documents uploaded successfully");
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
       navigate(`/applicants/${id}${window.location.search || ""}`);
     } catch (error) {

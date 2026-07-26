@@ -20,6 +20,9 @@ function buildCorsOptions() {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+  if (process.env.NODE_ENV === "production" && !configuredOrigins.length) {
+    throw new Error("CORS_ALLOWED_ORIGINS must be configured in production");
+  }
   const allowedOrigins = configuredOrigins.length || process.env.NODE_ENV === "production"
     ? configuredOrigins
     : ["http://localhost:5173", "http://127.0.0.1:5173"];
@@ -75,7 +78,7 @@ function createHelmetMiddleware() {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
         objectSrc: ["'none'"],
-        frameAncestors: ["'self'"],
+        frameAncestors: ["'none'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "blob:"],
