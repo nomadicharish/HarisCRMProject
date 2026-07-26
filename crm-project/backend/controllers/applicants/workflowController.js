@@ -4,7 +4,8 @@ const {
   getApplicantDocumentsPageUseCase,
   getApplicantDocumentsContextUseCase,
   getApplicantWorkflowBundleUseCase,
-  getApplicantQuickPrintAssetUseCase
+  getApplicantQuickPrintAssetUseCase,
+  getApplicantPrivateFileUseCase
 } = require("../../usecases/applicants/profileReadUseCases");
 const {
   addAppointmentUseCase,
@@ -157,6 +158,18 @@ async function uploadContract(req, res) {
     return res.json(payload);
   } catch (error) {
     return handleApplicantControllerError(res, "Upload Contract Error", error);
+  }
+}
+
+async function getApplicantPrivateFile(req, res) {
+  try {
+    const file = await getApplicantPrivateFileUseCase(req);
+    res.setHeader("Content-Type", file.contentType);
+    res.setHeader("Content-Disposition", `inline; filename="${file.fileName}"`);
+    file.stream.on("error", (error) => res.destroy(error));
+    return file.stream.pipe(res);
+  } catch (error) {
+    return handleApplicantControllerError(res, "Get private applicant file Error", error);
   }
 }
 
@@ -454,6 +467,7 @@ module.exports = {
   addBulkDispatch,
   getApplicants,
   getApplicantById,
+  getApplicantPrivateFile,
   getApplicantQuickPrintAsset,
   getApplicantDocumentsPage,
   getApplicantDocumentsContext,

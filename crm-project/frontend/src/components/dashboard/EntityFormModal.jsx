@@ -6,6 +6,7 @@ import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from "libphonenumber-js";
 import API from "../../services/api";
 import BlockingLoader from "../common/BlockingLoader";
+import { toast } from "../../utils/toast";
 import "../../styles/forms.css";
 import "../../styles/applicantContract.css";
 
@@ -267,6 +268,9 @@ function EntityFormModal({
     }
 
     setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      toast.warning(`Please complete: ${[...new Set(Object.values(nextErrors))].join(", ")}`);
+    }
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -313,6 +317,9 @@ function EntityFormModal({
         }
       }
 
+      const label = type === "agency" ? "Agency" : type === "employer" ? "Employer" : "Company";
+      toast.success(editData?.id ? `${label} updated successfully` : `${label} added successfully`);
+
       if (typeof onClose === "function") onClose();
     } catch (error) {
       console.error(error);
@@ -339,6 +346,9 @@ function EntityFormModal({
           id: editData.id
         });
       }
+
+      const label = type === "agency" ? "Agency" : type === "employer" ? "Employer" : "Company";
+      toast.success(`${label} deleted successfully`);
 
       if (typeof onClose === "function") onClose();
     } catch (error) {

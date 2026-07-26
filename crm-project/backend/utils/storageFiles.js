@@ -2,6 +2,12 @@ function extractStoragePath(fileUrl, bucketName) {
   const normalizedUrl = String(fileUrl || "").trim();
   if (!normalizedUrl) return "";
 
+  // New records store the object name directly. Keep URL support temporarily so
+  // replacing an existing file also cleans up records created before this change.
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalizedUrl)) {
+    return normalizedUrl.replace(/^\/+/, "");
+  }
+
   if (normalizedUrl.startsWith(`gs://${bucketName}/`)) {
     return normalizedUrl.slice(`gs://${bucketName}/`.length);
   }
@@ -12,6 +18,11 @@ function extractStoragePath(fileUrl, bucketName) {
   }
 
   return "";
+}
+
+function isSafeStoragePath(value) {
+  const path = String(value || "").trim().replace(/^\/+/, "");
+  return Boolean(path) && !path.includes("..") && !path.includes("\\") && !/^[a-z][a-z0-9+.-]*:/i.test(path);
 }
 
 async function deleteStorageFileIfExists(bucket, fileUrl) {
@@ -27,6 +38,7 @@ async function deleteStorageFileIfExists(bucket, fileUrl) {
 
 module.exports = {
   deleteStorageFileIfExists,
-  extractStoragePath
+  extractStoragePath,
+  isSafeStoragePath
 };
 

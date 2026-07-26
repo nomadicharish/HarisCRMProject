@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import Select from "react-select";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ApplicantsTable, { resolveApplicantWorkflowMeta } from "../components/dashboard/ApplicantsTable";
@@ -22,6 +22,7 @@ import {
 } from "../utils/auth";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { downloadApplicantsExcel } from "../utils/applicantExcelExport";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
@@ -30,12 +31,25 @@ const EntityFormModal = lazy(() => import("../components/dashboard/EntityFormMod
 const RIGHT_ICON_SRC = "/right.png";
 
 const PAGE_SIZE = 25;
+const APPLICANT_PAGE_SIZE = 15;
 const SEARCH_DEBOUNCE_MS = 300;
 const DASHBOARD_FILTER_STORAGE_KEY = "dashboard_sidebar_filters";
-const SIDEBAR_FILTER_KEYS = ["type", "country", "company", "agency"];
+const SIDEBAR_FILTER_KEYS = ["type", "company", "agency"];
 const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
+
+async function mapWithConcurrency(items, worker, concurrency = 6) {
+  const results = new Array(items.length);
+  let nextIndex = 0;
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++;
+      results[index] = await worker(items[index]);
+    }
+  }));
+  return results;
+}
 const DASHBOARD_FILTER_DESCRIPTIONS = {
   pending_payment: "having pending payment",
   arriving: "arriving",
@@ -668,7 +682,7 @@ function BulkDispatchModal({
       <div className="bulkDispatchModal" role="dialog" aria-modal="true" aria-labelledby="bulk-dispatch-title">
         <div className="bulkDispatchHeader">
           <div>
-            <h2 id="bulk-dispatch-title">Add Bulk Dispatch</h2>
+            <h2 id="bulk-dispatch-title">Add Dispatch</h2>
             <p>Add dispatch details and apply to multiple applicants.</p>
           </div>
           <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close bulk dispatch">
@@ -1356,7 +1370,7 @@ function ApplicantsDashboard() {
   const [agencies, setAgencies] = useState([]);
   const [applicantsPagination, setApplicantsPagination] = useState({
     page: 1,
-    limit: PAGE_SIZE,
+    limit: APPLICANT_PAGE_SIZE,
     total: 0,
     totalPages: 1,
     nextCursor: null
@@ -1377,6 +1391,7 @@ function ApplicantsDashboard() {
   const [searchInput, setSearchInput] = useState("");
   const [showBulkDispatchModal, setShowBulkDispatchModal] = useState(false);
   const [showBulkContractModal, setShowBulkContractModal] = useState(false);
+  const [isExportingApplicants, setIsExportingApplicants] = useState(false);
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const isSuperUser = isSuperUserLikeRole(user?.role);
@@ -1402,7 +1417,6 @@ function ApplicantsDashboard() {
       : "applicants";
   const searchText = searchParams.get("q") || "";
   const applicantTypes = useMemo(() => getMultiParam(searchParams, "type"), [searchParams]);
-  const countryIds = useMemo(() => getMultiParam(searchParams, "country"), [searchParams]);
   const companyIds = useMemo(() => getMultiParam(searchParams, "company"), [searchParams]);
   const agencyIds = useMemo(() => getMultiParam(searchParams, "agency"), [searchParams]);
   const notificationApplicantIds = useMemo(() => getMultiParam(searchParams, "notificationApplicants"), [searchParams]);
@@ -1499,10 +1513,9 @@ function ApplicantsDashboard() {
         paginated: "true",
         page: currentPage,
         cursor: currentCursor,
-        limit: PAGE_SIZE,
+        limit: APPLICANT_PAGE_SIZE,
         q: searchText || "",
         type: applicantTypes.join(","),
-        country: countryIds.join(","),
         company: companyIds.join(","),
         agency: agencyIds.join(","),
         notificationApplicants: notificationApplicantIds.join(","),
@@ -1516,7 +1529,6 @@ function ApplicantsDashboard() {
         cursor: currentCursor,
         limit: PAGE_SIZE,
         q: searchText || "",
-        country: countryIds.join(","),
         company: companyIds.join(","),
         sortBy: "createdAt",
         sortOrder: "desc"
@@ -1535,7 +1547,7 @@ function ApplicantsDashboard() {
         user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 }),
         getCached("/countries", { ttlMs: 600000 }),
         activeTab === "home"
-          ? Promise.resolve({ items: [], pagination: { page: 1, limit: PAGE_SIZE, total: 0, totalPages: 1 } })
+          ? Promise.resolve({ items: [], pagination: { page: 1, limit: APPLICANT_PAGE_SIZE, total: 0, totalPages: 1 } })
           : getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
       ]);
 
@@ -1547,10 +1559,10 @@ function ApplicantsDashboard() {
           ? applicantsData.items
           : [];
       setApplicants(normalizedApplicants);
-      setApplicantTypeCounts(applicantsData?.typeCounts || null);
+      setApplicantTypeCounts(applicantsData?.stageCounts || applicantsData?.typeCounts || null);
       setApplicantsPagination({
         page: Number(applicantsData?.pagination?.page || currentPage),
-        limit: Number(applicantsData?.pagination?.limit || PAGE_SIZE),
+        limit: Number(applicantsData?.pagination?.limit || APPLICANT_PAGE_SIZE),
         total: Number(applicantsData?.pagination?.total || normalizedApplicants.length),
         totalPages: Number(applicantsData?.pagination?.totalPages || 1),
         nextCursor: applicantsData?.pagination?.nextCursor || null
@@ -1575,7 +1587,6 @@ function ApplicantsDashboard() {
             cursor: currentCursor,
             limit: PAGE_SIZE,
             q: searchText || "",
-            countryId: countryIds[0] || "",
             company: companyIds.join(","),
             fields: COMPANY_LOOKUP_FIELDS,
             sortBy: "createdAt",
@@ -1689,7 +1700,6 @@ function ApplicantsDashboard() {
     agencyIds,
     applicantTypes,
     companyIds,
-    countryIds,
     currentCursor,
     currentPage,
     dashboardFilter,
@@ -1704,6 +1714,50 @@ function ApplicantsDashboard() {
     user
   ]);
 
+  const handleExportApplicants = async () => {
+    try {
+      setIsExportingApplicants(true);
+      const response = await API.get("/applicants", {
+        params: {
+          paginated: "false",
+          q: searchText || "",
+          type: applicantTypes.join(","),
+          company: companyIds.join(","),
+          agency: agencyIds.join(","),
+          notificationApplicants: notificationApplicantIds.join(","),
+          dashboardFilter,
+          fromDate: searchParams.get("fromDate") || "",
+          toDate: searchParams.get("toDate") || ""
+        }
+      });
+      const matchingApplicants = normalizeListResponse(response.data);
+      if (!matchingApplicants.length) {
+        toast.info("There are no applicants matching the current filters.");
+        return;
+      }
+
+      const exportRows = await mapWithConcurrency(matchingApplicants, async (applicant) => {
+        const [documentsResponse, paymentsResponse] = await Promise.all([
+          API.get(`/applicants/${applicant.id}/documents`),
+          API.get(`/applicants/${applicant.id}/payments-page`)
+        ]);
+        return {
+          applicant,
+          documents: documentsResponse.data || {},
+          paymentSummary: paymentsResponse.data?.paymentSummary || {}
+        };
+      });
+
+      await downloadApplicantsExcel(exportRows);
+      toast.success(`${matchingApplicants.length} applicant${matchingApplicants.length === 1 ? "" : "s"} exported successfully`);
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Failed to export applicants");
+    } finally {
+      setIsExportingApplicants(false);
+    }
+  };
+
   useEffect(() => {
     loadDashboardData();
   }, [loadDashboardData, refreshKey]);
@@ -1716,19 +1770,7 @@ function ApplicantsDashboard() {
     () => Object.fromEntries(companies.map((company) => [company.id, company])),
     [companies]
   );
-  const visibleCompanies = useMemo(() => {
-    if (!countryIds.length) return companies;
-    return companies.filter((company) => countryIds.includes(company.countryId));
-  }, [companies, countryIds]);
-
-  const applicantWorkflowCounts = useMemo(
-    () => countBy(applicants, (applicant) => applicant.workflowStatus),
-    [applicants]
-  );
-  const applicantCountryCounts = useMemo(
-    () => countBy(applicants, (applicant) => applicant.countryId),
-    [applicants]
-  );
+  const visibleCompanies = companies;
   const applicantCompanyCounts = useMemo(
     () => countBy(applicants, (applicant) => applicant.companyId),
     [applicants]
@@ -1737,21 +1779,9 @@ function ApplicantsDashboard() {
     () => countBy(applicants, (applicant) => applicant.agencyId),
     [applicants]
   );
-  const companyCountryCounts = useMemo(
-    () => countBy(companies, (company) => company.countryId),
-    [companies]
-  );
-  const employerCountryCounts = useMemo(
-    () => countBy(employers, (employer) => employer.countryId),
-    [employers]
-  );
   const employerCompanyCounts = useMemo(
     () => countBy(employers, (employer) => employer.companyId),
     [employers]
-  );
-  const visibleCompanyCountryCounts = useMemo(
-    () => countBy(visibleCompanies, (company) => company.countryId),
-    [visibleCompanies]
   );
   const agencyCompanyCounts = useMemo(() => {
     const counts = new Map();
@@ -1760,23 +1790,6 @@ function ApplicantsDashboard() {
     });
     return counts;
   }, [agencies]);
-  const agencyCountryCounts = useMemo(() => {
-    const counts = new Map();
-    agencies.forEach((agency) => {
-      const countryIdsForAgency = new Set(
-        (agency.assignedCompanyIds || [])
-          .map((companyId) => companyMap[companyId]?.countryId)
-          .filter(Boolean)
-      );
-      countryIdsForAgency.forEach((countryId) => incrementCount(counts, countryId));
-    });
-    return counts;
-  }, [agencies, companyMap]);
-  const attentionRequiredCount = useMemo(
-    () => applicants.reduce((total, applicant) => total + (applicant.attentionRequired ? 1 : 0), 0),
-    [applicants]
-  );
-
   const toggleFilterValue = useCallback(
     (key, selectedValues, value) => {
       const nextValues = selectedValues.includes(value)
@@ -1851,84 +1864,22 @@ function ApplicantsDashboard() {
   }, [currentRows]);
 
   const applicantTypeOptions = useMemo(() => {
-    const options = [
-      {
-        value: "in_progress",
-        label: "In Progress",
-        count: applicantTypeCounts?.in_progress ?? applicantWorkflowCounts.get("in_progress") ?? 0
-      }
+    const stages = [
+      ["stage_candidate_pending_approval", "Candidate pending admin approval"], ["stage_document_upload_pending", "Document upload pending"],
+      ["stage_documents_pending_approval", "Documents pending approval"], ["stage_documents_rejected", "Documents rejected"],
+      ["stage_document_dispatch_pending", "Document dispatch pending"], ["stage_issue_contract_pending", "Issue of contract pending"],
+      ["stage_contract_pending_approval", "Contract pending admin approval"], ["stage_signed_contract_upload_pending", "Signed contract upload pending"],
+      ["stage_embassy_appointment_initiation_pending", "Embassy appointment initiation pending"], ["stage_embassy_appointment_pending_approval", "Embassy appointment pending admin approval"],
+      ["stage_embassy_appointment_travel_pending", "Embassy appointment travel details pending"], ["stage_embassy_appointment_biometric_pending", "Embassy appointment biometric pending"],
+      ["stage_embassy_interview_initiation_pending", "Embassy interview initiation pending"], ["stage_embassy_interview_pending_approval", "Embassy interview pending approval"],
+      ["stage_embassy_interview_travel_pending", "Embassy interview travel details pending"], ["stage_embassy_interview_biometric_pending", "Embassy interview biometric pending"],
+      ["stage_visa_collection_initiation_pending", "Visa collection initiation pending"], ["stage_visa_collection_pending_approval", "Visa collection pending approval"],
+      ["stage_visa_collection_travel_pending", "Visa collection travel details pending"], ["stage_trc_upload_pending", "TRC upload pending"],
+      ["stage_applicant_arrival_details_pending", "Applicant arrival details pending"], ["stage_candidate_arrival_pending", "Candidate arrival pending"],
+      ["stage_candidate_arrived_completed", "Candidate arrived and process completed"]
     ];
-
-    if (!isEmployer) {
-      options.push({
-        value: "attention_required",
-        label: "Attention required",
-        count: applicantTypeCounts?.attention_required ?? attentionRequiredCount
-      });
-    }
-
-    options.push({
-      value: "completed",
-      label: "Completed",
-      count: applicantTypeCounts?.completed ?? applicantWorkflowCounts.get("completed") ?? 0
-    });
-
-    return options;
-  }, [applicantTypeCounts, applicantWorkflowCounts, attentionRequiredCount, isEmployer]);
-
-  const countryOptions = useMemo(() => {
-    const mappedCountryIds =
-      isAgency || isEmployer
-        ? new Set(visibleCompanies.map((company) => company.countryId).filter(Boolean))
-        : null;
-
-    return countries
-      .filter((country) => !mappedCountryIds || mappedCountryIds.has(country.id))
-      .map((country) => ({
-        value: country.id,
-        label: country.name,
-        count: mappedCountryIds
-          ? visibleCompanyCountryCounts.get(country.id) || 0
-          : applicantCountryCounts.get(country.id) || 0
-      }))
-      .filter((item) => item.count > 0 || !mappedCountryIds);
-  }, [applicantCountryCounts, countries, isAgency, isEmployer, visibleCompanies, visibleCompanyCountryCounts]);
-
-  const companyCountryOptions = useMemo(
-    () =>
-      countries
-        .map((country) => ({
-          value: country.id,
-          label: country.name,
-          count: companyCountryCounts.get(country.id) || 0
-        }))
-        .filter((item) => item.count > 0),
-    [companyCountryCounts, countries]
-  );
-
-  const employerCountryOptions = useMemo(
-    () =>
-      countries
-        .map((country) => ({
-          value: country.id,
-          label: country.name,
-          count: employerCountryCounts.get(country.id) || 0
-        }))
-        .filter((item) => item.count > 0),
-    [countries, employerCountryCounts]
-  );
-
-  const agencyCountryOptions = useMemo(
-    () =>
-      countries
-        .map((country) => ({
-          value: country.id,
-          label: country.name,
-          count: agencyCountryCounts.get(country.id) || 0
-        }))
-        .filter((item) => item.count > 0),
-    [agencyCountryCounts, countries]
-  );
+    return stages.map(([value, label]) => ({ value, label, count: applicantTypeCounts?.[value] ?? 0 }));
+  }, [applicantTypeCounts]);
 
   const companyOptions = useMemo(
     () =>
@@ -1972,22 +1923,6 @@ function ApplicantsDashboard() {
     [agencies, applicantAgencyCounts]
   );
 
-  const sidebarCountryOptions = useMemo(
-    () => retainSelectedOptions(countryOptions, countryIds, (id) => countryMap[id]),
-    [countryIds, countryMap, countryOptions]
-  );
-  const sidebarCompanyCountryOptions = useMemo(
-    () => retainSelectedOptions(companyCountryOptions, countryIds, (id) => countryMap[id]),
-    [companyCountryOptions, countryIds, countryMap]
-  );
-  const sidebarEmployerCountryOptions = useMemo(
-    () => retainSelectedOptions(employerCountryOptions, countryIds, (id) => countryMap[id]),
-    [countryIds, countryMap, employerCountryOptions]
-  );
-  const sidebarAgencyCountryOptions = useMemo(
-    () => retainSelectedOptions(agencyCountryOptions, countryIds, (id) => countryMap[id]),
-    [agencyCountryOptions, countryIds, countryMap]
-  );
   const sidebarCompanyOptions = useMemo(
     () => retainSelectedOptions(companyOptions, companyIds, (id) => companyMap[id]?.name),
     [companyIds, companyMap, companyOptions]
@@ -2007,14 +1942,6 @@ function ApplicantsDashboard() {
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
-    const countrySource =
-      activeTab === "companies"
-        ? sidebarCompanyCountryOptions
-        : activeTab === "employers"
-          ? sidebarEmployerCountryOptions
-          : activeTab === "agencies"
-            ? sidebarAgencyCountryOptions
-            : sidebarCountryOptions;
     const companySource =
       activeTab === "employers"
         ? sidebarEmployerCompanyOptions
@@ -2027,10 +1954,6 @@ function ApplicantsDashboard() {
         if (applicantTypes.includes(item.value)) chips.push({ key: "type", value: item.value, label: item.label });
       });
     }
-
-    countrySource.forEach((item) => {
-      if (countryIds.includes(item.value)) chips.push({ key: "country", value: item.value, label: item.label });
-    });
 
     companySource.forEach((item) => {
       if (companyIds.includes(item.value)) chips.push({ key: "company", value: item.value, label: item.label });
@@ -2046,17 +1969,12 @@ function ApplicantsDashboard() {
   }, [
     activeTab,
     sidebarAgencyCompanyOptions,
-    sidebarAgencyCountryOptions,
     agencyIds,
     applicantTypeOptions,
     applicantTypes,
     companyIds,
-    sidebarCompanyCountryOptions,
     sidebarCompanyOptions,
-    countryIds,
-    sidebarCountryOptions,
     sidebarEmployerCompanyOptions,
-    sidebarEmployerCountryOptions,
     sidebarAgencyOptions
   ]);
 
@@ -2189,7 +2107,6 @@ function ApplicantsDashboard() {
     return Boolean(
       searchText ||
       applicantTypes.length ||
-      countryIds.length ||
       companyIds.length ||
       agencyIds.length ||
       dashboardFilter ||
@@ -2200,7 +2117,6 @@ function ApplicantsDashboard() {
     agencyIds.length,
     applicantTypes.length,
     companyIds.length,
-    countryIds.length,
     dashboardFilter,
     notificationApplicantIds.length,
     searchText
@@ -2367,18 +2283,14 @@ function ApplicantsDashboard() {
               activeTab={activeTab}
               applicantTypeOptions={applicantTypeOptions}
               applicantTypes={applicantTypes}
-              countryIds={countryIds}
               companyIds={companyIds}
               agencyIds={agencyIds}
-              companyCountryOptions={sidebarCompanyCountryOptions}
-              employerCountryOptions={sidebarEmployerCountryOptions}
-              agencyCountryOptions={sidebarAgencyCountryOptions}
-              countryOptions={sidebarCountryOptions}
               employerCompanyOptions={sidebarEmployerCompanyOptions}
               agencyCompanyOptions={sidebarAgencyCompanyOptions}
               companyOptions={sidebarCompanyOptions}
               agencyOptions={sidebarAgencyOptions}
               isSuperUser={isSuperUser}
+              userRole={user?.role}
               onToggleFilterValue={toggleFilterValue}
             />
 
@@ -2388,7 +2300,6 @@ function ApplicantsDashboard() {
                 isRefreshing={isRefreshing}
                 activeFilterChips={activeFilterChips}
                 applicantTypes={applicantTypes}
-                countryIds={countryIds}
                 companyIds={companyIds}
                 agencyIds={agencyIds}
                 onToggleFilterValue={toggleFilterValue}
@@ -2399,6 +2310,9 @@ function ApplicantsDashboard() {
                 onOpenBulkDispatch={() => setShowBulkDispatchModal(true)}
                 showContractUploadAction={(isSuperUser || isEmployer) && activeTab === "applicants"}
                 onOpenContractUpload={() => setShowBulkContractModal(true)}
+                showExportApplicantsAction={isSuperUser && activeTab === "applicants"}
+                onExportApplicants={handleExportApplicants}
+                isExportingApplicants={isExportingApplicants}
                 showViewAllApplicants={
                   hasApplicantListScope
                 }

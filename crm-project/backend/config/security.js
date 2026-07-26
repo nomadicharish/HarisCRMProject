@@ -16,14 +16,20 @@ function isRateLimitEnabled() {
 }
 
 function buildCorsOptions() {
-  const allowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS || "")
+  const configuredOrigins = String(process.env.CORS_ALLOWED_ORIGINS || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
+  if (process.env.NODE_ENV === "production" && !configuredOrigins.length) {
+    throw new Error("CORS_ALLOWED_ORIGINS must be configured in production");
+  }
+  const allowedOrigins = configuredOrigins.length || process.env.NODE_ENV === "production"
+    ? configuredOrigins
+    : ["http://localhost:5173", "http://127.0.0.1:5173"];
 
   return {
     origin(origin, callback) {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
@@ -67,7 +73,21 @@ function createAuthRateLimiter() {
 function createHelmetMiddleware() {
   return helmet({
     crossOriginEmbedderPolicy: false,
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        baseUri: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        fontSrc: ["'self'", "data:"],
+        connectSrc: ["'self'", "https://*.googleapis.com", "https://*.firebaseio.com"],
+        frameSrc: ["'self'", "https://*.firebaseapp.com"],
+        formAction: ["'self'"]
+      }
+    },
     referrerPolicy: { policy: "no-referrer" }
   });
 }

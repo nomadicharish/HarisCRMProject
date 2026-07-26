@@ -10,7 +10,8 @@ import EntityFormModal from "../components/dashboard/EntityFormModal";
 import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
-import { getStoredUser, isRootSuperUserRole } from "../utils/auth";
+import { getStoredUser, isRootSuperUserRole, updateStoredUser } from "../utils/auth";
+import { toast } from "../utils/toast";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
 
@@ -257,15 +258,26 @@ function Settings() {
   };
 
   const handleSave = async () => {
+    if (!form.name.trim()) {
+      setError("Name is required");
+      toast.warning("Please complete: Name is required");
+      return;
+    }
     if (!form.contactNumber.trim()) {
       setError("Contact number is required");
+      toast.warning("Please complete: Contact number is required");
       return;
     }
     try {
       setSaving(true);
       setError("");
-      await API.patch("/auth/settings", { contactNumber: form.contactNumber.trim() });
-      writeCached("/auth/settings", { ...form, contactNumber: form.contactNumber.trim() }, { ttlMs: 120000 });
+      const name = form.name.trim();
+      const contactNumber = form.contactNumber.trim();
+      const response = await API.patch("/auth/settings", { name, contactNumber });
+      const nextSettings = { ...form, name: response.data?.name || name, contactNumber };
+      setForm(nextSettings);
+      updateStoredUser({ name: nextSettings.name });
+      writeCached("/auth/settings", nextSettings, { ttlMs: 120000 });
       setSuccessMessage("Settings updated successfully.");
     } catch (saveError) {
       setError(saveError?.response?.data?.message || "Unable to update settings");
@@ -296,7 +308,10 @@ function Settings() {
     if (!bankForm.accountNumber.trim()) nextErrors.accountNumber = "Account number is required";
     if (!bankForm.bankNameBranch.trim()) nextErrors.bankNameBranch = "Bank name and branch are required";
     setBankFormErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    if (Object.keys(nextErrors).length) {
+      toast.warning(`Please complete: ${Object.values(nextErrors).join(", ")}`);
+      return;
+    }
     try {
       setBankSaving(true);
       const response = editingBankAccount
@@ -356,7 +371,10 @@ function Settings() {
     if (!accountantForm.contactNumber.trim()) nextErrors.contactNumber = "Contact with country code is required";
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountantForm.email.trim())) nextErrors.email = "Valid email is required";
     setAccountantFormErrors(nextErrors);
-    if (Object.keys(nextErrors).length) return;
+    if (Object.keys(nextErrors).length) {
+      toast.warning(`Please complete: ${Object.values(nextErrors).join(", ")}`);
+      return;
+    }
 
     try {
       setAccountantSaving(true);
@@ -378,6 +396,7 @@ function Settings() {
       setShowAddAccountantModal(false);
       setEditingAccountant(null);
       resetAccountantForm();
+      toast.success(editingAccountant ? "User updated successfully" : "User added successfully");
     } catch (saveError) {
       setAccountantFormErrors((current) => ({
         ...current,
@@ -444,6 +463,10 @@ function Settings() {
                 <div className="settingsProfileHead">
                   <div className="settingsAvatar">{initials}</div>
                   <div><div className="settingsProfileName">{form.name || "-"}</div><div className="settingsProfileEmail">{form.email || "-"}</div></div>
+                </div>
+                <div className="settingsBlock">
+                  <label className="settingsLabel" htmlFor="settings-name">Name</label>
+                  <input id="settings-name" className="settingsInput" value={form.name} maxLength={100} autoComplete="name" onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
                 </div>
                 <div className="settingsBlock">
                   <label className="settingsLabel" htmlFor="settings-contact">Phone number</label>

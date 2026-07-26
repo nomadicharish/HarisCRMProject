@@ -1,7 +1,10 @@
 const { db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { getCompanyDocumentsForApplicant } = require("../../utils/normalizers");
-const { syncApplicantDocumentStage } = require("../../services/applicantWorkflowStageService");
+const {
+  areLatestRequiredDocumentsApproved,
+  syncApplicantDocumentStage
+} = require("../../services/applicantWorkflowStageService");
 const { buildPaymentSummaryResponse } = require("./paymentUseCases");
 const { getLatestDocumentsMap } = require("./documentFlowUseCases");
 const {
@@ -128,6 +131,30 @@ async function getApplicantQuickPrintAssetUseCase(req) {
     contentType: response.headers.get("content-type") || "application/octet-stream",
     fileName: `${assetType}-asset`
   };
+}
+
+function containsFileUrl(value, fileUrl) {
+  if (!value || typeof value !== "object") return value === fileUrl;
+  if (Array.isArray(value)) return value.some((item) => containsFileUrl(item, fileUrl));
+  return Object.values(value).some((item) => containsFileUrl(item, fileUrl));
+}
+
+async function getApplicantPrivateFileUseCase(req) {
+  const applicantId = req.params.id;
+  const fileUrl = String(req.query.url || "");
+  const applicantDoc = await db.collection("applicants").doc(applicantId).get();
+  if (!applicantDoc.exists) throw new AppError("Applicant not found", 404);
+  const applicant = applicantDoc.data() || {};
+  if (!containsFileUrl(applicant, fileUrl)) throw new AppError("File not linked to applicant", 403);
+  if (req.user?.role === "EMPLOYER") await assertEmployerApplicantAccess(req, applicant);
+  const bucket = admin.storage().bucket();
+  const storagePath = extractStoragePath(fileUrl, bucket.name);
+  if (!storagePath) throw new AppError("Unsupported private file", 400);
+  const file = bucket.file(storagePath);
+  const [exists] = await file.exists();
+  if (!exists) throw new AppError("File not found", 404);
+  const [metadata] = await file.getMetadata();
+  return { stream: file.createReadStream(), contentType: metadata.contentType || "application/octet-stream", fileName: storagePath.split("/").pop() };
 }
 
 async function getApplicantByIdUseCase(req) {
@@ -641,6 +668,14 @@ async function getApplicantDocumentsPageUseCase(req) {
     getLatestDocumentsMap(applicantId)
   ]);
 
+  if (req.user?.role === "EMPLOYER") {
+    await assertEmployerApplicantAccess(req, context.applicant);
+    const allRequiredDocumentsApproved = await areLatestRequiredDocumentsApproved(applicantId, context.applicant);
+    if (!allRequiredDocumentsApproved) {
+      throw new AppError("Documents are available after all required documents are approved", 403);
+    }
+  }
+
   return {
     applicant: context.applicant,
     documentConfigs: context.documentConfigs,
@@ -655,4 +690,5 @@ module.exports = {
   getApplicantPaymentsPageUseCase,
   getApplicantWorkflowBundleUseCase,
   getApplicantQuickPrintAssetUseCase
+  ,getApplicantPrivateFileUseCase
 };

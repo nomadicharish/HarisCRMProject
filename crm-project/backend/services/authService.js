@@ -170,7 +170,7 @@ async function getSettings(uid) {
   };
 }
 
-async function updateSettings(uid, { contactNumber }) {
+async function updateSettings(uid, { name, contactNumber }) {
   const userDoc = await db.collection("users").doc(uid).get();
   if (!userDoc.exists) {
     throw new AppError("User profile not found", 404);
@@ -185,11 +185,13 @@ async function updateSettings(uid, { contactNumber }) {
   });
 
   const updatePayload = {
+    name,
     contactNumberEncrypted: await encryptText(contactNumber),
     normalizedContactNumber: normalizePhoneValue(contactNumber),
     updatedAt: new Date()
   };
 
+  await admin.auth().updateUser(uid, { displayName: name });
   const updates = [db.collection("users").doc(uid).set(updatePayload, { merge: true })];
 
   if (userData.role === "AGENCY" && userData.agencyId) {
@@ -200,7 +202,7 @@ async function updateSettings(uid, { contactNumber }) {
 
   await Promise.all(updates);
   invalidateCachedUserProfile(uid);
-  return { message: "Settings updated successfully" };
+  return { message: "Settings updated successfully", name };
 }
 
 async function markPasswordUpdated(uid) {

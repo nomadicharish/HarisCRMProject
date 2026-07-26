@@ -1,7 +1,6 @@
 import { Suspense, lazy, useEffect } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import ThemedToastContainer from "./components/common/ThemedToastContainer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { getStoredToken } from "./utils/auth";
 
@@ -150,7 +149,7 @@ function App() {
         <Route
           path="/applicants/:id/documents"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY"]}>
+            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "EMPLOYER"]}>
               <ApplicantDocumentsWorkspace />
             </ProtectedRoute>
           }
@@ -191,15 +190,7 @@ function App() {
       </Routes>
       </Suspense>
 
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        pauseOnHover
-        theme="colored"
-      />
+      <ThemedToastContainer />
     </>
   );
 }

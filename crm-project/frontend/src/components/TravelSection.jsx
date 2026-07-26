@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { toast } from "../utils/toast";
 
 function TravelSection({ applicantId, user }) {
 
@@ -33,7 +34,7 @@ function TravelSection({ applicantId, user }) {
 
   const handleSubmit = async () => {
     const fileValidation = validateDocumentFiles([file]);
-    if (!fileValidation.valid) return alert(fileValidation.message);
+    if (!fileValidation.valid) return toast.error(fileValidation.message);
 
     const formData = new FormData();
 
@@ -106,7 +107,7 @@ function TravelSection({ applicantId, user }) {
           <input
             type="file"
             accept={ALLOWED_DOCUMENT_ACCEPT}
-            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
+            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], toast.error))}
           />
 
           <button onClick={handleSubmit}>

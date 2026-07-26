@@ -10,6 +10,14 @@ const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
 const APP_NOTIFICATION_COLLECTION = "notificationEvents";
 const DEFAULT_TIME_ZONE = process.env.DAILY_EMAIL_TIMEZONE || "Asia/Kolkata";
 const DEFAULT_SEND_HOUR = Number(process.env.DAILY_EMAIL_SEND_HOUR || 8);
+// Recipient and employer records change infrequently. Caching these short-lived
+// lookups prevents every notification from re-reading the same documents.
+const RECIPIENT_LOOKUP_CACHE_TTL_MS = Number(process.env.NOTIFICATION_RECIPIENT_CACHE_TTL_MS || 60_000);
+const recipientRoleCache = new Map();
+const employerCache = new Map();
+// Daily status emails are intentionally disabled. Notifications remain
+// available in the application; transactional emails are unaffected.
+const DAILY_STATUS_EMAILS_ENABLED = false;
 
 const EMPLOYER_ACTIONS = {
   CONTRACT_ISSUED: "Contract issued",
@@ -227,12 +235,31 @@ function getUnreadNotificationGroupId({ actionKey = "", actorId = "", userId = "
   return Buffer.from(`${actionKey}:${actorId}:${userId}`).toString("base64url");
 }
 
+async function getApplicantStages(applicantIds = []) {
+  if (!applicantIds.length) return {};
+  const applicantDocs = await db.getAll(
+    ...applicantIds.map((applicantId) => db.collection("applicants").doc(applicantId))
+  );
+  return applicantDocs.reduce((stages, applicantDoc) => {
+    if (applicantDoc.exists) stages[applicantDoc.id] = Number(applicantDoc.data()?.stage || 1);
+    return stages;
+  }, {});
+}
+
 async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}) {
   const actionKey = payload.actionKey || "";
   if (!actionKey) return;
   const meta = ACTION_META[actionKey] || { title: payload.actionLabel || actionKey, tone: "blue", icon: "document", verb: payload.actionLabel || "updated" };
   const now = new Date();
   const createdAt = payload.createdAt || now;
+  const applicantIds = [...new Set([
+    ...(Array.isArray(payload.applicantIds) ? payload.applicantIds : []),
+    payload.applicantId || ""
+  ].filter(Boolean))];
+  // Capture the current workflow stage when the notification is written. The
+  // list endpoint uses this to remove an applicant from an old stage group as
+  // soon as they progress.
+  const applicantStages = await getApplicantStages(applicantIds);
   const event = {
     actionKey,
     actionLabel: payload.actionLabel || meta.title,
@@ -241,10 +268,8 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
     icon: meta.icon,
     verb: meta.verb,
     applicantId: payload.applicantId || "",
-    applicantIds: [...new Set([
-      ...(Array.isArray(payload.applicantIds) ? payload.applicantIds : []),
-      payload.applicantId || ""
-    ].filter(Boolean))],
+    applicantIds,
+    applicantStages,
     applicantName: payload.applicantName || "",
     actorId: payload.actorId || "",
     actorRole: payload.actorRole || "",
@@ -266,25 +291,22 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
   // a cheap, indexed query for the signed-in user instead of a scan of all events.
   const roles = [...new Set(event.recipientRoles)];
   if (!roles.length) return;
-  const roleSnapshots = await Promise.all(
-    roles.map((role) => db.collection("users").where("role", "==", role).where("active", "==", true).get())
-  );
+  const roleRecipients = await Promise.all(roles.map(getActiveRecipientsForRole));
   const recipientCandidates = new Map();
-  roleSnapshots.flatMap((snapshot) => snapshot.docs).forEach((doc) => {
-    const recipient = doc.data() || {};
-    if (doc.id === event.actorId) return;
+  roleRecipients.flat().forEach(({ id, data: recipient }) => {
+    if (id === event.actorId) return;
     if (recipient.role === "AGENCY") {
-      const agencyId = recipient.agencyId || doc.id;
+      const agencyId = recipient.agencyId || id;
       if (event.recipientAgencyId && event.recipientAgencyId !== agencyId) return;
     }
-    recipientCandidates.set(doc.id, recipient);
+    recipientCandidates.set(id, recipient);
   });
 
   const employerIds = [...new Set([...recipientCandidates.values()]
     .filter((recipient) => recipient.role === "EMPLOYER" && recipient.employerId)
     .map((recipient) => recipient.employerId))];
-  const employerDocs = await Promise.all(employerIds.map((id) => db.collection("employers").doc(id).get()));
-  const employers = new Map(employerDocs.filter((doc) => doc.exists).map((doc) => [doc.id, doc.data() || {}]));
+  const employerData = await Promise.all(employerIds.map(async (id) => [id, await getEmployerCached(id)]));
+  const employers = new Map(employerData.filter(([, employer]) => employer));
   const recipients = new Map([...recipientCandidates].filter(([, recipient]) => {
     if (recipient.role !== "EMPLOYER") return true;
     if (event.recipientEmployerId) return recipient.employerId === event.recipientEmployerId;
@@ -327,7 +349,11 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
           ...event,
           userId,
           createdAt: now,
-          read: false
+          read: false,
+          applicantStages: {
+            ...(existing.data()?.applicantStages || {}),
+            ...event.applicantStages
+          }
         };
         if (event.applicantIds.length) {
           update.applicantIds = admin.firestore.FieldValue.arrayUnion(...event.applicantIds);
@@ -539,28 +565,47 @@ async function recordAgencyTask({ applicantId, applicant = {}, user = {}, action
   });
 }
 
-function buildNotificationMessage(group) {
+function buildNotificationMessage(group = {}, { recipientRole = "" } = {}) {
   const actor = group.actorName || "User";
   const verb = group.verb || "updated";
-  const count = group.count || group.applicantIds?.size || 0;
+  const count = Number(group.count || group.applicantIds?.length || group.applicantIds?.size || 0);
+  const hideActorName = recipientRole === "EMPLOYER";
   if (group.actionKey === "COMPANY_ASSIGNED") {
     return `New company added: ${group.companyName || group.companyId || "Company"}.`;
   }
   // For creation verbs prefer "{Actor} created {n} applicants." phrasing
   if (/created applicant/i.test(verb) || /applicants added/i.test(group.title || "")) {
-    return `${actor} created ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+    return hideActorName
+      ? `Created ${count} ${count === 1 ? "applicant" : "applicants"}.`
+      : `${actor} created ${count} ${count === 1 ? "applicant" : "applicants"}.`;
   }
-  if (group.actionKey === "CONTRACT_ISSUED") return `${actor} added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "APPLICANT_APPROVED") return `${actor} approved ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "DOCUMENT_APPROVED") return `${actor} approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "DOCUMENT_REJECTED") return `${actor} rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "EMBASSY_APPOINTMENT_COMPLETED") return `${actor} uploaded biometric of embassy appointment for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "EMBASSY_INTERVIEW_COMPLETED") return `${actor} uploaded biometric of embassy interview for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  if (group.actionKey === "PROCESS_COMPLETED") return `${actor} marked candidate arrival and completion for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
-  return `${actor} ${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "CONTRACT_ISSUED") return hideActorName
+    ? `Added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} added contract for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "APPLICANT_APPROVED") return hideActorName
+    ? `Approved ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} approved ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "DOCUMENT_APPROVED") return hideActorName
+    ? `Approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} approved document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "DOCUMENT_REJECTED") return hideActorName
+    ? `Rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} rejected document of ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "EMBASSY_APPOINTMENT_COMPLETED") return hideActorName
+    ? `Uploaded biometric of embassy appointment for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} uploaded biometric of embassy appointment for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "EMBASSY_INTERVIEW_COMPLETED") return hideActorName
+    ? `Uploaded biometric of embassy interview for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} uploaded biometric of embassy interview for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  if (group.actionKey === "PROCESS_COMPLETED") return hideActorName
+    ? `Marked candidate arrival and completion for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} marked candidate arrival and completion for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
+  return hideActorName
+    ? `${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`
+    : `${actor} ${verb} for ${count} ${count === 1 ? "applicant" : "applicants"}.`;
 }
 
-function groupNotificationItems(items = []) {
+function groupNotificationItems(items = [], recipientRole = "") {
   const grouped = new Map();
 
   items.forEach((item) => {
@@ -579,6 +624,10 @@ function groupNotificationItems(items = []) {
     }
 
     current.applicantIds = [...new Set([...current.applicantIds, ...item.applicantIds])];
+    current.applicantStages = {
+      ...(current.applicantStages || {}),
+      ...(item.applicantStages || {})
+    };
     current.count = current.applicantIds.length;
     current.unread = current.unread || item.unread;
     if (item.latestAt > current.latestAt) {
@@ -588,7 +637,7 @@ function groupNotificationItems(items = []) {
   });
 
   return [...grouped.values()]
-    .map((item) => ({ ...item, count: item.applicantIds.length, message: buildNotificationMessage(item) }))
+    .map((item) => ({ ...item, count: item.applicantIds.length, message: buildNotificationMessage(item, { recipientRole }) }))
     .sort((left, right) => right.latestAt - left.latestAt);
 }
 
@@ -615,6 +664,12 @@ async function filterInactiveDocumentNotificationApplicants(items = [], user = {
     const actionableApplicantIds = item.applicantIds.filter((applicantId) => {
       const applicant = applicantsById.get(applicantId);
       if (!applicant) return false;
+
+      const recordedStage = Number(item.applicantStages?.[applicantId]);
+      // A notification belongs to the stage at which it was created. Once an
+      // applicant advances, exclude them from that old notification group and
+      // recalculate its count from the remaining applicants.
+      if (recordedStage > 0 && Number(applicant.stage || 1) !== recordedStage) return false;
 
       // Completed applicants are relevant only to the completion notification itself.
       if (item.actionKey !== "PROCESS_COMPLETED" && Number(applicant.stage || 1) >= 13) return false;
@@ -653,7 +708,7 @@ async function filterInactiveDocumentNotificationApplicants(items = [], user = {
       applicantIds: actionableApplicantIds,
       count: actionableApplicantIds.length
     };
-    filteredItems.push({ ...nextItem, message: buildNotificationMessage(nextItem) });
+    filteredItems.push({ ...nextItem, message: buildNotificationMessage(nextItem, { recipientRole: user.role }) });
     return filteredItems;
   }, []);
 }
@@ -683,7 +738,7 @@ async function getActionableUnreadNotificationCount(user = {}) {
     .limit(400)
     .get();
   const items = await filterInactiveDocumentNotificationApplicants(
-    groupNotificationItems(snapshot.docs.map(mapNotificationDocument)),
+    groupNotificationItems(snapshot.docs.map(mapNotificationDocument), user.role),
     user
   );
   return items.filter((item) => item.unread).length;
@@ -703,7 +758,7 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
   const hasMore = snapshot.docs.length > safeLimit;
   const pageDocs = snapshot.docs.slice(0, safeLimit);
   const rawItems = pageDocs.map(mapNotificationDocument);
-  const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems), user);
+  const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems, user.role), user);
   return {
     items,
     unreadCount,
@@ -756,6 +811,34 @@ async function deleteOldReadNotifications() {
     deleted += snapshot.size;
   }
   return { deleted };
+}
+
+function getCachedValue(cache, key) {
+  const cached = cache.get(key);
+  if (!cached || cached.expiresAt <= Date.now()) {
+    cache.delete(key);
+    return null;
+  }
+  return cached.value;
+}
+
+function setCachedValue(cache, key, value) {
+  cache.set(key, { value, expiresAt: Date.now() + Math.max(1_000, RECIPIENT_LOOKUP_CACHE_TTL_MS) });
+  return value;
+}
+
+async function getActiveRecipientsForRole(role) {
+  const cached = getCachedValue(recipientRoleCache, role);
+  if (cached) return cached;
+  const snapshot = await db.collection("users").where("role", "==", role).where("active", "==", true).get();
+  return setCachedValue(recipientRoleCache, role, snapshot.docs.map((doc) => ({ id: doc.id, data: doc.data() || {} })));
+}
+
+async function getEmployerCached(id) {
+  const cached = getCachedValue(employerCache, id);
+  if (cached) return cached;
+  const doc = await db.collection("employers").doc(id).get();
+  return setCachedValue(employerCache, id, doc.exists ? doc.data() || {} : null);
 }
 
 function buildRowsHtml(rows = []) {
@@ -839,6 +922,10 @@ async function sendAdminApprovalAgencySummaries(dateKey) {
 }
 
 async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1)) {
+  if (!DAILY_STATUS_EMAILS_ENABLED) {
+    return { skipped: true, reason: "daily_status_emails_disabled", dateKey };
+  }
+
   const runRef = db.collection(DAILY_RUN_COLLECTION).doc(dateKey);
   const runDoc = await runRef.get();
   if (runDoc.exists && runDoc.data()?.completedAt) {
@@ -860,7 +947,6 @@ async function runDailyNotificationSummaries(dateKey = getDateKey(new Date(), -1
 }
 
 function startDailyNotificationScheduler() {
-  const emailSchedulerDisabled = String(process.env.DISABLE_DAILY_EMAIL_SCHEDULER || "").toLowerCase() === "true";
   let lastCleanupDateKey = "";
 
   async function tick() {
@@ -870,7 +956,7 @@ function startDailyNotificationScheduler() {
         await deleteOldReadNotifications();
         lastCleanupDateKey = today;
       }
-      if (emailSchedulerDisabled) return;
+      if (!DAILY_STATUS_EMAILS_ENABLED) return;
       if (getHourInTimeZone(new Date()) < DEFAULT_SEND_HOUR) return;
       await runDailyNotificationSummaries(getDateKey(new Date(), -1));
     } catch (error) {
@@ -900,6 +986,7 @@ module.exports = {
   recordBulkContractUpload,
   recordNotificationAction,
   getUserName,
+  buildNotificationMessage,
   runDailyNotificationSummaries,
   startDailyNotificationScheduler
 };

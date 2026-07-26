@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import API from "../services/api";
 import { getCached, invalidateCache } from "../services/cachedApi";
 import DashboardTopbar from "../components/common/DashboardTopbar";
@@ -405,6 +405,7 @@ function CompanyFormPage() {
       document.execCommand("copy");
       document.body.removeChild(textArea);
     }
+    toast.info("Applicant link copied to clipboard");
   };
 
   const addDocument = (positionKey) => {
@@ -443,6 +444,9 @@ function CompanyFormPage() {
     if (!fileValidation.valid) nextErrors.documents = fileValidation.message;
 
     setErrors(nextErrors);
+    if (Object.keys(nextErrors).length) {
+      toast.warning(`Please complete: ${[...new Set(Object.values(nextErrors))].join(", ")}`);
+    }
     return Object.keys(nextErrors).length === 0;
   };
 
@@ -532,6 +536,7 @@ function CompanyFormPage() {
       invalidateCache("/companies");
       invalidateCache("/agencies");
       invalidateCache("/employers");
+      toast.success(isEdit ? "Company updated successfully" : "Company created successfully");
       navigate("/dashboard?tab=companies");
     } catch (error) {
       console.error(error);

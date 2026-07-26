@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import API from "../services/api";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { toast } from "../utils/toast";
 
 function InterviewTicket({ applicantId, user }) {
 
@@ -18,6 +19,17 @@ function InterviewTicket({ applicantId, user }) {
     setData(res.data);
   };
 
+  const openPrivateFile = async () => {
+    if (!data?.fileUrl) return;
+    const response = await API.get(`/applicants/${applicantId}/private-file`, {
+      params: { url: data.fileUrl },
+      responseType: "blob"
+    });
+    const url = URL.createObjectURL(response.data);
+    window.open(url, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -31,7 +43,7 @@ function InterviewTicket({ applicantId, user }) {
 
   const submit = async () => {
     const fileValidation = validateDocumentFiles([file]);
-    if (!fileValidation.valid) return alert(fileValidation.message);
+    if (!fileValidation.valid) return toast.error(fileValidation.message);
 
     const formData = new FormData();
 
@@ -63,9 +75,9 @@ function InterviewTicket({ applicantId, user }) {
           <p>Time: {data.time}</p>
 
           {data.fileUrl && (
-            <a href={data.fileUrl} target="_blank">
+            <button type="button" onClick={openPrivateFile}>
               Download Ticket
-            </a>
+            </button>
           )}
 
         </div>
@@ -92,7 +104,7 @@ function InterviewTicket({ applicantId, user }) {
           <input
             type="file"
             accept={ALLOWED_DOCUMENT_ACCEPT}
-            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], alert))}
+            onChange={(e) => setFile(getValidatedDocumentFile(e.target.files[0], toast.error))}
           />
 
           <button onClick={submit}>

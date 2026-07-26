@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast } from "../utils/toast";
 import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
@@ -284,39 +284,39 @@ function ApplicantPayments() {
   const handleAddPayment = async () => {
     const amount = parseAmountInput(form.amount);
     if (!Number.isFinite(amount) || amount <= 0) {
-      toast.error("Paid amount must be greater than 0");
+      toast.warning("Enter a paid amount greater than 0");
       return;
     }
 
     if (!form.paidDate) {
-      toast.error("Paid date is required");
+      toast.warning("Please complete: Paid date is required");
       return;
     }
     if (!form.paymentMode) {
-      toast.error("Payment mode is required");
+      toast.warning("Please complete: Payment mode is required");
       return;
     }
     if (form.paymentMode === "Bank Transfer" && !form.bankAccountId) {
-      toast.error("Select Beneficiary  bank account details");
+      toast.warning("Please complete: Select beneficiary bank account details");
       return;
     }
     if (
       form.paymentMode === "Bank Transfer" &&
       (!form.payeeName.trim() || !form.payeeBankName.trim() || !form.payeeBankBranch.trim())
     ) {
-      toast.error("Enter all payee bank details");
+      toast.warning("Please complete: Payee name, bank name and branch are required");
       return;
     }
     if (form.paymentMode === "UPI" && !form.utrNumber.trim()) {
-      toast.error("UTR number is required");
+      toast.warning("Please complete: UTR number is required");
       return;
     }
     if (form.paymentMode === "UPI" && !form.payeeName.trim()) {
-      toast.error("Payee name is required");
+      toast.warning("Please complete: Payee name is required");
       return;
     }
     if (form.paymentMode === "BH" && !form.payeeName.trim()) {
-      toast.error("Payee name is required");
+      toast.warning("Please complete: Payee name is required");
       return;
     }
     const selectedDocuments = form.documents.filter(Boolean);
@@ -468,6 +468,7 @@ function ApplicantPayments() {
       setSelectedPayment(null);
       setReviewConfirmed(false);
       await loadData({ force: true });
+      toast.success(isSeniorAction ? "Payment confirmed successfully" : "Payment acknowledged successfully");
     } catch (error) {
       console.error(error);
       toast.error(error?.response?.data?.message || "Failed to update payment");

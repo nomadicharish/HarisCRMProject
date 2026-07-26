@@ -11,6 +11,7 @@ const changePasswordSchema = z.object({
 });
 
 const updateSettingsSchema = z.object({
+  name: trimmedString.min(1, "Name is required").max(100, "Name must be 100 characters or fewer"),
   contactNumber: trimmedString.min(1, "Contact number is required")
 });
 

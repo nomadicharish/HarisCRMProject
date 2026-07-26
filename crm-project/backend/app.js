@@ -14,6 +14,7 @@ const entityRoutes = require("./routes/entityRoutes");
 const userRoutes = require("./routes/userRoutes");
 const observabilityRoutes = require("./routes/observabilityRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const fileRoutes = require("./routes/fileRoutes");
 const { verifyToken } = require("./middleware/authMiddleware");
 const allowRoles = require("./middleware/roleMiddleware");
 const { errorHandler } = require("./middleware/errorHandler");
@@ -85,6 +86,7 @@ app.use("/api/agents", agentRoutes);
 app.use("/api/change-feed", changeFeedRoutes);
 app.use("/api/observability", observabilityRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/files", fileRoutes);
 app.use("/api", entityRoutes);
 
 app.use(errorHandler);
