@@ -12,7 +12,7 @@ const {
   recordNotificationAction
 } = require("../../services/notificationService");
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
-const { deleteStorageFileIfExists, getAuthorizedReadUrl } = require("../../utils/storageFiles");
+const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 
@@ -181,8 +181,7 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
   await fileUpload.save(contractFile.buffer, {
     metadata: { contentType: contractFile.mimetype }
   });
-  // Store internal storage path; generate per-request signed URLs for authenticated users
-  const fileUrl = `gs://${bucket.name}/${fileName}`;
+  const fileUrl = fileName;
   const previousContractUrl = applicantSnapBeforeUpdate.exists
     ? applicantSnapBeforeUpdate.data()?.contract?.fileUrl || ""
     : "";
@@ -244,11 +243,10 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
     }
   }
 
-  const authorizedUrl = await getAuthorizedReadUrl(admin.storage().bucket(), fileUrl);
   return {
     applicantId,
     applicant: { id: applicantId, ...applicantData },
-    fileUrl: authorizedUrl,
+    fileUrl,
     status: contractStatus
   };
 }
@@ -335,11 +333,9 @@ async function uploadAdditionalContractDocuments(req, applicantId) {
     await fileUpload.save(file.buffer, {
       metadata: { contentType: file.mimetype }
     });
-    // Store internal path; generate signed URL on read
-    const fileUrl = `gs://${bucket.name}/${fileName}`;
     uploads.push({
       name: file.originalname || `Additional Document ${index + 1}`,
-      fileUrl,
+      fileUrl: fileName,
       uploadedAt
     });
   }
@@ -452,8 +448,7 @@ async function uploadSignedContractUseCase(req) {
     user: req.user,
     actionKey: "SIGNED_CONTRACT_UPLOADED"
   });
-  const authorizedUrl = await getAuthorizedReadUrl(admin.storage().bucket(), activeMainDocument.fileUrl);
-  return { message: "Signed contract uploaded successfully", fileUrl: authorizedUrl };
+  return { message: "Signed contract uploaded successfully", fileUrl: activeMainDocument.fileUrl };
 }
 
 async function getSignedContractUseCase(req) {
@@ -604,14 +599,14 @@ function normalizeSignedContractDocuments(signedContract = null) {
   return documents;
 }
 
-async function normalizeSignedContractResponse(signedContract) {
+function normalizeSignedContractResponse(signedContract) {
   const documents = normalizeSignedContractDocuments(signedContract).map((document) => ({
     ...document,
     uploadedAt: normalizeDate(document.uploadedAt),
     rejectedAt: normalizeDate(document.rejectedAt)
   }));
   const activeMainDocument = documents[0]?.status === "UPLOADED" ? documents[0] : null;
-  const result = {
+  return {
     ...signedContract,
     fileUrl: activeMainDocument?.fileUrl || signedContract.fileUrl || "",
     documents,
@@ -619,21 +614,6 @@ async function normalizeSignedContractResponse(signedContract) {
     rejectedAt: normalizeDate(signedContract.rejectedAt),
     rejectedDocumentCount: documents.filter((document) => document.status === "REJECTED").length
   };
-
-  if (result.fileUrl) {
-    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
-  }
-
-  if (Array.isArray(result.documents)) {
-    result.documents = await Promise.all(
-      result.documents.map(async (d) => ({
-        ...d,
-        fileUrl: d.fileUrl ? await getAuthorizedReadUrl(admin.storage().bucket(), d.fileUrl) : d.fileUrl || ""
-      }))
-    );
-  }
-
-  return result;
 }
 
 async function uploadSignedDocumentFile(bucket, applicantId, file, documentId) {
@@ -642,12 +622,9 @@ async function uploadSignedDocumentFile(bucket, applicantId, file, documentId) {
   await fileUpload.save(file.buffer, {
     metadata: { contentType: file.mimetype }
   });
-  // Store internal path for the uploaded file; signed URL will be generated on read
-  const fileUrl = `gs://${bucket.name}/${fileName}`;
-
   return {
     name: file.originalname || "Signed Document",
-    fileUrl,
+    fileUrl: fileName,
     contentType: file.mimetype,
     size: file.size || 0
   };
@@ -747,8 +724,7 @@ async function getContractUseCase(req) {
     approvedByName = approvedByDoc.exists ? approvedByDoc.data()?.name || "" : "";
   }
 
-  // Generate authorized read URLs for stored files for authenticated clients
-  const result = {
+  return {
     ...contract,
     uploadedByName,
     approvedByName,
@@ -756,30 +732,6 @@ async function getContractUseCase(req) {
     issuedAt: normalizeDate(contract.issuedAt),
     approvedAt: normalizeDate(contract.approvedAt)
   };
-
-  if (result.fileUrl) {
-    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
-  }
-
-  if (Array.isArray(result.additionalDocuments)) {
-    result.additionalDocuments = await Promise.all(
-      result.additionalDocuments.map(async (doc) => ({
-        ...doc,
-        fileUrl: doc.fileUrl ? await getAuthorizedReadUrl(admin.storage().bucket(), doc.fileUrl) : ""
-      }))
-    );
-  }
-
-  if (result.signedContract && Array.isArray(result.signedContract.documents)) {
-    result.signedContract.documents = await Promise.all(
-      result.signedContract.documents.map(async (d) => ({
-        ...d,
-        fileUrl: d.fileUrl ? await getAuthorizedReadUrl(admin.storage().bucket(), d.fileUrl) : d.fileUrl || ""
-      }))
-    );
-  }
-
-  return result;
 }
 
 async function addEmbassyInterviewUseCase(req) {
@@ -793,7 +745,6 @@ async function addEmbassyInterviewUseCase(req) {
   const isSuperUser = isSuperUserLikeRole(req.user.role);
   const docRef = db.collection("applicants").doc(applicantId);
   const existingApplicantSnap = await docRef.get();
-  if (!existingApplicantSnap.exists) throw new AppError("Applicant not found", 404);
   const existingInterview = existingApplicantSnap.exists ? existingApplicantSnap.data()?.embassyInterview || {} : {};
   const wasPreviouslyApproved = existingInterview.approved === true || String(existingInterview.status || "").toUpperCase() === "APPROVED";
   const previousDocumentUrl = existingApplicantSnap.exists
@@ -809,8 +760,7 @@ async function addEmbassyInterviewUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    // Store internal path for uploaded file; generate signed URL on read
-    documentUrl = `gs://${bucket.name}/${fileName}`;
+    documentUrl = fileName;
   }
 
   await docRef.set(
@@ -936,8 +886,7 @@ async function addInterviewTicketUseCase(req) {
     await fileUpload.save(req.file.buffer, {
       metadata: { contentType: req.file.mimetype }
     });
-    // Store internal path; generate signed URL only for authenticated reads
-    fileUrl = `gs://${bucket.name}/${fileName}`;
+    fileUrl = fileName;
     await deleteStorageFileIfExists(bucket, existingTicket.fileUrl);
   }
 
@@ -980,6 +929,14 @@ async function uploadInterviewBiometricUseCase(req) {
   if (req.user.role !== "AGENCY") throw new AppError("Only Agency can upload interview biometric slip", 403);
   if (!req.file) throw new AppError("File required", 400);
 
+  const bucket = admin.storage().bucket();
+  const fileName = `interview-biometric/${applicantId}_${Date.now()}`;
+  const fileUpload = bucket.file(fileName);
+  await fileUpload.save(req.file.buffer, {
+    metadata: { contentType: req.file.mimetype }
+  });
+  const fileUrl = fileName;
+
   const docRef = db.collection("applicants").doc(applicantId);
   const docSnap = await docRef.get();
   if (!docSnap.exists) throw new AppError("Applicant not found", 404);
@@ -988,13 +945,7 @@ async function uploadInterviewBiometricUseCase(req) {
   const previousBiometricUrl = docSnap.data()?.interviewBiometric?.fileUrl || "";
   if (currentStage < 9) throw new AppError("Cannot add interview biometric before interview completion stage", 400);
 
-  const bucket = admin.storage().bucket();
-  const fileName = `interview-biometric/${applicantId}_${Date.now()}`;
-  await bucket.file(fileName).save(req.file.buffer, { metadata: { contentType: req.file.mimetype } });
-  const fileUrl = `gs://${bucket.name}/${fileName}`;
-
-  try {
-    await docRef.set(
+  await docRef.set(
     {
       interviewBiometric: {
         fileUrl,
@@ -1003,30 +954,24 @@ async function uploadInterviewBiometricUseCase(req) {
         uploadedAt: new Date()
       }
     },
-      { merge: true }
-    );
-  } catch (error) {
-    await deleteStorageFileIfExists(bucket, fileUrl);
-    throw error;
-  }
+    { merge: true }
+  );
 
   await deleteStorageFileIfExists(bucket, previousBiometricUrl);
- 
+
   await docRef.update({
     stage: 10,
     stageUpdatedAt: new Date()
   });
- 
+
   await recordAgencyTask({
     applicantId,
     applicant: docSnap.data() || {},
     user: req.user,
     actionKey: "EMBASSY_INTERVIEW_COMPLETED"
   });
- 
- // Return a short-lived authorized URL for immediate download in the frontend
- const authorizedUrl = await getAuthorizedReadUrl(admin.storage().bucket(), fileUrl);
- return { message: "Interview biometric uploaded & stage completed", fileUrl: authorizedUrl };
+
+  return { message: "Interview biometric uploaded & stage completed" };
 }
 
 async function getInterviewBiometricUseCase(req) {
@@ -1034,16 +979,10 @@ async function getInterviewBiometricUseCase(req) {
   const interviewBiometric = doc.data()?.interviewBiometric || null;
   if (!interviewBiometric) return null;
 
-  const result = {
+  return {
     ...interviewBiometric,
     uploadedAt: normalizeDate(interviewBiometric.uploadedAt)
   };
-
-  if (result.fileUrl) {
-    result.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), result.fileUrl);
-  }
-
-  return result;
 }
 
 async function getInterviewWorkflowUseCase(req) {
@@ -1061,24 +1000,15 @@ async function getInterviewWorkflowUseCase(req) {
   const interviewTicket = data.interviewTicket
     ? {
         ...data.interviewTicket,
-        fileUrl: data.interviewTicket.fileUrl
-          ? await getAuthorizedReadUrl(admin.storage().bucket(), data.interviewTicket.fileUrl)
-          : "",
         createdAt: normalizeDate(data.interviewTicket.createdAt)
       }
     : null;
 
   const interviewBiometric = data.interviewBiometric
-    ? (async () => {
-        const ib = {
-          ...data.interviewBiometric,
-          uploadedAt: normalizeDate(data.interviewBiometric.uploadedAt)
-        };
-        if (ib.fileUrl) {
-          ib.fileUrl = await getAuthorizedReadUrl(admin.storage().bucket(), ib.fileUrl);
-        }
-        return ib;
-      })()
+    ? {
+        ...data.interviewBiometric,
+        uploadedAt: normalizeDate(data.interviewBiometric.uploadedAt)
+      }
     : null;
 
   return {

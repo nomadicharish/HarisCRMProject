@@ -18,7 +18,6 @@ const {
 } = require("./accountService");
 const { recordCompanyAssignmentNotification } = require("./notificationService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../utils/roles");
-const { deleteStorageFileIfExists, deleteStoragePrefix } = require("../utils/storageFiles");
 
 function buildNormalizedFields({ email = "", contactNumber = "" } = {}) {
   return {
@@ -608,7 +607,6 @@ async function deleteCompany(id) {
   }
 
   await companyRef.delete();
-  await deleteStoragePrefix(admin.storage().bucket(), `companies/${id}/`);
   return { message: "Company deleted successfully", id };
 }
 
@@ -1060,7 +1058,35 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
   }
 
   const templateType = ["reference", "standardReference"].includes(String(templateTypeValue || "")) ? String(templateTypeValue) : "documentToFill";
-  if (templateType !== "standardReference" && !String(documentId || "").trim()) {
+  const bucket = admin.storage().bucket();
+  const safeFileName = String(file.originalname || "template").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const fileLabel = templateType === "standardReference" ? "standard-reference" : String(documentId || "document").trim();
+  const storagePath = `companies/${companyId}/document-templates/${fileLabel}_${templateType}_${Date.now()}_${safeFileName}`;
+  const fileRef = bucket.file(storagePath);
+
+  await fileRef.save(file.buffer, {
+    metadata: { contentType: file.mimetype }
+  });
+  const fileUrl = storagePath;
+
+  if (templateType === "standardReference") {
+    await companyRef.set(
+      {
+        standardReferenceFileName: file.originalname || safeFileName,
+        standardReferenceUrl: fileUrl,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+
+    return {
+      message: "Standard reference uploaded successfully",
+      standardReferenceFileName: file.originalname || safeFileName,
+      standardReferenceUrl: fileUrl
+    };
+  }
+
+  if (!String(documentId || "").trim()) {
     throw new AppError("Document id is required", 400);
   }
 
@@ -1072,66 +1098,46 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
   const documentsNeeded = targetPositionIndex >= 0
     ? jobPositions[targetPositionIndex].documents
     : normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded);
-  const targetIndex = templateType === "standardReference"
-    ? -1
-    : documentsNeeded.findIndex((document) => document.id === String(documentId).trim());
+  const targetIndex = documentsNeeded.findIndex((document) => document.id === String(documentId).trim());
 
-  if (templateType !== "standardReference" && targetIndex === -1) {
+  if (targetIndex === -1) {
     throw new AppError("Company document not found", 404);
   }
 
   const fileNameField = templateType === "reference" ? "referenceFileName" : "documentToFillFileName";
   const fileUrlField = templateType === "reference" ? "referenceUrl" : "documentToFillUrl";
-  const previousFileUrl = templateType === "standardReference"
-    ? companyDoc.data()?.standardReferenceUrl || ""
-    : documentsNeeded[targetIndex]?.[fileUrlField] || "";
-  const bucket = admin.storage().bucket();
-  const safeFileName = String(file.originalname || "template").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileLabel = templateType === "standardReference" ? "standard-reference" : String(documentId).trim();
-  const storagePath = `companies/${companyId}/document-templates/${fileLabel}_${templateType}_${Date.now()}_${safeFileName}`;
-  const fileUrl = `gs://${bucket.name}/${storagePath}`;
 
-  await bucket.file(storagePath).save(file.buffer, { metadata: { contentType: file.mimetype } });
+  documentsNeeded[targetIndex] = {
+    ...documentsNeeded[targetIndex],
+    [fileNameField]: file.originalname || safeFileName,
+    [fileUrlField]: fileUrl,
+    templateFileName: templateType === "documentToFill" ? file.originalname || safeFileName : documentsNeeded[targetIndex].templateFileName || "",
+    templateFileUrl: templateType === "documentToFill" ? fileUrl : documentsNeeded[targetIndex].templateFileUrl || "",
+    updatedAt: new Date()
+  };
 
-  try {
-    if (templateType === "standardReference") {
-      await companyRef.set({
-        standardReferenceFileName: file.originalname || safeFileName,
-        standardReferenceUrl: fileUrl,
-        updatedAt: new Date()
-      }, { merge: true });
-    }
-
-    if (templateType !== "standardReference") {
-      documentsNeeded[targetIndex] = {
-        ...documentsNeeded[targetIndex],
-        [fileNameField]: file.originalname || safeFileName,
-        [fileUrlField]: fileUrl,
-        templateFileName: templateType === "documentToFill" ? file.originalname || safeFileName : documentsNeeded[targetIndex].templateFileName || "",
-        templateFileUrl: templateType === "documentToFill" ? fileUrl : documentsNeeded[targetIndex].templateFileUrl || "",
-        updatedAt: new Date()
-      };
-
-      if (targetPositionIndex >= 0) {
-        jobPositions[targetPositionIndex] = { ...jobPositions[targetPositionIndex], documents: documentsNeeded, updatedAt: new Date() };
-        await companyRef.set({ jobPositions, documentsNeeded: jobPositions[0]?.documents || [], updatedAt: new Date() }, { merge: true });
-      } else {
-        await companyRef.set({ documentsNeeded, updatedAt: new Date() }, { merge: true });
-      }
-    }
-  } catch (error) {
-    await deleteStorageFileIfExists(bucket, fileUrl);
-    throw error;
-  }
-
-  await deleteStorageFileIfExists(bucket, previousFileUrl);
-
-  if (templateType === "standardReference") {
-    return {
-      message: "Standard reference uploaded successfully",
-      standardReferenceFileName: file.originalname || safeFileName,
-      standardReferenceUrl: fileUrl
+  if (targetPositionIndex >= 0) {
+    jobPositions[targetPositionIndex] = {
+      ...jobPositions[targetPositionIndex],
+      documents: documentsNeeded,
+      updatedAt: new Date()
     };
+    await companyRef.set(
+      {
+        jobPositions,
+        documentsNeeded: jobPositions[0]?.documents || [],
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
+  } else {
+    await companyRef.set(
+      {
+        documentsNeeded,
+        updatedAt: new Date()
+      },
+      { merge: true }
+    );
   }
 
   return {

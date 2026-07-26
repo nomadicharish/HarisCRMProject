@@ -47,13 +47,13 @@ function DashboardResultsHeader({
 
           {showBulkDispatchAction ? (
             <button type="button" className="dashboardSecondaryBtn" onClick={onOpenBulkDispatch}>
-              Add Bulk Dispatch
+              + Add Dispatch
             </button>
           ) : null}
 
           {showContractUploadAction ? (
             <button type="button" className="dashboardSecondaryBtn" onClick={onOpenContractUpload}>
-              Contract Upload
+              + Contract Upload
             </button>
           ) : null}
 

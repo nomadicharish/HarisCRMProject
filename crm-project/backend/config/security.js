@@ -16,18 +16,20 @@ function isRateLimitEnabled() {
 }
 
 function buildCorsOptions() {
-  const allowedOrigins = String(process.env.CORS_ALLOWED_ORIGINS || "")
+  const configuredOrigins = String(process.env.CORS_ALLOWED_ORIGINS || "")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean);
-
-  if (process.env.NODE_ENV === "production" && !allowedOrigins.length) {
+  if (process.env.NODE_ENV === "production" && !configuredOrigins.length) {
     throw new Error("CORS_ALLOWED_ORIGINS must be configured in production");
   }
+  const allowedOrigins = configuredOrigins.length || process.env.NODE_ENV === "production"
+    ? configuredOrigins
+    : ["http://localhost:5173", "http://127.0.0.1:5173"];
 
   return {
     origin(origin, callback) {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
 
@@ -75,14 +77,15 @@ function createHelmetMiddleware() {
       directives: {
         defaultSrc: ["'self'"],
         baseUri: ["'self'"],
-        frameAncestors: ["'none'"],
         objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "https:"],
-        connectSrc: ["'self'", "https://identitytoolkit.googleapis.com", "https://securetoken.googleapis.com", "https://firestore.googleapis.com"],
+        imgSrc: ["'self'", "data:", "blob:"],
         fontSrc: ["'self'", "data:"],
-        upgradeInsecureRequests: []
+        connectSrc: ["'self'", "https://*.googleapis.com", "https://*.firebaseio.com"],
+        frameSrc: ["'self'", "https://*.firebaseapp.com"],
+        formAction: ["'self'"]
       }
     },
     referrerPolicy: { policy: "no-referrer" }

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { downloadSecureFile } from "../utils/secureFiles";
 import { getCached, invalidateCache, readCached } from "../services/cachedApi";
 import "../styles/applicantDocuments.css";
 import {
@@ -10,6 +11,7 @@ import {
   getLatestVersion
 } from "../constants/applicantDocuments";
 import DashboardTopbar from "../components/common/DashboardTopbar";
+import SecureImage from "../components/common/SecureImage";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
@@ -373,25 +375,9 @@ function ApplicantDocumentsWorkspace() {
     if (!fileUrl) return;
 
     try {
-      const response = await fetch(fileUrl);
-      if (!response.ok) throw new Error("Unable to download document");
-
-      const objectUrl = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a");
-      link.href = objectUrl;
-      link.download = fileName || "document";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      URL.revokeObjectURL(objectUrl);
+      await downloadSecureFile(fileUrl, fileName || "document");
     } catch (error) {
       console.error(error);
-      const link = document.createElement("a");
-      link.href = fileUrl;
-      link.download = fileName || "document";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
     }
   };
   const applicantName = getApplicantDisplayName(applicant);
@@ -609,7 +595,7 @@ function ApplicantDocumentsWorkspace() {
                 >
                   <span className="docsApplicantIcon" aria-hidden="true">
                     {applicant.profilePhotoUrl ? (
-                      <img src={applicant.profilePhotoUrl} alt="" />
+                      <SecureImage src={applicant.profilePhotoUrl} alt="" fallback={<span>{getInitials(applicantName)}</span>} />
                     ) : (
                       <span>{getInitials(applicantName)}</span>
                     )}

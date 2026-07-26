@@ -2,6 +2,12 @@ function extractStoragePath(fileUrl, bucketName) {
   const normalizedUrl = String(fileUrl || "").trim();
   if (!normalizedUrl) return "";
 
+  // New records store the object name directly. Keep URL support temporarily so
+  // replacing an existing file also cleans up records created before this change.
+  if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(normalizedUrl)) {
+    return normalizedUrl.replace(/^\/+/, "");
+  }
+
   if (normalizedUrl.startsWith(`gs://${bucketName}/`)) {
     return normalizedUrl.slice(`gs://${bucketName}/`.length);
   }
@@ -12,6 +18,11 @@ function extractStoragePath(fileUrl, bucketName) {
   }
 
   return "";
+}
+
+function isSafeStoragePath(value) {
+  const path = String(value || "").trim().replace(/^\/+/, "");
+  return Boolean(path) && !path.includes("..") && !path.includes("\\") && !/^[a-z][a-z0-9+.-]*:/i.test(path);
 }
 
 async function deleteStorageFileIfExists(bucket, fileUrl) {
@@ -25,29 +36,9 @@ async function deleteStorageFileIfExists(bucket, fileUrl) {
   }
 }
 
-async function deleteStoragePrefix(bucket, prefix) {
-  const normalizedPrefix = String(prefix || "").replace(/^\/+/, "");
-  if (!normalizedPrefix) return;
-  await bucket.deleteFiles({ prefix: normalizedPrefix });
-}
-
-async function getAuthorizedReadUrl(bucket, fileUrl, expiresInMs = 15 * 60 * 1000) {
-  const path = extractStoragePath(fileUrl, bucket.name);
-  // Preserve legacy/external URLs during the public-file transition.
-  if (!path) return fileUrl || "";
-
-  const [signedUrl] = await bucket.file(path).getSignedUrl({
-    version: "v4",
-    action: "read",
-    expires: Date.now() + expiresInMs
-  });
-  return signedUrl;
-}
-
 module.exports = {
   deleteStorageFileIfExists,
-  deleteStoragePrefix,
   extractStoragePath,
-  getAuthorizedReadUrl
+  isSafeStoragePath
 };
 

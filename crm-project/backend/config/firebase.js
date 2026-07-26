@@ -1,16 +1,7 @@
-const { applicationDefault, cert, getApps, initializeApp } = require("firebase-admin/app");
-const { FieldPath, FieldValue, getFirestore } = require("firebase-admin/firestore");
-const { getStorage } = require("firebase-admin/storage");
+const { initializeApp, getApps, cert, applicationDefault } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
-
-// firebase-admin v13 exposes services through modular entry points. Keep this
-// small compatibility facade so the existing application can continue using
-// admin.firestore(), admin.storage(), and admin.auth().
-const admin = {
-  firestore: Object.assign(() => getFirestore(), { FieldPath, FieldValue }),
-  storage: () => getStorage(),
-  auth: () => getAuth()
-};
+const { getFirestore, FieldPath, FieldValue } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 
 function loadCredential() {
   if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
@@ -34,14 +25,24 @@ function loadCredential() {
 }
 
 // Initialize only once
-if (!getApps().length) {
-  initializeApp({
+const firebaseApp = getApps()[0] || initializeApp({
     credential: loadCredential(),
     storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "haris-business-crm.firebasestorage.app"
   });
-}
 
-const db = admin.firestore();
+// Keep the existing application call sites stable while using Firebase Admin's
+// supported modular APIs (v14 no longer exposes the legacy namespace helpers).
+const firestore = () => getFirestore(firebaseApp);
+firestore.FieldPath = FieldPath;
+firestore.FieldValue = FieldValue;
+
+const admin = {
+  auth: () => getAuth(firebaseApp),
+  firestore,
+  storage: () => getStorage(firebaseApp)
+};
+
+const db = getFirestore(firebaseApp);
 
 // Enable ignoring undefined properties to prevent Firestore validation errors
 db.settings({ ignoreUndefinedProperties: true });
