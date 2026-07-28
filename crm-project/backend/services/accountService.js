@@ -6,6 +6,7 @@ const { decryptText, encryptText } = require("../utils/crypto");
 const { sendEmail } = require("./emailService");
 
 const DEFAULT_APP_LOGIN_URL = "http://localhost:5173/login";
+const APP_NAME = process.env.APP_NAME || "Talent Acquisition";
 
 function getAppLoginUrl() {
   if (process.env.APP_LOGIN_URL) return String(process.env.APP_LOGIN_URL).trim();
@@ -113,24 +114,24 @@ async function sendAccountSetupEmail({ email, name, role }) {
   const displayRole = role === "AGENCY" ? "agency" : role === "EMPLOYER" ? "employer" : String(role || "user").toLowerCase();
   const loginUrl = getAppLoginUrl();
   const setupUrl = await admin.auth().generatePasswordResetLink(email, { url: loginUrl });
-  const subject = "Welcome to Talent Acquisition CRM";
+  const subject = `Welcome to ${APP_NAME}`;
   const greetingName = name || "User";
   const text = [
     `Hi ${greetingName},`,
     "",
-    `Your ${displayRole} account has been created for Talent Acquisition CRM.`,
+    `Your ${displayRole} account has been created for ${APP_NAME}.`,
     `Set your password: ${setupUrl}`,
-    `Login to Talent Acquisition CRM: ${loginUrl}`,
+    `Login to ${APP_NAME}: ${loginUrl}`,
     "",
     "After setting your password, use the login link above to sign in."
   ].join("\n");
 
   const html = `
     <p>Hi ${greetingName},</p>
-    <p>Your ${displayRole} account has been created for Talent Acquisition CRM.</p>
+    <p>Your ${displayRole} account has been created for ${APP_NAME}.</p>
     <p><a href="${setupUrl}">Set your password</a></p>
     <p>This one-time link lets you create your password securely.</p>
-    <p>Afterward, <a href="${loginUrl}">log in to Talent Acquisition CRM</a>.</p>
+    <p>Afterward, <a href="${loginUrl}">log in to ${APP_NAME}</a>.</p>
   `;
 
   return sendEmail({ to: email, subject, text, html });

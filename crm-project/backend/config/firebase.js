@@ -5,6 +5,7 @@ const { getStorage } = require("firebase-admin/storage");
 
 const DEFAULT_STORAGE_BUCKET = "haris-business-crm.firebasestorage.app";
 const FIREBASE_ENVIRONMENTS = new Set(["qa", "production"]);
+const DEFAULT_FIRESTORE_DATABASE_ID = "(default)";
 
 function getFirebaseEnvironment() {
   const environment = String(process.env.FIREBASE_ENVIRONMENT || "qa").trim().toLowerCase();
@@ -44,6 +45,9 @@ function loadCredential(environment) {
 
 const firebaseEnvironment = getFirebaseEnvironment();
 const storageBucket = getEnvironmentValue(firebaseEnvironment, "STORAGE_BUCKET") || DEFAULT_STORAGE_BUCKET;
+const firestoreDatabaseId = String(
+  process.env.FIREBASE_FIRESTORE_DATABASE_ID || DEFAULT_FIRESTORE_DATABASE_ID
+).trim();
 
 // Initialize only once
 const firebaseApp = getApps()[0] || initializeApp({
@@ -53,7 +57,7 @@ const firebaseApp = getApps()[0] || initializeApp({
 
 // Keep the existing application call sites stable while using Firebase Admin's
 // supported modular APIs (v14 no longer exposes the legacy namespace helpers).
-const firestore = () => getFirestore(firebaseApp);
+const firestore = () => getFirestore(firebaseApp, firestoreDatabaseId);
 firestore.FieldPath = FieldPath;
 firestore.FieldValue = FieldValue;
 
@@ -63,9 +67,9 @@ const admin = {
   storage: () => getStorage(firebaseApp)
 };
 
-const db = getFirestore(firebaseApp);
+const db = getFirestore(firebaseApp, firestoreDatabaseId);
 
 // Enable ignoring undefined properties to prevent Firestore validation errors
 db.settings({ ignoreUndefinedProperties: true });
 
-module.exports = { admin, db, firebaseEnvironment, storageBucket };
+module.exports = { admin, db, firebaseEnvironment, firestoreDatabaseId, storageBucket };
