@@ -908,7 +908,8 @@ async function addInterviewTicketUseCase(req) {
     applicantId,
     applicant: applicantSnap.data() || {},
     user: req.user,
-    actionKey: "TRAVEL_DETAILS_ADDED"
+    actionKey: "TRAVEL_DETAILS_ADDED",
+    isUpdate: Boolean(existingTicket.date || existingTicket.time || existingTicket.fileUrl)
   });
   return { message: "Interview ticket saved" };
 }

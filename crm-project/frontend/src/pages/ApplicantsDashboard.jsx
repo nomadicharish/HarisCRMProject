@@ -1725,18 +1725,16 @@ function ApplicantsDashboard() {
       }
 
       const exportRows = await mapWithConcurrency(matchingApplicants, async (applicant) => {
-        const [documentsResponse, paymentsResponse] = await Promise.all([
-          API.get(`/applicants/${applicant.id}/documents`),
-          API.get(`/applicants/${applicant.id}/payments-page`)
-        ]);
+        const paymentsResponse = isSuperUser
+          ? await API.get(`/applicants/${applicant.id}/payments-page`)
+          : null;
         return {
           applicant,
-          documents: documentsResponse.data || {},
-          paymentSummary: paymentsResponse.data?.paymentSummary || {}
+          paymentSummary: paymentsResponse?.data?.paymentSummary || {}
         };
       });
 
-      await downloadApplicantsExcel(exportRows);
+      await downloadApplicantsExcel(exportRows, { role: user?.role || "" });
       toast.success(`${matchingApplicants.length} applicant${matchingApplicants.length === 1 ? "" : "s"} exported successfully`);
     } catch (error) {
       console.error(error);
@@ -1984,11 +1982,9 @@ function ApplicantsDashboard() {
   };
 
   const visibleTabs = useMemo(() => {
-    if (isSuperUser) return ["home", "applicants", "companies"];
-    if (isAgency || isEmployer) return ["home", "applicants", "companies"];
-    if (isAccountantHomeUser) return ["home", "applicants"];
-    return ["applicants"];
-  }, [isAccountantHomeUser, isAgency, isEmployer, isSuperUser]);
+    if (isJuniorAccountant) return ["home", "applicants"];
+    return ["home", "applicants", "companies"];
+  }, [isJuniorAccountant]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
@@ -2294,7 +2290,7 @@ function ApplicantsDashboard() {
                 onOpenBulkDispatch={() => setShowBulkDispatchModal(true)}
                 showContractUploadAction={(isSuperUser || isEmployer) && activeTab === "applicants"}
                 onOpenContractUpload={() => setShowBulkContractModal(true)}
-                showExportApplicantsAction={isSuperUser && activeTab === "applicants"}
+                showExportApplicantsAction={(isSuperUser || isEmployer || isAgency) && activeTab === "applicants"}
                 onExportApplicants={handleExportApplicants}
                 isExportingApplicants={isExportingApplicants}
                 showViewAllApplicants={
