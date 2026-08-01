@@ -162,36 +162,38 @@ function ApplicantFormStepOne({
   return (
     <>
       <div style={grid}>
-        <div>
-          <label style={label}>First name as in passport</label>
-          <InputShell icon={personIcon} error={Boolean(errors.firstName)}>
-            <input
-              style={{ ...input, paddingLeft: "44px", border: errors.firstName ? `1px solid ${THEME.error}` : input.border }}
-              value={form.firstName || ""}
-              onFocus={handleFocus}
-              onBlur={(event) => handleBlur(event, errors.firstName)}
-              onChange={(event) => handleChange("firstName", event.target.value)}
-              placeholder="First Name"
-              disabled={readOnly}
-            />
-          </InputShell>
-          {errors.firstName && <div style={errorText}>{errors.firstName}</div>}
-        </div>
+        <div className="applicantFormTwoRow">
+          <div>
+            <label style={label}>First name as in passport</label>
+            <InputShell icon={personIcon} error={Boolean(errors.firstName)}>
+              <input
+                style={{ ...input, paddingLeft: "44px", border: errors.firstName ? `1px solid ${THEME.error}` : input.border }}
+                value={form.firstName || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.firstName)}
+                onChange={(event) => handleChange("firstName", event.target.value)}
+                placeholder="First Name"
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.firstName && <div style={errorText}>{errors.firstName}</div>}
+          </div>
 
-        <div>
-          <label style={label}>Surname as in passport</label>
-          <InputShell icon={personIcon} error={Boolean(errors.lastName)}>
-            <input
-              style={{ ...input, paddingLeft: "44px", border: errors.lastName ? `1px solid ${THEME.error}` : input.border }}
-              onFocus={handleFocus}
-              onBlur={(event) => handleBlur(event, errors.lastName)}
-              onChange={(event) => handleChange("lastName", event.target.value)}
-              placeholder="Surname"
-              value={form.lastName || ""}
-              disabled={readOnly}
-            />
-          </InputShell>
-          {errors.lastName && <div style={errorText}>{errors.lastName}</div>}
+          <div>
+            <label style={label}>Surname as in passport</label>
+            <InputShell icon={personIcon} error={Boolean(errors.lastName)}>
+              <input
+                style={{ ...input, paddingLeft: "44px", border: errors.lastName ? `1px solid ${THEME.error}` : input.border }}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.lastName)}
+                onChange={(event) => handleChange("lastName", event.target.value)}
+                placeholder="Surname"
+                value={form.lastName || ""}
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.lastName && <div style={errorText}>{errors.lastName}</div>}
+          </div>
         </div>
 
         <div className="applicantFormThreeRow">

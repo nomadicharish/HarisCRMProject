@@ -3,14 +3,33 @@ const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldPath, FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 
-function loadCredential() {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
-    const serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, "base64").toString("utf8"));
+const DEFAULT_STORAGE_BUCKET = "haris-business-crm.firebasestorage.app";
+const FIREBASE_ENVIRONMENTS = new Set(["qa", "production"]);
+const DEFAULT_FIRESTORE_DATABASE_ID = "(default)";
+
+function getFirebaseEnvironment() {
+  const environment = String(process.env.FIREBASE_ENVIRONMENT || "qa").trim().toLowerCase();
+  if (!FIREBASE_ENVIRONMENTS.has(environment)) {
+    throw new Error("FIREBASE_ENVIRONMENT must be either 'qa' or 'production'");
+  }
+  return environment;
+}
+
+function getEnvironmentValue(environment, name) {
+  const prefix = environment === "production" ? "FIREBASE_PROD" : "FIREBASE_QA";
+  return process.env[`${prefix}_${name}`] || process.env[`FIREBASE_${name}`];
+}
+
+function loadCredential(environment) {
+  const serviceAccountBase64 = getEnvironmentValue(environment, "SERVICE_ACCOUNT_BASE64");
+  if (serviceAccountBase64) {
+    const serviceAccount = JSON.parse(Buffer.from(serviceAccountBase64, "base64").toString("utf8"));
     return cert(serviceAccount);
   }
 
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    return cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON));
+  const serviceAccountJson = getEnvironmentValue(environment, "SERVICE_ACCOUNT_JSON");
+  if (serviceAccountJson) {
+    return cert(JSON.parse(serviceAccountJson));
   }
 
   try {
@@ -24,15 +43,21 @@ function loadCredential() {
   }
 }
 
+const firebaseEnvironment = getFirebaseEnvironment();
+const storageBucket = getEnvironmentValue(firebaseEnvironment, "STORAGE_BUCKET") || DEFAULT_STORAGE_BUCKET;
+const firestoreDatabaseId = String(
+  process.env.FIREBASE_FIRESTORE_DATABASE_ID || DEFAULT_FIRESTORE_DATABASE_ID
+).trim();
+
 // Initialize only once
 const firebaseApp = getApps()[0] || initializeApp({
-    credential: loadCredential(),
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || "haris-business-crm.firebasestorage.app"
-  });
+  credential: loadCredential(firebaseEnvironment),
+  storageBucket
+});
 
 // Keep the existing application call sites stable while using Firebase Admin's
 // supported modular APIs (v14 no longer exposes the legacy namespace helpers).
-const firestore = () => getFirestore(firebaseApp);
+const firestore = () => getFirestore(firebaseApp, firestoreDatabaseId);
 firestore.FieldPath = FieldPath;
 firestore.FieldValue = FieldValue;
 
@@ -42,9 +67,9 @@ const admin = {
   storage: () => getStorage(firebaseApp)
 };
 
-const db = getFirestore(firebaseApp);
+const db = getFirestore(firebaseApp, firestoreDatabaseId);
 
 // Enable ignoring undefined properties to prevent Firestore validation errors
 db.settings({ ignoreUndefinedProperties: true });
 
-module.exports = { admin, db };
+module.exports = { admin, db, firebaseEnvironment, firestoreDatabaseId, storageBucket };

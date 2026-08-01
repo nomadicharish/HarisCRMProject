@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "haris-business-crm"
+    "default": "haris-business-crm",
+    "qa": "haris-business-crm",
+    "production": "talent-acquisition-2f826"
   }
 }

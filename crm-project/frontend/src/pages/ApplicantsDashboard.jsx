@@ -35,7 +35,7 @@ const APPLICANT_PAGE_SIZE = 15;
 const SEARCH_DEBOUNCE_MS = 300;
 const DASHBOARD_FILTER_STORAGE_KEY = "dashboard_sidebar_filters";
 const SIDEBAR_FILTER_KEYS = ["type", "company", "agency"];
-const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,agencyIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
+const COMPANY_LOOKUP_FIELDS = "id,name,countryId,employerIds,createdAt,jobSpecifications,jobPositions,documentsNeeded";
 const EMPLOYER_LOOKUP_FIELDS = "id,name,companyId,countryId,contactNumber,email,address,createdAt";
 const AGENCY_LOOKUP_FIELDS = "id,name,assignedCompanyIds,contactNumber,email,address,createdAt";
 
@@ -1607,18 +1607,6 @@ function ApplicantsDashboard() {
           totalPages: Number(companiesData?.pagination?.totalPages || 1),
           nextCursor: companiesData?.pagination?.nextCursor || null
         });
-        const [employersData, agenciesData] = await Promise.all([
-          getCached("/employers", {
-            params: { paginated: "false", fields: EMPLOYER_LOOKUP_FIELDS },
-            ttlMs: 600000
-          }),
-          getCached("/agencies", {
-            params: { paginated: "false", fields: AGENCY_LOOKUP_FIELDS },
-            ttlMs: 600000
-          })
-        ]);
-        setEmployers(Array.isArray(employersData) ? employersData : []);
-        setAgencies(Array.isArray(agenciesData) ? agenciesData : []);
       } else if (activeTab === "employers") {
         const [companiesData, employersData] = await Promise.all([
           getCached("/companies", {
@@ -1806,16 +1794,12 @@ function ApplicantsDashboard() {
     return companies.map((company) => ({
         ...company,
         countryName: countryMap[company.countryId] || "-",
-        agencyNames: (company.agencyIds || [])
-          .map((id) => agencies.find((agency) => agency.id === id)?.name)
-          .filter(Boolean)
-          .join(", "),
         jobPositionNames: (company.jobPositions || company.jobSpecifications || [])
           .map((position) => position.title || position.name || position.label)
           .filter(Boolean)
           .join(", ")
       }));
-  }, [agencies, companies, countryMap]);
+  }, [companies, countryMap]);
 
   const employerRows = useMemo(() => {
     return employers;

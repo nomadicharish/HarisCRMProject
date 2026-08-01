@@ -52,7 +52,15 @@ app.use(cors(buildCorsOptions()));
 app.use(createGeneralRateLimiter());
 app.use(correlationId);
 app.use(performanceMetrics);
-app.use(compression());
+// Firebase Hosting handles client-facing compression for Cloud Run rewrites.
+// Avoid compressing API responses in Express as well: for larger responses this
+// can result in a mismatched Content-Encoding header at the rewrite boundary.
+app.use(compression({
+  filter(req, res) {
+    if (req.path.startsWith("/api/")) return false;
+    return compression.filter(req, res);
+  }
+}));
 app.use(express.json({ limit: "1mb" }));
 app.use(responseSanitizer);
 app.use(idempotency());

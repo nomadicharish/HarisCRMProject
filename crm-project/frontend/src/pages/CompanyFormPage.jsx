@@ -113,6 +113,7 @@ const DEFAULT_DOCUMENTS = [
     referenceUrl: defaultDocumentAssetUrl("footwearSize.jpeg")
   },
   { id: "affidavit", name: "AFFIDAVIT", required: true },
+  { id: "pcc", name: "PCC", required: true },
   { id: "additional_document_1", name: "Additional Document", required: false },
   { id: "additional_document_2", name: "Additional Document", required: false },
   { id: "additional_document_3", name: "Additional Document", required: false }
@@ -264,6 +265,7 @@ function CompanyFormPage() {
   const [agencies, setAgencies] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [copiedPositionKey, setCopiedPositionKey] = useState("");
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     name: "",
@@ -393,6 +395,7 @@ function CompanyFormPage() {
     });
     const link = `${window.location.origin}/create-applicant?${params.toString()}`;
 
+    let copied = true;
     try {
       await navigator.clipboard.writeText(link);
     } catch {
@@ -402,10 +405,14 @@ function CompanyFormPage() {
       textArea.style.opacity = "0";
       document.body.appendChild(textArea);
       textArea.select();
-      document.execCommand("copy");
+      copied = document.execCommand("copy");
       document.body.removeChild(textArea);
     }
-    toast.info("Applicant link copied to clipboard");
+    if (!copied) {
+      toast.error("Unable to copy the applicant link. Please try again.");
+      return;
+    }
+    setCopiedPositionKey(position.rowKey);
   };
 
   const addDocument = (positionKey) => {
@@ -703,7 +710,7 @@ function CompanyFormPage() {
                       disabled={!isEdit}
                       title={isEdit ? "Copy link to Add Applicants" : "Save the company to enable this link"}
                     >
-                      Copy link to Add Applicants
+                      {copiedPositionKey === position.rowKey ? "Link Copied" : "Copy link to Add Applicants"}
                     </button>
                     <button
                       type="button"
