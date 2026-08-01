@@ -3237,7 +3237,7 @@
 
 .homePaymentOverview{
   display:grid;
-  grid-template-columns:minmax(0,3fr) minmax(280px,1fr);
+  grid-template-columns:minmax(0,1fr) minmax(300px,330px);
   gap:10px;
   align-items:center;
   padding:0px 24px 0px;
@@ -3930,7 +3930,10 @@
   cursor:pointer;
 }
 
-@media (max-width:1350px){
+/* Keep the summary and pending-applicants panels side by side on desktop.
+   Browser chrome can make the same laptop cross a high viewport breakpoint
+   in one browser but not another. */
+@media (max-width:1050px){
   .homePaymentOverview{
     grid-template-columns:1fr;
   }

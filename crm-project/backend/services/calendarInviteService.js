@@ -7,7 +7,8 @@ const { SUPER_USER_ROLE } = require("../utils/roles");
 
 const DEFAULT_DURATION_MINUTES = Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 60);
 const DEFAULT_TIMEZONE_OFFSET_MINUTES = Number(process.env.CALENDAR_TIMEZONE_OFFSET_MINUTES || 330);
-const PRODUCT_ID = "-//Talent Acquisition CRM//Calendar Invite//EN";
+const APP_NAME = process.env.APP_NAME || "Talent Acquisition";
+const PRODUCT_ID = `-//${APP_NAME}//Calendar Invite//EN`;
 
 const EVENT_CONFIG = {
   embassyAppointment: {
@@ -169,7 +170,7 @@ function buildIcsContent({ uid, sequence, title, description, startDate, endDate
     `DTEND:${formatIcsDate(endDate)}`,
     `SUMMARY:${escapeIcs(title)}`,
     `DESCRIPTION:${escapeIcs(description)}`,
-    `ORGANIZER;CN=Talent Acquisition CRM:mailto:${process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@example.com"}`,
+    `ORGANIZER;CN=${APP_NAME}:mailto:${process.env.SMTP_FROM || process.env.SMTP_USER || "no-reply@example.com"}`,
     attendeeLines,
     "STATUS:CONFIRMED",
     "TRANSP:OPAQUE",
@@ -194,7 +195,7 @@ async function sendCalendarInvite({ applicantRef, applicantId, applicant, eventT
     `Applicant: ${applicantName}`,
     applicant.companyName ? `Company: ${applicant.companyName}` : "",
     applicant.countryName ? `Country: ${applicant.countryName}` : "",
-    "Created by Talent Acquisition CRM"
+    `Created by ${APP_NAME}`
   ].filter(Boolean).join("\n");
 
   const docSnap = await applicantRef.get();

@@ -1,9 +1,9 @@
 import { toast as reactToast } from "react-toastify";
 
 const durationByType = {
-  success: 4000,
-  error: 6000,
-  warning: 6000,
+  success: 3000,
+  error: 4000,
+  warning: 4000,
   info: 4000
 };
 

@@ -315,6 +315,10 @@ function EntityFormModal({
             payload
           });
         }
+
+        if (response?.data?.welcomeEmail?.sent === false) {
+          toast.warning(`${type === "agency" ? "Agency" : "Employer"} was added, but the welcome email was not sent.`);
+        }
       }
 
       const label = type === "agency" ? "Agency" : type === "employer" ? "Employer" : "Company";

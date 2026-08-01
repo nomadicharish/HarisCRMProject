@@ -8,7 +8,7 @@ function CompaniesTable({
   onOpenCompanyEdit,
   onOpenApplicantsForCompany
 }) {
-  const gridTemplateColumns = isSuperUser ? "2fr 1.5fr 1.5fr 1.2fr" : "2fr 1.5fr 1.2fr";
+  const gridTemplateColumns = isSuperUser ? "2fr 1.5fr 1.2fr" : "2fr 1.5fr 1.2fr";
 
   if (rows.length > 40) {
     return (
@@ -17,7 +17,6 @@ function CompaniesTable({
           <div>Company Name</div>
           {isSuperUser ? <div>Job Positions</div> : <div>Country</div>}
           {!isSuperUser ? <div>Applicants</div> : null}
-          {isSuperUser ? <div>Agencies</div> : null}
           {isSuperUser ? <div>Applicants</div> : null}
         </div>
         <VirtualizedRows
@@ -63,7 +62,6 @@ function CompaniesTable({
                   </button>
                 </div>
               ) : null}
-              {isSuperUser ? <div>{company.agencyNames || "-"}</div> : null}
               {isSuperUser ? (
                 <div>
                   <button
@@ -92,14 +90,13 @@ function CompaniesTable({
           <th>Company Name</th>
           {isSuperUser ? <th>Job Positions</th> : <th>Country</th>}
           {!isSuperUser ? <th>Applicants</th> : null}
-          {isSuperUser ? <th>Agencies</th> : null}
           {isSuperUser ? <th>Applicants</th> : null}
         </tr>
       </thead>
       <tbody>
         {rows.length === 0 ? (
           <tr>
-            <td colSpan={isSuperUser ? 4 : 3} className="dashboardEmptyState">
+            <td colSpan={3} className="dashboardEmptyState">
               No companies found for the selected filters.
             </td>
           </tr>
@@ -141,7 +138,6 @@ function CompaniesTable({
                   </button>
                 </td>
               ) : null}
-              {isSuperUser ? <td>{company.agencyNames || "-"}</td> : null}
               {isSuperUser ? (
                 <td>
                   <button

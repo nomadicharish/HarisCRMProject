@@ -170,6 +170,7 @@ const DEFAULT_COMPANY_POSITION_DOCUMENTS = [
     referenceUrl: defaultDocumentAssetUrl("footwearSize.jpeg")
   },
   { id: "affidavit", name: "AFFIDAVIT", required: true },
+  { id: "pcc", name: "PCC", required: true },
   { id: "additional_document_1", name: "Additional Document", required: false },
   { id: "additional_document_2", name: "Additional Document", required: false },
   { id: "additional_document_3", name: "Additional Document", required: false }
