@@ -107,6 +107,18 @@ function Settings() {
     passwordMasked: cachedSettings?.passwordMasked || "********"
   });
 
+  const dashboardTabs = useMemo(() => {
+    const role = form.role || cachedSettings?.role || storedUser?.role;
+    if (["JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"].includes(role)) {
+      return ["home", "applicants"];
+    }
+    return ["home", "applicants", "companies"];
+  }, [cachedSettings?.role, form.role, storedUser?.role]);
+
+  const handleDashboardTabChange = (tabKey) => {
+    navigate(tabKey === "home" ? "/dashboard" : `/dashboard?tab=${tabKey}`);
+  };
+
   useEffect(() => {
     let active = true;
     getCached("/auth/settings", { ttlMs: 120000 })
@@ -151,16 +163,16 @@ function Settings() {
     }
   }, [canManageBankDetails]);
 
-  const loadOrganizationData = useCallback(async () => {
+  const loadOrganizationData = useCallback(async ({ force = false } = {}) => {
     if (!canManageBankDetails) return;
     try {
       setOrganizationLoading(true);
       setError("");
       const [countriesData, companiesData, employersData, agenciesData] = await Promise.all([
-        getCached("/countries", { ttlMs: 120000 }),
-        getCached("/companies", { params: { paginated: "false" }, ttlMs: 600000 }),
-        getCached("/employers", { params: { paginated: "false" }, ttlMs: 600000 }),
-        getCached("/agencies", { params: { paginated: "false" }, ttlMs: 600000 })
+        getCached("/countries", { ttlMs: 120000, force }),
+        getCached("/companies", { params: { paginated: "false" }, ttlMs: 600000, force }),
+        getCached("/employers", { params: { paginated: "false" }, ttlMs: 600000, force }),
+        getCached("/agencies", { params: { paginated: "false" }, ttlMs: 600000, force })
       ]);
       setCountries(normalizeListResponse(countriesData));
       setCompanies(normalizeListResponse(companiesData));
@@ -248,13 +260,19 @@ function Settings() {
     setEntityEditData(editData);
   };
 
-  const handleEntitySaved = async () => {
+  const handleEntitySaved = async (change = {}) => {
+    if (change.operation === "delete" && change.type === "employer") {
+      setEmployers((current) => current.filter((item) => item.id !== change.id));
+    }
+    if (change.operation === "delete" && change.type === "agency") {
+      setAgencies((current) => current.filter((item) => item.id !== change.id));
+    }
     setEntityModalType("");
     setEntityEditData(null);
     invalidateCache("/employers");
     invalidateCache("/agencies");
     invalidateCache("/companies");
-    await loadOrganizationData();
+    await loadOrganizationData({ force: true });
   };
 
   const handleSave = async () => {
@@ -397,6 +415,9 @@ function Settings() {
       setEditingAccountant(null);
       resetAccountantForm();
       toast.success(editingAccountant ? "User updated successfully" : "User added successfully");
+      if (!editingAccountant && response.data?.welcomeEmail?.sent === false) {
+        toast.warning("User was added, but the welcome email was not sent.");
+      }
     } catch (saveError) {
       setAccountantFormErrors((current) => ({
         ...current,
@@ -414,6 +435,8 @@ function Settings() {
       await API.delete(`/auth/accountants/${accountantToRemove.uid}`);
       setAccountants((current) => current.filter((item) => item.uid !== accountantToRemove.uid));
       setAccountantToRemove(null);
+      invalidateCache("/auth/accountants");
+      await loadAccountants();
     } catch (removeError) {
       setError(removeError?.response?.data?.message || "Unable to remove accountant");
     } finally {
@@ -423,7 +446,13 @@ function Settings() {
 
   return (
     <div className="settingsPage">
-      <DashboardTopbar user={{ name: form.name || storedUser?.name || "User", role: form.role || storedUser?.role }} />
+      <DashboardTopbar
+        user={{ name: form.name || storedUser?.name || "User", role: form.role || storedUser?.role }}
+        showTabs
+        tabs={dashboardTabs.map((key) => ({ key, label: key === "home" ? "Home" : key === "applicants" ? "Applicants" : "Companies" }))}
+        activeTab="settings"
+        onTabChange={handleDashboardTabChange}
+      />
       <div className="settingsShell">
         <div className="settingsShellHeader"><h1 className="settingsShellTitle">Settings</h1></div>
         <div className="settingsShellBody">

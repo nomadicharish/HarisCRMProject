@@ -2,7 +2,7 @@ const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
 const { isSuperUserLikeRole } = require("../utils/roles");
 const { encryptText } = require("../utils/crypto");
-const { sendAccountSetupEmail } = require("../services/accountService");
+const { generateOneTimePassword, sendAccountSetupEmail } = require("../services/accountService");
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
@@ -30,9 +30,14 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "Valid email is required" });
     }
 
-    // Create Firebase Auth user
+    const oneTimePassword = generateOneTimePassword();
+
+    // Create Firebase Auth user with a temporary password. The user is forced
+    // to replace it immediately after their first successful login.
     const userRecord = await admin.auth().createUser({
-      email
+      email,
+      password: oneTimePassword,
+      displayName: String(name).trim()
     });
 
     const uid = userRecord.uid;
@@ -53,18 +58,26 @@ const createUser = async (req, res) => {
       createdAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
+    let welcomeEmail;
     try {
-      await sendAccountSetupEmail({ email, name, role });
+      const result = await sendAccountSetupEmail({ email, name, role, oneTimePassword });
+      welcomeEmail = result?.skipped
+        ? { sent: false, reason: result.reason || "send_failed" }
+        : { sent: true, messageId: result?.messageId || null };
     } catch (setupEmailError) {
       logger.error("Account setup email failed", {
         uid,
         message: setupEmailError?.message
       });
+      welcomeEmail = { sent: false, reason: "send_failed" };
     }
 
     return res.status(201).json({
       uid,
-      message: "User created successfully. A password-setup email has been sent if SMTP is configured."
+      message: welcomeEmail?.sent
+        ? "User created successfully. A password-setup email has been sent."
+        : "User created successfully, but the password-setup email could not be sent.",
+      welcomeEmail
     });
 
   } catch (error) {

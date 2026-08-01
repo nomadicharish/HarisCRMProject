@@ -4,6 +4,7 @@ const { logger } = require("../lib/logger");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
 const { decryptText, encryptText } = require("../utils/crypto");
 const { sendEmail } = require("./emailService");
+const { randomInt } = require("crypto");
 
 const DEFAULT_APP_LOGIN_URL = "http://localhost:5173/login";
 const APP_NAME = process.env.APP_NAME || "Talent Acquisition";
@@ -11,6 +12,33 @@ const APP_NAME = process.env.APP_NAME || "Talent Acquisition";
 function getAppLoginUrl() {
   if (process.env.APP_LOGIN_URL) return String(process.env.APP_LOGIN_URL).trim();
   return String(process.env.FRONTEND_URL || DEFAULT_APP_LOGIN_URL).replace(/\/$/, "") + "/login";
+}
+
+function generateOneTimePassword(length = 14) {
+  // Include every required character class so the temporary password also
+  // satisfies the application's password policy.
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghijkmnopqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%&*";
+  const allCharacters = `${upper}${lower}${digits}${symbols}`;
+  const password = [
+    upper[randomInt(upper.length)],
+    lower[randomInt(lower.length)],
+    digits[randomInt(digits.length)],
+    symbols[randomInt(symbols.length)]
+  ];
+
+  while (password.length < Math.max(8, length)) {
+    password.push(allCharacters[randomInt(allCharacters.length)]);
+  }
+
+  for (let index = password.length - 1; index > 0; index -= 1) {
+    const swapIndex = randomInt(index + 1);
+    [password[index], password[swapIndex]] = [password[swapIndex], password[index]];
+  }
+
+  return password.join("");
 }
 
 async function buildUserProfileRecord({ email, name, role, agencyId = null, employerId = null, contactNumber = "" }) {
@@ -57,10 +85,12 @@ async function findLinkedUserByField(fieldName, entityId, role) {
 async function createLinkedUserAccount({ email, name, role, agencyId = null, employerId = null, contactNumber = "" }) {
   const normalizedEmail = normalizeEmailValue(email);
   const normalizedName = String(name || "").trim();
+  const oneTimePassword = generateOneTimePassword();
 
   const userRecord = await admin.auth().createUser({
     email: normalizedEmail,
-    displayName: normalizedName
+    displayName: normalizedName,
+    password: oneTimePassword
   });
 
   await admin.auth().setCustomUserClaims(userRecord.uid, { role });
@@ -84,7 +114,8 @@ async function createLinkedUserAccount({ email, name, role, agencyId = null, emp
     welcomeEmailResult = await sendAccountSetupEmail({
       email: normalizedEmail,
       name: normalizedName,
-      role
+      role,
+      oneTimePassword
     });
   } catch (error) {
     logger.error("Welcome email failed", {
@@ -106,32 +137,33 @@ async function createLinkedUserAccount({ email, name, role, agencyId = null, emp
 
   return {
     uid: userRecord.uid,
-    welcomeEmail: welcomeEmailResult?.skipped ? welcomeEmailResult : { sent: true }
+    welcomeEmail: welcomeEmailResult?.skipped
+      ? { sent: false, reason: welcomeEmailResult.reason || "send_failed" }
+      : { sent: true, messageId: welcomeEmailResult?.messageId || null }
   };
 }
 
-async function sendAccountSetupEmail({ email, name, role }) {
+async function sendAccountSetupEmail({ email, name, role, oneTimePassword }) {
   const displayRole = role === "AGENCY" ? "agency" : role === "EMPLOYER" ? "employer" : String(role || "user").toLowerCase();
   const loginUrl = getAppLoginUrl();
-  const setupUrl = await admin.auth().generatePasswordResetLink(email, { url: loginUrl });
   const subject = `Welcome to ${APP_NAME}`;
   const greetingName = name || "User";
   const text = [
     `Hi ${greetingName},`,
     "",
     `Your ${displayRole} account has been created for ${APP_NAME}.`,
-    `Set your password: ${setupUrl}`,
+    `Your one-time password: ${oneTimePassword}`,
     `Login to ${APP_NAME}: ${loginUrl}`,
     "",
-    "After setting your password, use the login link above to sign in."
+    "Use this password to log in once. You will be required to create a new password immediately after your first login."
   ].join("\n");
 
   const html = `
     <p>Hi ${greetingName},</p>
     <p>Your ${displayRole} account has been created for ${APP_NAME}.</p>
-    <p><a href="${setupUrl}">Set your password</a></p>
-    <p>This one-time link lets you create your password securely.</p>
-    <p>Afterward, <a href="${loginUrl}">log in to ${APP_NAME}</a>.</p>
+    <p>Your one-time password is: <strong>${oneTimePassword}</strong></p>
+    <p><a href="${loginUrl}">Log in to ${APP_NAME}</a>.</p>
+    <p>Use this password to log in once. You will be required to create a new password immediately after your first login.</p>
   `;
 
   return sendEmail({ to: email, subject, text, html });
@@ -188,6 +220,7 @@ module.exports = {
   createLinkedUserAccount,
   deleteLinkedUserAccount,
   findLinkedUserByField,
+  generateOneTimePassword,
   readEncryptedUserContactNumber,
   readEncryptedUserEmail,
   sendAccountSetupEmail,
