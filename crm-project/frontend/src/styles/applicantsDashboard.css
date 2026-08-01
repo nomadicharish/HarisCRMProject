@@ -995,6 +995,7 @@
 .dashboardHeaderSoloAction{
   margin-left:auto;
   display:flex;
+  gap: 12px;
   align-items:center;
   justify-content:flex-end;
 }

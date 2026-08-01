@@ -260,6 +260,11 @@ function CompanyFormPage() {
   const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
 
   const [user, setUser] = useState(null);
+  const isSuperUser = isSuperUserLikeRole(user?.role);
+  const companyDashboardTabs = ["home", "applicants", "companies"];
+  const handleDashboardTabChange = (tabKey) => {
+    navigate(tabKey === "home" ? "/dashboard" : `/dashboard?tab=${encodeURIComponent(tabKey)}`);
+  };
   const [countries, setCountries] = useState([]);
   const [employers, setEmployers] = useState([]);
   const [agencies, setAgencies] = useState([]);
@@ -555,7 +560,13 @@ function CompanyFormPage() {
   if (pageLoading) {
     return (
       <div className="page-container">
-        <DashboardTopbar user={user} />
+        <DashboardTopbar
+          user={user}
+          showTabs={isSuperUser}
+          tabs={companyDashboardTabs.map((key) => ({ key, label: key === "home" ? "Home" : key === "applicants" ? "Applicants" : "Companies" }))}
+          activeTab="companies"
+          onTabChange={handleDashboardTabChange}
+        />
         <PageLoader label="Loading company..." />
       </div>
     );
@@ -563,7 +574,13 @@ function CompanyFormPage() {
 
   return (
     <div className="page-container companyFormPage">
-      <DashboardTopbar user={user} />
+      <DashboardTopbar
+        user={user}
+        showTabs={isSuperUser}
+        tabs={companyDashboardTabs.map((key) => ({ key, label: key === "home" ? "Home" : key === "applicants" ? "Applicants" : "Companies" }))}
+        activeTab="companies"
+        onTabChange={handleDashboardTabChange}
+      />
       <BlockingLoader open={saving} label={isEdit ? "Updating company..." : "Creating company..."} />
       <main className="companyFormShell">
         <section className="companyFormCard">

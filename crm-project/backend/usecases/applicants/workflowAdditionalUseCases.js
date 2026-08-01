@@ -218,7 +218,9 @@ async function addTravelDetailsUseCase(req) {
     throw new AppError("Cannot add travel details before embassy appointment completion stage", 400);
   }
 
-  const previousTravelFileUrl = applicantSnap.data()?.travelDetails?.fileUrl || "";
+  const previousTravelDetails = applicantSnap.data()?.travelDetails || {};
+  const previousTravelFileUrl = previousTravelDetails.fileUrl || "";
+  const isUpdate = Boolean(previousTravelDetails.travelDate || previousTravelDetails.time || previousTravelFileUrl);
   await applicantRef.set(
     {
       travelDetails: {
@@ -243,7 +245,8 @@ async function addTravelDetailsUseCase(req) {
     applicantId,
     applicant: applicantSnap.data() || {},
     user: req.user,
-    actionKey: "TRAVEL_DETAILS_ADDED"
+    actionKey: "TRAVEL_DETAILS_ADDED",
+    isUpdate
   });
   return { message: "Travel details saved" };
 }
@@ -579,7 +582,8 @@ async function addVisaCollectionTravelUseCase(req) {
     applicantId,
     applicant,
     user: req.user,
-    actionKey: "VISA_COLLECTION_TRAVEL_ADDED"
+    actionKey: "VISA_COLLECTION_TRAVEL_ADDED",
+    isUpdate: Boolean(previous.date || previous.time || previous.fileUrl)
   });
   if (advancedToArrival) {
     await recordAgencyTask({
@@ -624,9 +628,10 @@ async function getTravelNotificationRecipients(applicant = {}) {
   }));
 
   const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
-  const employerIds = companyDoc?.exists && Array.isArray(companyDoc.data()?.employerIds)
-    ? companyDoc.data().employerIds
-    : [];
+  const employerIds = [...new Set([
+    ...(companyDoc?.exists && Array.isArray(companyDoc.data()?.employerIds) ? companyDoc.data().employerIds : []),
+    applicant.employerId
+  ].map((id) => String(id || "").trim()).filter(Boolean))];
 
   const employerDocs = employerIds.length
     ? await db.getAll(...employerIds.map((id) => db.collection("employers").doc(id)))
@@ -652,18 +657,38 @@ async function getTravelNotificationRecipients(applicant = {}) {
   return Array.from(recipients);
 }
 
+async function getStorageEmailAttachment(storagePath, filename) {
+  if (!storagePath) return null;
+  try {
+    const [content] = await admin.storage().bucket().file(storagePath).download();
+    return { filename, content };
+  } catch (error) {
+    console.warn("Unable to attach applicant arrival document", {
+      storagePath,
+      message: error.message
+    });
+    return null;
+  }
+}
+
 async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isUpdate }) {
   const recipients = await getTravelNotificationRecipients(applicant);
-  if (!recipients.length) return;
+  if (!recipients.length) return { skipped: true, reason: "no_recipients" };
 
   const applicantName = getApplicantDisplayName(applicant);
+  const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
+  const companyName = applicant.companyName || (companyDoc?.exists ? companyDoc.data()?.name : "") || "-";
+  const contactNumber = applicant?.personalDetails?.phone || applicant.phone || applicant.contactNumber || "-";
   const subject = `${isUpdate ? "Arrival Travel details changed" : "Arrival Travel details added"} for ${applicantName}`;
-  const attachments = [
-    arrivalDetails.fileUrl ? { filename: "travel-ticket", path: arrivalDetails.fileUrl } : null,
-    arrivalDetails.busTicketUrl ? { filename: "bus-ticket", path: arrivalDetails.busTicketUrl } : null
-  ].filter(Boolean);
+  const attachments = (await Promise.all([
+    getStorageEmailAttachment(arrivalDetails.fileUrl, "travel-ticket"),
+    getStorageEmailAttachment(arrivalDetails.busTicketUrl, "bus-ticket")
+  ])).filter(Boolean);
   const lines = [
-    `Applicant: ${applicantName}`,
+    `Name: ${applicantName}`,
+    `Company: ${companyName}`,
+    `Job Position: ${applicant.jobPositionName || "-"}`,
+    `Contact number: ${contactNumber}`,
     `Flight arrival date: ${arrivalDetails.date || "-"}`,
     `Flight arrival time: ${arrivalDetails.time || "-"}`,
     `Flight number: ${arrivalDetails.flightNumber || "-"}`,
@@ -672,18 +697,17 @@ async function sendApplicantArrivalDetailsEmail({ applicant, arrivalDetails, isU
     `Bus arrival date: ${arrivalDetails.arrivalBusDate || "-"}`,
     `Arrival bus time: ${arrivalDetails.arrivalBusTime || "-"}`,
     `Bus arrival place: ${arrivalDetails.busArrivalPlace || "-"}`,
-    `Hotel name and address: ${arrivalDetails.hotelNameAddress || "-"}`,
-    arrivalDetails.fileUrl ? `Travel ticket: ${arrivalDetails.fileUrl}` : "",
-    arrivalDetails.busTicketUrl ? `Bus ticket: ${arrivalDetails.busTicketUrl}` : ""
+    `Hotel name and address: ${arrivalDetails.hotelNameAddress || "-"}`
   ].filter(Boolean);
 
-  await sendEmail({
+  const result = await sendEmail({
     to: recipients,
     subject,
     text: lines.join("\n"),
     html: lines.map((line) => `<p>${String(line).replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>`).join(""),
     attachments
   });
+  return { recipients, result };
 }
 
 function isTruthyFormFlag(value) {
@@ -789,7 +813,8 @@ async function addVisaTravelUseCase(req) {
     applicantId,
     applicant: applicantData,
     user: req.user,
-    actionKey: "ARRIVAL_DETAILS_ADDED"
+    actionKey: "ARRIVAL_DETAILS_ADDED",
+    isUpdate
   });
   try {
     await sendApplicantArrivalDetailsEmail({ applicant: applicantData, arrivalDetails, isUpdate });
@@ -881,7 +906,8 @@ async function uploadResidencePermitUseCase(req) {
     applicantId,
     applicant: applicantData,
     user: req.user,
-    actionKey: "TRC_ADDED"
+    actionKey: "TRC_ADDED",
+    isUpdate: Boolean(previousSideUrl)
   });
   if (advancedToArrival) {
     await recordAgencyTask({
@@ -920,6 +946,7 @@ module.exports = {
   getVisaCollectionUseCase,
   getVisaCollectionTravelUseCase,
   getVisaTravelUseCase,
+  sendApplicantArrivalDetailsEmail,
   uploadBiometricSlipUseCase,
   uploadResidencePermitUseCase
 };

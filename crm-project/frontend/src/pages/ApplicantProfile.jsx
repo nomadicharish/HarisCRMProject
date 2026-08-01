@@ -73,7 +73,7 @@ function ApplicantProfile() {
   const profileCacheTtlMs = 120000;
   const profileDashboardTabs = useMemo(() => {
     if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
-    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["applicants", "companies"];
+    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["home", "applicants", "companies"];
     return ["applicants"];
   }, [user?.role]);
   const handleDashboardTabChange = useCallback(
