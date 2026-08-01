@@ -77,10 +77,8 @@ function ApplicantFormModal({
 
   const navigate = useNavigate();
   const pageDashboardTabs = useMemo(() => {
-    if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
-    if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["home", "applicants", "companies"];
-    if (user?.role === "SENIOR_ACCOUNTANT") return ["home", "applicants"];
-    return ["applicants"];
+    if (user?.role === "JUNIOR_ACCOUNTANT") return ["home", "applicants"];
+    return ["home", "applicants", "companies"];
   }, [user?.role]);
 
   const getStep1Errors = () => {
