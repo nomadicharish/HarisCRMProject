@@ -14,7 +14,7 @@ function getAppLoginUrl() {
   return String(process.env.FRONTEND_URL || DEFAULT_APP_LOGIN_URL).replace(/\/$/, "") + "/login";
 }
 
-function generateOneTimePassword(length = 14) {
+function generateOneTimePassword(length = 8) {
   // Include every required character class so the temporary password also
   // satisfies the application's password policy.
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
