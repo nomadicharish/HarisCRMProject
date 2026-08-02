@@ -205,7 +205,9 @@ async function addDailyEvent(payload = {}) {
 
 async function safeAddDailyEvent(payload = {}) {
   try {
-    await addDailyEvent(payload);
+    // Daily status email delivery is disabled. Avoid an unused write for every
+    // in-app notification; notificationEvents remains the UI source of truth.
+    if (DAILY_STATUS_EMAILS_ENABLED) await addDailyEvent(payload);
     await addAppNotificationEvent(payload);
   } catch (error) {
     logger.error("Daily notification event logging failed", {
@@ -253,6 +255,11 @@ async function getApplicantStages(applicantIds = []) {
   }, {});
 }
 
+function getProvidedApplicantStages(payload = {}) {
+  const stages = { ...(payload.applicantStages || {}) };
+  return stages;
+}
+
 async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}) {
   const actionKey = payload.actionKey || "";
   if (!actionKey) return;
@@ -266,7 +273,14 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
   // Capture the current workflow stage when the notification is written. The
   // list endpoint uses this to remove an applicant from an old stage group as
   // soon as they progress.
-  const applicantStages = await getApplicantStages(applicantIds);
+  // Bulk handlers can supply an exact stage map from their selected records.
+  // Other workflows retain the current-document lookup so stage filtering stays
+  // correct when that workflow changes the applicant stage.
+  const applicantStages = getProvidedApplicantStages(payload);
+  const missingApplicantIds = applicantIds.filter((id) => !applicantStages[id]);
+  if (missingApplicantIds.length) {
+    Object.assign(applicantStages, await getApplicantStages(missingApplicantIds));
+  }
   const event = {
     actionKey,
     actionLabel: payload.actionLabel || meta.title,
@@ -508,6 +522,11 @@ async function recordBulkContractUpload({ applicants = [], user = {}, companyId 
     applicantIds,
     applicantId: applicantIds[0] || "",
     applicantName: getApplicantDisplayName(firstApplicant),
+    applicantStages: Object.fromEntries(
+      applicants
+        .filter((applicant) => applicant?.id)
+        .map((applicant) => [applicant.id, Number(applicant.stage || 1)])
+    ),
     actorId: user.uid || "",
     actorRole: user.role || "",
     actorName,
@@ -768,14 +787,17 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
     const cursorDate = new Date(cursor);
     if (!Number.isNaN(cursorDate.getTime())) query = query.startAfter(cursorDate);
   }
-  const [unreadCount, snapshot] = await Promise.all([getActionableUnreadNotificationCount(user), query.get()]);
+  // notificationUnreadCount is updated in the same write batch as each event.
+  // Reading it directly avoids a 400-event scan (and applicant lookups) every
+  // time the notification panel is opened.
+  const [summary, snapshot] = await Promise.all([getNotificationSummary(user.uid), query.get()]);
   const hasMore = snapshot.docs.length > safeLimit;
   const pageDocs = snapshot.docs.slice(0, safeLimit);
   const rawItems = pageDocs.map(mapNotificationDocument);
   const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems, user.role), user);
   return {
     items,
-    unreadCount,
+    unreadCount: summary.unreadCount,
     limit: safeLimit,
     hasMore,
     nextCursor: hasMore && pageDocs.length ? pageDocs[pageDocs.length - 1].data().createdAt.toDate().toISOString() : null
@@ -783,7 +805,7 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
 }
 
 async function getUnreadNotificationCount(user = {}) {
-  return { unreadCount: await getActionableUnreadNotificationCount(user) };
+  return getNotificationSummary(user.uid);
 }
 
 async function markNotificationRead(user = {}, notificationId = "") {
@@ -791,7 +813,13 @@ async function markNotificationRead(user = {}, notificationId = "") {
   const notificationRef = db.collection(APP_NOTIFICATION_COLLECTION).doc(notificationId);
   const notification = await notificationRef.get();
   if (notification.exists && notification.data()?.userId === user.uid && notification.data()?.read !== true) {
-    await notificationRef.update({ read: true, readAt: new Date() });
+    const batch = db.batch();
+    batch.update(notificationRef, { read: true, readAt: new Date() });
+    batch.set(db.collection("users").doc(user.uid), {
+      notificationUnreadCount: admin.firestore.FieldValue.increment(-1),
+      notificationUpdatedAt: new Date()
+    }, { merge: true });
+    await batch.commit();
   }
   return getUnreadNotificationCount(user);
 }
