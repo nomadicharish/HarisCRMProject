@@ -72,6 +72,16 @@ async function getApplicantProfilePhotoUrl(applicantId) {
   return data?.latestVersion?.fileUrl || data?.fileUrl || "";
 }
 
+async function syncApplicantDocumentStageFromSummary(applicantId, applicant, user) {
+  // Document mutations always refresh docSummary. On profile reads, use that
+  // materialized result instead of re-reading every document and the company
+  // configuration. This retains automatic stage advancement when all required
+  // documents are approved and removes the expensive read-time scan.
+  const documentSummary = applicant?.docSummary || applicant?.documentSummary || {};
+  if (documentSummary.allRequiredApproved !== true) return applicant;
+  return syncApplicantDocumentStage(applicantId, applicant, user?.uid, user?.role);
+}
+
 async function assertEmployerApplicantAccess(req, applicant) {
   if (req.user?.role !== "EMPLOYER") throw new AppError("Only Employer can access quick print assets", 403);
   let employerId = req.user?.employerId || "";
@@ -163,7 +173,7 @@ async function getApplicantByIdUseCase(req) {
   if (!doc.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = doc.data() || {};
-  const applicantData = await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
+  const applicantData = await syncApplicantDocumentStageFromSummary(applicantId, applicant, req.user);
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
     applicantData.companyId ? db.collection("companies").doc(applicantData.companyId).get() : Promise.resolve(null),
@@ -291,7 +301,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = applicantSnap.data() || {};
-  const applicantData = await syncApplicantDocumentStage(applicantId, applicant, req.user?.uid, req.user?.role);
+  const applicantData = await syncApplicantDocumentStageFromSummary(applicantId, applicant, req.user);
   const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
