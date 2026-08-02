@@ -1548,7 +1548,7 @@ function ApplicantsDashboard() {
         getCached("/countries", { ttlMs: 600000 }),
         activeTab === "home"
           ? Promise.resolve({ items: [], pagination: { page: 1, limit: APPLICANT_PAGE_SIZE, total: 0, totalPages: 1 } })
-          : getCached("/applicants", { params: applicantsParams, ttlMs: 15000 })
+          : getCached("/applicants", { params: applicantsParams, ttlMs: 30000 })
       ]);
 
       setUser(userData || null);
