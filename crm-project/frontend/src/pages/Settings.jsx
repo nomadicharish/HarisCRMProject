@@ -109,9 +109,7 @@ function Settings() {
 
   const dashboardTabs = useMemo(() => {
     const role = form.role || cachedSettings?.role || storedUser?.role;
-    if (["JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"].includes(role)) {
-      return ["home", "applicants"];
-    }
+    if (role === "JUNIOR_ACCOUNTANT") return ["home", "applicants"];
     return ["home", "applicants", "companies"];
   }, [cachedSettings?.role, form.role, storedUser?.role]);
 

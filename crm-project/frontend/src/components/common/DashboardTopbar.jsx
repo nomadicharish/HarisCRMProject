@@ -60,7 +60,7 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
             onClick={() => setShowProfilePanel((value) => !value)}
           >
             <span className="dashboardUserAvatar">{userInitials}</span>
-            <div className="dashboardUserName">{user?.role === "SUPER_USER" ? "Super User" : user?.name || "User"}</div>
+            <div className="dashboardUserName">{user?.name || "User"}</div>
             <img src={DOWN_ICON_SRC} alt="" className="dashboardInlineIcon dashboardUserChevronImg" />
           </button>
         </div>

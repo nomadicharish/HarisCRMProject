@@ -56,7 +56,9 @@ const ACTION_META = {
   SIGNED_CONTRACT_UPLOADED: { title: "Signed Contract Uploaded", tone: "purple", icon: "document", verb: "uploaded signed contract" },
   SIGNED_CONTRACT_REJECTED: { title: "Signed Contract Rejected", tone: "pink", icon: "document", verb: "rejected signed contract" },
   TRAVEL_DETAILS_ADDED: { title: "Travel Details Added", tone: "blue", icon: "calendar", verb: "added travel details" },
+  TRAVEL_DETAILS_UPDATED: { title: "Travel Details Updated", tone: "blue", icon: "calendar", verb: "updated travel details" },
   VISA_COLLECTION_TRAVEL_ADDED: { title: "Visa Collection Travel Added", tone: "blue", icon: "calendar", verb: "added visa collection travel details" },
+  VISA_COLLECTION_TRAVEL_UPDATED: { title: "Visa Collection Travel Updated", tone: "blue", icon: "calendar", verb: "updated visa collection travel details" },
   PAYMENT_ADDED: { title: "Payment Added", tone: "blue", icon: "wallet", verb: "added payment details" },
   PAYMENT_ACKNOWLEDGED: { title: "Payment Acknowledged", tone: "blue", icon: "wallet", verb: "acknowledged payment" },
   PAYMENT_CONFIRMED: { title: "Payment Confirmation", tone: "green", icon: "wallet", verb: "confirmed payment" },
@@ -72,17 +74,22 @@ const ACTION_META = {
   VISA_COLLECTION_APPROVED: { title: "Visa Collection Approved", tone: "green", icon: "document", verb: "approved visa collection" },
   VISA_COLLECTION_COMPLETED: { title: "Visa Collection Travel Added", tone: "blue", icon: "calendar", verb: "added visa collection travel" },
   ARRIVAL_DETAILS_ADDED: { title: "Arrival Details Added", tone: "blue", icon: "send", verb: "added arrival details" },
+  ARRIVAL_DETAILS_UPDATED: { title: "Arrival Details Updated", tone: "blue", icon: "send", verb: "updated arrival details" },
   PROCESS_COMPLETED: { title: "Candidate Arrival Completed", tone: "green", icon: "send", verb: "marked candidate arrival and completion" },
   COMPANY_ASSIGNED: { title: "New Company Added", tone: "blue", icon: "building", verb: "added company" },
-  TRC_ADDED: { title: "TRC Added", tone: "green", icon: "document", verb: "added TRC" }
+  TRC_ADDED: { title: "TRC Added", tone: "green", icon: "document", verb: "added TRC" },
+  TRC_UPDATED: { title: "TRC Updated", tone: "green", icon: "document", verb: "updated TRC" }
 };
 
 const EMPLOYER_VISIBLE_AGENCY_ACTIONS = new Set([
   "DOCUMENT_DISPATCHED",
   "SIGNED_CONTRACT_UPLOADED",
   "TRAVEL_DETAILS_ADDED",
+  "TRAVEL_DETAILS_UPDATED",
   "VISA_COLLECTION_TRAVEL_ADDED",
+  "VISA_COLLECTION_TRAVEL_UPDATED",
   "ARRIVAL_DETAILS_ADDED",
+  "ARRIVAL_DETAILS_UPDATED",
   "EMBASSY_APPOINTMENT_COMPLETED",
   "EMBASSY_INTERVIEW_COMPLETED",
   "VISA_COLLECTION_COMPLETED"
@@ -198,7 +205,9 @@ async function addDailyEvent(payload = {}) {
 
 async function safeAddDailyEvent(payload = {}) {
   try {
-    await addDailyEvent(payload);
+    // Daily status email delivery is disabled. Avoid an unused write for every
+    // in-app notification; notificationEvents remains the UI source of truth.
+    if (DAILY_STATUS_EMAILS_ENABLED) await addDailyEvent(payload);
     await addAppNotificationEvent(payload);
   } catch (error) {
     logger.error("Daily notification event logging failed", {
@@ -246,6 +255,11 @@ async function getApplicantStages(applicantIds = []) {
   }, {});
 }
 
+function getProvidedApplicantStages(payload = {}) {
+  const stages = { ...(payload.applicantStages || {}) };
+  return stages;
+}
+
 async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}) {
   const actionKey = payload.actionKey || "";
   if (!actionKey) return;
@@ -259,7 +273,14 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
   // Capture the current workflow stage when the notification is written. The
   // list endpoint uses this to remove an applicant from an old stage group as
   // soon as they progress.
-  const applicantStages = await getApplicantStages(applicantIds);
+  // Bulk handlers can supply an exact stage map from their selected records.
+  // Other workflows retain the current-document lookup so stage filtering stays
+  // correct when that workflow changes the applicant stage.
+  const applicantStages = getProvidedApplicantStages(payload);
+  const missingApplicantIds = applicantIds.filter((id) => !applicantStages[id]);
+  if (missingApplicantIds.length) {
+    Object.assign(applicantStages, await getApplicantStages(missingApplicantIds));
+  }
   const event = {
     actionKey,
     actionLabel: payload.actionLabel || meta.title,
@@ -501,6 +522,11 @@ async function recordBulkContractUpload({ applicants = [], user = {}, companyId 
     applicantIds,
     applicantId: applicantIds[0] || "",
     applicantName: getApplicantDisplayName(firstApplicant),
+    applicantStages: Object.fromEntries(
+      applicants
+        .filter((applicant) => applicant?.id)
+        .map((applicant) => [applicant.id, Number(applicant.stage || 1)])
+    ),
     actorId: user.uid || "",
     actorRole: user.role || "",
     actorName,
@@ -534,17 +560,24 @@ async function recordAdminApproval({ applicantId, applicant = {}, user = {}, act
   });
 }
 
-async function recordAgencyTask({ applicantId, applicant = {}, user = {}, actionKey }) {
+async function recordAgencyTask({ applicantId, applicant = {}, user = {}, actionKey, isUpdate = false }) {
   if (user?.role !== "AGENCY") return;
+  const updateActionKeys = {
+    TRAVEL_DETAILS_ADDED: "TRAVEL_DETAILS_UPDATED",
+    VISA_COLLECTION_TRAVEL_ADDED: "VISA_COLLECTION_TRAVEL_UPDATED",
+    ARRIVAL_DETAILS_ADDED: "ARRIVAL_DETAILS_UPDATED",
+    TRC_ADDED: "TRC_UPDATED"
+  };
+  const resolvedActionKey = isUpdate ? updateActionKeys[actionKey] || actionKey : actionKey;
   const agencyId = user.agencyId || applicant.agencyId || "";
   const agency = await getAgency(agencyId);
-  const normalizedActionKey = actionKey === "DOCUMENT_DISPATCHED"
+  const normalizedActionKey = resolvedActionKey === "DOCUMENT_DISPATCHED"
     ? "DOCUMENT_DISPATCHED"
-    : actionKey === "SIGNED_CONTRACT_UPLOADED"
+    : resolvedActionKey === "SIGNED_CONTRACT_UPLOADED"
       ? "SIGNED_CONTRACT_UPLOADED"
-      : actionKey === "DOCUMENT_UPLOADED"
+      : resolvedActionKey === "DOCUMENT_UPLOADED"
         ? "DOCUMENT_UPLOADED"
-        : actionKey;
+        : resolvedActionKey;
   await safeAddDailyEvent({
     type: "AGENCY_DAILY_TASK",
     actionKey: normalizedActionKey,
@@ -754,14 +787,17 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
     const cursorDate = new Date(cursor);
     if (!Number.isNaN(cursorDate.getTime())) query = query.startAfter(cursorDate);
   }
-  const [unreadCount, snapshot] = await Promise.all([getActionableUnreadNotificationCount(user), query.get()]);
+  // notificationUnreadCount is updated in the same write batch as each event.
+  // Reading it directly avoids a 400-event scan (and applicant lookups) every
+  // time the notification panel is opened.
+  const [summary, snapshot] = await Promise.all([getNotificationSummary(user.uid), query.get()]);
   const hasMore = snapshot.docs.length > safeLimit;
   const pageDocs = snapshot.docs.slice(0, safeLimit);
   const rawItems = pageDocs.map(mapNotificationDocument);
   const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems, user.role), user);
   return {
     items,
-    unreadCount,
+    unreadCount: summary.unreadCount,
     limit: safeLimit,
     hasMore,
     nextCursor: hasMore && pageDocs.length ? pageDocs[pageDocs.length - 1].data().createdAt.toDate().toISOString() : null
@@ -769,7 +805,7 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
 }
 
 async function getUnreadNotificationCount(user = {}) {
-  return { unreadCount: await getActionableUnreadNotificationCount(user) };
+  return getNotificationSummary(user.uid);
 }
 
 async function markNotificationRead(user = {}, notificationId = "") {
@@ -777,7 +813,13 @@ async function markNotificationRead(user = {}, notificationId = "") {
   const notificationRef = db.collection(APP_NOTIFICATION_COLLECTION).doc(notificationId);
   const notification = await notificationRef.get();
   if (notification.exists && notification.data()?.userId === user.uid && notification.data()?.read !== true) {
-    await notificationRef.update({ read: true, readAt: new Date() });
+    const batch = db.batch();
+    batch.update(notificationRef, { read: true, readAt: new Date() });
+    batch.set(db.collection("users").doc(user.uid), {
+      notificationUnreadCount: admin.firestore.FieldValue.increment(-1),
+      notificationUpdatedAt: new Date()
+    }, { merge: true });
+    await batch.commit();
   }
   return getUnreadNotificationCount(user);
 }

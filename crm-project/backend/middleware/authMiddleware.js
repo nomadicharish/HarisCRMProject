@@ -2,7 +2,11 @@ const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
 
 const TOKEN_CACHE_TTL_MS = Number(process.env.AUTH_TOKEN_CACHE_TTL_MS || 15_000);
-const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 30_000);
+// Every API request authenticates through this middleware. User profiles change
+// infrequently, so a short server-side cache prevents a Firestore read per API
+// request while keeping account changes responsive. Set the environment value
+// lower when an immediate role/assignment rollout is required.
+const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 120_000);
 const AUTH_USER_CACHE_TTL_MS = Number(process.env.AUTH_USER_CACHE_TTL_MS || 60_000);
 const AUTH_ADMIN_PATH_PREFIXES = String(
   process.env.AUTH_ADMIN_PATH_PREFIXES || "/api/users/disable,/api/auth/disable-user"
@@ -101,6 +105,12 @@ const verifyToken = async (req, res, next) => {
     const userProfile = await getUserProfileCached(decoded.uid);
 
     if (!userProfile?.active) {
+      logger.warn("Authorization rejected: inactive or missing user profile", {
+        path: req.originalUrl,
+        uid: decoded.uid,
+        profileFound: Boolean(userProfile),
+        active: userProfile?.active
+      });
       return res.status(401).json({ message: "Unauthorized" });
     }
 
@@ -116,6 +126,10 @@ const verifyToken = async (req, res, next) => {
     const role = userProfile?.role;
 
     if (!role) {
+      logger.warn("Authorization rejected: user profile has no role", {
+        path: req.originalUrl,
+        uid: decoded.uid
+      });
       return res.status(401).json({ message: "Unauthorized" });
     }
 

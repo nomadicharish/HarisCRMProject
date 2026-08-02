@@ -4,6 +4,10 @@ const { getFirestore, FieldPath, FieldValue } = require("firebase-admin/firestor
 const { getStorage } = require("firebase-admin/storage");
 
 const DEFAULT_STORAGE_BUCKET = "haris-business-crm.firebasestorage.app";
+const DEFAULT_PROJECT_IDS = {
+  qa: "haris-business-crm",
+  production: "talent-acquisition-2f826"
+};
 const FIREBASE_ENVIRONMENTS = new Set(["qa", "production"]);
 const DEFAULT_FIRESTORE_DATABASE_ID = "(default)";
 
@@ -45,6 +49,15 @@ function loadCredential(environment) {
 
 const firebaseEnvironment = getFirebaseEnvironment();
 const storageBucket = getEnvironmentValue(firebaseEnvironment, "STORAGE_BUCKET") || DEFAULT_STORAGE_BUCKET;
+// Application Default Credentials do not always expose their project ID to the
+// Firebase Admin SDK (notably in Cloud Run revisions created without an
+// explicit project setting). Set it on the app so ID-token verification always
+// targets the intended Firebase project.
+const firebaseProjectId = String(
+  getEnvironmentValue(firebaseEnvironment, "PROJECT_ID") ||
+  process.env.GOOGLE_CLOUD_PROJECT ||
+  DEFAULT_PROJECT_IDS[firebaseEnvironment]
+).trim();
 const firestoreDatabaseId = String(
   process.env.FIREBASE_FIRESTORE_DATABASE_ID || DEFAULT_FIRESTORE_DATABASE_ID
 ).trim();
@@ -52,7 +65,8 @@ const firestoreDatabaseId = String(
 // Initialize only once
 const firebaseApp = getApps()[0] || initializeApp({
   credential: loadCredential(firebaseEnvironment),
-  storageBucket
+  storageBucket,
+  projectId: firebaseProjectId
 });
 
 // Keep the existing application call sites stable while using Firebase Admin's
@@ -72,4 +86,4 @@ const db = getFirestore(firebaseApp, firestoreDatabaseId);
 // Enable ignoring undefined properties to prevent Firestore validation errors
 db.settings({ ignoreUndefinedProperties: true });
 
-module.exports = { admin, db, firebaseEnvironment, firestoreDatabaseId, storageBucket };
+module.exports = { admin, db, firebaseEnvironment, firebaseProjectId, firestoreDatabaseId, storageBucket };
