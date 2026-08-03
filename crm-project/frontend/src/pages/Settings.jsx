@@ -15,6 +15,8 @@ import { toast } from "../utils/toast";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
 
+const SETTINGS_MODULE_VERSION = "2026-08-02.1";
+
 function getInitials(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
   return parts.length ? parts.map((part) => part[0]).join("").toUpperCase() : "U";
@@ -443,7 +445,7 @@ function Settings() {
   };
 
   return (
-    <div className="settingsPage">
+    <div className="settingsPage" data-module-version={SETTINGS_MODULE_VERSION}>
       <DashboardTopbar
         user={{ name: form.name || storedUser?.name || "User", role: form.role || storedUser?.role }}
         showTabs

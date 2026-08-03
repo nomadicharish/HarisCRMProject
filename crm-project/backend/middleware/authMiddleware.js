@@ -60,10 +60,16 @@ async function decodeTokenCached(token) {
 
 async function getUserProfileCached(uid) {
   const cached = getCached(userProfileCache, uid);
-  if (cached) return cached;
+  // A user who has just completed the mandatory first-login password change
+  // must not remain blocked by an older cached `forcePasswordReset: true`
+  // profile. Read those profiles fresh so their next request can proceed as
+  // soon as the password-change transaction updates Firestore.
+  if (cached && !cached.forcePasswordReset) return cached;
   const userDoc = await db.collection("users").doc(uid).get();
   const userProfile = userDoc.exists ? userDoc.data() : null;
-  setCached(userProfileCache, uid, userProfile, USER_PROFILE_CACHE_TTL_MS);
+  if (!userProfile?.forcePasswordReset) {
+    setCached(userProfileCache, uid, userProfile, USER_PROFILE_CACHE_TTL_MS);
+  }
   return userProfile;
 }
 

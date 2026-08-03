@@ -4,20 +4,42 @@ import ThemedToastContainer from "./components/common/ThemedToastContainer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { getStoredToken } from "./utils/auth";
 
-const ApplicantDocumentsWorkspace = lazy(() => import("./pages/ApplicantDocumentsWorkspace"));
-const ApplicantProfile = lazy(() => import("./pages/ApplicantProfile"));
-const ApplicantPayments = lazy(() => import("./pages/ApplicantPayments"));
-const ApplicantQuickPrint = lazy(() => import("./pages/ApplicantQuickPrint"));
-const ApplicantsDashboard = lazy(() => import("./pages/ApplicantsDashboard"));
-const ChangePassword = lazy(() => import("./pages/ChangePassword"));
-const CompanyFormPage = lazy(() => import("./pages/CompanyFormPage"));
-const CreateApplicant = lazy(() => import("./pages/CreateApplicant"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const ForgotPassword = lazy(() => import("./pages/ForgotPassword"));
-const Login = lazy(() => import("./pages/Login"));
-const Notifications = lazy(() => import("./pages/Notifications"));
-const Settings = lazy(() => import("./pages/Settings"));
-const SettingsChangePassword = lazy(() => import("./pages/SettingsChangePassword"));
+const CHUNK_RELOAD_KEY = "talent-acquisition:chunk-reload";
+
+function lazyWithReload(importer) {
+  return lazy(async () => {
+    try {
+      const module = await importer();
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      return module;
+    } catch (error) {
+      // A deployment can remove a hashed lazy chunk while an older app shell
+      // is open. Reload once to obtain the current entry bundle and its chunks.
+      if (!sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      sessionStorage.removeItem(CHUNK_RELOAD_KEY);
+      throw error;
+    }
+  });
+}
+
+const ApplicantDocumentsWorkspace = lazyWithReload(() => import("./pages/ApplicantDocumentsWorkspace"));
+const ApplicantProfile = lazyWithReload(() => import("./pages/ApplicantProfile"));
+const ApplicantPayments = lazyWithReload(() => import("./pages/ApplicantPayments"));
+const ApplicantQuickPrint = lazyWithReload(() => import("./pages/ApplicantQuickPrint"));
+const ApplicantsDashboard = lazyWithReload(() => import("./pages/ApplicantsDashboard"));
+const ChangePassword = lazyWithReload(() => import("./pages/ChangePassword"));
+const CompanyFormPage = lazyWithReload(() => import("./pages/CompanyFormPage"));
+const CreateApplicant = lazyWithReload(() => import("./pages/CreateApplicant"));
+const Dashboard = lazyWithReload(() => import("./pages/Dashboard"));
+const ForgotPassword = lazyWithReload(() => import("./pages/ForgotPassword"));
+const Login = lazyWithReload(() => import("./pages/Login"));
+const Notifications = lazyWithReload(() => import("./pages/Notifications"));
+const Settings = lazyWithReload(() => import("./pages/Settings"));
+const SettingsChangePassword = lazyWithReload(() => import("./pages/SettingsChangePassword"));
 
 function App() {
   useEffect(() => {

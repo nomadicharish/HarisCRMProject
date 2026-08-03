@@ -10,6 +10,8 @@ import { toast } from "../../utils/toast";
 import "../../styles/forms.css";
 import "../../styles/applicantContract.css";
 
+const ENTITY_FORM_MODULE_VERSION = "2026-08-02.1";
+
 const createSelectStyles = (hasError = false) => ({
   control: (base, state) => ({
     ...base,
@@ -369,7 +371,7 @@ function EntityFormModal({
 
   return (
     <>
-      <div className="contractModalOverlay">
+      <div className="contractModalOverlay" data-module-version={ENTITY_FORM_MODULE_VERSION}>
         <div className="contractModalCard dashboardEntityModal" style={{ position: "relative" }}>
           <BlockingLoader open={saving || deleting} label={deleting ? "Deleting..." : "Saving..."} />
           <div className="dashboardModalHeader">

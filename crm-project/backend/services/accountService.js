@@ -9,24 +9,31 @@ const { randomInt } = require("crypto");
 const DEFAULT_APP_LOGIN_URL = "http://localhost:5173/login";
 const APP_NAME = process.env.APP_NAME || "Talent Acquisition";
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function getAppLoginUrl() {
   if (process.env.APP_LOGIN_URL) return String(process.env.APP_LOGIN_URL).trim();
   return String(process.env.FRONTEND_URL || DEFAULT_APP_LOGIN_URL).replace(/\/$/, "") + "/login";
 }
 
 function generateOneTimePassword(length = 8) {
-  // Include every required character class so the temporary password also
-  // satisfies the application's password policy.
+  // Keep temporary credentials easy to enter from email: letters and numbers
+  // only, with upper- and lower-case characters plus a digit.
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghijkmnopqrstuvwxyz";
   const digits = "23456789";
-  const symbols = "!@#$%&*";
-  const allCharacters = `${upper}${lower}${digits}${symbols}`;
+  const allCharacters = `${upper}${lower}${digits}`;
   const password = [
     upper[randomInt(upper.length)],
     lower[randomInt(lower.length)],
-    digits[randomInt(digits.length)],
-    symbols[randomInt(symbols.length)]
+    digits[randomInt(digits.length)]
   ];
 
   while (password.length < Math.max(8, length)) {
@@ -159,10 +166,10 @@ async function sendAccountSetupEmail({ email, name, role, oneTimePassword }) {
   ].join("\n");
 
   const html = `
-    <p>Hi ${greetingName},</p>
+    <p>Hi ${escapeHtml(greetingName)},</p>
     <p>Your ${displayRole} account has been created for ${APP_NAME}.</p>
-    <p>Your one-time password is: <strong>${oneTimePassword}</strong></p>
-    <p><a href="${loginUrl}">Log in to ${APP_NAME}</a>.</p>
+    <p>Your one-time password is: <strong>${escapeHtml(oneTimePassword)}</strong></p>
+    <p><a href="${escapeHtml(loginUrl)}">Log in to ${APP_NAME}</a>.</p>
     <p>Use this password to log in once. You will be required to create a new password immediately after your first login.</p>
   `;
 

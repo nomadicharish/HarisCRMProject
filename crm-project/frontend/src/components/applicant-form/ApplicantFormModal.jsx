@@ -418,6 +418,9 @@ function ApplicantFormModal({
           await onSaved({ operation: "create", id: response?.data?.applicantId || "", payload: savedPayload });
         }
         resetForm({ retainApplicationDetails: Boolean(initialApplicationDetails) });
+        if (asPage && typeof window !== "undefined") {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
         toast.success("Applicant created successfully");
       }
 

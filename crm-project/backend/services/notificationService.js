@@ -8,6 +8,10 @@ const { JUNIOR_ACCOUNTANT_ROLE, SENIOR_ACCOUNTANT_ROLE, SUPER_USER_ROLE } = requ
 const DAILY_NOTIFICATION_COLLECTION = "dailyNotificationEvents";
 const DAILY_RUN_COLLECTION = "dailyNotificationRuns";
 const APP_NOTIFICATION_COLLECTION = "notificationEvents";
+// Notification events are short lived once read. Keep the same bounded window
+// for the badge and list so an obsolete workflow event can never be counted by
+// the badge but omitted from the notification UI.
+const NOTIFICATION_SCAN_LIMIT = 400;
 const DEFAULT_TIME_ZONE = process.env.DAILY_EMAIL_TIMEZONE || "Asia/Kolkata";
 const DEFAULT_SEND_HOUR = Number(process.env.DAILY_EMAIL_SEND_HOUR || 8);
 // Recipient and employer records change infrequently. Caching these short-lived
@@ -768,7 +772,7 @@ async function getActionableUnreadNotificationCount(user = {}) {
   const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
     .where("userId", "==", user.uid)
     .where("read", "==", false)
-    .limit(400)
+    .limit(NOTIFICATION_SCAN_LIMIT)
     .get();
   const items = await filterInactiveDocumentNotificationApplicants(
     groupNotificationItems(snapshot.docs.map(mapNotificationDocument), user.role),
@@ -782,30 +786,34 @@ async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } =
   let query = db.collection(APP_NOTIFICATION_COLLECTION)
     .where("userId", "==", user.uid)
     .orderBy("createdAt", "desc")
-    .limit(safeLimit + 1);
+    // Fetch the same window used by the unread-count calculation before
+    // filtering obsolete workflow events. Limiting the raw query to the five
+    // newest documents could otherwise leave the bell empty while its badge
+    // still represented older, actionable notifications.
+    .limit(NOTIFICATION_SCAN_LIMIT);
   if (cursor) {
     const cursorDate = new Date(cursor);
     if (!Number.isNaN(cursorDate.getTime())) query = query.startAfter(cursorDate);
   }
-  // notificationUnreadCount is updated in the same write batch as each event.
-  // Reading it directly avoids a 400-event scan (and applicant lookups) every
-  // time the notification panel is opened.
-  const [summary, snapshot] = await Promise.all([getNotificationSummary(user.uid), query.get()]);
-  const hasMore = snapshot.docs.length > safeLimit;
-  const pageDocs = snapshot.docs.slice(0, safeLimit);
-  const rawItems = pageDocs.map(mapNotificationDocument);
-  const items = await filterInactiveDocumentNotificationApplicants(groupNotificationItems(rawItems, user.role), user);
+  const snapshot = await query.get();
+  const rawItems = snapshot.docs.map(mapNotificationDocument);
+  const actionableItems = await filterInactiveDocumentNotificationApplicants(
+    groupNotificationItems(rawItems, user.role),
+    user
+  );
+  const hasMore = actionableItems.length > safeLimit;
+  const items = actionableItems.slice(0, safeLimit);
   return {
     items,
-    unreadCount: summary.unreadCount,
+    unreadCount: await getActionableUnreadNotificationCount(user),
     limit: safeLimit,
     hasMore,
-    nextCursor: hasMore && pageDocs.length ? pageDocs[pageDocs.length - 1].data().createdAt.toDate().toISOString() : null
+    nextCursor: hasMore && items.length ? items[items.length - 1].createdAt.toDate().toISOString() : null
   };
 }
 
 async function getUnreadNotificationCount(user = {}) {
-  return getNotificationSummary(user.uid);
+  return { unreadCount: await getActionableUnreadNotificationCount(user) };
 }
 
 async function markNotificationRead(user = {}, notificationId = "") {
