@@ -3,24 +3,34 @@ const { getAuth } = require("firebase-admin/auth");
 const { getFirestore, FieldPath, FieldValue } = require("firebase-admin/firestore");
 const { getStorage } = require("firebase-admin/storage");
 
-const DEFAULT_STORAGE_BUCKET = "haris-business-crm.firebasestorage.app";
 const DEFAULT_PROJECT_IDS = {
-  qa: "haris-business-crm",
+  dev: "talent-aquisition-dev",
+  qa: "talent-aquisition-qa",
   production: "talent-acquisition-2f826"
 };
-const FIREBASE_ENVIRONMENTS = new Set(["qa", "production"]);
+const DEFAULT_STORAGE_BUCKETS = {
+  dev: "talent-aquisition-dev.firebasestorage.app",
+  qa: "talent-aquisition-qa.firebasestorage.app",
+  production: "talent-acquisition-2f826.firebasestorage.app"
+};
+const FIREBASE_ENVIRONMENTS = new Set(["dev", "qa", "production"]);
 const DEFAULT_FIRESTORE_DATABASE_ID = "(default)";
 
 function getFirebaseEnvironment() {
-  const environment = String(process.env.FIREBASE_ENVIRONMENT || "qa").trim().toLowerCase();
+  const environment = String(process.env.FIREBASE_ENVIRONMENT || "dev").trim().toLowerCase();
   if (!FIREBASE_ENVIRONMENTS.has(environment)) {
-    throw new Error("FIREBASE_ENVIRONMENT must be either 'qa' or 'production'");
+    throw new Error("FIREBASE_ENVIRONMENT must be 'dev', 'qa', or 'production'");
   }
   return environment;
 }
 
 function getEnvironmentValue(environment, name) {
-  const prefix = environment === "production" ? "FIREBASE_PROD" : "FIREBASE_QA";
+  const prefixes = {
+    dev: "FIREBASE_DEV",
+    qa: "FIREBASE_QA",
+    production: "FIREBASE_PROD"
+  };
+  const prefix = prefixes[environment];
   return process.env[`${prefix}_${name}`] || process.env[`FIREBASE_${name}`];
 }
 
@@ -48,7 +58,7 @@ function loadCredential(environment) {
 }
 
 const firebaseEnvironment = getFirebaseEnvironment();
-const storageBucket = getEnvironmentValue(firebaseEnvironment, "STORAGE_BUCKET") || DEFAULT_STORAGE_BUCKET;
+const storageBucket = getEnvironmentValue(firebaseEnvironment, "STORAGE_BUCKET") || DEFAULT_STORAGE_BUCKETS[firebaseEnvironment];
 // Application Default Credentials do not always expose their project ID to the
 // Firebase Admin SDK (notably in Cloud Run revisions created without an
 // explicit project setting). Set it on the app so ID-token verification always

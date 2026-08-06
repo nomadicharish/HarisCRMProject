@@ -2,6 +2,11 @@
   "firestore": {
     "indexes": "backend/firestore.indexes.json"
   },
+  "auth": {
+    "providers": {
+      "emailPassword": true
+    }
+  },
   "hosting": {
     "public": "frontend/dist",
     "predeploy": ["npm --prefix frontend ci", "npm --prefix frontend run build"],

@@ -1,21 +1,33 @@
 # Firebase environments
 
-The backend selects its Firebase project from `FIREBASE_ENVIRONMENT`, which must be `qa` or `production` and defaults to `qa`.
+The backend selects its Firebase project from `FIREBASE_ENVIRONMENT`, which must
+be `dev`, `qa`, or `production` and defaults to `dev`.
 
-For now, both environment variables point to the existing Firebase Storage bucket. This preserves the current QA and production behavior.
-
-```env
-FIREBASE_ENVIRONMENT=qa
-FIREBASE_QA_STORAGE_BUCKET=haris-business-crm.firebasestorage.app
-FIREBASE_PROD_STORAGE_BUCKET=haris-business-crm.firebasestorage.app
-```
-
-When the production Firebase project is ready, configure the production deployment only:
+Each environment uses an isolated Firebase project. No Firebase Auth users,
+Firestore documents, or Storage objects are shared or copied between them.
 
 ```env
-FIREBASE_ENVIRONMENT=production
-FIREBASE_PROD_STORAGE_BUCKET=your-production-project.firebasestorage.app
-FIREBASE_PROD_SERVICE_ACCOUNT_BASE64=<base64-encoded-production-service-account-json>
+FIREBASE_ENVIRONMENT=dev
+FIREBASE_DEV_PROJECT_ID=talent-aquisition-dev
+FIREBASE_DEV_STORAGE_BUCKET=talent-aquisition-dev.firebasestorage.app
+FIREBASE_QA_PROJECT_ID=talent-aquisition-qa
+FIREBASE_QA_STORAGE_BUCKET=talent-aquisition-qa.firebasestorage.app
+FIREBASE_PROD_PROJECT_ID=talent-acquisition-2f826
+FIREBASE_PROD_STORAGE_BUCKET=talent-acquisition-2f826.firebasestorage.app
 ```
 
-The QA deployment should retain `FIREBASE_ENVIRONMENT=qa` and its QA-specific credentials. If the target-specific credential values are not set, the backend continues to support the existing `FIREBASE_SERVICE_ACCOUNT_BASE64` and `FIREBASE_SERVICE_ACCOUNT_JSON` variables.
+The Firebase CLI aliases are:
+
+```text
+dev        talent-aquisition-dev
+qa         talent-aquisition-qa
+production talent-acquisition-2f826
+```
+
+The frontend selects the correct public Firebase Web configuration by its
+Hosting domain, and uses Dev on localhost. `VITE_FIREBASE_*` variables can
+still override those values for an explicit local test target.
+
+Run `tools/deploy-nonproduction.ps1` to deploy the backend and Hosting to Dev
+or QA. It deploys application code and Firestore indexes only; it never
+exports, imports, or copies application data.
