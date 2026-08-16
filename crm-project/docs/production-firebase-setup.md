@@ -33,9 +33,29 @@ From the repository root, create a stable 32-byte Base64 encryption key in the
 production Secret Manager secret `crm-data-encryption-key`. Keep it in Secret
 Manager; never commit or pass it as a command-line environment variable.
 
+Welcome emails require the following production Secret Manager secrets. The
+values must be those supplied by your email provider (for GoDaddy Professional
+Email, commonly `smtpout.secureserver.net`, port `465`, and `true` for secure;
+use the settings for the actual mailbox in use):
+
+```text
+crm-smtp-host
+crm-smtp-port
+crm-smtp-secure
+crm-smtp-user
+crm-smtp-pass
+crm-smtp-from
+```
+
+Create each secret once in Google Cloud Secret Manager, add its value, and
+ensure the Cloud Run runtime service account has **Secret Manager Secret
+Accessor** on all seven secrets (including `crm-data-encryption-key`). Do not
+put these values in the repository, in Firebase Hosting, or in a Cloud Run
+plain-text environment variable.
+
 ```powershell
 ./tools/deploy-production.ps1 `
-  -CorsAllowedOrigins "https://your-production-domain.example"
+  -CorsAllowedOrigins "https://talentacquisitioneu.com,https://www.talentacquisitioneu.com"
 ```
 
 The script deploys the same API code as QA to Cloud Run in `asia-south1`, with:
@@ -43,12 +63,15 @@ The script deploys the same API code as QA to Cloud Run in `asia-south1`, with:
 ```env
 FIREBASE_ENVIRONMENT=production
 APP_NAME=Talent Acquisition
+APP_LOGIN_URL=https://talentacquisitioneu.com/login
 FIREBASE_PROD_STORAGE_BUCKET=talent-acquisition-2f826.firebasestorage.app
 FIREBASE_FIRESTORE_DATABASE_ID=default
 ```
 
-It reads the encryption key from Secret Manager as a Cloud Run secret rather
-than placing it in the revision's plain-text environment settings.
+It reads the encryption key and all SMTP values from Secret Manager as Cloud
+Run secrets rather than placing them in the revision's plain-text environment
+settings. After this deployment, creating an agency, employer, accountant, or
+other user sends the one-time password email through the configured mailbox.
 
 It also deploys only the composite indexes and TTL policies in
 `backend/firestore.indexes.json`. Firestore is document-based: it has no SQL

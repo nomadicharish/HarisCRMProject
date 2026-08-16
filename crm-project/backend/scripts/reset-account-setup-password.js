@@ -4,6 +4,8 @@ const { buildUserProfileRecord, generateOneTimePassword, sendAccountSetupEmail }
 async function main() {
   const email = String(process.env.TARGET_EMAIL || "").trim().toLowerCase();
   if (!email) throw new Error("TARGET_EMAIL is required");
+  const name = String(process.env.TARGET_NAME || "").trim() || "User";
+  const role = "SUPER_USER";
 
   let user;
   try {
@@ -18,25 +20,40 @@ async function main() {
   if (!user) {
     user = await admin.auth().createUser({
       email,
-      displayName: "Geethashri Rao",
+      displayName: name,
       password: oneTimePassword
     });
-    await admin.auth().setCustomUserClaims(user.uid, { role: "SUPER_USER" });
-    await db.collection("users").doc(user.uid).set({
-      ...(await buildUserProfileRecord({ email, name: "Geethashri Rao", role: "SUPER_USER" })),
+  } else {
+    const profileSnapshot = await db.collection("users").doc(user.uid).get();
+    await admin.auth().updateUser(user.uid, {
+      displayName: name,
+      password: oneTimePassword,
+      disabled: false
+    });
+  }
+
+  await admin.auth().setCustomUserClaims(user.uid, { role });
+
+  const userProfileRef = db.collection("users").doc(user.uid);
+  const profileSnapshot = await userProfileRef.get();
+  if (!profileSnapshot.exists) {
+    await userProfileRef.set({
+      ...(await buildUserProfileRecord({ email, name, role })),
       active: true,
       forcePasswordReset: true,
       createdAt: new Date()
     });
   } else {
-    const profileSnapshot = await db.collection("users").doc(user.uid).get();
-    if (!profileSnapshot.exists) throw new Error("User profile was not found");
-    await admin.auth().updateUser(user.uid, { password: oneTimePassword, disabled: false });
-    await db.collection("users").doc(user.uid).update({ active: true, forcePasswordReset: true });
+    await userProfileRef.update({
+      name,
+      role,
+      active: true,
+      forcePasswordReset: true,
+      updatedAt: new Date()
+    });
   }
 
-  const profileSnapshot = await db.collection("users").doc(user.uid).get();
-  const profile = profileSnapshot.data() || {};
+  const profile = (await userProfileRef.get()).data() || {};
 
   const result = await sendAccountSetupEmail({
     email,
