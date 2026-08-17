@@ -215,6 +215,40 @@ function ApplicantFormStepOne({
           </div>
 
           <div>
+            <label style={label}>Passport Number</label>
+            <InputShell icon={passportIcon} error={Boolean(errors.passportNumber)}>
+              <input
+                style={{ ...input, paddingLeft: "44px", border: errors.passportNumber ? `1px solid ${THEME.error}` : input.border }}
+                value={form.passportNumber || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.passportNumber)}
+                onChange={(event) => handleChange("passportNumber", event.target.value)}
+                placeholder="Enter passport number"
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.passportNumber && <div style={errorText}>{errors.passportNumber}</div>}
+          </div>
+
+          <div>
+            <label style={label}>Place of Birth</label>
+            <InputShell icon={locationIcon} error={Boolean(errors.placeOfBirth)}>
+              <input
+                style={{ ...input, paddingLeft: "44px", border: errors.placeOfBirth ? `1px solid ${THEME.error}` : input.border }}
+                value={form.placeOfBirth || ""}
+                onFocus={handleFocus}
+                onBlur={(event) => handleBlur(event, errors.placeOfBirth)}
+                onChange={(event) => handleChange("placeOfBirth", event.target.value)}
+                placeholder="Enter place of birth"
+                disabled={readOnly}
+              />
+            </InputShell>
+            {errors.placeOfBirth && <div style={errorText}>{errors.placeOfBirth}</div>}
+          </div>
+        </div>
+
+        <div className="applicantFormThreeRow">
+          <div>
             <label style={label}>Date of Birth</label>
             <DatePicker
               selected={dob}
@@ -249,40 +283,6 @@ function ApplicantFormStepOne({
               />
             </InputShell>
             {errors.age && <div style={errorText}>{errors.age}</div>}
-          </div>
-        </div>
-
-        <div className="applicantFormThreeRow">
-          <div>
-            <label style={label}>Passport Number</label>
-            <InputShell icon={passportIcon} error={Boolean(errors.passportNumber)}>
-              <input
-                style={{ ...input, paddingLeft: "44px", border: errors.passportNumber ? `1px solid ${THEME.error}` : input.border }}
-                value={form.passportNumber || ""}
-                onFocus={handleFocus}
-                onBlur={(event) => handleBlur(event, errors.passportNumber)}
-                onChange={(event) => handleChange("passportNumber", event.target.value)}
-                placeholder="Enter passport number"
-                disabled={readOnly}
-              />
-            </InputShell>
-            {errors.passportNumber && <div style={errorText}>{errors.passportNumber}</div>}
-          </div>
-
-          <div>
-            <label style={label}>Place of Birth</label>
-            <InputShell icon={locationIcon} error={Boolean(errors.placeOfBirth)}>
-              <input
-                style={{ ...input, paddingLeft: "44px", border: errors.placeOfBirth ? `1px solid ${THEME.error}` : input.border }}
-                value={form.placeOfBirth || ""}
-                onFocus={handleFocus}
-                onBlur={(event) => handleBlur(event, errors.placeOfBirth)}
-                onChange={(event) => handleChange("placeOfBirth", event.target.value)}
-                placeholder="Enter place of birth"
-                disabled={readOnly}
-              />
-            </InputShell>
-            {errors.placeOfBirth && <div style={errorText}>{errors.placeOfBirth}</div>}
           </div>
 
           <div>

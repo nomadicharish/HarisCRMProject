@@ -4,6 +4,17 @@ import react from '@vitejs/plugin-react'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  server: {
+    proxy: {
+      "/api": {
+        target: "https://talent-aquisition-dev.web.app",
+        changeOrigin: true,
+        headers: {
+          origin: "https://talent-aquisition-dev.web.app"
+        }
+      }
+    }
+  },
   build: {
     rollupOptions: {
       output: {

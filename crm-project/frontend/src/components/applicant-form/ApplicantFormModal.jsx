@@ -5,6 +5,7 @@ import { getCountries, getCountryCallingCode, parsePhoneNumberFromString } from 
 import API from "../../services/api";
 import { getCached } from "../../services/cachedApi";
 import "../../styles/applicantsDashboard.css";
+import "../../styles/forms.css";
 import { actions, btnPrimary, btnSecondary, modal, overlay, stepText } from "./formStyles";
 import BlockingLoader from "../common/BlockingLoader";
 import DashboardTopbar from "../common/DashboardTopbar";
@@ -479,7 +480,7 @@ function ApplicantFormModal({
 
   if (asPage) {
     return (
-      <div className="page-container">
+      <div className="page-container applicantFormPage">
         <DashboardTopbar
           user={user}
           showTabs

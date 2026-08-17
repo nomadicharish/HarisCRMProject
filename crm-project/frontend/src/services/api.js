@@ -3,7 +3,9 @@ import { auth, authReady } from "../firebase";
 import { clearSession } from "../utils/auth";
 import { SESSION_DURATION_MS } from "../utils/auth";
 
-const defaultBaseURL = import.meta.env.PROD ? "/api" : "http://localhost:5000/api";
+// In local development, Vite proxies this path to the Dev Firebase Hosting API.
+// This keeps browser requests same-origin while using the Dev Firebase project.
+const defaultBaseURL = "/api";
 
 const API = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || defaultBaseURL,

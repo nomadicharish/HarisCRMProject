@@ -310,6 +310,11 @@
     padding-top:24px;
   }
 
+  /* The applicant page includes a fixed, wrapped dashboard topbar. */
+  .applicantFormPage{
+    padding-top:154px;
+  }
+
   .page-content{
     max-width:100%;
   }

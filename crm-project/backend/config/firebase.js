@@ -5,22 +5,23 @@ const { getStorage } = require("firebase-admin/storage");
 
 const DEFAULT_STORAGE_BUCKET = "haris-business-crm.firebasestorage.app";
 const DEFAULT_PROJECT_IDS = {
+  dev: "talent-aquisition-dev",
   qa: "haris-business-crm",
   production: "talent-acquisition-2f826"
 };
-const FIREBASE_ENVIRONMENTS = new Set(["qa", "production"]);
+const FIREBASE_ENVIRONMENTS = new Set(["dev", "qa", "production"]);
 const DEFAULT_FIRESTORE_DATABASE_ID = "(default)";
 
 function getFirebaseEnvironment() {
   const environment = String(process.env.FIREBASE_ENVIRONMENT || "qa").trim().toLowerCase();
   if (!FIREBASE_ENVIRONMENTS.has(environment)) {
-    throw new Error("FIREBASE_ENVIRONMENT must be either 'qa' or 'production'");
+    throw new Error("FIREBASE_ENVIRONMENT must be 'dev', 'qa', or 'production'");
   }
   return environment;
 }
 
 function getEnvironmentValue(environment, name) {
-  const prefix = environment === "production" ? "FIREBASE_PROD" : "FIREBASE_QA";
+  const prefix = `FIREBASE_${environment.toUpperCase()}`;
   return process.env[`${prefix}_${name}`] || process.env[`FIREBASE_${name}`];
 }
 

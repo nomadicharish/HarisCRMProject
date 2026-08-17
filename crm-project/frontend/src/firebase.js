@@ -1,13 +1,22 @@
 import { initializeApp } from "firebase/app";
 import { browserLocalPersistence, getAuth, setPersistence } from "firebase/auth";
 
+const DEV_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDQ-F_CiygxjubGnc3Q8qJ2oroZ3Bvzc4I",
+  authDomain: "talent-aquisition-dev.firebaseapp.com",
+  projectId: "talent-aquisition-dev",
+  storageBucket: "talent-aquisition-dev.firebasestorage.app",
+  messagingSenderId: "535938604207",
+  appId: "1:535938604207:web:cb99f718fc04c197da885a"
+};
+
 const QA_FIREBASE_CONFIG = {
-  apiKey: "AIzaSyDsnOrKwFerOMSABdiHsdZfmzxI0Tw5c5Q",
-  authDomain: "haris-business-crm.firebaseapp.com",
-  projectId: "haris-business-crm",
-  storageBucket: "haris-business-crm.firebasestorage.app",
-  messagingSenderId: "1061019770079",
-  appId: "1:1061019770079:web:084539fe71fd3b70701d6a"
+  apiKey: "AIzaSyA7oWI8XGDzx3bHtvMOY_DkxNcH7CyBJ3k",
+  authDomain: "talent-aquisition-qa.firebaseapp.com",
+  projectId: "talent-aquisition-qa",
+  storageBucket: "talent-aquisition-qa.firebasestorage.app",
+  messagingSenderId: "811937341319",
+  appId: "1:811937341319:web:fd30f3720e6cf5c09d3d22"
 };
 
 const PRODUCTION_FIREBASE_CONFIG = {
@@ -25,10 +34,16 @@ const productionHosts = new Set([
   "talentacquisitioneu.com",
   "www.talentacquisitioneu.com"
 ]);
+const qaHosts = new Set([
+  "talent-aquisition-qa.web.app",
+  "talent-aquisition-qa.firebaseapp.com"
+]);
 const hostname = typeof window === "undefined" ? "" : window.location.hostname;
 const defaultFirebaseConfig = productionHosts.has(hostname)
   ? PRODUCTION_FIREBASE_CONFIG
-  : QA_FIREBASE_CONFIG;
+  : qaHosts.has(hostname)
+    ? QA_FIREBASE_CONFIG
+    : DEV_FIREBASE_CONFIG;
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || defaultFirebaseConfig.apiKey,
