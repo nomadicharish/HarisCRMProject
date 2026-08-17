@@ -6,6 +6,7 @@ const { asyncHandler } = require("../lib/asyncHandler");
 const { noStore } = require("../middleware/noStore");
 const { readCache } = require("../middleware/cacheControl");
 const allowRoles = require("../middleware/roleMiddleware");
+const requireRight = require("../middleware/requireRight");
 const { validate } = require("../middleware/validate");
 const { verifyToken } = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
@@ -42,7 +43,7 @@ router.use(verifyToken);
 router.use(noStore);
 
 // Create Applicant
-router.post("/create", validate(createApplicantSchema), asyncHandler(applicantController.createApplicant));
+router.post("/create", requireRight("CREATE_APPLICANT"), validate(createApplicantSchema), asyncHandler(applicantController.createApplicant));
 
 // Approve Applicant
 router.patch("/approve/:applicantId", validate(applicantIdParamsSchema, "params"), asyncHandler(applicantController.approveApplicant));
@@ -59,6 +60,7 @@ router.patch("/:applicantId/documents/:docType/defer", validate(applicantDocPara
 // Add Payment
 router.post(
   "/:applicantId/payments",
+  requireRight("ADD_PAYMENT_DETAILS"),
   upload.fields([
     { name: "documents", maxCount: 5 },
     { name: "file", maxCount: 1 }
@@ -71,11 +73,13 @@ router.post(
 // Get Payment Summary
 router.get(
   "/:applicantId/payments/summary",
+  requireRight("VIEW_PAYMENT_DETAILS"),
   validate(applicantIdParamsSchema, "params"),
   asyncHandler(applicantController.getPaymentSummary)
 );
 router.get(
   "/:applicantId/payments-page",
+  requireRight("VIEW_PAYMENT_DETAILS"),
   validate(applicantIdParamsSchema, "params"),
   asyncHandler(applicantController.getApplicantPaymentsPage)
 );
@@ -96,7 +100,7 @@ router.patch(
 );
 
 // Get Applicants (List)
-router.get("/", readCache(20), validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
+router.get("/", requireRight("VIEW_APPLICANT_PROFILE"), readCache(20), validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
 
 // Get Applicant by ID
 router.get("/:id/private-file", validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantPrivateFile));
@@ -106,7 +110,7 @@ router.get(
   validate(quickPrintAssetParamsSchema, "params"),
   asyncHandler(applicantController.getApplicantQuickPrintAsset)
 );
-router.get("/:id", readCache(20), validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantById));
+router.get("/:id", requireRight("VIEW_APPLICANT_PROFILE"), readCache(20), validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantById));
 router.get(
   "/:id/workflow-bundle",
   readCache(15),
@@ -129,6 +133,7 @@ router.get(
 // Upload Document
 router.post(
   "/:applicantId/documents/:docType/upload",
+  requireRight("UPLOAD_DOCUMENT"),
   upload.single("file"),
   validate(applicantDocParamsSchema, "params"),
   asyncHandler(applicantController.uploadDocumentByType)
@@ -140,6 +145,7 @@ router.patch("/:id/approve-stage", validate(idParamsSchema, "params"), asyncHand
 // Upload Document (new route)
 router.post(
   "/:id/upload-document",
+  requireRight("UPLOAD_DOCUMENT"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(uploadDocumentBodySchema),
@@ -147,7 +153,7 @@ router.post(
 );
 
 // Get Documents for Applicant
-router.get("/:id/documents", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getDocuments));
+router.get("/:id/documents", requireRight("VIEW_DOCUMENTS"), readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getDocuments));
 
 // Reject document (Super User)
 router.patch(
@@ -168,7 +174,7 @@ router.patch(
 );
 
 // Add bulk dispatch
-router.post("/bulk-dispatch", allowRoles("AGENCY"), validate(bulkDispatchBodySchema), asyncHandler(applicantController.addBulkDispatch));
+router.post("/bulk-dispatch", requireRight("ADD_DOCUMENT_DISPATCH"), validate(bulkDispatchBodySchema), asyncHandler(applicantController.addBulkDispatch));
 
 // Upload contracts for multiple applicants
 router.post(
@@ -182,14 +188,15 @@ router.post(
 );
 
 // Add dispatch
-router.post("/:id/dispatch", allowRoles("AGENCY"), validate(idParamsSchema, "params"), validate(dispatchBodySchema), asyncHandler(applicantController.addDispatch));
+router.post("/:id/dispatch", requireRight("ADD_DOCUMENT_DISPATCH"), validate(idParamsSchema, "params"), validate(dispatchBodySchema), asyncHandler(applicantController.addDispatch));
 
 // Get dispatches
-router.get("/:id/dispatch", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getDispatches));
+router.get("/:id/dispatch", requireRight("VIEW_DOCUMENT_DISPATCH"), readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getDispatches));
 
 // Upload Contract
 router.post(
   "/:id/contract",
+  requireRight("ISSUE_CONTRACT"),
   uploadDoc.fields([
     { name: "file", maxCount: 1 },
     { name: "additionalDocuments", maxCount: 3 }
@@ -198,12 +205,12 @@ router.post(
   asyncHandler(applicantController.uploadContract)
 );
 router.patch(
-  "/:applicantId/payments/:paymentId/acknowledge",
+  "/:applicantId/payments/:paymentId/acknowledge", requireRight("ACKNOWLEDGE_PAYMENT"),
   validate(paymentActionParamsSchema, "params"),
   asyncHandler(applicantController.acknowledgePayment)
 );
 router.patch(
-  "/:applicantId/payments/:paymentId/confirm",
+  "/:applicantId/payments/:paymentId/confirm", requireRight("CONFIRM_PAYMENT"),
   validate(paymentActionParamsSchema, "params"),
   asyncHandler(applicantController.confirmPayment)
 );
@@ -218,6 +225,7 @@ router.patch(
 // Get Contract
 router.post(
   "/:id/embassy-appointment",
+  requireRight("INITIATE_EMBASSY_APPOINTMENT"),
   uploadDoc.single("file"),
   validate(idParamsSchema, "params"),
   validate(embassyAppointmentBodySchema),
@@ -233,6 +241,7 @@ router.patch(
 // Get Embassy Appointment
 router.get(
   "/:id/embassy-appointment",
+  requireRight("VIEW_EMBASSY_APPOINTMENT"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getEmbassyAppointment)
@@ -250,6 +259,7 @@ router.get("/:id/contract", readCache(15), validate(idParamsSchema, "params"), a
 // Upload Signed Contract
 router.post(
   "/:id/signed-contract",
+  requireRight("UPLOAD_SIGNED_CONTRACT"),
   uploadDoc.fields([
     { name: "file", maxCount: 1 },
     { name: "additionalDocuments", maxCount: 3 }
@@ -268,6 +278,7 @@ router.patch(
 // Get Signed Contract
 router.get(
   "/:id/signed-contract",
+  requireRight("VIEW_SIGNED_CONTRACT"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getSignedContract)
@@ -276,6 +287,7 @@ router.get(
 // Add Travel Details
 router.post(
   "/:id/travel",
+  requireRight("ADD_APPOINTMENT_TRAVEL"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(travelBodySchema),
@@ -285,6 +297,7 @@ router.post(
 // Get Travel Details
 router.get(
   "/:id/travel",
+  requireRight("VIEW_APPOINTMENT_TRAVEL_BIOMETRIC"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getTravelDetails)
@@ -293,6 +306,7 @@ router.get(
 // Upload Biometric Slip
 router.post(
   "/:id/biometric",
+  requireRight("ADD_APPOINTMENT_BIOMETRIC"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.uploadBiometricSlip)
@@ -301,6 +315,7 @@ router.post(
 // Get Biometric Slip
 router.get( 
   "/:id/biometric",
+  requireRight("VIEW_APPOINTMENT_TRAVEL_BIOMETRIC"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getBiometricSlip)
@@ -309,6 +324,7 @@ router.get(
 // Add Embassy Interview
 router.post(
   "/:id/interview",
+  requireRight("INITIATE_EMBASSY_INTERVIEW"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(interviewBodySchema),
@@ -316,7 +332,7 @@ router.post(
 );
 
 // Get Embassy Interview
-router.get("/:id/interview", readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getEmbassyInterview));
+router.get("/:id/interview", requireRight("VIEW_EMBASSY_INTERVIEW"), readCache(15), validate(idParamsSchema, "params"), asyncHandler(applicantController.getEmbassyInterview));
 
 // Approve Embassy Interview
 router.patch("/:id/interview/approve", validate(idParamsSchema, "params"), asyncHandler(applicantController.approveEmbassyInterview));
@@ -324,6 +340,7 @@ router.patch("/:id/interview/approve", validate(idParamsSchema, "params"), async
 // Add Interview Ticket
 router.post(
   "/:id/interview-ticket",
+  requireRight("ADD_INTERVIEW_TRAVEL"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(dateTimeBodySchema),
@@ -333,6 +350,7 @@ router.post(
 // Get Interview Ticket
 router.get(
   "/:id/interview-ticket",
+  requireRight("VIEW_INTERVIEW_TRAVEL_BIOMETRIC"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getInterviewTicket)
@@ -341,6 +359,7 @@ router.get(
 // Upload Interview Biometric
 router.post(
   "/:id/interview-biometric",
+  requireRight("ADD_INTERVIEW_BIOMETRIC"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.uploadInterviewBiometric)
@@ -349,6 +368,7 @@ router.post(
 // Get Interview Biometric
 router.get(
   "/:id/interview-biometric",
+  requireRight("VIEW_INTERVIEW_TRAVEL_BIOMETRIC"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getInterviewBiometric)
@@ -363,6 +383,7 @@ router.get(
 // Add Visa Collection
 router.post(
   "/:id/visa-collection",
+  requireRight("INITIATE_VISA_COLLECTION"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(dateTimeBodySchema),
@@ -379,6 +400,7 @@ router.patch(
 // Get Visa Collection
 router.get(
   "/:id/visa-collection",
+  requireRight("VIEW_VISA_COLLECTION"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getVisaCollection)
@@ -387,6 +409,7 @@ router.get(
 // Add Visa Collection Travel Details
 router.post(
   "/:id/visa-collection-travel",
+  requireRight("ADD_VISA_TRAVEL"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(dateTimeBodySchema),
@@ -396,6 +419,7 @@ router.post(
 // Get Visa Collection Travel Details
 router.get(
   "/:id/visa-collection-travel",
+  requireRight("VIEW_VISA_TRAVEL"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getVisaCollectionTravel)
@@ -404,6 +428,7 @@ router.get(
 // Add Visa Travel Details
 router.post(
   "/:id/visa-travel",
+  requireRight("ADD_APPLICANT_ARRIVAL"),
   upload.fields([
     { name: "file", maxCount: 1 },
     { name: "busTicket", maxCount: 1 }
@@ -416,6 +441,7 @@ router.post(
 // Get Visa Travel Details
 router.get(
   "/:id/visa-travel",
+  requireRight("VIEW_APPLICANT_ARRIVAL"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getVisaTravel)
@@ -424,6 +450,7 @@ router.get(
 // Upload Residence Permit
 router.post(
   "/:id/residence-permit",
+  requireRight("UPLOAD_TRC"),
   upload.single("file"),
   validate(idParamsSchema, "params"),
   validate(residencePermitBodySchema),
@@ -433,6 +460,7 @@ router.post(
 // Get Residence Permit
 router.get(
   "/:id/residence-permit",
+  requireRight("VIEW_TRC"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getResidencePermit)
@@ -441,6 +469,7 @@ router.get(
 // Mark Applicant as Complete
 router.patch(
   "/:id/complete",
+  requireRight("COMPLETE_APPLICANT_ARRIVAL"),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.completeApplicant)
 );

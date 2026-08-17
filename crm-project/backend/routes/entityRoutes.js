@@ -3,6 +3,7 @@ const { asyncHandler } = require("../lib/asyncHandler");
 const entityController = require("../controllers/entityController");
 const { verifyToken } = require("../middleware/authMiddleware");
 const allowRoles = require("../middleware/roleMiddleware");
+const requireRight = require("../middleware/requireRight");
 const { validate } = require("../middleware/validate");
 const upload = require("../middleware/uploadMiddleware");
 const { readCache } = require("../middleware/cacheControl");
@@ -26,10 +27,10 @@ router.post("/add-country", verifyToken, allowRoles("SUPER_USER"), validate(coun
 router.patch("/countries/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), validate(countryPayloadSchema), asyncHandler(entityController.updateCountry));
 router.get("/countries", verifyToken, readCache(60), asyncHandler(entityController.listCountries));
 
-router.post("/add-company", verifyToken, allowRoles("SUPER_USER"), validate(companyPayloadSchema), asyncHandler(entityController.addCompany));
-router.patch("/companies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), validate(companyPayloadSchema), asyncHandler(entityController.updateCompany));
-router.delete("/companies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteCompany));
-router.get("/companies", verifyToken, noStore, validate(listCompaniesQuerySchema, "query"), asyncHandler(entityController.listCompanies));
+router.post("/add-company", verifyToken, requireRight("ADD_COMPANIES"), validate(companyPayloadSchema), asyncHandler(entityController.addCompany));
+router.patch("/companies/:id", verifyToken, requireRight("ADD_COMPANIES"), validate(idParamSchema, "params"), validate(companyPayloadSchema), asyncHandler(entityController.updateCompany));
+router.delete("/companies/:id", verifyToken, requireRight("ADD_COMPANIES"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteCompany));
+router.get("/companies", verifyToken, requireRight("VIEW_COMPANIES"), noStore, validate(listCompaniesQuerySchema, "query"), asyncHandler(entityController.listCompanies));
 router.post(
   "/companies/:id/document-template",
   verifyToken,

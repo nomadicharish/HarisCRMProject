@@ -1,92 +1,120 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
-const { isSuperUserLikeRole } = require("../utils/roles");
+const { hasRight } = require("../config/userRights");
 const { encryptText } = require("../utils/crypto");
-const { generateOneTimePassword, sendAccountSetupEmail } = require("../services/accountService");
+const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
+const { readEncryptedUserContactNumber, readEncryptedUserEmail, generateOneTimePassword, sendAccountSetupEmail } = require("../services/accountService");
+const { RIGHTS, getDefaultRights, normalizeRole } = require("../config/userRights");
+
+const USER_ROLES = new Set(["SUPER_USER", "ADMIN", "AGENCY", "EMPLOYER", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]);
+
+function requireUserRight(req, res, right) {
+  if (hasRight(req.user, right)) return true;
+  res.status(403).json({ message: "Access denied" });
+  return false;
+}
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
 }
 
-const createUser = async (req, res) => {
+function validateUserPayload(payload = {}, { creating = false } = {}) {
+  const name = String(payload.name || "").trim();
+  const email = String(payload.email || "").trim().toLowerCase();
+  const role = normalizeRole(payload.role);
+  const contactNumber = String(payload.contactNumber || "").trim();
+  const rights = Array.isArray(payload.rights) ? [...new Set(payload.rights.filter((right) => RIGHTS.includes(right)))] : null;
+  if (!name) return { error: "Name is required" };
+  if (creating && !isValidEmail(email)) return { error: "Valid email is required" };
+  if (!USER_ROLES.has(role)) return { error: "Invalid user role" };
+  if (!contactNumber) return { error: "Contact number is required" };
+  return { name, email, role, contactNumber, rights: rights || getDefaultRights(role) };
+}
+
+async function serializeUser(doc) {
+  const data = doc.data() || {};
+  return {
+    uid: doc.id,
+    name: data.name || "",
+    email: await readEncryptedUserEmail(data),
+    contactNumber: await readEncryptedUserContactNumber(data),
+    role: data.role || "",
+    rights: Array.isArray(data.rights) ? data.rights : getDefaultRights(data.role),
+    countryId: data.countryId || "",
+    companyId: data.companyId || "",
+    active: data.active !== false
+  };
+}
+
+async function listUsers(req, res) {
+  if (!requireUserRight(req, res, "VIEW_USERS")) return;
+  const search = String(req.query.search || "").trim().toLowerCase();
+  const snapshot = await db.collection("users").orderBy("name").limit(200).get();
+  const users = await Promise.all(snapshot.docs
+    .filter((doc) => doc.data()?.active !== false && doc.data()?.role !== "SUPER_USER")
+    .map(serializeUser));
+  const items = search ? users.filter((user) => user.name.toLowerCase().includes(search)) : users;
+  return res.json({ items, total: items.length });
+}
+
+async function getUser(req, res) {
+  if (!requireUserRight(req, res, "VIEW_USERS")) return;
+  const doc = await db.collection("users").doc(req.params.uid).get();
+  if (!doc.exists || doc.data()?.active === false) return res.status(404).json({ message: "User not found" });
+  return res.json(await serializeUser(doc));
+}
+
+async function createUser(req, res) {
+  if (!requireUserRight(req, res, "ADD_USERS")) return;
+  const parsed = validateUserPayload(req.body, { creating: true });
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
+  const { name, email, role, contactNumber, rights } = parsed;
+  const oneTimePassword = generateOneTimePassword();
+  let userRecord;
   try {
-    const { email, name, role, agencyId, employerId } = req.body;
-
-    const creatorRole = req.user?.role || "SUPER_USER";
-
-    if (!isSuperUserLikeRole(creatorRole)) {
-      return res.status(403).json({ message: "Only Super User can create users" });
-    }
-
-    if (!["SUPER_USER", "AGENCY", "EMPLOYER", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"].includes(role)) {
-      return res.status(400).json({ message: "Invalid role" });
-    }
-
-    if (!name || !String(name).trim()) {
-      return res.status(400).json({ message: "Name is required" });
-    }
-
-    if (!isValidEmail(email)) {
-      return res.status(400).json({ message: "Valid email is required" });
-    }
-
-    const oneTimePassword = generateOneTimePassword();
-
-    // Create Firebase Auth user with a temporary password. The user is forced
-    // to replace it immediately after their first successful login.
-    const userRecord = await admin.auth().createUser({
-      email,
-      password: oneTimePassword,
-      displayName: String(name).trim()
+    userRecord = await admin.auth().createUser({ email, password: oneTimePassword, displayName: name });
+    await admin.auth().setCustomUserClaims(userRecord.uid, { role });
+    await db.collection("users").doc(userRecord.uid).set({
+      name, emailEncrypted: await encryptText(email), normalizedEmail: normalizeEmailValue(email),
+      contactNumberEncrypted: await encryptText(contactNumber), normalizedContactNumber: normalizePhoneValue(contactNumber),
+      role, rights, countryId: req.body.countryId || null, companyId: req.body.companyId || null,
+      active: true, forcePasswordReset: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
-
-    const uid = userRecord.uid;
-
-    // Set custom claim
-    await admin.auth().setCustomUserClaims(uid, { role });
-
-    // Store user profile in Firestore
-    await db.collection("users").doc(uid).set({
-      name,
-      emailEncrypted: await encryptText(String(email).trim().toLowerCase()),
-      normalizedEmail: String(email).trim().toLowerCase(),
-      role,
-      agencyId: agencyId || null,
-      employerId: employerId || null,
-      active: true,
-      forcePasswordReset: true,
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    let welcomeEmail;
-    try {
-      const result = await sendAccountSetupEmail({ email, name, role, oneTimePassword });
-      welcomeEmail = result?.skipped
-        ? { sent: false, reason: result.reason || "send_failed" }
-        : { sent: true, messageId: result?.messageId || null };
-    } catch (setupEmailError) {
-      logger.error("Account setup email failed", {
-        uid,
-        message: setupEmailError?.message
-      });
-      welcomeEmail = { sent: false, reason: "send_failed" };
-    }
-
-    return res.status(201).json({
-      uid,
-      message: welcomeEmail?.sent
-        ? "User created successfully. A password-setup email has been sent."
-        : "User created successfully, but the password-setup email could not be sent.",
-      welcomeEmail
-    });
-
   } catch (error) {
-    logger.error("Create User Error", {
-      message: error?.message,
-      stack: error?.stack
-    });
-    return res.status(500).json({ message: error.message });
+    if (error?.code === "auth/email-already-exists") return res.status(409).json({ message: "A user with this email already exists" });
+    throw error;
   }
-};
+  try { await sendAccountSetupEmail({ email, name, role, oneTimePassword }); }
+  catch (error) { logger.error("Account setup email failed", { uid: userRecord.uid, message: error?.message }); }
+  return res.status(201).json({ uid: userRecord.uid, message: "User created successfully" });
+}
 
-module.exports = { createUser };
+async function updateUser(req, res) {
+  if (!requireUserRight(req, res, "ADD_USERS")) return;
+  const doc = await db.collection("users").doc(req.params.uid).get();
+  if (!doc.exists) return res.status(404).json({ message: "User not found" });
+  const current = doc.data() || {};
+  const parsed = validateUserPayload({ ...current, ...req.body, email: req.body.email || await readEncryptedUserEmail(current) });
+  if (parsed.error) return res.status(400).json({ message: parsed.error });
+  const { name, email, role, contactNumber, rights } = parsed;
+  await admin.auth().updateUser(req.params.uid, { displayName: name, email });
+  await admin.auth().setCustomUserClaims(req.params.uid, { role });
+  await doc.ref.set({
+    name, role, rights, emailEncrypted: await encryptText(email), normalizedEmail: normalizeEmailValue(email),
+    contactNumberEncrypted: await encryptText(contactNumber), normalizedContactNumber: normalizePhoneValue(contactNumber),
+    countryId: req.body.countryId || null, companyId: req.body.companyId || null,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+  return res.json({ message: "User updated successfully" });
+}
+
+async function removeUser(req, res) {
+  if (!requireUserRight(req, res, "ADD_USERS")) return;
+  if (req.params.uid === req.user.uid) return res.status(400).json({ message: "You cannot delete your own account" });
+  await admin.auth().updateUser(req.params.uid, { disabled: true });
+  await db.collection("users").doc(req.params.uid).set({ active: false, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  return res.json({ message: "User deleted successfully" });
+}
+
+module.exports = { createUser, getUser, listUsers, removeUser, updateUser };

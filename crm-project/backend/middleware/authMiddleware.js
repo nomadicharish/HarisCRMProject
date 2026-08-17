@@ -1,5 +1,6 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
+const { getEffectiveRights } = require("../config/userRights");
 
 const TOKEN_CACHE_TTL_MS = Number(process.env.AUTH_TOKEN_CACHE_TTL_MS || 15_000);
 // Every API request authenticates through this middleware. User profiles change
@@ -147,7 +148,8 @@ const verifyToken = async (req, res, next) => {
       employerId: userProfile?.employerId || null,
       agentScopes: Array.isArray(userProfile?.agentScopes) ? userProfile.agentScopes : [],
       forcePasswordReset: Boolean(userProfile?.forcePasswordReset),
-      active: Boolean(userProfile?.active)
+      active: Boolean(userProfile?.active),
+      rights: getEffectiveRights(userProfile)
     };
 
     const requestPath = String(req.originalUrl || req.path || "").split("?")[0];

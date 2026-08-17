@@ -20,6 +20,7 @@ import {
   HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY,
   isSuperUserLikeRole
 } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { downloadApplicantsExcel } from "../utils/applicantExcelExport";
@@ -1395,6 +1396,12 @@ function ApplicantsDashboard() {
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const isSuperUser = isSuperUserLikeRole(user?.role);
+  const canCreateApplicant = hasRight(user, "CREATE_APPLICANT");
+  const canViewApplicantProfile = hasRight(user, "VIEW_APPLICANT_PROFILE");
+  const canAddCompanies = hasRight(user, "ADD_COMPANIES");
+  const canViewCompanies = hasRight(user, "VIEW_COMPANIES");
+  const canAddDispatch = hasRight(user, "ADD_DOCUMENT_DISPATCH");
+  const canIssueContract = hasRight(user, "ISSUE_CONTRACT");
   const isEmployer = user?.role === "EMPLOYER";
   const isAgency = user?.role === "AGENCY";
   const isJuniorAccountant = user?.role === "JUNIOR_ACCOUNTANT";
@@ -1981,10 +1988,7 @@ function ApplicantsDashboard() {
     navigate(`/applicants/${applicantId}${window.location.search || ""}`);
   };
 
-  const visibleTabs = useMemo(() => {
-    if (isJuniorAccountant) return ["home", "applicants"];
-    return ["home", "applicants", "companies"];
-  }, [isJuniorAccountant]);
+  const visibleTabs = useMemo(() => ["home", ...(canViewApplicantProfile ? ["applicants"] : []), ...(canViewCompanies ? ["companies"] : [])], [canViewApplicantProfile, canViewCompanies]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {
@@ -2126,8 +2130,8 @@ function ApplicantsDashboard() {
 
   const currentActionLabel = TAB_CONFIG[activeTab].actionLabel;
   const showHeaderAction =
-    (activeTab === "applicants" && (isSuperUser || isAgency)) ||
-    (!["home", "applicants"].includes(activeTab) && isSuperUser);
+    (activeTab === "applicants" && canCreateApplicant) ||
+    (activeTab === "companies" && canAddCompanies);
 
   const openCurrentAction = () => {
     if (activeTab === "applicants") {
@@ -2286,9 +2290,9 @@ function ApplicantsDashboard() {
                 showHeaderAction={showHeaderAction}
                 onOpenCurrentAction={openCurrentAction}
                 currentActionLabel={currentActionLabel}
-                showBulkDispatchAction={isAgency && activeTab === "applicants"}
+                showBulkDispatchAction={canAddDispatch && activeTab === "applicants"}
                 onOpenBulkDispatch={() => setShowBulkDispatchModal(true)}
-                showContractUploadAction={(isSuperUser || isEmployer) && activeTab === "applicants"}
+                showContractUploadAction={canIssueContract && activeTab === "applicants"}
                 onOpenContractUpload={() => setShowBulkContractModal(true)}
                 showExportApplicantsAction={(isSuperUser || isEmployer || isAgency) && activeTab === "applicants"}
                 onExportApplicants={handleExportApplicants}

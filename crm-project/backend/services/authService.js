@@ -8,6 +8,7 @@ const {
   readEncryptedUserEmail
 } = require("./accountService");
 const { ensureUniqueEntityDetails } = require("./entityService");
+const { getEffectiveRights } = require("../config/userRights");
 
 const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_PROFILE_READ_CACHE_TTL_MS || 30_000);
 const userProfileCache = new Map();
@@ -54,7 +55,8 @@ async function getCurrentUserProfile(uid) {
     forcePasswordReset: Boolean(userData.forcePasswordReset),
     active: Boolean(userData.active),
     agencyId: userData.agencyId || null,
-    employerId: userData.employerId || null
+    employerId: userData.employerId || null,
+    rights: getEffectiveRights(userData)
   };
   setCachedUserProfile(uid, profile);
   return profile;
@@ -166,6 +168,7 @@ async function getSettings(uid) {
     email: await readEncryptedUserEmail(userData),
     role: userData.role || "",
     contactNumber,
+    rights: getEffectiveRights(userData),
     passwordMasked: "********"
   };
 }

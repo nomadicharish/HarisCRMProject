@@ -67,6 +67,7 @@ export function getDashboardPathByRole(role) {
     role === "SUPER_USER" ||
     role === "AGENCY" ||
     role === "EMPLOYER" ||
+    role === "ADMIN" ||
     role === "JUNIOR_ACCOUNTANT" ||
     role === "SENIOR_ACCOUNTANT"
   ) {

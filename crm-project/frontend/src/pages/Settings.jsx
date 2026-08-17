@@ -11,6 +11,7 @@ import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
 import { getStoredUser, isRootSuperUserRole, updateStoredUser } from "../utils/auth";
+import { hasAnyRight, hasRight } from "../utils/rights";
 import { toast } from "../utils/toast";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
@@ -61,7 +62,11 @@ function Settings() {
   const navigate = useNavigate();
   const storedUser = getStoredUser();
   const cachedSettings = readCached("/auth/settings");
-  const canManageBankDetails = isRootSuperUserRole(cachedSettings?.role || storedUser?.role);
+  const currentUser = cachedSettings || storedUser;
+  const canViewBankDetails = hasRight(currentUser, "VIEW_BANK_DETAILS");
+  const canAddBankDetails = hasRight(currentUser, "CREATE_BANK_DETAILS");
+  const canManageBankDetails = canViewBankDetails || canAddBankDetails;
+  const canManageUsers = hasAnyRight(currentUser, ["ADD_USERS", "VIEW_USERS"]);
   const [activeSection, setActiveSection] = useState("general");
   const [loading, setLoading] = useState(!cachedSettings);
   const [saving, setSaving] = useState(false);
@@ -458,31 +463,21 @@ function Settings() {
         <div className="settingsShellBody">
           <aside className="settingsSidebar">
             <button type="button" className={`settingsNavItem ${activeSection === "general" ? "settingsNavItemActive" : ""}`} onClick={() => setActiveSection("general")}>
-              <span className="settingsNavIcon settingsNavIconGeneral" /><span>General</span>
+              General
             </button>
             {canManageBankDetails ? (
               <button type="button" className={`settingsNavItem ${activeSection === "bank-details" ? "settingsNavItemActive" : ""}`} onClick={() => setActiveSection("bank-details")}>
-                <span className="settingsNavIcon settingsNavIconBank" /><span>Bank Details</span>
-              </button>
-            ) : null}
-            {canManageBankDetails ? (
-              <button type="button" className={`settingsNavItem ${activeSection === "accountants" ? "settingsNavItemActive" : ""}`} onClick={() => setActiveSection("accountants")}>
-                <span className="settingsNavIcon settingsNavIconAdmins" /><span>Accountants</span>
+                Bank Details
               </button>
             ) : null}
             {canManageBankDetails ? (
               <button type="button" className={`settingsNavItem ${activeSection === "countries" ? "settingsNavItemActive" : ""}`} onClick={() => { setActiveSection("countries"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
-                <span className="settingsNavIcon settingsNavIconOrganization" /><span>Countries</span>
+                Countries
               </button>
             ) : null}
-            {canManageBankDetails ? (
-              <button type="button" className={`settingsNavItem ${activeSection === "employers" ? "settingsNavItemActive" : ""}`} onClick={() => { setActiveSection("employers"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
-                <span className="settingsNavIcon settingsNavIconOrganization" /><span>Employers</span>
-              </button>
-            ) : null}
-            {canManageBankDetails ? (
-              <button type="button" className={`settingsNavItem ${activeSection === "agencies" ? "settingsNavItemActive" : ""}`} onClick={() => { setActiveSection("agencies"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
-                <span className="settingsNavIcon settingsNavIconOrganization" /><span>Agencies</span>
+            {canManageUsers ? (
+              <button type="button" className="settingsNavItem" onClick={() => navigate("/settings/users")}>
+                Users
               </button>
             ) : null}
           </aside>
@@ -514,7 +509,7 @@ function Settings() {
               <div className="settingsAdminPanel">
                 <div className="settingsAdminHeader">
                   <h2 className="settingsSectionTitle">Bank Account Details</h2>
-                  <button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" onClick={() => openBankAccountModal()}>+ Add Bank Account</button>
+                  {canAddBankDetails ? <button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" onClick={() => openBankAccountModal()}>+ Add Bank Account</button> : null}
                 </div>
                 {bankAccountsLoading ? <PageLoader label="Loading bank accounts..." /> : (
                   <div className="settingsAdminTableWrap">

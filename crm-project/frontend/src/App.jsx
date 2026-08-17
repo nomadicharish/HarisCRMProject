@@ -40,6 +40,7 @@ const Login = lazyWithReload(() => import("./pages/Login"));
 const Notifications = lazyWithReload(() => import("./pages/Notifications"));
 const Settings = lazyWithReload(() => import("./pages/Settings"));
 const SettingsChangePassword = lazyWithReload(() => import("./pages/SettingsChangePassword"));
+const UsersManagement = lazyWithReload(() => import("./pages/UsersManagement"));
 
 function App() {
   useEffect(() => {
@@ -123,7 +124,7 @@ function App() {
         <Route
           path="/create-applicant"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY"]}>
+            <ProtectedRoute requiredRight="CREATE_APPLICANT">
               <CreateApplicant />
             </ProtectedRoute>
           }
@@ -131,7 +132,7 @@ function App() {
         <Route
           path="/applicants/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY"]}>
+            <ProtectedRoute requiredRight="CREATE_APPLICANT">
               <CreateApplicant />
             </ProtectedRoute>
           }
@@ -139,7 +140,7 @@ function App() {
         <Route
           path="/companies/new"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER"]}>
+            <ProtectedRoute requiredRight="ADD_COMPANIES">
               <CompanyFormPage />
             </ProtectedRoute>
           }
@@ -147,7 +148,7 @@ function App() {
         <Route
           path="/companies/:id/edit"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER"]}>
+            <ProtectedRoute requiredRight="ADD_COMPANIES">
               <CompanyFormPage />
             </ProtectedRoute>
           }
@@ -163,7 +164,7 @@ function App() {
         <Route
           path="/applicants/:id"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "EMPLOYER", "SENIOR_ACCOUNTANT"]}>
+            <ProtectedRoute requiredRight="VIEW_APPLICANT_PROFILE">
               <ApplicantProfile />
             </ProtectedRoute>
           }
@@ -171,7 +172,7 @@ function App() {
         <Route
           path="/applicants/:id/documents"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "EMPLOYER"]}>
+            <ProtectedRoute requiredRight="VIEW_DOCUMENTS">
               <ApplicantDocumentsWorkspace />
             </ProtectedRoute>
           }
@@ -179,7 +180,7 @@ function App() {
         <Route
           path="/applicants/:id/payments"
           element={
-            <ProtectedRoute allowedRoles={["SUPER_USER", "AGENCY", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]}>
+            <ProtectedRoute requiredRight="VIEW_PAYMENT_DETAILS">
               <ApplicantPayments />
             </ProtectedRoute>
           }
@@ -206,6 +207,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SettingsChangePassword />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings/users"
+          element={
+            <ProtectedRoute requiredAnyRight={["ADD_USERS", "VIEW_USERS"]}>
+              <UsersManagement />
             </ProtectedRoute>
           }
         />

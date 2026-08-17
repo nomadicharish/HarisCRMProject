@@ -3,6 +3,8 @@ const { asyncHandler } = require("../lib/asyncHandler");
 const { verifyToken } = require("../middleware/authMiddleware");
 const { noStore } = require("../middleware/noStore");
 const allowRoles = require("../middleware/roleMiddleware");
+const requireRight = require("../middleware/requireRight");
+const requireAnyRight = require("../middleware/requireAnyRight");
 const { validate } = require("../middleware/validate");
 const authController = require("../controllers/authController");
 const accountantAccountController = require("../controllers/accountantAccountController");
@@ -36,14 +38,14 @@ router.get(
   "/bank-accounts",
   noStore,
   verifyToken,
-  allowRoles("SUPER_USER", "AGENCY"),
+  requireRight("VIEW_BANK_DETAILS"),
   asyncHandler(bankAccountController.listBankAccounts)
 );
 router.post(
   "/bank-accounts",
   noStore,
   verifyToken,
-  requireRootSuperUser,
+  requireRight("CREATE_BANK_DETAILS"),
   validate(bankAccountSchema),
   asyncHandler(bankAccountController.createBankAccount)
 );
@@ -51,7 +53,7 @@ router.patch(
   "/bank-accounts/:id",
   noStore,
   verifyToken,
-  requireRootSuperUser,
+  requireRight("CREATE_BANK_DETAILS"),
   validate(bankAccountParamsSchema, "params"),
   validate(bankAccountSchema),
   asyncHandler(bankAccountController.updateBankAccount)
@@ -60,7 +62,7 @@ router.delete(
   "/bank-accounts/:id",
   noStore,
   verifyToken,
-  requireRootSuperUser,
+  requireRight("CREATE_BANK_DETAILS"),
   validate(bankAccountParamsSchema, "params"),
   asyncHandler(bankAccountController.deleteBankAccount)
 );
