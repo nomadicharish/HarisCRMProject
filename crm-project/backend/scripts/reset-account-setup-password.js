@@ -4,8 +4,7 @@ const { buildUserProfileRecord, generateOneTimePassword, sendAccountSetupEmail }
 async function main() {
   const email = String(process.env.TARGET_EMAIL || "").trim().toLowerCase();
   if (!email) throw new Error("TARGET_EMAIL is required");
-  const name = String(process.env.TARGET_NAME || "").trim() || "User";
-  const role = "SUPER_USER";
+  const requestedName = String(process.env.TARGET_NAME || "").trim();
 
   let user;
   try {
@@ -15,6 +14,14 @@ async function main() {
     user = null;
   }
 
+  const existingProfile = user
+    ? (await db.collection("users").doc(user.uid).get()).data() || {}
+    : {};
+  const name = requestedName || existingProfile.name || user?.displayName || "User";
+  // Preserve the account's existing role when resending credentials. This
+  // script is also used for non-super-user accounts and must never elevate
+  // their permissions as a side effect of a password reset.
+  const role = existingProfile.role || "SUPER_USER";
   const oneTimePassword = generateOneTimePassword();
   const isNewUser = !user;
   if (!user) {
@@ -24,7 +31,6 @@ async function main() {
       password: oneTimePassword
     });
   } else {
-    const profileSnapshot = await db.collection("users").doc(user.uid).get();
     await admin.auth().updateUser(user.uid, {
       displayName: name,
       password: oneTimePassword,

@@ -40,8 +40,6 @@ use the settings for the actual mailbox in use):
 
 ```text
 crm-smtp-host
-crm-smtp-port
-crm-smtp-secure
 crm-smtp-user
 crm-smtp-pass
 crm-smtp-from
@@ -49,9 +47,14 @@ crm-smtp-from
 
 Create each secret once in Google Cloud Secret Manager, add its value, and
 ensure the Cloud Run runtime service account has **Secret Manager Secret
-Accessor** on all seven secrets (including `crm-data-encryption-key`). Do not
+Accessor** on all five secrets (including `crm-data-encryption-key`). Do not
 put these values in the repository, in Firebase Hosting, or in a Cloud Run
 plain-text environment variable.
+
+Production currently uses SMTP submission on port `587` with `SMTP_SECURE=false`
+(STARTTLS). These are non-secret Cloud Run environment settings managed by the
+deployment script. If the mailbox provider changes, deploy with the matching
+`-SmtpPort` and `-SmtpSecure` values.
 
 ```powershell
 ./tools/deploy-production.ps1 `
