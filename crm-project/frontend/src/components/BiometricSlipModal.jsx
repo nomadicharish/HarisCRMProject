@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { hasRight } from "../utils/rights";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import "../styles/applicantContract.css";
@@ -71,7 +72,7 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
     () => biometricSlip || fallbackBiometricSlip || null,
     [biometricSlip, fallbackBiometricSlip]
   );
-  const canUpload = user?.role === "AGENCY" && !resolvedBiometricSlip?.fileUrl;
+  const canUpload = hasRight(user, "ADD_APPOINTMENT_BIOMETRIC") && !resolvedBiometricSlip?.fileUrl;
   const title = resolvedBiometricSlip?.fileUrl ? "Biometric slip Details" : "Add Biometric slip";
 
   const loadBiometricSlip = useCallback(async () => {

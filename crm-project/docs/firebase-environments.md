@@ -1,8 +1,13 @@
 # Firebase environments
 
-The backend selects its Firebase project from `FIREBASE_ENVIRONMENT`, which must be `qa` or `production` and defaults to `qa`.
+The backend selects its Firebase project from `FIREBASE_ENVIRONMENT`, which must be `dev`, `qa`, or `production` and defaults to `qa`.
 
 For now, both environment variables point to the existing Firebase Storage bucket. This preserves the current QA and production behavior.
+
+```env
+FIREBASE_ENVIRONMENT=dev
+FIREBASE_DEV_STORAGE_BUCKET=run-sources-talent-aquisition-dev-asia-south1
+```
 
 ```env
 FIREBASE_ENVIRONMENT=qa

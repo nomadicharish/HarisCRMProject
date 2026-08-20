@@ -14,6 +14,7 @@ const {
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+const { hasRight } = require("../../config/userRights");
 const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 
 async function addDispatchUseCase(req) {
@@ -166,7 +167,7 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
   const isEmployer = req.user.role === "EMPLOYER";
   const contractFile = req.file || (Array.isArray(req.files?.file) ? req.files.file[0] : null);
 
-  if (!isSuperUser && !isEmployer) throw new AppError("Only Super User or Employer can upload contract", 403);
+  if (!hasRight(req.user, "ISSUE_CONTRACT")) throw new AppError("Access denied", 403);
   if (!contractFile) throw new AppError("File required", 400);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
@@ -267,7 +268,7 @@ function parseBulkApplicantIds(value) {
 async function uploadBulkContractUseCase(req) {
   const isSuperUser = isSuperUserLikeRole(req.user.role);
   const isEmployer = req.user.role === "EMPLOYER";
-  if (!isSuperUser && !isEmployer) throw new AppError("Only Super User or Employer can upload contract", 403);
+  if (!hasRight(req.user, "ISSUE_CONTRACT")) throw new AppError("Access denied", 403);
 
   const contractFile = req.file || (Array.isArray(req.files?.file) ? req.files.file[0] : null);
   if (!contractFile) throw new AppError("Contract file required", 400);

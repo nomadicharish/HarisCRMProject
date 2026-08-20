@@ -27,6 +27,10 @@ function isAuthTokenError(error) {
   );
 }
 
+function isSessionRevokedError(error) {
+  return error?.response?.data?.code === "SESSION_REVOKED";
+}
+
 async function getRequestToken(currentUser) {
   if (!currentUser) return localStorage.getItem("token");
 
@@ -74,6 +78,13 @@ API.interceptors.response.use(
     const originalRequest = error?.config;
     if (error?.response?.data?.details?.malwareDetected && typeof window !== "undefined") {
       window.alert(error.response.data.message || "Upload rejected: a potential malware threat was detected.");
+    }
+    if (isSessionRevokedError(error)) {
+      cachedAuthToken = "";
+      cachedAuthUid = "";
+      cachedAuthTokenUntil = 0;
+      await clearSession({ redirectTo: "/login" });
+      return Promise.reject(error);
     }
     if (isAuthTokenError(error) && originalRequest && !originalRequest._retry) {
       const currentUser = auth.currentUser;

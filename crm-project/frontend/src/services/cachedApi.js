@@ -8,6 +8,8 @@ function toStaleTime(ttlMs) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 30_000;
 }
 
+const SESSION_PROFILE_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
 function buildKey(url, params = {}) {
   const serializedParams = Object.keys(params || {})
     .sort()
@@ -19,7 +21,10 @@ function buildKey(url, params = {}) {
 export async function getCached(url, { params = {}, ttlMs = 30000, force = false } = {}) {
   const key = buildKey(url, params);
   const queryKey = ["api", key];
-  const staleTime = toStaleTime(ttlMs);
+  // The authenticated profile (including rights) is read once at login and
+  // remains valid for that browser session. Components must not create extra
+  // profile reads as they mount.
+  const staleTime = url === "/auth/me" ? SESSION_PROFILE_CACHE_TTL_MS : toStaleTime(ttlMs);
   staleTimeByKey.set(key, staleTime);
 
   if (force) {
@@ -43,7 +48,7 @@ export async function getCached(url, { params = {}, ttlMs = 30000, force = false
 export function prefetchCached(url, { params = {}, ttlMs = 30000 } = {}) {
   const key = buildKey(url, params);
   const queryKey = ["api", key];
-  const staleTime = toStaleTime(ttlMs);
+  const staleTime = url === "/auth/me" ? SESSION_PROFILE_CACHE_TTL_MS : toStaleTime(ttlMs);
   staleTimeByKey.set(key, staleTime);
 
   return queryClient.prefetchQuery({
@@ -63,7 +68,7 @@ export function readCached(url, { params = {} } = {}) {
 
 export function writeCached(url, data, { params = {}, ttlMs = 30000 } = {}) {
   const key = buildKey(url, params);
-  const staleTime = toStaleTime(ttlMs);
+  const staleTime = url === "/auth/me" ? SESSION_PROFILE_CACHE_TTL_MS : toStaleTime(ttlMs);
   staleTimeByKey.set(key, staleTime);
   queryClient.setQueryData(["api", key], data);
 }

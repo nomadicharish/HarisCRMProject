@@ -15,14 +15,15 @@ const { safeSendCalendarInvite } = require("../../services/calendarInviteService
 const { decryptText } = require("../../utils/crypto");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole, SUPER_USER_ROLE } = require("../../utils/roles");
+const { hasRight } = require("../../config/userRights");
 const { assertNoRejectedSignedDocuments } = require("./workflowExecutionUseCases");
 
 async function addEmbassyAppointmentUseCase(req) {
   const applicantId = req.params.id;
   const { dateTime, date, time } = req.body;
 
-  if (!(isSuperUserLikeRole(req.user.role) || req.user.role === "EMPLOYER")) {
-    throw new AppError("Only Super User or Employer can add appointment", 403);
+  if (!hasRight(req.user, "INITIATE_EMBASSY_APPOINTMENT")) {
+    throw new AppError("Access denied", 403);
   }
 
   const resolvedDate = date || (dateTime ? String(dateTime).split("T")[0] : "");

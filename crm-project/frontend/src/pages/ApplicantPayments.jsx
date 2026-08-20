@@ -10,6 +10,7 @@ import ApplicantSummaryCard from "../components/applicant/ApplicantSummaryCard";
 import { getCached, invalidateCache, readCached, updateCached, writeCached } from "../services/cachedApi";
 import { formatIndianNumberInput, parseIndianNumberInput } from "../utils/numberFormat";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import { formatCurrencyAmount, getCurrencySymbol, normalizeCurrency } from "../utils/currency";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
@@ -237,7 +238,7 @@ function ApplicantPayments() {
     return (paymentSummary?.history || []).filter((payment) => payment.type === "APPLICANT");
   }, [paymentSummary]);
   const canAddPayment =
-    (isSuperUserLikeRole(user?.role) || user?.role === "AGENCY") &&
+    hasRight(user, "ADD_PAYMENT_DETAILS") &&
     applicantPayment.remainingInstallments > 0 &&
     Number(pendingAmount || 0) > 0;
   const installmentCount = applicantPayment.installmentCount || 0;
@@ -448,8 +449,8 @@ function ApplicantPayments() {
   const handlePaymentReview = async () => {
     if (!selectedPayment || selectedPayment.isLegacyMapped) return;
     const status = getPaymentStatus(selectedPayment);
-    const isJuniorAction = user?.role === "JUNIOR_ACCOUNTANT" && status === "PENDING_JUNIOR";
-    const isSeniorAction = user?.role === "SENIOR_ACCOUNTANT" && status === "PENDING_SENIOR";
+    const isJuniorAction = hasRight(user, "ACKNOWLEDGE_PAYMENT") && status === "PENDING_JUNIOR";
+    const isSeniorAction = hasRight(user, "CONFIRM_PAYMENT") && status === "PENDING_SENIOR";
     if (!isJuniorAction && !isSeniorAction) return;
     if (isJuniorAction && !reviewConfirmed) {
       toast.error("Confirm that the entered details and documents are correct");

@@ -100,7 +100,7 @@ router.patch(
 );
 
 // Get Applicants (List)
-router.get("/", requireRight("VIEW_APPLICANT_PROFILE"), readCache(20), validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
+router.get("/", readCache(20), validate(applicantsListQuerySchema, "query"), asyncHandler(applicantController.getApplicants));
 
 // Get Applicant by ID
 router.get("/:id/private-file", validate(idParamsSchema, "params"), asyncHandler(applicantController.getApplicantPrivateFile));

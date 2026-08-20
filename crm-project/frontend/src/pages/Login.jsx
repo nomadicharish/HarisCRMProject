@@ -6,6 +6,8 @@ import { auth, authReady } from "../firebase";
 import BrandLogo from "../components/common/BrandLogo";
 import "../styles/auth.css";
 import { getDashboardPathByRole, getStoredUser, isSessionExpired, storeSession, validateEmail } from "../utils/auth";
+import { cacheRightsAtLogin } from "../utils/rights";
+import { writeCached } from "../services/cachedApi";
 
 function EyeIcon({ open }) {
   return open ? (
@@ -108,6 +110,8 @@ function Login() {
 
       const userData = response.data;
       storeSession({ token, user: userData });
+      cacheRightsAtLogin(userData);
+      writeCached("/auth/me", userData, { ttlMs: 24 * 60 * 60 * 1000 });
 
       if (userData.forcePasswordReset) {
         navigate("/change-password", { replace: true });

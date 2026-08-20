@@ -16,6 +16,7 @@ const {
   roundCurrency
 } = require("../../services/applicantDomainService");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+const { hasRight } = require("../../config/userRights");
 
 const PAYMENT_STATUS = {
   PENDING_JUNIOR: "PENDING_JUNIOR",
@@ -126,12 +127,7 @@ async function addPaymentUseCase(req) {
     throw new AppError("Payment mode must be Bank Transfer, UPI or BH", 400);
   }
 
-  if (
-    (type === "APPLICANT" && !(isSuperUserLikeRole(userRole) || userRole === "AGENCY")) ||
-    (type === "EMPLOYER" && !isSuperUserLikeRole(userRole))
-  ) {
-    throw new AppError("Not allowed to add this payment", 403);
-  }
+  if (!hasRight(req.user, "ADD_PAYMENT_DETAILS")) throw new AppError("Access denied", 403);
 
   if (!paidDate) {
     throw new AppError("Paid date is required", 400);

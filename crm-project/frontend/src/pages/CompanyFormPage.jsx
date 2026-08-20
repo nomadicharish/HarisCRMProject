@@ -16,6 +16,7 @@ import {
   validateDocumentFiles
 } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import "../styles/applicantsDashboard.css";
 
 const DEFAULT_DOCUMENT_ASSET_PATH = "/default-documents/";
@@ -303,7 +304,7 @@ function CompanyFormPage() {
         ]);
         const nextUser = me.data || null;
         setUser(nextUser);
-        if (!isSuperUserLikeRole(nextUser?.role)) {
+        if (!hasRight(nextUser, "ADD_COMPANIES")) {
           navigate("/dashboard", { replace: true });
           return;
         }

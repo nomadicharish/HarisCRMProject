@@ -1398,6 +1398,7 @@ function ApplicantsDashboard() {
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const canCreateApplicant = hasRight(user, "CREATE_APPLICANT");
   const canViewApplicantProfile = hasRight(user, "VIEW_APPLICANT_PROFILE");
+  const canViewPaymentDetails = hasRight(user, "VIEW_PAYMENT_DETAILS");
   const canAddCompanies = hasRight(user, "ADD_COMPANIES");
   const canViewCompanies = hasRight(user, "VIEW_COMPANIES");
   const canAddDispatch = hasRight(user, "ADD_DOCUMENT_DISPATCH");
@@ -1977,18 +1978,20 @@ function ApplicantsDashboard() {
   };
 
   const handleOpenApplicant = (applicantId) => {
-    if (isJuniorAccountant) {
-      navigate(`/applicants/${applicantId}/payments${window.location.search || ""}`);
+    if (canViewApplicantProfile) {
+      prefetchCached(`/applicants/${applicantId}/workflow-bundle`, {
+        params: { includeDetails: "false" },
+        ttlMs: 120000
+      });
+      navigate(`/applicants/${applicantId}${window.location.search || ""}`);
       return;
     }
-    prefetchCached(`/applicants/${applicantId}/workflow-bundle`, {
-      params: { includeDetails: "false" },
-      ttlMs: 120000
-    });
-    navigate(`/applicants/${applicantId}${window.location.search || ""}`);
+    if (canViewPaymentDetails) {
+      navigate(`/applicants/${applicantId}/payments${window.location.search || ""}`);
+    }
   };
 
-  const visibleTabs = useMemo(() => ["home", ...(canViewApplicantProfile ? ["applicants"] : []), ...(canViewCompanies ? ["companies"] : [])], [canViewApplicantProfile, canViewCompanies]);
+  const visibleTabs = useMemo(() => ["home", "applicants", ...(canViewCompanies ? ["companies"] : [])], [canViewCompanies]);
 
   useEffect(() => {
     if (!visibleTabs.includes(activeTab)) {

@@ -5,6 +5,7 @@ import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -52,7 +53,7 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
 
   const isSuperUser = isSuperUserLikeRole(user?.role);
   const canUpload =
-    (isSuperUser || user?.role === "EMPLOYER") &&
+    hasRight(user, "ISSUE_CONTRACT") &&
     !contract?.fileUrl &&
     contract?.status !== "APPROVED";
   const canApprove = isSuperUser && contract?.status === "PENDING";

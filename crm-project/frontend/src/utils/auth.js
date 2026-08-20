@@ -50,6 +50,7 @@ export async function clearSession({ redirectTo = "/login" } = {}) {
   localStorage.removeItem("user");
   localStorage.removeItem("session_expires_at");
   localStorage.removeItem(HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY);
+  localStorage.removeItem("rights_cached_at");
 
   try {
     await signOut(auth);

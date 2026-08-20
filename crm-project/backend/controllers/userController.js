@@ -5,6 +5,7 @@ const { encryptText } = require("../utils/crypto");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
 const { readEncryptedUserContactNumber, readEncryptedUserEmail, generateOneTimePassword, sendAccountSetupEmail } = require("../services/accountService");
 const { RIGHTS, getDefaultRights, normalizeRole } = require("../config/userRights");
+const { invalidateUserProfileCache } = require("../middleware/authMiddleware");
 
 const USER_ROLES = new Set(["SUPER_USER", "ADMIN", "AGENCY", "EMPLOYER", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]);
 
@@ -16,6 +17,12 @@ function requireUserRight(req, res, right) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || "").trim());
+}
+
+function sameRights(left = [], right = []) {
+  const normalizedLeft = [...new Set(Array.isArray(left) ? left : [])].sort();
+  const normalizedRight = [...new Set(Array.isArray(right) ? right : [])].sort();
+  return normalizedLeft.length === normalizedRight.length && normalizedLeft.every((value, index) => value === normalizedRight[index]);
 }
 
 function validateUserPayload(payload = {}, { creating = false } = {}) {
@@ -98,6 +105,7 @@ async function updateUser(req, res) {
   const parsed = validateUserPayload({ ...current, ...req.body, email: req.body.email || await readEncryptedUserEmail(current) });
   if (parsed.error) return res.status(400).json({ message: parsed.error });
   const { name, email, role, contactNumber, rights } = parsed;
+  const rightsChanged = !sameRights(current.rights || getDefaultRights(current.role), rights);
   await admin.auth().updateUser(req.params.uid, { displayName: name, email });
   await admin.auth().setCustomUserClaims(req.params.uid, { role });
   await doc.ref.set({
@@ -106,7 +114,9 @@ async function updateUser(req, res) {
     countryId: req.body.countryId || null, companyId: req.body.companyId || null,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
-  return res.json({ message: "User updated successfully" });
+  invalidateUserProfileCache(req.params.uid);
+  if (rightsChanged) await admin.auth().revokeRefreshTokens(req.params.uid);
+  return res.json({ message: "User updated successfully", sessionRevoked: rightsChanged });
 }
 
 async function removeUser(req, res) {
@@ -114,6 +124,7 @@ async function removeUser(req, res) {
   if (req.params.uid === req.user.uid) return res.status(400).json({ message: "You cannot delete your own account" });
   await admin.auth().updateUser(req.params.uid, { disabled: true });
   await db.collection("users").doc(req.params.uid).set({ active: false, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+  invalidateUserProfileCache(req.params.uid);
   return res.json({ message: "User deleted successfully" });
 }
 

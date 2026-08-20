@@ -2,12 +2,17 @@ const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
 const { getEffectiveRights } = require("../config/userRights");
 
-const TOKEN_CACHE_TTL_MS = Number(process.env.AUTH_TOKEN_CACHE_TTL_MS || 15_000);
+// Revoked sessions must be rejected by the very next API request. Do not cache
+// verified tokens by default, because an in-memory cache is not shared across
+// Cloud Run instances and could otherwise accept a revoked token briefly.
+const TOKEN_CACHE_TTL_MS = Number(process.env.AUTH_TOKEN_CACHE_TTL_MS || 0);
 // Every API request authenticates through this middleware. User profiles change
 // infrequently, so a short server-side cache prevents a Firestore read per API
 // request while keeping account changes responsive. Set the environment value
 // lower when an immediate role/assignment rollout is required.
-const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 120_000);
+// Rights are evaluated from this cached profile on every request. Ten minutes
+// keeps reads low while still applying a changed user permission promptly.
+const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 600_000);
 const AUTH_USER_CACHE_TTL_MS = Number(process.env.AUTH_USER_CACHE_TTL_MS || 60_000);
 const AUTH_ADMIN_PATH_PREFIXES = String(
   process.env.AUTH_ADMIN_PATH_PREFIXES || "/api/users/disable,/api/auth/disable-user"
@@ -51,11 +56,21 @@ function setCached(cache, key, value, ttlMs) {
   });
 }
 
+function invalidateUserProfileCache(uid) {
+  userProfileCache.delete(uid);
+  authUserCache.delete(uid);
+  for (const [token, entry] of tokenCache.entries()) {
+    if (entry?.value?.uid === uid) tokenCache.delete(token);
+  }
+}
+
 async function decodeTokenCached(token) {
-  const cached = getCached(tokenCache, token);
-  if (cached) return cached;
+  if (TOKEN_CACHE_TTL_MS > 0) {
+    const cached = getCached(tokenCache, token);
+    if (cached) return cached;
+  }
   const decoded = await admin.auth().verifyIdToken(token, true);
-  setCached(tokenCache, token, decoded, TOKEN_CACHE_TTL_MS);
+  if (TOKEN_CACHE_TTL_MS > 0) setCached(tokenCache, token, decoded, TOKEN_CACHE_TTL_MS);
   return decoded;
 }
 
@@ -164,8 +179,11 @@ const verifyToken = async (req, res, next) => {
       path: req.originalUrl,
       message: error?.message
     });
+    if (error?.code === "auth/id-token-revoked") {
+      return res.status(401).json({ message: "Your access rights changed. Please sign in again.", code: "SESSION_REVOKED" });
+    }
     return res.status(401).json({ message: "Invalid token" });
   }
 };
 
-module.exports = { verifyToken };
+module.exports = { verifyToken, invalidateUserProfileCache };

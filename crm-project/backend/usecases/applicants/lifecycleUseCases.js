@@ -10,6 +10,7 @@ const {
 } = require("../../services/applicantDomainService");
 const { approveAndMoveStageUseCase } = require("./workflowStageUseCases");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+const { hasRight } = require("../../config/userRights");
 const { recordNotificationAction, getUserName } = require("../../services/notificationService");
 
 async function notifyApplicantApproval({ applicantId, applicant = {}, user = {} }) {
@@ -78,7 +79,7 @@ async function approveApplicantUseCase(req) {
 
 async function completeApplicantUseCase(req) {
   const applicantId = req.params.id;
-  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can complete process", 403);
+  if (!hasRight(req.user, "COMPLETE_APPLICANT_ARRIVAL")) throw new AppError("Access denied", 403);
 
   const docRef = db.collection("applicants").doc(applicantId);
   const doc = await docRef.get();
