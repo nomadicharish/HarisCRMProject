@@ -100,7 +100,10 @@ function Login() {
 
     try {
       await authReady;
-      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      // One-time passwords never contain whitespace. Some mail clients include
+      // a leading or trailing space when users copy the password, which Firebase
+      // treats as a different credential.
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password.trim());
       const token = await userCredential.user.getIdToken(true);
       const response = await API.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` }
