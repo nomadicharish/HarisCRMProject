@@ -3,6 +3,7 @@ const {
   approveAndMoveStageUseCase,
   approveApplicantUseCase,
   completeApplicantUseCase,
+  deleteApplicantUseCase,
   updateApplicantUseCase
 } = require("../../usecases/applicants/lifecycleUseCases");
 const { handleApplicantControllerError } = require("./controllerHelpers");
@@ -48,6 +49,15 @@ module.exports = {
       return res.json(payload);
     } catch (error) {
       return handleApplicantControllerError(res, "Update Applicant Error", error);
+    }
+  }
+  ,
+  async deleteApplicant(req, res) {
+    try {
+      const payload = await deleteApplicantUseCase(req);
+      return res.json(payload);
+    } catch (error) {
+      return handleApplicantControllerError(res, "Delete Applicant Error", error);
     }
   }
 };

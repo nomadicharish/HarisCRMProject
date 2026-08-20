@@ -476,5 +476,6 @@ router.patch(
 
 // Update Applicant Details
 router.patch("/:id", validate(idParamsSchema, "params"), validate(updateApplicantSchema), asyncHandler(applicantController.updateApplicant));
+router.delete("/:id", allowRoles("SUPER_USER"), validate(idParamsSchema, "params"), asyncHandler(applicantController.deleteApplicant));
 
 module.exports = router;

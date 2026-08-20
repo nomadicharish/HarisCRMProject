@@ -472,6 +472,22 @@
   padding:0;
 }
 
+.settingsAdminResetBtn{
+  min-height:30px;
+  border:1px solid #0052cc;
+  background:#fff;
+  color:#0052cc;
+  border-radius:4px;
+  padding:0 8px;
+  font-size:12px;
+  font-weight:600;
+}
+
+.settingsAdminResetBtn:disabled{
+  opacity:.6;
+  cursor:wait;
+}
+
 .settingsRowActions{
   display:inline-flex;
   align-items:center;

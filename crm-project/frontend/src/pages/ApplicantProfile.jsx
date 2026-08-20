@@ -69,6 +69,7 @@ function ApplicantProfile() {
   const [showDispatchHistoryModal, setShowDispatchHistoryModal] = useState(false);
   const [approvingStage, setApprovingStage] = useState(false);
   const [completingProcess, setCompletingProcess] = useState(false);
+  const [deletingApplicant, setDeletingApplicant] = useState(false);
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 120000;
   const profileDashboardTabs = useMemo(() => {
@@ -329,6 +330,26 @@ function ApplicantProfile() {
     navigate(`/applicants/${id}/documents`);
   };
 
+  const handleDeleteApplicant = async () => {
+    if (!window.confirm("Delete this applicant and all related documents and records? This cannot be undone.")) return;
+    try {
+      setDeletingApplicant(true);
+      await API.delete(`/applicants/${id}`);
+      invalidateCache(`/applicants/${id}`);
+      invalidateCache(`/applicants/${id}/documents`);
+      invalidateCache(`/applicants/${id}/workflow-bundle`);
+      invalidateCache("/applicants");
+      invalidateCache("/dashboard");
+      toast.success("Applicant and related records deleted successfully");
+      navigate("/dashboard?tab=applicants");
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Unable to delete applicant");
+    } finally {
+      setDeletingApplicant(false);
+    }
+  };
+
   const handleShowDispatch = () => {
     setShowDispatchHistoryModal(true);
   };
@@ -453,6 +474,11 @@ function ApplicantProfile() {
               showPendingAmount={!isEmployer}
               accountantView={isSeniorAccountant}
             />
+            {isSuperUserLikeRole(user?.role) ? (
+              <button type="button" className="applicantDeleteButton" onClick={handleDeleteApplicant} disabled={deletingApplicant}>
+                {deletingApplicant ? "Deleting..." : "Delete Applicant"}
+              </button>
+            ) : null}
           </aside>
 
           <main className="applicantProfileMain">
@@ -632,7 +658,7 @@ function ApplicantProfile() {
         ) : null}
 
         <BlockingLoader
-          open={approvingStage || completingProcess}
+          open={approvingStage || completingProcess || deletingApplicant}
           label={completingProcess ? "Completing candidate arrival..." : "Approving candidate and updating pipeline..."}
         />
       </div>

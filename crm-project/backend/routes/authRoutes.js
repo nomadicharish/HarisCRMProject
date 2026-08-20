@@ -58,6 +58,14 @@ router.patch(
   validate(bankAccountSchema),
   asyncHandler(bankAccountController.updateBankAccount)
 );
+router.post(
+  "/accountants/:uid/reset-password",
+  noStore,
+  verifyToken,
+  requireRootSuperUser,
+  validate(disableUserParamsSchema, "params"),
+  asyncHandler(accountantAccountController.resetAccountantPassword)
+);
 router.delete(
   "/bank-accounts/:id",
   noStore,

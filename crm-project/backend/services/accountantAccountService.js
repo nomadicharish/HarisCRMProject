@@ -5,7 +5,8 @@ const {
   createLinkedUserAccount,
   buildUserProfileRecord,
   readEncryptedUserContactNumber,
-  readEncryptedUserEmail
+  readEncryptedUserEmail,
+  resetUserPassword
 } = require("./accountService");
 const { ensureUniqueEntityDetails } = require("./entityService");
 const { JUNIOR_ACCOUNTANT_ROLE, SENIOR_ACCOUNTANT_ROLE } = require("../utils/roles");
@@ -122,9 +123,18 @@ async function removeAccountant(uid, actorUid) {
   return { message: "Accountant removed successfully" };
 }
 
+async function resetAccountantPassword(uid) {
+  const doc = await db.collection("users").doc(uid).get();
+  if (!doc.exists || !ACCOUNTANT_ROLES.includes(doc.data()?.role)) {
+    throw new AppError("Accountant not found", 404);
+  }
+  return resetUserPassword(uid);
+}
+
 module.exports = {
   createAccountant,
   listAccountants,
   removeAccountant,
+  resetAccountantPassword,
   updateAccountant
 };

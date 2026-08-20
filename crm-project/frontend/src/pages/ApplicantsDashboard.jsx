@@ -2412,6 +2412,7 @@ function ApplicantsDashboard() {
             companies={companies}
             employers={employers}
             editData={entityEditData}
+            isSuperUser={isSuperUser}
             onClose={() => {
               setEntityModalType("");
               setEntityEditData(null);

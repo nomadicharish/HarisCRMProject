@@ -12,6 +12,43 @@ const { approveAndMoveStageUseCase } = require("./workflowStageUseCases");
 const { isSuperUserLikeRole } = require("../../utils/roles");
 const { hasRight } = require("../../config/userRights");
 const { recordNotificationAction, getUserName } = require("../../services/notificationService");
+const { invalidateLatestDocumentsCache } = require("../../services/applicantDocumentCache");
+
+async function deleteDocumentTree(documentRef) {
+  const childCollections = await documentRef.listCollections();
+  for (const collection of childCollections) {
+    const snapshot = await collection.get();
+    for (const child of snapshot.docs) await deleteDocumentTree(child.ref);
+  }
+  await documentRef.delete();
+}
+
+async function deleteApplicantLinkedRecords(collectionName, applicantId) {
+  const snapshot = await db.collection(collectionName).where("applicantId", "==", applicantId).get();
+  await Promise.all(snapshot.docs.map((doc) => deleteDocumentTree(doc.ref)));
+}
+
+async function deleteApplicantUseCase(req) {
+  if (!isSuperUserLikeRole(req.user?.role)) throw new AppError("Only Super User can delete applicants", 403);
+
+  const applicantId = req.params.id;
+  const applicantRef = db.collection("applicants").doc(applicantId);
+  const applicantDoc = await applicantRef.get();
+  if (!applicantDoc.exists) throw new AppError("Applicant not found", 404);
+
+  // Uploaded applicant assets are always namespaced by applicant id.
+  await admin.storage().bucket().deleteFiles({ prefix: `applicants/${applicantId}/` }).catch(() => {});
+  await Promise.all([
+    deleteApplicantLinkedRecords("stageLogs", applicantId),
+    deleteApplicantLinkedRecords("appNotifications", applicantId),
+    deleteApplicantLinkedRecords("changeEvents", applicantId),
+    db.collection("searchIndex").doc(`applicant_${applicantId}`).delete().catch(() => {})
+  ]);
+  await deleteDocumentTree(applicantRef);
+  invalidateLatestDocumentsCache(applicantId);
+
+  return { message: "Applicant and all related records were deleted successfully" };
+}
 
 async function notifyApplicantApproval({ applicantId, applicant = {}, user = {} }) {
   await recordNotificationAction({
@@ -176,6 +213,7 @@ module.exports = {
   approveAndMoveStageUseCase,
   approveApplicantUseCase,
   completeApplicantUseCase,
+  deleteApplicantUseCase,
   notifyApplicantApproval,
   updateApplicantUseCase
 };

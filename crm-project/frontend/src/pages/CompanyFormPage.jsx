@@ -568,6 +568,25 @@ function CompanyFormPage() {
     }
   };
 
+  const handleDeleteCompany = async () => {
+    if (!isEdit || !isSuperUser) return;
+    if (!window.confirm("Delete this company, its job positions, and related document templates? This cannot be undone.")) return;
+    try {
+      setSaving(true);
+      await API.delete(`/companies/${id}`);
+      invalidateCache("/companies");
+      invalidateCache("/agencies");
+      invalidateCache("/employers");
+      toast.success("Company and related job positions deleted successfully");
+      navigate("/dashboard?tab=companies");
+    } catch (error) {
+      console.error(error);
+      toast.error(error?.response?.data?.message || "Unable to delete company");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (pageLoading) {
     return (
       <div className="page-container">
@@ -893,6 +912,12 @@ function CompanyFormPage() {
           </div>
 
           <div className="companyFormActions">
+            {isEdit && isSuperUser ? (
+              <button type="button" className="companyRemoveButton" onClick={handleDeleteCompany} disabled={saving}>
+                <TrashIcon />
+                Delete Company
+              </button>
+            ) : null}
             <button type="button" className="companyCancelButton" onClick={() => navigate(-1)} disabled={saving}>
               Cancel
             </button>

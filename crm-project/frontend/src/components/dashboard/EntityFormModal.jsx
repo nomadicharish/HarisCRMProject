@@ -134,12 +134,14 @@ function EntityFormModal({
   companies = [],
   employers = [],
   editData = null,
+  isSuperUser = false,
   onClose,
   onSaved
 }) {
   const config = TYPE_CONFIG[type];
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState(INITIAL_FORM);
@@ -369,15 +371,46 @@ function EntityFormModal({
     }
   };
 
+  const handleResetPassword = async () => {
+    if (!editData?.id || !isSuperUser || (type !== "agency" && type !== "employer")) return;
+    const label = type === "agency" ? "agent" : "employer";
+    if (!window.confirm(`Reset this ${label}'s password and email a new one-time password?`)) return;
+
+    try {
+      setResettingPassword(true);
+      await API.post(`/${type === "agency" ? "agencies" : "employers"}/${editData.id}/reset-password`);
+      toast.success(`A new one-time password was sent to the ${label}.`);
+    } catch (error) {
+      console.error(error);
+      setErrors((prev) => ({
+        ...prev,
+        form: error?.response?.data?.message || "Unable to reset password"
+      }));
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   return (
     <>
       <div className="contractModalOverlay" data-module-version={ENTITY_FORM_MODULE_VERSION}>
         <div className="contractModalCard dashboardEntityModal" style={{ position: "relative" }}>
-          <BlockingLoader open={saving || deleting} label={deleting ? "Deleting..." : "Saving..."} />
+          <BlockingLoader open={saving || deleting || resettingPassword} label={deleting ? "Deleting..." : resettingPassword ? "Resetting password..." : "Saving..."} />
           <div className="dashboardModalHeader">
             <h3 className="dashboardModalTitle">{editData ? config.editTitle : config.title}</h3>
             <div className="dashboardHeaderActions">
-              {editData ? (
+              {editData && isSuperUser && (type === "agency" || type === "employer") ? (
+                <button
+                  type="button"
+                  className="dashboardIconBtn"
+                  onClick={handleResetPassword}
+                  aria-label="Reset password"
+                  title="Reset password"
+                >
+                  Reset Password
+                </button>
+              ) : null}
+              {editData && isSuperUser ? (
                 <button
                   type="button"
                   className="dashboardIconBtn"

@@ -10,7 +10,7 @@ import EntityFormModal from "../components/dashboard/EntityFormModal";
 import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
-import { getStoredUser, isRootSuperUserRole, updateStoredUser } from "../utils/auth";
+import { getStoredUser, isRootSuperUserRole, isSuperUserLikeRole, updateStoredUser } from "../utils/auth";
 import { hasAnyRight, hasRight } from "../utils/rights";
 import { toast } from "../utils/toast";
 import "../styles/settings.css";
@@ -67,6 +67,7 @@ function Settings() {
   const canAddBankDetails = hasRight(currentUser, "CREATE_BANK_DETAILS");
   const canManageBankDetails = canViewBankDetails || canAddBankDetails;
   const canManageUsers = hasAnyRight(currentUser, ["ADD_USERS", "VIEW_USERS"]);
+  const isSuperUser = isSuperUserLikeRole(currentUser?.role);
   const [activeSection, setActiveSection] = useState("general");
   const [loading, setLoading] = useState(!cachedSettings);
   const [saving, setSaving] = useState(false);
@@ -76,6 +77,7 @@ function Settings() {
   const [removingBankAccount, setRemovingBankAccount] = useState(false);
   const [accountantSaving, setAccountantSaving] = useState(false);
   const [removingAccountant, setRemovingAccountant] = useState(false);
+  const [resettingAccountantUid, setResettingAccountantUid] = useState("");
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
   const [bankAccounts, setBankAccounts] = useState([]);
@@ -449,6 +451,20 @@ function Settings() {
     }
   };
 
+  const handleResetAccountantPassword = async (accountant) => {
+    if (!isSuperUser || !accountant?.uid) return;
+    if (!window.confirm(`Reset ${accountant.name || "this accountant"}'s password and email a new one-time password?`)) return;
+    try {
+      setResettingAccountantUid(accountant.uid);
+      await API.post(`/auth/accountants/${accountant.uid}/reset-password`);
+      toast.success("A new one-time password was sent to the accountant.");
+    } catch (resetError) {
+      setError(resetError?.response?.data?.message || "Unable to reset accountant password");
+    } finally {
+      setResettingAccountantUid("");
+    }
+  };
+
   return (
     <div className="settingsPage" data-module-version={SETTINGS_MODULE_VERSION}>
       <DashboardTopbar
@@ -549,6 +565,7 @@ function Settings() {
                             <td>{accountant.accountantType || "-"}</td>
                             <td><span className="settingsRowActions">
                               <button type="button" className="settingsAdminEditBtn" onClick={() => openAccountantModal(accountant)} aria-label="Edit accountant"><EditIcon /></button>
+                              {isSuperUser ? <button type="button" className="settingsAdminResetBtn" onClick={() => handleResetAccountantPassword(accountant)} disabled={resettingAccountantUid === accountant.uid}>{resettingAccountantUid === accountant.uid ? "Sending..." : "Reset Password"}</button> : null}
                               <button type="button" className="settingsAdminDeleteBtn" onClick={() => setAccountantToRemove(accountant)} aria-label="Remove accountant"><TrashIcon /></button>
                             </span></td>
                           </tr>
@@ -672,6 +689,7 @@ function Settings() {
           companies={companies}
           employers={employers}
           editData={entityEditData}
+          isSuperUser={isSuperUser}
           onClose={() => {
             setEntityModalType("");
             setEntityEditData(null);

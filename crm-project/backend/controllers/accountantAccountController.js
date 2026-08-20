@@ -20,9 +20,15 @@ async function updateAccountant(req, res) {
   return res.json({ message: "Accountant updated successfully", accountant });
 }
 
+async function resetAccountantPassword(req, res) {
+  const data = await accountantAccountService.resetAccountantPassword(req.params.uid);
+  return res.json(data);
+}
+
 module.exports = {
   createAccountant,
   listAccountants,
   removeAccountant,
+  resetAccountantPassword,
   updateAccountant
 };

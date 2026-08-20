@@ -26,6 +26,16 @@ async function deleteCompany(req, res) {
   return res.json(data);
 }
 
+async function resetAgencyPassword(req, res) {
+  const data = await entityService.resetAgencyPassword(req.params.id);
+  return res.json(data);
+}
+
+async function resetEmployerPassword(req, res) {
+  const data = await entityService.resetEmployerPassword(req.params.id);
+  return res.json(data);
+}
+
 async function addAgency(req, res) {
   const data = await entityService.addAgency({ ...req.body, actor: req.user });
   return res.json(data);
@@ -107,6 +117,8 @@ module.exports = {
   addEmployer,
   deleteAgency,
   deleteCompany,
+  resetAgencyPassword,
+  resetEmployerPassword,
   deleteEmployer,
   listAgencies,
   listCompanies,

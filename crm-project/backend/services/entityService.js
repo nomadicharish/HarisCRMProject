@@ -14,6 +14,7 @@ const {
   createLinkedUserAccount,
   deleteLinkedUserAccount,
   findLinkedUserByField,
+  resetLinkedUserPassword,
   syncLinkedUserAccount
 } = require("./accountService");
 const { recordCompanyAssignmentNotification } = require("./notificationService");
@@ -606,8 +607,17 @@ async function deleteCompany(id) {
     await batch.commit();
   }
 
+  await admin.storage().bucket().deleteFiles({ prefix: `companies/${id}/` }).catch(() => {});
   await companyRef.delete();
   return { message: "Company deleted successfully", id };
+}
+
+async function resetAgencyPassword(id) {
+  return resetLinkedUserPassword("AGENCY", id);
+}
+
+async function resetEmployerPassword(id) {
+  return resetLinkedUserPassword("EMPLOYER", id);
 }
 
 async function addAgency(payload) {
@@ -1153,6 +1163,8 @@ module.exports = {
   addEmployer,
   deleteAgency,
   deleteCompany,
+  resetAgencyPassword,
+  resetEmployerPassword,
   deleteEmployer,
   ensureUniqueEntityDetails,
   listAgencies,

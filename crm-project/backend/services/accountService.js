@@ -222,6 +222,44 @@ async function deleteLinkedUserAccount(role, entityId) {
   await db.collection("users").doc(linkedUserDoc.id).delete();
 }
 
+async function resetUserPassword(uid) {
+  const userDoc = await db.collection("users").doc(uid).get();
+  if (!userDoc.exists) throw new AppError("User account not found", 404);
+
+  const userData = userDoc.data() || {};
+  const authUser = await admin.auth().getUser(uid);
+  const email = await readEncryptedUserEmail(userData) || authUser.email || "";
+  if (!email) throw new AppError("User email is not available", 400);
+
+  const oneTimePassword = generateOneTimePassword();
+  await admin.auth().updateUser(uid, { password: oneTimePassword, disabled: false });
+  await db.collection("users").doc(uid).set(
+    {
+      active: true,
+      forcePasswordReset: true,
+      updatedAt: new Date()
+    },
+    { merge: true }
+  );
+
+  const result = await sendAccountSetupEmail({
+    email,
+    name: userData.name || authUser.displayName || "User",
+    role: userData.role || "USER",
+    oneTimePassword
+  });
+  if (result?.skipped) throw new AppError("Password was reset, but the email could not be sent", 502);
+
+  return { message: "Password reset email sent successfully" };
+}
+
+async function resetLinkedUserPassword(role, entityId) {
+  const fieldName = role === "AGENCY" ? "agencyId" : "employerId";
+  const linkedUserDoc = await findLinkedUserByField(fieldName, entityId, role);
+  if (!linkedUserDoc) throw new AppError("Linked user account not found", 404);
+  return resetUserPassword(linkedUserDoc.id);
+}
+
 module.exports = {
   buildUserProfileRecord,
   createLinkedUserAccount,
@@ -230,6 +268,8 @@ module.exports = {
   generateOneTimePassword,
   readEncryptedUserContactNumber,
   readEncryptedUserEmail,
+  resetLinkedUserPassword,
+  resetUserPassword,
   sendAccountSetupEmail,
   syncLinkedUserAccount
 };

@@ -206,6 +206,23 @@
   margin-top:10px;
 }
 
+.applicantDeleteButton{
+  width:100%;
+  margin-top:16px;
+  min-height:38px;
+  border:1px solid #fecaca;
+  border-radius:6px;
+  background:#fff1f2;
+  color:#b91c1c;
+  font-weight:700;
+  cursor:pointer;
+}
+
+.applicantDeleteButton:disabled{
+  opacity:.65;
+  cursor:wait;
+}
+
 .sideLabelRow{
   display:flex;
   align-items:center;

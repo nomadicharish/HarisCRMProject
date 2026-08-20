@@ -29,7 +29,7 @@ router.get("/countries", verifyToken, readCache(60), asyncHandler(entityControll
 
 router.post("/add-company", verifyToken, requireRight("ADD_COMPANIES"), validate(companyPayloadSchema), asyncHandler(entityController.addCompany));
 router.patch("/companies/:id", verifyToken, requireRight("ADD_COMPANIES"), validate(idParamSchema, "params"), validate(companyPayloadSchema), asyncHandler(entityController.updateCompany));
-router.delete("/companies/:id", verifyToken, requireRight("ADD_COMPANIES"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteCompany));
+router.delete("/companies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteCompany));
 router.get("/companies", verifyToken, requireRight("VIEW_COMPANIES"), noStore, validate(listCompaniesQuerySchema, "query"), asyncHandler(entityController.listCompanies));
 router.post(
   "/companies/:id/document-template",
@@ -44,11 +44,13 @@ router.post(
 router.post("/add-agency", verifyToken, allowRoles("SUPER_USER"), validate(agencyPayloadSchema), asyncHandler(entityController.addAgency));
 router.patch("/agencies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), validate(agencyPayloadSchema), asyncHandler(entityController.updateAgency));
 router.delete("/agencies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteAgency));
+router.post("/agencies/:id/reset-password", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.resetAgencyPassword));
 router.get("/agencies", verifyToken, noStore, validate(listAgenciesQuerySchema, "query"), asyncHandler(entityController.listAgencies));
 
 router.post("/add-employer", verifyToken, allowRoles("SUPER_USER"), validate(employerPayloadSchema), asyncHandler(entityController.addEmployer));
 router.patch("/employers/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), validate(employerPayloadSchema), asyncHandler(entityController.updateEmployer));
 router.delete("/employers/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteEmployer));
+router.post("/employers/:id/reset-password", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.resetEmployerPassword));
 router.get("/employers", verifyToken, noStore, validate(listEmployersQuerySchema, "query"), asyncHandler(entityController.listEmployers));
 
 module.exports = router;
