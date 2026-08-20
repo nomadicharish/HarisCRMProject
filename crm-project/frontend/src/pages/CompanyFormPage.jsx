@@ -496,6 +496,7 @@ function CompanyFormPage() {
   const handleSubmit = async () => {
     if (!validate()) return;
 
+    let companyId = id;
     try {
       window.scrollTo({ top: 0, behavior: "auto" });
       setSaving(true);
@@ -543,8 +544,9 @@ function CompanyFormPage() {
       const response = isEdit
         ? await API.patch(`/companies/${id}`, payload)
         : await API.post("/add-company", payload);
-      const companyId = id || response.data?.id;
-      if (companyId) await uploadDocumentTemplates(companyId);
+      companyId = id || response.data?.id;
+      if (!companyId) throw new Error("The company was saved but no company id was returned.");
+      await uploadDocumentTemplates(companyId);
       invalidateCache("/companies");
       invalidateCache("/agencies");
       invalidateCache("/employers");
@@ -552,6 +554,14 @@ function CompanyFormPage() {
       navigate("/dashboard?tab=companies");
     } catch (error) {
       console.error(error);
+      const uploadMessage = error?.response?.data?.message || error?.message || "Unable to save the company. Please try again.";
+      if (!isEdit && companyId) {
+        invalidateCache("/companies");
+        toast.error(`Company was created, but its document could not be uploaded: ${uploadMessage}`);
+        navigate(`/companies/${companyId}/edit`);
+      } else {
+        toast.error(uploadMessage);
+      }
     } finally {
       setSaving(false);
     }
