@@ -11,8 +11,6 @@ function isValidEmail(email) {
 const createUser = async (req, res) => {
   try {
     const { email, name, role, agencyId, employerId } = req.body;
-    const normalizedEmail = String(email || "").trim().toLowerCase();
-    const normalizedName = String(name || "").trim();
 
     const creatorRole = req.user?.role || "SUPER_USER";
 
@@ -24,11 +22,11 @@ const createUser = async (req, res) => {
       return res.status(400).json({ message: "Invalid role" });
     }
 
-    if (!normalizedName) {
+    if (!name || !String(name).trim()) {
       return res.status(400).json({ message: "Name is required" });
     }
 
-    if (!isValidEmail(normalizedEmail)) {
+    if (!isValidEmail(email)) {
       return res.status(400).json({ message: "Valid email is required" });
     }
 
@@ -37,9 +35,9 @@ const createUser = async (req, res) => {
     // Create Firebase Auth user with a temporary password. The user is forced
     // to replace it immediately after their first successful login.
     const userRecord = await admin.auth().createUser({
-      email: normalizedEmail,
+      email,
       password: oneTimePassword,
-      displayName: normalizedName
+      displayName: String(name).trim()
     });
 
     const uid = userRecord.uid;
@@ -49,9 +47,9 @@ const createUser = async (req, res) => {
 
     // Store user profile in Firestore
     await db.collection("users").doc(uid).set({
-      name: normalizedName,
-      emailEncrypted: await encryptText(normalizedEmail),
-      normalizedEmail,
+      name,
+      emailEncrypted: await encryptText(String(email).trim().toLowerCase()),
+      normalizedEmail: String(email).trim().toLowerCase(),
       role,
       agencyId: agencyId || null,
       employerId: employerId || null,
@@ -62,12 +60,7 @@ const createUser = async (req, res) => {
 
     let welcomeEmail;
     try {
-      const result = await sendAccountSetupEmail({
-        email: normalizedEmail,
-        name: normalizedName,
-        role,
-        oneTimePassword
-      });
+      const result = await sendAccountSetupEmail({ email, name, role, oneTimePassword });
       welcomeEmail = result?.skipped
         ? { sent: false, reason: result.reason || "send_failed" }
         : { sent: true, messageId: result?.messageId || null };
