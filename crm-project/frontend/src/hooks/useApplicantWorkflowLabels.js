@@ -148,6 +148,8 @@ function useApplicantWorkflowLabels({
       String(visaCollection?.status || "").toUpperCase() === "PENDING"
     );
     const canAddVisaTravel = applicantStage === 12 && hasRight(user, "ADD_APPLICANT_ARRIVAL");
+    const canCompleteApplicantArrival =
+      applicantStage === 12 && hasVisaTravel && hasRight(user, "COMPLETE_APPLICANT_ARRIVAL");
     const canAddResidencePermit =
       applicantStage === 11 && hasRight(user, "UPLOAD_TRC") && hasVisaCollectionTravel && !hasResidencePermit;
     const canAddVisaCollectionTravel =
@@ -353,7 +355,7 @@ function useApplicantWorkflowLabels({
         : "Issue Contract"
       : canUploadSignedContract
       ? "Upload Signed Contract"
-      : applicantStage === 12 && isSuperUser && hasVisaTravel
+      : canCompleteApplicantArrival
       ? "Candidate Arrived"
       : canAddResidencePermit
       ? "Upload TRC Document"
@@ -397,7 +399,7 @@ function useApplicantWorkflowLabels({
     const canHeaderAction =
       canIssueContract ||
       canUploadSignedContract ||
-      (applicantStage === 12 && isSuperUser && hasVisaTravel) ||
+      canCompleteApplicantArrival ||
       canAddResidencePermit ||
       canAddVisaTravel ||
       canAddVisaCollectionTravel ||
@@ -427,6 +429,7 @@ function useApplicantWorkflowLabels({
       canAddInterviewBiometric,
       canAddVisaCollection,
       canAddVisaTravel,
+      canCompleteApplicantArrival,
       canAddResidencePermit,
       canAddVisaCollectionTravel,
       shouldShowDocumentAction,

@@ -6,6 +6,7 @@ const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalize
 const { readEncryptedUserContactNumber, readEncryptedUserEmail, generateOneTimePassword, sendAccountSetupEmail } = require("../services/accountService");
 const { RIGHTS, getDefaultRights, normalizeRole } = require("../config/userRights");
 const { invalidateUserProfileCache } = require("../middleware/authMiddleware");
+const { isSuperUserLikeRole } = require("../utils/roles");
 
 const USER_ROLES = new Set(["SUPER_USER", "ADMIN", "AGENCY", "EMPLOYER", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]);
 
@@ -120,7 +121,7 @@ async function updateUser(req, res) {
 }
 
 async function removeUser(req, res) {
-  if (!requireUserRight(req, res, "ADD_USERS")) return;
+  if (!requireUserRight(req, res, "DELETE_USERS")) return;
   if (req.params.uid === req.user.uid) return res.status(400).json({ message: "You cannot delete your own account" });
   await admin.auth().updateUser(req.params.uid, { disabled: true });
   await db.collection("users").doc(req.params.uid).set({ active: false, updatedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
@@ -128,4 +129,31 @@ async function removeUser(req, res) {
   return res.json({ message: "User deleted successfully" });
 }
 
-module.exports = { createUser, getUser, listUsers, removeUser, updateUser };
+async function resetUserPassword(req, res) {
+  if (!isSuperUserLikeRole(req.user?.role)) return res.status(403).json({ message: "Only Super User can reset user passwords" });
+  const doc = await db.collection("users").doc(req.params.uid).get();
+  if (!doc.exists || doc.data()?.active === false) return res.status(404).json({ message: "User not found" });
+
+  const user = doc.data() || {};
+  const email = await readEncryptedUserEmail(user);
+  if (!email) return res.status(400).json({ message: "User email is not available" });
+
+  const oneTimePassword = generateOneTimePassword();
+  await admin.auth().updateUser(req.params.uid, { password: oneTimePassword, disabled: false });
+  await doc.ref.set({
+    active: true,
+    forcePasswordReset: true,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+
+  const emailResult = await sendAccountSetupEmail({
+    email,
+    name: user.name || "User",
+    role: user.role || "USER",
+    oneTimePassword
+  });
+  if (emailResult?.skipped) return res.status(502).json({ message: "Password was reset, but the email could not be sent" });
+  return res.json({ message: "Password reset email sent successfully" });
+}
+
+module.exports = { createUser, getUser, listUsers, removeUser, resetUserPassword, updateUser };

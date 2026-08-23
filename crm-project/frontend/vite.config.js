@@ -7,7 +7,10 @@ export default defineConfig({
   server: {
     proxy: {
       "/api": {
-        target: "https://talent-aquisition-dev.web.app",
+        // Dev Firebase authentication is paired with the deployed Dev API by
+        // default. Set VITE_API_PROXY_TARGET=http://127.0.0.1:5000 only when
+        // the local backend has Dev Firebase credentials configured.
+        target: process.env.VITE_API_PROXY_TARGET || "https://talent-aquisition-dev.web.app",
         changeOrigin: true,
         headers: {
           origin: "https://talent-aquisition-dev.web.app"

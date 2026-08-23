@@ -25,6 +25,21 @@ async function updateSettings(req, res) {
   return res.json(data);
 }
 
+async function uploadProfilePhoto(req, res) {
+  const data = await authService.uploadProfilePhoto(req.user.uid, req.file);
+  return res.json(data);
+}
+
+async function getCommonDocuments(req, res) {
+  const data = await authService.getCommonDocuments();
+  return res.json(data);
+}
+
+async function uploadStandardReferenceDocument(req, res) {
+  const data = await authService.uploadStandardReferenceDocument(req.file);
+  return res.json(data);
+}
+
 async function markPasswordUpdated(req, res) {
   const data = await authService.markPasswordUpdated(req.user.uid);
   return res.json(data);
@@ -40,7 +55,10 @@ module.exports = {
   checkEmail,
   disableUser,
   getCurrentUser,
+  getCommonDocuments,
   getSettings,
   markPasswordUpdated,
-  updateSettings
+  updateSettings,
+  uploadProfilePhoto,
+  uploadStandardReferenceDocument
 };

@@ -2,6 +2,7 @@ const express = require("express");
 const { asyncHandler } = require("../lib/asyncHandler");
 const { verifyToken } = require("../middleware/authMiddleware");
 const { noStore } = require("../middleware/noStore");
+const upload = require("../middleware/uploadMiddleware");
 const allowRoles = require("../middleware/roleMiddleware");
 const requireRight = require("../middleware/requireRight");
 const requireAnyRight = require("../middleware/requireAnyRight");
@@ -34,11 +35,14 @@ router.post("/check-email", noStore, createAuthRateLimiter(), validate(checkEmai
 router.post("/change-password", noStore, verifyToken, validate(changePasswordSchema), asyncHandler(authController.changePassword));
 router.get("/settings", noStore, verifyToken, asyncHandler(authController.getSettings));
 router.patch("/settings", noStore, verifyToken, validate(updateSettingsSchema), asyncHandler(authController.updateSettings));
+router.post("/settings/profile-photo", noStore, verifyToken, upload.single("file"), asyncHandler(authController.uploadProfilePhoto));
+router.get("/common-documents", noStore, verifyToken, asyncHandler(authController.getCommonDocuments));
+router.post("/common-documents/standard-reference", noStore, verifyToken, requireRootSuperUser, upload.single("file"), asyncHandler(authController.uploadStandardReferenceDocument));
 router.get(
   "/bank-accounts",
   noStore,
   verifyToken,
-  requireRight("VIEW_BANK_DETAILS"),
+  requireAnyRight("VIEW_BANK_DETAILS", "ADD_PAYMENT_DETAILS"),
   asyncHandler(bankAccountController.listBankAccounts)
 );
 router.post(

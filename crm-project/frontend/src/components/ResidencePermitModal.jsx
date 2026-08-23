@@ -3,6 +3,7 @@ import { toast } from "../utils/toast";
 import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
+import { hasRight } from "../utils/rights";
 import "../styles/applicantContract.css";
 
 function normalizeDate(value) {
@@ -37,7 +38,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
     () => residencePermit || fallbackResidencePermit || null,
     [residencePermit, fallbackResidencePermit]
   );
-  const canUpload = user?.role === "AGENCY";
+  const canUpload = hasRight(user, "UPLOAD_TRC");
 
   const loadResidencePermit = useCallback(async () => {
     try {

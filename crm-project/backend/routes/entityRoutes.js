@@ -29,7 +29,7 @@ router.get("/countries", verifyToken, readCache(60), asyncHandler(entityControll
 
 router.post("/add-company", verifyToken, requireRight("ADD_COMPANIES"), validate(companyPayloadSchema), asyncHandler(entityController.addCompany));
 router.patch("/companies/:id", verifyToken, requireRight("ADD_COMPANIES"), validate(idParamSchema, "params"), validate(companyPayloadSchema), asyncHandler(entityController.updateCompany));
-router.delete("/companies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteCompany));
+router.delete("/companies/:id", verifyToken, requireRight("DELETE_COMPANIES"), validate(idParamSchema, "params"), asyncHandler(entityController.deleteCompany));
 router.get("/companies", verifyToken, requireRight("VIEW_COMPANIES"), noStore, validate(listCompaniesQuerySchema, "query"), asyncHandler(entityController.listCompanies));
 router.post(
   "/companies/:id/document-template",

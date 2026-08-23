@@ -20,9 +20,7 @@ const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
 async function addDispatchUseCase(req) {
   const applicantId = req.params.id;
   const { note, trackingUrl, awbNumber, dispatchDate } = req.body;
-  const userRole = req.user?.role || "";
-
-  if (userRole !== "AGENCY") throw new AppError("Only agency can add dispatch details", 403);
+  if (!hasRight(req.user, "ADD_DOCUMENT_DISPATCH")) throw new AppError("Access denied", 403);
   if (!note || !awbNumber) throw new AppError("Note and AWB Number are required", 400);
 
   const result = await addDispatchForApplicant({
@@ -39,9 +37,7 @@ async function addDispatchUseCase(req) {
 
 async function addBulkDispatchUseCase(req) {
   const { note, trackingUrl, awbNumber, dispatchDate, applicantIds = [] } = req.body;
-  const userRole = req.user?.role || "";
-
-  if (userRole !== "AGENCY") throw new AppError("Only agency can add dispatch details", 403);
+  if (!hasRight(req.user, "ADD_DOCUMENT_DISPATCH")) throw new AppError("Access denied", 403);
   if (!awbNumber || !trackingUrl || !dispatchDate) {
     throw new AppError("AWB Number, Tracking URL and Dispatch Date are required", 400);
   }
@@ -346,7 +342,7 @@ async function uploadAdditionalContractDocuments(req, applicantId) {
 
 async function uploadSignedContractUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agent can upload signed contract", 403);
+  if (!hasRight(req.user, "UPLOAD_SIGNED_CONTRACT")) throw new AppError("Access denied", 403);
   const contractFile = req.file || (Array.isArray(req.files?.file) ? req.files.file[0] : null);
   const additionalFiles = Array.isArray(req.files?.additionalDocuments) ? req.files.additionalDocuments.slice(0, 3) : [];
   validateSignedDocumentFileSize([contractFile, ...additionalFiles].filter(Boolean));
@@ -738,8 +734,8 @@ async function getContractUseCase(req) {
 async function addEmbassyInterviewUseCase(req) {
   const applicantId = req.params.id;
   const { dateTime } = req.body;
-  if (!(isSuperUserLikeRole(req.user.role) || req.user.role === "EMPLOYER")) {
-    throw new AppError("Only Super User or Employer can add interview", 403);
+  if (!hasRight(req.user, "INITIATE_EMBASSY_INTERVIEW")) {
+    throw new AppError("Access denied", 403);
   }
   if (!dateTime) throw new AppError("Date & Time required", 400);
 
@@ -868,7 +864,7 @@ async function getEmbassyInterviewUseCase(req) {
 async function addInterviewTicketUseCase(req) {
   const applicantId = req.params.id;
   const { date, time } = req.body;
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agency can upload interview ticket", 403);
+  if (!hasRight(req.user, "ADD_INTERVIEW_TRAVEL")) throw new AppError("Access denied", 403);
   if (!date || !time) throw new AppError("Date and Time required", 400);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
@@ -928,7 +924,7 @@ async function getInterviewTicketUseCase(req) {
 
 async function uploadInterviewBiometricUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agency can upload interview biometric slip", 403);
+  if (!hasRight(req.user, "ADD_INTERVIEW_BIOMETRIC")) throw new AppError("Access denied", 403);
   if (!req.file) throw new AppError("File required", 400);
 
   const bucket = admin.storage().bucket();

@@ -1,20 +1,22 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import PhoneInput from "react-phone-input-2";
 import "react-phone-input-2/lib/style.css";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import PageLoader from "../components/common/PageLoader";
+import SecureImage from "../components/common/SecureImage";
 import CountryManagerModal from "../components/dashboard/CountryManagerModal";
 import EntityFormModal from "../components/dashboard/EntityFormModal";
 import EmployersTable from "../components/dashboard/EmployersTable";
 import AgenciesTable from "../components/dashboard/AgenciesTable";
 import { getCached, invalidateCache, readCached, writeCached } from "../services/cachedApi";
-import { getStoredUser, isRootSuperUserRole, isSuperUserLikeRole, updateStoredUser } from "../utils/auth";
+import { getStoredUser, isSuperUserLikeRole, updateStoredUser } from "../utils/auth";
 import { hasAnyRight, hasRight } from "../utils/rights";
 import { toast } from "../utils/toast";
 import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
+import "../styles/applicantDocuments.css";
 
 const SETTINGS_MODULE_VERSION = "2026-08-02.1";
 
@@ -60,6 +62,7 @@ function EditIcon() {
 
 function Settings() {
   const navigate = useNavigate();
+  const location = useLocation();
   const storedUser = getStoredUser();
   const cachedSettings = readCached("/auth/settings");
   const currentUser = cachedSettings || storedUser;
@@ -68,9 +71,14 @@ function Settings() {
   const canManageBankDetails = canViewBankDetails || canAddBankDetails;
   const canManageUsers = hasAnyRight(currentUser, ["ADD_USERS", "VIEW_USERS"]);
   const isSuperUser = isSuperUserLikeRole(currentUser?.role);
-  const [activeSection, setActiveSection] = useState("general");
+  const activeSection = new URLSearchParams(location.search).get("section") || "general";
   const [loading, setLoading] = useState(!cachedSettings);
   const [saving, setSaving] = useState(false);
+  const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
+  const [commonDocumentsLoading, setCommonDocumentsLoading] = useState(false);
+  const [standardReference, setStandardReference] = useState({ standardReferenceFileName: "", standardReferenceUrl: "" });
+  const [standardReferenceFile, setStandardReferenceFile] = useState(null);
+  const profilePhotoInputRef = useRef(null);
   const [bankAccountsLoading, setBankAccountsLoading] = useState(false);
   const [accountantsLoading, setAccountantsLoading] = useState(false);
   const [bankSaving, setBankSaving] = useState(false);
@@ -114,6 +122,7 @@ function Settings() {
     role: cachedSettings?.role || storedUser?.role || "",
     contactNumber: cachedSettings?.contactNumber || "",
     passwordMasked: cachedSettings?.passwordMasked || "********"
+    ,profilePhotoUrl: cachedSettings?.profilePhotoUrl || ""
   });
 
   const dashboardTabs = useMemo(() => {
@@ -137,12 +146,28 @@ function Settings() {
           role: userData?.role || storedUser?.role || "",
           contactNumber: userData?.contactNumber || "",
           passwordMasked: userData?.passwordMasked || "********"
+          ,profilePhotoUrl: userData?.profilePhotoUrl || ""
         });
       })
       .catch((loadError) => active && setError(loadError?.response?.data?.message || "Unable to load settings"))
       .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [storedUser?.role]);
+
+  const loadCommonDocuments = useCallback(async () => {
+    if (!isSuperUser) return;
+    try {
+      setCommonDocumentsLoading(true);
+      const response = await API.get("/auth/common-documents");
+      setStandardReference(response.data || {});
+    } catch (loadError) {
+      setError(loadError?.response?.data?.message || "Unable to load common documents");
+    } finally {
+      setCommonDocumentsLoading(false);
+    }
+  }, [isSuperUser]);
+
+  useEffect(() => { if (activeSection === "common-documents") loadCommonDocuments(); }, [activeSection, loadCommonDocuments]);
 
   const loadBankAccounts = useCallback(async () => {
     if (!canManageBankDetails) return;
@@ -311,6 +336,41 @@ function Settings() {
     }
   };
 
+  const selectSection = (section) => {
+    navigate(section === "general" ? "/settings" : `/settings?section=${section}`);
+  };
+
+  const handleProfilePhotoUpload = async (file) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) { setError("Please choose a JPEG or PNG image"); return; }
+    try {
+      setProfilePhotoUploading(true);
+      const body = new FormData();
+      body.append("file", file);
+      const response = await API.post("/auth/settings/profile-photo", body, { headers: { "Content-Type": "multipart/form-data" } });
+      const profilePhotoUrl = response.data?.profilePhotoUrl || "";
+      setForm((current) => ({ ...current, profilePhotoUrl }));
+      updateStoredUser({ profilePhotoUrl });
+      toast.success("Profile picture updated successfully");
+    } catch (uploadError) { setError(uploadError?.response?.data?.message || "Unable to upload profile picture"); }
+    finally { setProfilePhotoUploading(false); }
+  };
+
+  const handleStandardReferenceUpload = async () => {
+    const file = standardReferenceFile;
+    if (!file) return;
+    try {
+      setCommonDocumentsLoading(true);
+      const body = new FormData();
+      body.append("file", file);
+      const response = await API.post("/auth/common-documents/standard-reference", body, { headers: { "Content-Type": "multipart/form-data" } });
+      setStandardReference(response.data || {});
+      setStandardReferenceFile(null);
+      toast.success("Standard reference document updated successfully");
+    } catch (uploadError) { setError(uploadError?.response?.data?.message || "Unable to upload standard reference document"); }
+    finally { setCommonDocumentsLoading(false); }
+  };
+
   const resetBankForm = () => {
     setBankForm({ beneficiaryName: "", accountNumber: "", bankNameBranch: "" });
     setBankFormErrors({});
@@ -468,7 +528,7 @@ function Settings() {
   return (
     <div className="settingsPage" data-module-version={SETTINGS_MODULE_VERSION}>
       <DashboardTopbar
-        user={{ name: form.name || storedUser?.name || "User", role: form.role || storedUser?.role }}
+        user={{ name: form.name || storedUser?.name || "User", role: form.role || storedUser?.role, profilePhotoUrl: form.profilePhotoUrl || storedUser?.profilePhotoUrl || "" }}
         showTabs
         tabs={dashboardTabs.map((key) => ({ key, label: key === "home" ? "Home" : key === "applicants" ? "Applicants" : "Companies" }))}
         activeTab="settings"
@@ -478,16 +538,16 @@ function Settings() {
         <div className="settingsShellHeader"><h1 className="settingsShellTitle">Settings</h1></div>
         <div className="settingsShellBody">
           <aside className="settingsSidebar">
-            <button type="button" className={`settingsNavItem ${activeSection === "general" ? "settingsNavItemActive" : ""}`} onClick={() => setActiveSection("general")}>
+            <button type="button" className={`settingsNavItem ${activeSection === "general" ? "settingsNavItemActive" : ""}`} onClick={() => selectSection("general")}>
               General
             </button>
             {canManageBankDetails ? (
-              <button type="button" className={`settingsNavItem ${activeSection === "bank-details" ? "settingsNavItemActive" : ""}`} onClick={() => setActiveSection("bank-details")}>
+              <button type="button" className={`settingsNavItem ${activeSection === "bank-details" ? "settingsNavItemActive" : ""}`} onClick={() => selectSection("bank-details")}>
                 Bank Details
               </button>
             ) : null}
             {canManageBankDetails ? (
-              <button type="button" className={`settingsNavItem ${activeSection === "countries" ? "settingsNavItemActive" : ""}`} onClick={() => { setActiveSection("countries"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
+              <button type="button" className={`settingsNavItem ${activeSection === "countries" ? "settingsNavItemActive" : ""}`} onClick={() => { selectSection("countries"); setOrganizationSearch(""); setOrganizationCountryId(""); setOrganizationCompanyId(""); }}>
                 Countries
               </button>
             ) : null}
@@ -496,14 +556,21 @@ function Settings() {
                 Users
               </button>
             ) : null}
+            {isSuperUser ? (
+              <button type="button" className={`settingsNavItem ${activeSection === "common-documents" ? "settingsNavItemActive" : ""}`} onClick={() => selectSection("common-documents")}>Common Documents</button>
+            ) : null}
           </aside>
           <section className="settingsContent">
             {loading ? <PageLoader label="Loading settings..." /> : activeSection === "general" ? (
               <>
                 <div className="settingsProfileHead">
-                  <div className="settingsAvatar">{initials}</div>
+                  <button type="button" className="settingsAvatar settingsAvatarUpload" onClick={() => profilePhotoInputRef.current?.click()} disabled={profilePhotoUploading} title="Change profile picture">
+                    {form.profilePhotoUrl ? <SecureImage src={form.profilePhotoUrl} alt="Profile" fallback={initials} /> : initials}
+                  </button>
                   <div><div className="settingsProfileName">{form.name || "-"}</div><div className="settingsProfileEmail">{form.email || "-"}</div></div>
                 </div>
+                <input ref={profilePhotoInputRef} className="settingsVisuallyHidden" type="file" accept="image/jpeg,image/png" disabled={profilePhotoUploading} onChange={(event) => handleProfilePhotoUpload(event.target.files?.[0])} />
+                {profilePhotoUploading ? <div className="settingsModalHelp">Uploading picture...</div> : null}
                 <div className="settingsBlock">
                   <label className="settingsLabel" htmlFor="settings-name">Name</label>
                   <input id="settings-name" className="settingsInput" value={form.name} maxLength={100} autoComplete="name" onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))} />
@@ -521,6 +588,23 @@ function Settings() {
                 {successMessage ? <div className="settingsSuccess">{successMessage}</div> : null}
                 <div className="settingsInlineActions"><button type="button" className="settingsPrimaryBtn" disabled={saving} onClick={handleSave}>{saving ? "Saving..." : "Save changes"}</button></div>
               </>
+            ) : activeSection === "common-documents" ? (
+              <div className="settingsAdminPanel">
+                <h2 className="settingsSectionTitle">Common Documents</h2>
+                <p className="settingsSectionDescription">This reference document is available to every applicant during document upload.</p>
+                <div className="settingsBlock">
+                  <label className="settingsLabel" htmlFor="standard-reference-document">Add Standard Reference Document</label>
+                  <div className="docsFileCell settingsCommonDocumentUpload">
+                    <label className="docsFileBox docsFileBoxUpload docsFileBoxEmpty">
+                      <input className="settingsVisuallyHidden" id="standard-reference-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" disabled={commonDocumentsLoading} onChange={(event) => setStandardReferenceFile(event.target.files?.[0] || null)} />
+                      <span className="docsFileBoxLeft"><span className="docsUploadIcon">↑</span><span className="docsFileName">{standardReferenceFile?.name || "Select document"}</span></span>
+                    </label>
+                    <button type="button" className="settingsPrimaryBtn" disabled={!standardReferenceFile || commonDocumentsLoading} onClick={handleStandardReferenceUpload}>{commonDocumentsLoading ? "Uploading..." : "Upload"}</button>
+                  </div>
+                  {standardReferenceFile ? <div className="settingsModalHelp">Selected: {standardReferenceFile.name}</div> : null}
+                  {standardReference.standardReferenceUrl ? <a className="settingsTextLink" href={standardReference.standardReferenceUrl} target="_blank" rel="noreferrer">View current document: {standardReference.standardReferenceFileName || "Standard Reference"}</a> : null}
+                </div>
+              </div>
             ) : activeSection === "bank-details" ? (
               <div className="settingsAdminPanel">
                 <div className="settingsAdminHeader">

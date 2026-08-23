@@ -29,7 +29,7 @@ async function deleteApplicantLinkedRecords(collectionName, applicantId) {
 }
 
 async function deleteApplicantUseCase(req) {
-  if (!isSuperUserLikeRole(req.user?.role)) throw new AppError("Only Super User can delete applicants", 403);
+  if (!hasRight(req.user, "DELETE_APPLICANT")) throw new AppError("Access denied", 403);
 
   const applicantId = req.params.id;
   const applicantRef = db.collection("applicants").doc(applicantId);

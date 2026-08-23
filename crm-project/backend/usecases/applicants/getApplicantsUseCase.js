@@ -16,6 +16,7 @@ const {
 } = require("../../services/applicantDomainService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../../utils/roles");
 const { normalizeCompanyJobPositions } = require("../../utils/normalizers");
+const { hasRight } = require("../../config/userRights");
 
 function parseList(value) {
   return String(value || "")
@@ -723,7 +724,7 @@ function paginateApplicants(applicants, { paginated, page, limit, requestedField
 }
 
 async function getApplicantsUseCase(req) {
-  const { userRole, userId } = getAuthenticatedUserFromReq(req);
+  let { userRole, userId } = getAuthenticatedUserFromReq(req);
   const agencyId = req.user?.agencyId || null;
   const employerId = req.user?.employerId || null;
   const liteMode = parseBooleanQuery(req.query?.lite, false);
@@ -745,6 +746,9 @@ async function getApplicantsUseCase(req) {
 
   if (!userId) {
     throw new AppError("Unauthorized", 401);
+  }
+  if (!isSuperUserLikeRole(userRole) && !isAccountantRole(userRole) && hasRight(req.user, "ISSUE_CONTRACT")) {
+    userRole = "SUPER_USER";
   }
 
   const canUseFirestorePage = canUseFirestorePaginatedPath({

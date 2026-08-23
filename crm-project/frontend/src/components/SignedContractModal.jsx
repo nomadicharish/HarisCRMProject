@@ -3,6 +3,7 @@ import API from "../services/api";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, validateDocumentFile } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import { downloadSecureFile } from "../utils/secureFiles";
 import "../styles/applicantContract.css";
 
@@ -91,10 +92,10 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
   const additionalDocuments = documents.slice(1);
   const rejectedCount = documents.filter((document) => document.status === "REJECTED").length;
   const hasAnyUploaded = documents.some((document) => document.fileUrl || document.status === "REJECTED");
-  const isAgent = user?.role === "AGENCY";
+  const canUploadSignedContract = hasRight(user, "UPLOAD_SIGNED_CONTRACT");
   const isSuperUser = isSuperUserLikeRole(user?.role);
-  const canSubmit = isAgent && Object.keys(filesById).some((id) => filesById[id]);
-  const canShowUploadAction = isAgent && (!hasAnyUploaded || rejectedCount > 0);
+  const canSubmit = canUploadSignedContract && Object.keys(filesById).some((id) => filesById[id]);
+  const canShowUploadAction = canUploadSignedContract && (!hasAnyUploaded || rejectedCount > 0);
 
   const loadSignedContract = useCallback(async () => {
     try {
@@ -208,7 +209,7 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
   };
 
   const renderUploadBox = (document, placeholder) => {
-    if (!isAgent) return null;
+    if (!canUploadSignedContract) return null;
     if (document.fileUrl && document.status !== "REJECTED") return null;
 
     const inputId = `signed-contract-${document.id}`;
@@ -241,7 +242,7 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
 
   const renderDocumentRow = (document) => {
     const isRejected = document.status === "REJECTED";
-    if (isAgent && isRejected) return null;
+    if (canUploadSignedContract && isRejected) return null;
     if (!document.fileUrl && !isRejected) return null;
 
     return (
@@ -358,7 +359,7 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
 
             <div className="workflowModalFooter">
               <button type="button" className="btn btnSecondary" onClick={onClose} disabled={saving || Boolean(rejectingId)}>
-                {isAgent && canSubmit ? "Cancel" : "Close"}
+                {canUploadSignedContract && canSubmit ? "Cancel" : "Close"}
               </button>
               {canShowUploadAction ? (
                 <button type="button" className="btn btnPrimary" disabled={saving || !canSubmit} onClick={handleUpload}>

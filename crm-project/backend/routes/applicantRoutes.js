@@ -7,6 +7,7 @@ const { noStore } = require("../middleware/noStore");
 const { readCache } = require("../middleware/cacheControl");
 const allowRoles = require("../middleware/roleMiddleware");
 const requireRight = require("../middleware/requireRight");
+const requireAnyRight = require("../middleware/requireAnyRight");
 const { validate } = require("../middleware/validate");
 const { verifyToken } = require("../middleware/authMiddleware");
 const upload = require("../middleware/uploadMiddleware");
@@ -179,7 +180,7 @@ router.post("/bulk-dispatch", requireRight("ADD_DOCUMENT_DISPATCH"), validate(bu
 // Upload contracts for multiple applicants
 router.post(
   "/bulk-contract",
-  allowRoles("SUPER_USER", "EMPLOYER"),
+  requireRight("ISSUE_CONTRACT"),
   uploadDoc.fields([
     { name: "file", maxCount: 1 },
     { name: "additionalDocuments", maxCount: 3 }
@@ -441,7 +442,7 @@ router.post(
 // Get Visa Travel Details
 router.get(
   "/:id/visa-travel",
-  requireRight("VIEW_APPLICANT_ARRIVAL"),
+  requireAnyRight("VIEW_APPLICANT_ARRIVAL", "ADD_APPLICANT_ARRIVAL"),
   readCache(15),
   validate(idParamsSchema, "params"),
   asyncHandler(applicantController.getVisaTravel)
@@ -476,6 +477,6 @@ router.patch(
 
 // Update Applicant Details
 router.patch("/:id", validate(idParamsSchema, "params"), validate(updateApplicantSchema), asyncHandler(applicantController.updateApplicant));
-router.delete("/:id", allowRoles("SUPER_USER"), validate(idParamsSchema, "params"), asyncHandler(applicantController.deleteApplicant));
+router.delete("/:id", requireRight("DELETE_APPLICANT"), validate(idParamsSchema, "params"), asyncHandler(applicantController.deleteApplicant));
 
 module.exports = router;

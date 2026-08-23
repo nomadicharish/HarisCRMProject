@@ -52,8 +52,6 @@ const companyPayloadSchema = z.object({
   agencyIds: z.array(trimmedString).optional().default([]),
   contactNumber: optionalTrimmedString,
   whatsappNumber: optionalTrimmedString,
-  standardReferenceFileName: optionalTrimmedString,
-  standardReferenceUrl: optionalTrimmedString,
   documentsNeeded: z.array(companyDocumentSchema).optional().default([]),
   jobSpecifications: z.array(companyJobSpecificationSchema).optional().default([]),
   jobPositions: z.array(companyJobPositionSchema).optional().default([])
@@ -133,7 +131,7 @@ const documentTemplateParamsSchema = z.object({
 const documentTemplateBodySchema = z.object({
   documentId: optionalTrimmedString,
   jobPositionId: optionalTrimmedString,
-  templateType: z.enum(["documentToFill", "reference", "standardReference"]).optional().default("documentToFill")
+  templateType: z.enum(["documentToFill", "reference"]).optional().default("documentToFill")
 });
 
 module.exports = {

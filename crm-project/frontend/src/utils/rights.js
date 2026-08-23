@@ -4,7 +4,10 @@ import { getStoredUser, updateStoredUser } from "./auth";
 const RIGHTS_CACHE_KEY = "rights_cached_at";
 
 export function getEffectiveRights(user = {}) {
-  return Array.isArray(user?.rights) ? user.rights : (DEFAULT_RIGHTS[user?.role] || []);
+  // Explicit rights add to, rather than replace, the legacy capabilities of a
+  // user's role. This keeps established role access working while allowing
+  // super users to grant additional permissions.
+  return [...new Set([...(DEFAULT_RIGHTS[user?.role] || []), ...(Array.isArray(user?.rights) ? user.rights : [])])];
 }
 
 export function hasRight(user, right) {

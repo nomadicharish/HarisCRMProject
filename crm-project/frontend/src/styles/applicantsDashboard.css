@@ -40,6 +40,10 @@
   padding-bottom:12px;
 }
 
+.companyFormHeaderActions{
+  margin-left:auto;
+}
+
 .companyFormHeader h1,
 .companySectionTitle h2{
   margin:0;
@@ -772,6 +776,7 @@
   font-size:13px;
   font-weight:700;
 }
+.dashboardUserAvatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 
 .dashboardUserChevron{
   color:#6b778c;
@@ -2181,6 +2186,7 @@
   font-size:24px;
   font-weight:700;
 }
+.dashboardProfilePanelAvatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
 
 .dashboardProfilePanelGreeting{
   text-align:center;

@@ -4,6 +4,7 @@ import VirtualizedRows from "./VirtualizedRows";
 function CompaniesTable({
   rows = [],
   isSuperUser = false,
+  canEditCompanies = false,
   rightIconSrc = "/right.png",
   onOpenCompanyEdit,
   onOpenApplicantsForCompany
@@ -27,12 +28,12 @@ function CompaniesTable({
             <div
               className="dashboardVirtualRow"
               style={{ gridTemplateColumns }}
-              onClick={isSuperUser ? () => onOpenCompanyEdit(company.id) : undefined}
-              role={isSuperUser ? "button" : undefined}
-              tabIndex={isSuperUser ? 0 : undefined}
+              onClick={canEditCompanies ? () => onOpenCompanyEdit(company.id) : undefined}
+              role={canEditCompanies ? "button" : undefined}
+              tabIndex={canEditCompanies ? 0 : undefined}
             >
               <div>
-                {isSuperUser ? (
+                {canEditCompanies ? (
                   <button
                     type="button"
                     className="dashboardInlineLinkBtn dashboardCompanyNameBtn"
@@ -104,11 +105,11 @@ function CompaniesTable({
           rows.map((company) => (
             <tr
               key={company.id}
-              className={isSuperUser ? "dashboardTableRow" : ""}
-              onClick={isSuperUser ? () => onOpenCompanyEdit(company.id) : undefined}
+              className={canEditCompanies ? "dashboardTableRow" : ""}
+              onClick={canEditCompanies ? () => onOpenCompanyEdit(company.id) : undefined}
             >
               <td>
-                {isSuperUser ? (
+                {canEditCompanies ? (
                   <button
                     type="button"
                     className="dashboardInlineLinkBtn dashboardCompanyNameBtn"

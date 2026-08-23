@@ -175,8 +175,8 @@
   width:78px;
   height:78px;
   border-radius:50%;
-  background:#ffe7bf;
-  color:#d09553;
+  background:transparent;
+  color:transparent;
   display:flex;
   align-items:center;
   justify-content:center;
@@ -184,6 +184,13 @@
   font-weight:700;
   flex:0 0 auto;
 }
+.settingsAvatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.settingsAvatarUpload{border:0;cursor:pointer;padding:0;}
+.settingsAvatarUpload:disabled{cursor:wait;opacity:.7;}
+.settingsVisuallyHidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+.settingsDocumentUploadControls{display:flex;align-items:center;gap:12px;}
+.settingsCommonDocumentUpload{display:flex;align-items:center;gap:12px;max-width:520px;}
+.settingsCommonDocumentUpload .docsFileBox{flex:1;}
 
 .settingsProfileName{
   margin:12px 0 4px;
@@ -206,7 +213,7 @@
   display:block;
   margin-bottom:8px;
   color:#6f819f;
-  font-size:12px;
+  font-size:14px;
   font-weight:700;
 }
 
@@ -696,7 +703,7 @@
 }
 
 .settingsSectionDescription{
-  margin:6px 0 0;
+  margin:6px 0 10px;
   color:#667085;
   font-size:14px;
 }

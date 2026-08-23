@@ -1,4 +1,4 @@
-const { admin } = require("../config/firebase");
+const { admin, firebaseEnvironment, storageBucket } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
 const { isSafeStoragePath } = require("../utils/storageFiles");
 
@@ -12,15 +12,27 @@ async function streamFile(req, res) {
     "applicants/", "contracts/", "signed-contracts/", "payments/", "appointments/",
     "travel/", "biometric/", "interview-ticket/", "interview-biometric/",
     "embassy-interview-documents/", "visa-collection-documents/", "visa-collection-travel/",
-    "visa-travel/", "residence/", "companies/"
+    "visa-travel/", "residence/", "companies/", "user-profiles/", "common-documents/"
   ];
   if (!allowedPrefixes.some((prefix) => storagePath.startsWith(prefix))) {
     throw new AppError("File is not available", 404);
   }
 
-  const file = admin.storage().bucket().file(storagePath);
-  const [exists] = await file.exists();
-  if (!exists) throw new AppError("File not found", 404);
+  const bucketNames = [
+    storageBucket,
+    firebaseEnvironment === "dev" ? "run-sources-talent-aquisition-dev-asia-south1" : ""
+  ].filter((bucketName, index, values) => bucketName && values.indexOf(bucketName) === index);
+
+  let file = null;
+  for (const bucketName of bucketNames) {
+    const candidate = admin.storage().bucket(bucketName).file(storagePath);
+    const [exists] = await candidate.exists();
+    if (exists) {
+      file = candidate;
+      break;
+    }
+  }
+  if (!file) throw new AppError("File not found", 404);
 
   const [metadata] = await file.getMetadata();
   const fileName = String(metadata?.name || storagePath).split("/").pop().replace(/[\r\n\"]/g, "_");

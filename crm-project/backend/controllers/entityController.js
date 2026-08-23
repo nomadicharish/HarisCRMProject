@@ -81,7 +81,7 @@ async function listCompanies(req, res) {
 
 async function listAgencies(req, res) {
   const data = await entityService.listAgencies({
-    role: req.user.role,
+    user: req.user,
     query: req.query || {}
   });
   return res.json(data);
@@ -89,7 +89,7 @@ async function listAgencies(req, res) {
 
 async function listEmployers(req, res) {
   const data = await entityService.listEmployers({
-    role: req.user.role,
+    user: req.user,
     query: req.query || {}
   });
   return res.json(data);

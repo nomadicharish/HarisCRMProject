@@ -137,6 +137,7 @@ function ApplicantFormModal({
       retainApplicationDetails
         ? {
             ...EMPTY_FORM,
+            enrollmentDate: new Date(),
             countryId: currentForm.countryId,
             companyId: currentForm.companyId,
             jobPositionId: currentForm.jobPositionId,
@@ -145,7 +146,7 @@ function ApplicantFormModal({
             totalAmount: currentForm.totalAmount,
             paidAmount: currentForm.paidAmount
           }
-        : EMPTY_FORM
+        : { ...EMPTY_FORM, enrollmentDate: new Date() }
     );
     setErrors({});
     setDob(null);
@@ -253,6 +254,10 @@ function ApplicantFormModal({
       education: resolvedEducation && !isKnownEducation ? "Others" : resolvedEducation,
       customEducation: resolvedEducation && !isKnownEducation ? resolvedEducation : "",
       address: editData.address || editData.personalDetails?.address || "",
+      enrollmentDate: (() => {
+        const raw = editData.enrollmentDate || editData.personalDetails?.enrollmentDate;
+        return raw ? (raw.toDate ? raw.toDate() : new Date(raw)) : new Date();
+      })(),
       placeOfBirth: editData.placeOfBirth || editData.personalDetails?.placeOfBirth || "",
       passportNumber: editData.passportNumber || editData.personalDetails?.passportNumber || "",
       phone: (() => {
@@ -370,6 +375,7 @@ function ApplicantFormModal({
           lastName: form.lastName,
           email: String(form.email || "").trim().toLowerCase(),
           dob: form.dob,
+          enrollmentDate: form.enrollmentDate,
           age: form.age,
           education: resolvedEducationValue,
           phone: `+${getCountryCallingCode(PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase()) ? String(form.phoneCountry || "IN").toUpperCase() : "IN")}${String(form.phone || "").replace(/[^\d]/g, "")}`,

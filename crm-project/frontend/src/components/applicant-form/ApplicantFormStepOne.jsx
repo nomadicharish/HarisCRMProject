@@ -348,7 +348,8 @@ function ApplicantFormStepOne({
           </div>
         ) : null}
 
-        <div style={{ gridColumn: "1 / -1" }}>
+        <div className="applicantFormAddressEnrollmentRow">
+          <div>
           <label style={label}>Address as in passport</label>
           <InputShell icon={locationIcon} error={Boolean(errors.address)}>
             <input
@@ -362,6 +363,32 @@ function ApplicantFormStepOne({
             />
           </InputShell>
           {errors.address && <div style={errorText}>{errors.address}</div>}
+          </div>
+          <div>
+            <label style={{ ...label, display: "flex", alignItems: "center", gap: "6px" }}>
+              Enrollment Date
+              <button
+                type="button"
+                title="Date on which the Applicant has been selected."
+                aria-label="Enrollment Date information"
+                onClick={() => window.alert("Date on which the Applicant has been selected.")}
+                style={{ minHeight: "19px", height: "19px", border: 0, background: "transparent", color: "#667085", padding: 0, cursor: "pointer", fontSize: "15px", lineHeight: 1 }}
+              >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" /><path d="M12 10.5v5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /><circle cx="12" cy="7.5" r="1" fill="currentColor" /></svg>
+              </button>
+            </label>
+            <DatePicker
+              selected={form.enrollmentDate instanceof Date ? form.enrollmentDate : form.enrollmentDate ? new Date(form.enrollmentDate) : null}
+              disabled={readOnly}
+              onChange={(date) => handleChange("enrollmentDate", date)}
+              dateFormat="dd/MM/yyyy"
+              maxDate={new Date()}
+              showMonthDropdown
+              showYearDropdown
+              dropdownMode="select"
+              customInput={<CustomDateInput placeholder="Select enrollment date" />}
+            />
+          </div>
         </div>
 
         <div className="applicantFormContactRow">

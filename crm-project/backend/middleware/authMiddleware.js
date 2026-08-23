@@ -10,9 +10,11 @@ const TOKEN_CACHE_TTL_MS = Number(process.env.AUTH_TOKEN_CACHE_TTL_MS || 0);
 // infrequently, so a short server-side cache prevents a Firestore read per API
 // request while keeping account changes responsive. Set the environment value
 // lower when an immediate role/assignment rollout is required.
-// Rights are evaluated from this cached profile on every request. Ten minutes
-// keeps reads low while still applying a changed user permission promptly.
-const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 600_000);
+// Rights must take effect immediately after a super user saves them. A shared
+// cache is not available across Cloud Run instances, so caching profiles by
+// default can authorize one request with stale rights for up to ten minutes.
+// Deployments may opt in to a short cache through the environment variable.
+const USER_PROFILE_CACHE_TTL_MS = Number(process.env.AUTH_USER_PROFILE_CACHE_TTL_MS || 0);
 const AUTH_USER_CACHE_TTL_MS = Number(process.env.AUTH_USER_CACHE_TTL_MS || 60_000);
 const AUTH_ADMIN_PATH_PREFIXES = String(
   process.env.AUTH_ADMIN_PATH_PREFIXES || "/api/users/disable,/api/auth/disable-user"

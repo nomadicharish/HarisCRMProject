@@ -2331,6 +2331,7 @@ function ApplicantsDashboard() {
                   <CompaniesTable
                     rows={paginatedRows}
                     isSuperUser={isSuperUser}
+                    canEditCompanies={canAddCompanies}
                     rightIconSrc={RIGHT_ICON_SRC}
                     onOpenCompanyEdit={(id) => navigate(`/companies/${id}/edit`)}
                     onOpenApplicantsForCompany={handleOpenApplicantsForCompany}

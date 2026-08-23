@@ -12,10 +12,12 @@ import ApplicantProfileModalStack from "../components/applicant-profile/Applican
 import ApplicantFormModal from "../components/applicant-form/ApplicantFormModal";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
+import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import useApplicantPaymentState from "../hooks/useApplicantPaymentState";
 import useApplicantWorkflowLabels from "../hooks/useApplicantWorkflowLabels";
 import { formatCurrencyAmount } from "../utils/currency";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import { cacheRightsAtLogin, hasRight } from "../utils/rights";
 import { buildApplicantSidebarCache, getApplicantSidebarCacheKey } from "../utils/applicantSidebarCache";
 import { toast } from "../utils/toast";
 
@@ -70,6 +72,7 @@ function ApplicantProfile() {
   const [approvingStage, setApprovingStage] = useState(false);
   const [completingProcess, setCompletingProcess] = useState(false);
   const [deletingApplicant, setDeletingApplicant] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [sidebarPendingOverride, setSidebarPendingOverride] = useState(initialSidebarProfile?.pendingAmount ?? null);
   const profileCacheTtlMs = 120000;
   const profileDashboardTabs = useMemo(() => {
@@ -87,15 +90,14 @@ function ApplicantProfile() {
   );
 
   const loadUser = useCallback(async () => {
-    if (user) return;
     try {
-      const data = await getCached("/auth/me", { ttlMs: 120000 });
+      const data = await getCached("/auth/me", { ttlMs: 120000, force: true });
+      cacheRightsAtLogin(data);
       setUser(data);
     } catch (err) {
       console.error(err);
-      setUser(null);
     }
-  }, [user]);
+  }, []);
 
   const loadProfileWorkflowData = useCallback(
     async ({ force = false } = {}) => {
@@ -225,6 +227,7 @@ function ApplicantProfile() {
     canAddInterviewBiometric,
     canAddVisaCollection,
     canAddVisaTravel,
+    canCompleteApplicantArrival,
     canAddResidencePermit,
     canAddVisaCollectionTravel,
     shouldShowDocumentAction,
@@ -324,6 +327,8 @@ function ApplicantProfile() {
   const isCandidateApprovalPending =
     Number(applicant.stage || 1) === 1 && String(applicant.approvalStatus || "").toLowerCase() !== "approved";
   const isSeniorAccountant = user?.role === "SENIOR_ACCOUNTANT";
+  const canDeleteApplicant = hasRight(user, "DELETE_APPLICANT");
+  const canViewApplicantInformation = hasRight(user, "VIEW_APPLICANT_INFORMATION");
 
   const handleShowDocuments = () => {
     prefetchCached(`/applicants/${id}/documents-page`, { ttlMs: 120000 });
@@ -331,7 +336,6 @@ function ApplicantProfile() {
   };
 
   const handleDeleteApplicant = async () => {
-    if (!window.confirm("Delete this applicant and all related documents and records? This cannot be undone.")) return;
     try {
       setDeletingApplicant(true);
       await API.delete(`/applicants/${id}`);
@@ -347,6 +351,7 @@ function ApplicantProfile() {
       toast.error(error?.response?.data?.message || "Unable to delete applicant");
     } finally {
       setDeletingApplicant(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -398,7 +403,7 @@ function ApplicantProfile() {
     ? openContractSection
     : canUploadSignedContract
     ? openSignedContractSection
-    : applicantStage === 12 && isSuperUserLikeRole(user?.role) && applicantTravelRowStatus === "completed"
+    : canCompleteApplicantArrival
     ? () => setShowCompleteProcessModal(true)
     : canAddResidencePermit
     ? openResidencePermitSection
@@ -447,7 +452,7 @@ function ApplicantProfile() {
       />
       <div className="page-content applicantProfilePage">
         <div className="applicantProfileLayout">
-          <aside className="applicantProfileSidebar">
+          {canViewApplicantInformation ? <aside className="applicantProfileSidebar">
             <ApplicantSummaryCard
               applicant={applicant}
               pendingAmount={sidebarPendingOverride ?? pending}
@@ -474,12 +479,12 @@ function ApplicantProfile() {
               showPendingAmount={!isEmployer}
               accountantView={isSeniorAccountant}
             />
-            {isSuperUserLikeRole(user?.role) ? (
-              <button type="button" className="applicantDeleteButton" onClick={handleDeleteApplicant} disabled={deletingApplicant}>
+            {canDeleteApplicant ? (
+              <button type="button" className="applicantDeleteButton" onClick={() => setShowDeleteConfirm(true)} disabled={deletingApplicant}>
                 {deletingApplicant ? "Deleting..." : "Delete Applicant"}
               </button>
             ) : null}
-          </aside>
+          </aside> : null}
 
           <main className="applicantProfileMain">
             <ApplicantPipelineList
@@ -553,7 +558,7 @@ function ApplicantProfile() {
                   : undefined
               }
               onApplicantTravelAction={applicantStage >= 12 ? () => openVisaCollectionSection("applicantTravel") : undefined}
-              onCandidateArrivalAction={undefined}
+              onCandidateArrivalAction={canCompleteApplicantArrival ? () => setShowCompleteProcessModal(true) : undefined}
               onUpdateTravelAction={updateTravelActionHandler}
             />
 
@@ -655,6 +660,17 @@ function ApplicantProfile() {
               </div>
             </div>
           </div>
+        ) : null}
+
+        {showDeleteConfirm ? (
+          <ConfirmActionModal
+            title="Delete Applicant"
+            message="Are you sure you want to delete this applicant and all related documents and records? This cannot be undone."
+            confirmLabel="Delete Applicant"
+            isBusy={deletingApplicant}
+            onConfirm={handleDeleteApplicant}
+            onClose={() => !deletingApplicant && setShowDeleteConfirm(false)}
+          />
         ) : null}
 
         <BlockingLoader

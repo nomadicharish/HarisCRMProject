@@ -7,6 +7,7 @@ import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -117,15 +118,13 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
   const resolvedInterviewBiometric = biometricFromApi || interviewBiometric || null;
   const hasInterviewBiometric = Boolean(resolvedInterviewBiometric?.fileUrl);
   const isSuperUser = isSuperUserLikeRole(user?.role);
-  const canEditInterview =
-    (isSuperUser || user?.role === "EMPLOYER") &&
-    !hasInterviewBiometric;
+  const canEditInterview = hasRight(user, "INITIATE_EMBASSY_INTERVIEW") && !hasInterviewBiometric;
   const canApprove = isSuperUser && interview && !interview.approved && !hasInterviewBiometric;
   const canAddTicket =
-    user?.role === "AGENCY" &&
+    hasRight(user, "ADD_INTERVIEW_TRAVEL") &&
     interview &&
     ((!interviewTicket && !hasInterviewBiometric) || editingTravel);
-  const canUpdateTravel = user?.role === "AGENCY" && interview && Boolean(interviewTicket) && !hasInterviewBiometric;
+  const canUpdateTravel = hasRight(user, "ADD_INTERVIEW_TRAVEL") && interview && Boolean(interviewTicket) && !hasInterviewBiometric;
   const isBusy = savingInterview || savingTicket;
   const showInterviewForm = canEditInterview && (!interview || editingInterview);
 
@@ -174,9 +173,9 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
 
   const title = useMemo(() => {
     if (!interview) return "Add Embassy Interview";
-    if (!interviewTicket && user?.role === "AGENCY" && !hasInterviewBiometric) return "Ticket Upload";
+    if (!interviewTicket && hasRight(user, "ADD_INTERVIEW_TRAVEL") && !hasInterviewBiometric) return "Ticket Upload";
     return "Embassy Interview Details";
-  }, [interview, interviewTicket, user?.role, hasInterviewBiometric]);
+  }, [interview, interviewTicket, user, hasInterviewBiometric]);
 
   const handleSaveInterview = async ({ closeAfter = true, refreshAfter = true } = {}) => {
     const formattedDate = formatDateForInput(interviewDate);

@@ -19,6 +19,7 @@ const {
 } = require("./accountService");
 const { recordCompanyAssignmentNotification } = require("./notificationService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../utils/roles");
+const { hasRight } = require("../config/userRights");
 
 function buildNormalizedFields({ email = "", contactNumber = "" } = {}) {
   return {
@@ -498,8 +499,6 @@ async function addCompany(payload) {
     companyPaymentPerApplicant: payload.companyPaymentPerApplicant,
     contactNumber: payload.contactNumber || "",
     whatsappNumber: payload.whatsappNumber || "",
-    standardReferenceFileName: payload.standardReferenceFileName || "",
-    standardReferenceUrl: payload.standardReferenceUrl || "",
     employerIds: normalizedEmployerIds,
     agencyIds: normalizedAgencyIds,
     documentsNeeded: jobPositions[0]?.documents || documentsNeeded,
@@ -545,8 +544,6 @@ async function updateCompany(id, payload) {
       companyPaymentPerApplicant: payload.companyPaymentPerApplicant,
       contactNumber: payload.contactNumber || "",
       whatsappNumber: payload.whatsappNumber || "",
-      standardReferenceFileName: payload.standardReferenceFileName || "",
-      standardReferenceUrl: payload.standardReferenceUrl || "",
       employerIds: normalizedEmployerIds,
       agencyIds: normalizedAgencyIds,
       documentsNeeded: jobPositions[0]?.documents || documentsNeeded,
@@ -826,8 +823,8 @@ async function listCountries() {
   return mapSnapshot(snapshot);
 }
 
-async function listAgencies({ role, query = {} }) {
-  if (!isSuperUserLikeRole(role)) return [];
+async function listAgencies({ user = {}, query = {} }) {
+  if (!isSuperUserLikeRole(user?.role) && !hasRight(user, "ADD_COMPANIES")) return [];
   const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
@@ -903,8 +900,8 @@ async function listAgencies({ role, query = {} }) {
   return applyProjectionToListResult(result, projection);
 }
 
-async function listEmployers({ role, query = {} }) {
-  if (!isSuperUserLikeRole(role)) return [];
+async function listEmployers({ user = {}, query = {} }) {
+  if (!isSuperUserLikeRole(user?.role) && !hasRight(user, "ADD_COMPANIES")) return [];
   const projection = parseProjectionFields(query?.fields);
   const search = normalizeText(query?.q);
   const countryFilters = parseCsv(query?.country);
@@ -1067,10 +1064,10 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
     throw new AppError("Company not found", 404);
   }
 
-  const templateType = ["reference", "standardReference"].includes(String(templateTypeValue || "")) ? String(templateTypeValue) : "documentToFill";
+  const templateType = String(templateTypeValue || "") === "reference" ? "reference" : "documentToFill";
   const bucket = admin.storage().bucket();
   const safeFileName = String(file.originalname || "template").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const fileLabel = templateType === "standardReference" ? "standard-reference" : String(documentId || "document").trim();
+  const fileLabel = String(documentId || "document").trim();
   const storagePath = `companies/${companyId}/document-templates/${fileLabel}_${templateType}_${Date.now()}_${safeFileName}`;
   const fileRef = bucket.file(storagePath);
 
@@ -1078,23 +1075,6 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
     metadata: { contentType: file.mimetype }
   });
   const fileUrl = storagePath;
-
-  if (templateType === "standardReference") {
-    await companyRef.set(
-      {
-        standardReferenceFileName: file.originalname || safeFileName,
-        standardReferenceUrl: fileUrl,
-        updatedAt: new Date()
-      },
-      { merge: true }
-    );
-
-    return {
-      message: "Standard reference uploaded successfully",
-      standardReferenceFileName: file.originalname || safeFileName,
-      standardReferenceUrl: fileUrl
-    };
-  }
 
   if (!String(documentId || "").trim()) {
     throw new AppError("Document id is required", 400);

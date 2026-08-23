@@ -3,7 +3,7 @@ import API from "../services/api";
 const STORAGE_PATH_PREFIXES = [
   "applicants/", "contracts/", "signed-contracts/", "payments/", "appointments/", "travel/", "biometric/",
   "interview-ticket/", "interview-biometric/", "embassy-interview-documents/", "visa-collection-documents/",
-  "visa-collection-travel/", "visa-travel/", "residence/", "companies/"
+  "visa-collection-travel/", "visa-travel/", "residence/", "companies/", "user-profiles/", "common-documents/"
 ];
 
 export function getStoragePath(value) {

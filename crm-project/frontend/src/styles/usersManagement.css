@@ -19,10 +19,11 @@
 .usersTableWrap td:last-child { display:flex; gap:8px; }
 .usersTableWrap button { padding:7px 11px; }
 .usersTableWrap button.danger { color:#d62828; border-color:#ffd0d0; }
+.usersTableWrap .usersResetButton { color:#1468ef; border-color:#bfd7ff; white-space:nowrap; }
 .usersTableWrap .usersIconButton { width:38px; height:36px; padding:8px; display:inline-flex; align-items:center; justify-content:center; }
 .usersIconButton svg { width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .usersError { color:#c02626; background:#fff2f2; border:1px solid #fecaca; padding:10px 12px; border-radius:8px; margin:12px 0; }
-.usersContent .usersBack { float:left; margin-right:16px !important; padding:0; border:0; background:transparent; color:#154682; font-size:30px; font-weight:700; line-height:1; }
+.usersContent .usersBack { float:left; margin-right:16px !important; padding:0 0 10px 0; border:0; background:transparent; color:#154682; font-size:30px; font-weight:700; line-height:1; }
 .userFormPage section { border:1px solid #e1e8f3; border-radius:10px; padding:20px; margin-top:16px; }
 .userFormPage h2 { font-size:16px; margin:0 0 18px; }
 .userBasicGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:18px 28px; }

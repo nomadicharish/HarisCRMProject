@@ -7,6 +7,7 @@ import { getCached, invalidateCache } from "../services/cachedApi";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
+import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import {
   ALLOWED_DOCUMENT_ACCEPT,
   DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
@@ -262,6 +263,8 @@ function CompanyFormPage() {
 
   const [user, setUser] = useState(null);
   const isSuperUser = isSuperUserLikeRole(user?.role);
+  const canDeleteCompany = hasRight(user, "DELETE_COMPANIES");
+  const canDeleteJobPosition = hasRight(user, "DELETE_JOB_POSITION");
   const companyDashboardTabs = ["home", "applicants", "companies"];
   const handleDashboardTabChange = (tabKey) => {
     navigate(tabKey === "home" ? "/dashboard" : `/dashboard?tab=${encodeURIComponent(tabKey)}`);
@@ -271,15 +274,13 @@ function CompanyFormPage() {
   const [agencies, setAgencies] = useState([]);
   const [pageLoading, setPageLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [copiedPositionKey, setCopiedPositionKey] = useState("");
   const [errors, setErrors] = useState({});
   const [form, setForm] = useState({
     name: "",
     countryId: "",
     companyPaymentPerApplicant: "",
-    standardReferenceFileName: "",
-    standardReferenceUrl: "",
-    standardReferenceFile: null,
     employerIds: [],
     agencyIds: [],
     jobPositions: [createPositionRow({}, 0, DEFAULT_DOCUMENTS)]
@@ -326,9 +327,6 @@ function CompanyFormPage() {
               name: selected.name || "",
               countryId: selected.countryId || "",
               companyPaymentPerApplicant: selected.companyPaymentPerApplicant ?? "",
-              standardReferenceFileName: selected.standardReferenceFileName || "",
-              standardReferenceUrl: selected.standardReferenceUrl || "",
-              standardReferenceFile: null,
               employerIds: Array.isArray(selected.employerIds) ? selected.employerIds : [],
               agencyIds: selectedAgencyIds,
               jobPositions: normalizeCompanyPositions(selected)
@@ -447,12 +445,9 @@ function CompanyFormPage() {
       position.documents.some((document) => !String(document.name || "").trim())
     );
     if (invalidDocument) nextErrors.documents = "Document name is required";
-    const documentFiles = [
-      form.standardReferenceFile,
-      ...form.jobPositions.flatMap((position) =>
-        position.documents.flatMap((document) => [document.documentToFillFile, document.referenceFile]).filter(Boolean)
-      )
-    ].filter(Boolean);
+    const documentFiles = form.jobPositions
+      .flatMap((position) => position.documents.flatMap((document) => [document.documentToFillFile, document.referenceFile]))
+      .filter(Boolean);
     const fileValidation = validateDocumentFiles(documentFiles);
     if (!fileValidation.valid) nextErrors.documents = fileValidation.message;
 
@@ -464,15 +459,6 @@ function CompanyFormPage() {
   };
 
   const uploadDocumentTemplates = async (companyId) => {
-    if (form.standardReferenceFile) {
-      const body = new FormData();
-      body.append("file", form.standardReferenceFile);
-      body.append("templateType", "standardReference");
-      await API.post(`/companies/${companyId}/document-template`, body, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
-    }
-
     for (const position of form.jobPositions) {
       for (const document of position.documents) {
         const uploads = [
@@ -533,8 +519,6 @@ function CompanyFormPage() {
         name: form.name.trim(),
         countryId: form.countryId,
         companyPaymentPerApplicant: Number(form.companyPaymentPerApplicant || 0),
-        standardReferenceFileName: form.standardReferenceFileName || "",
-        standardReferenceUrl: form.standardReferenceUrl || "",
         employerIds: form.employerIds,
         agencyIds: form.agencyIds,
         documentsNeeded: jobPositions[0]?.documents || [],
@@ -570,7 +554,6 @@ function CompanyFormPage() {
 
   const handleDeleteCompany = async () => {
     if (!isEdit || !isSuperUser) return;
-    if (!window.confirm("Delete this company, its job positions, and related document templates? This cannot be undone.")) return;
     try {
       setSaving(true);
       await API.delete(`/companies/${id}`);
@@ -584,6 +567,7 @@ function CompanyFormPage() {
       toast.error(error?.response?.data?.message || "Unable to delete company");
     } finally {
       setSaving(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -617,6 +601,14 @@ function CompanyFormPage() {
           <div className="companyFormHeader">
             <span className="companyFormIcon"><CompanyIcon /></span>
             <h1>{isEdit ? "Update Company" : "Add Company"}</h1>
+            {isEdit && canDeleteCompany ? (
+              <div className="companyFormHeaderActions">
+                <button type="button" className="companyRemoveButton" onClick={() => setShowDeleteConfirm(true)} disabled={saving}>
+                  <TrashIcon />
+                  Delete Company
+                </button>
+              </div>
+            ) : null}
           </div>
 
           <div className="companyFormGrid">
@@ -673,53 +665,6 @@ function CompanyFormPage() {
                 menuPosition="fixed"
               />
             </div>
-            <div className="companyStandardReferenceField">
-              <label>Add Standard Reference Document</label>
-              <div className="companyFileHelp">{DOCUMENT_UPLOAD_HELP_TEXT}</div>
-              <div className="companyStandardReferenceControls">
-                <div className="companyTemplateCell">
-                  <label className="companyDocUploadCard">
-                    <input
-                      type="file"
-                      accept={ALLOWED_DOCUMENT_ACCEPT}
-                      onChange={(event) => {
-                        const file = getValidatedDocumentFile(event.target.files?.[0] || null, toast.error);
-                        setForm((prev) => ({
-                          ...prev,
-                          standardReferenceFile: file,
-                          standardReferenceFileName: file?.name || prev.standardReferenceFileName
-                        }));
-                      }}
-                    />
-                    <span className="companyFileDropIcon"><UploadFileIcon /></span>
-                    <span>{form.standardReferenceFile?.name || form.standardReferenceFileName || "Choose document"}</span>
-                  </label>
-                  <div className="companyDocFileActions">
-                    {form.standardReferenceUrl ? (
-                      <a className="companyDocFileAction companyDocFileActionView" href={form.standardReferenceUrl} target="_blank" rel="noreferrer">
-                        <ViewIcon />
-                        View
-                      </a>
-                    ) : null}
-                    {form.standardReferenceFile || form.standardReferenceFileName || form.standardReferenceUrl ? (
-                      <button
-                        type="button"
-                        className="companyDocFileAction companyDocFileActionRemove"
-                        onClick={() => setForm((prev) => ({
-                          ...prev,
-                          standardReferenceFile: null,
-                          standardReferenceFileName: "",
-                          standardReferenceUrl: ""
-                        }))}
-                      >
-                        <TrashIcon />
-                        Remove
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
 
           <div className="companyPositionsHeader">
@@ -763,12 +708,12 @@ function CompanyFormPage() {
                       type="button"
                       className="companyDeleteIcon"
                       aria-label="Remove job position"
+                      disabled={!canDeleteJobPosition}
                       onClick={() => removePosition(position.rowKey)}
                     >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true">
                         <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                      Delete
                     </button>
                   </div>
                 </div>
@@ -840,7 +785,6 @@ function CompanyFormPage() {
                                 })}
                               >
                                 <TrashIcon />
-                                Remove
                               </button>
                             ) : null}
                           </div>
@@ -879,7 +823,6 @@ function CompanyFormPage() {
                                 })}
                               >
                                 <TrashIcon />
-                                Remove
                               </button>
                             ) : null}
                           </div>
@@ -912,12 +855,6 @@ function CompanyFormPage() {
           </div>
 
           <div className="companyFormActions">
-            {isEdit && isSuperUser ? (
-              <button type="button" className="companyRemoveButton" onClick={handleDeleteCompany} disabled={saving}>
-                <TrashIcon />
-                Delete Company
-              </button>
-            ) : null}
             <button type="button" className="companyCancelButton" onClick={() => navigate(-1)} disabled={saving}>
               Cancel
             </button>
@@ -927,6 +864,16 @@ function CompanyFormPage() {
           </div>
         </section>
       </main>
+      {showDeleteConfirm ? (
+        <ConfirmActionModal
+          title="Delete Company"
+          message="Are you sure you want to delete this company, its job positions, and related document templates? This cannot be undone."
+          confirmLabel="Delete Company"
+          isBusy={saving}
+          onConfirm={handleDeleteCompany}
+          onClose={() => !saving && setShowDeleteConfirm(false)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -7,6 +7,8 @@ function ConfirmActionModal({
   message,
   confirmLabel = "Delete",
   isBusy = false,
+  busyLabel = "Deleting...",
+  confirmClassName = "btn btnDanger",
   onConfirm,
   onClose
 }) {
@@ -26,8 +28,8 @@ function ConfirmActionModal({
           <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
             Cancel
           </button>
-          <button type="button" className="btn btnDanger" onClick={onConfirm} disabled={isBusy}>
-            {isBusy ? "Deleting..." : confirmLabel}
+          <button type="button" className={confirmClassName} onClick={onConfirm} disabled={isBusy}>
+            {isBusy ? busyLabel : confirmLabel}
           </button>
         </div>
       </div>

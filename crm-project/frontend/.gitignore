@@ -8,6 +8,8 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+node_modules.incomplete-backup
+node_modules.npm-stuck
 dist
 dist-ssr
 *.local

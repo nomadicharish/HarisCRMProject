@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "../utils/toast";
@@ -7,6 +7,7 @@ import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -116,6 +117,7 @@ function VisaCollectionModal({
   onUpdated,
   initialEditCollectionTravel = false
 }) {
+  const overlayRef = useRef(null);
   const openTimePicker = (event) => {
     event.target.showPicker?.();
   };
@@ -158,30 +160,36 @@ function VisaCollectionModal({
   const hasApplicantArrived = Number(applicant?.stage || 0) >= 13 || String(applicant?.workflowStatus || "").toLowerCase() === "completed";
   const canEditCollection =
     isCollectionMode &&
-    (isSuperUser || user?.role === "EMPLOYER") &&
+    hasRight(user, "INITIATE_VISA_COLLECTION") &&
     !hasResidencePermit;
   const canApprove = isCollectionMode && isSuperUser && visaCollection?.status === "PENDING" && !hasResidencePermit;
   const canAddCollectionTravel =
     isCollectionMode &&
-    user?.role === "AGENCY" &&
+    hasRight(user, "ADD_VISA_TRAVEL") &&
     Number(applicant?.stage || 1) >= 11 &&
     visaCollection?.status === "APPROVED" &&
     (!visaCollectionTravel || editingCollectionTravel);
   const canAddTicket =
     isApplicantTravelMode &&
-    user?.role === "AGENCY" &&
+    hasRight(user, "ADD_APPLICANT_ARRIVAL") &&
     Number(applicant?.stage || 1) >= 12 &&
     visaCollection?.status === "APPROVED" &&
     !visaTravel;
   const canUpdateTicket =
     isApplicantTravelMode &&
-    user?.role === "AGENCY" &&
+    hasRight(user, "ADD_APPLICANT_ARRIVAL") &&
     Number(applicant?.stage || 1) >= 12 &&
     Boolean(visaTravel) &&
     !hasApplicantArrived &&
     editingArrivalDetails;
   const isBusy = savingCollection || savingTicket;
   const showCollectionForm = canEditCollection && (!visaCollection || editingCollectionDetails);
+
+  useEffect(() => {
+    if (savingTicket) {
+      overlayRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [savingTicket]);
 
   const loadData = useCallback(async () => {
     try {
@@ -396,7 +404,7 @@ function VisaCollectionModal({
 
   if (!open) return null;
   return (
-    <div className="contractModalOverlay">
+    <div ref={overlayRef} className="contractModalOverlay">
       <div className="contractModalCard workflowModalCard workflowEntryModalCard" style={{ position: "relative" }}>
         <BlockingLoader open={isBusy} label="Saving details..." />
         <div className="workflowModalHero">
@@ -576,19 +584,24 @@ function VisaCollectionModal({
               </div>
             ) : null}
 
-            {isApplicantTravelMode && visaTravel && user?.role === "AGENCY" && !hasApplicantArrived && !editingArrivalDetails ? (
+            {isApplicantTravelMode && visaTravel && !editingArrivalDetails ? (
               <div className="workflowModalFooter">
-                <button
-                  type="button"
-                  className="workflowFileActionBtn"
-                  onClick={() => setEditingArrivalDetails(true)}
-                  disabled={isBusy}
-                >
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                  Edit
+                {user?.role === "AGENCY" && !hasApplicantArrived ? (
+                  <button
+                    type="button"
+                    className="workflowFileActionBtn"
+                    onClick={() => setEditingArrivalDetails(true)}
+                    disabled={isBusy}
+                  >
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                      <path d="M12 20h9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    Edit
+                  </button>
+                ) : null}
+                <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
+                  Close
                 </button>
               </div>
             ) : null}
@@ -1042,7 +1055,7 @@ function VisaCollectionModal({
               </div>
             ) : null}
 
-            {!canAddTicket && !canUpdateTicket && !canAddCollectionTravel && !(isCollectionMode && visaCollection) && !showCollectionForm ? (
+            {!canAddTicket && !canUpdateTicket && !canAddCollectionTravel && !(isCollectionMode && visaCollection) && !showCollectionForm && !(isApplicantTravelMode && visaTravel && !editingArrivalDetails) ? (
               <div className="workflowModalFooter">
                 <button type="button" className="btn btnSecondary" onClick={onClose} disabled={isBusy}>
                   Close

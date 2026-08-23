@@ -100,7 +100,7 @@ function SettingsChangePassword() {
 
   return (
     <div className="settingsPage">
-      <DashboardTopbar user={{ name: storedUser?.name || "User" }} />
+      <DashboardTopbar user={{ name: storedUser?.name || "User", profilePhotoUrl: storedUser?.profilePhotoUrl || "" }} />
 
       <div className="settingsShell">
         <div className="settingsShellHeader">

@@ -427,8 +427,8 @@ async function updatePaymentVerification(req, expectedStatus, nextStatus, fields
 }
 
 async function acknowledgePaymentUseCase(req) {
-  if (req.user?.role !== "JUNIOR_ACCOUNTANT") {
-    throw new AppError("Only Junior Accountant can acknowledge payment", 403);
+  if (!hasRight(req.user, "ACKNOWLEDGE_PAYMENT")) {
+    throw new AppError("Access denied", 403);
   }
   const names = await resolveUserDisplayNames([req.user.uid]);
   return updatePaymentVerification(req, PAYMENT_STATUS.PENDING_JUNIOR, PAYMENT_STATUS.PENDING_SENIOR, {
@@ -440,8 +440,8 @@ async function acknowledgePaymentUseCase(req) {
 }
 
 async function confirmPaymentUseCase(req) {
-  if (req.user?.role !== "SENIOR_ACCOUNTANT") {
-    throw new AppError("Only Senior Accountant can confirm payment", 403);
+  if (!hasRight(req.user, "CONFIRM_PAYMENT")) {
+    throw new AppError("Access denied", 403);
   }
   const names = await resolveUserDisplayNames([req.user.uid]);
   return updatePaymentVerification(req, PAYMENT_STATUS.PENDING_SENIOR, PAYMENT_STATUS.CONFIRMED, {

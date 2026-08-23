@@ -173,9 +173,7 @@ function ApplicantPayments() {
       const [paymentPageRes, userRes, bankAccountsRes] = await Promise.allSettled([
         getCached(`/applicants/${id}/payments-page`, { ttlMs: paymentPageCacheTtlMs, force: true }),
         user ? Promise.resolve(user) : getCached("/auth/me", { ttlMs: 120000 }),
-        isSuperUserLikeRole(user?.role) || user?.role === "AGENCY"
-          ? getCached("/auth/bank-accounts", { ttlMs: 120000 })
-          : Promise.resolve({ items: [] })
+        getCached("/auth/bank-accounts", { ttlMs: 120000 })
       ]);
 
       if (userRes.status === "fulfilled") {
@@ -887,9 +885,9 @@ function ApplicantPayments() {
               <div className="dashboardModalHeader">
                 <div>
                   <h3 className="dashboardModalTitle">
-                    {user?.role === "JUNIOR_ACCOUNTANT" && getPaymentStatus(selectedPayment) === "PENDING_JUNIOR"
+                    {hasRight(user, "ACKNOWLEDGE_PAYMENT") && getPaymentStatus(selectedPayment) === "PENDING_JUNIOR"
                       ? "Junior Accountant Review"
-                      : user?.role === "SENIOR_ACCOUNTANT" && getPaymentStatus(selectedPayment) === "PENDING_SENIOR"
+                      : hasRight(user, "CONFIRM_PAYMENT") && getPaymentStatus(selectedPayment) === "PENDING_SENIOR"
                       ? "Senior Accountant Review"
                       : "View Payment Details"}
                   </h3>
@@ -993,7 +991,7 @@ function ApplicantPayments() {
                 </div>
               ) : null}
 
-              {user?.role === "JUNIOR_ACCOUNTANT" && getPaymentStatus(selectedPayment) === "PENDING_JUNIOR" ? (
+              {hasRight(user, "ACKNOWLEDGE_PAYMENT") && getPaymentStatus(selectedPayment) === "PENDING_JUNIOR" ? (
                 <label className="paymentReviewConfirmation">
                   <input
                     type="checkbox"
@@ -1009,8 +1007,8 @@ function ApplicantPayments() {
                   Close
                 </button>
                 {(
-                  (user?.role === "JUNIOR_ACCOUNTANT" && getPaymentStatus(selectedPayment) === "PENDING_JUNIOR") ||
-                  (user?.role === "SENIOR_ACCOUNTANT" && getPaymentStatus(selectedPayment) === "PENDING_SENIOR")
+                  (hasRight(user, "ACKNOWLEDGE_PAYMENT") && getPaymentStatus(selectedPayment) === "PENDING_JUNIOR") ||
+                  (hasRight(user, "CONFIRM_PAYMENT") && getPaymentStatus(selectedPayment) === "PENDING_SENIOR")
                 ) && !selectedPayment.isLegacyMapped ? (
                   <button
                     type="button"
@@ -1018,7 +1016,7 @@ function ApplicantPayments() {
                     onClick={handlePaymentReview}
                     disabled={reviewing}
                   >
-                    {user?.role === "JUNIOR_ACCOUNTANT" ? "Acknowledge & Confirm" : "Confirm Payment"}
+                    {hasRight(user, "ACKNOWLEDGE_PAYMENT") && getPaymentStatus(selectedPayment) === "PENDING_JUNIOR" ? "Acknowledge Payment" : "Confirm Payment"}
                   </button>
                 ) : null}
               </div>

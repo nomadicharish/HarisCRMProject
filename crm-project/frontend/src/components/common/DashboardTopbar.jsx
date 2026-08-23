@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { clearSession } from "../../utils/auth";
 import BrandLogo from "./BrandLogo";
 import NotificationBell from "./NotificationBell";
+import SecureImage from "./SecureImage";
 import "../../styles/applicantsDashboard.css";
 
 const DOWN_ICON_SRC = "/down.png";
@@ -59,7 +60,9 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
             className="dashboardUserMenuBtn"
             onClick={() => setShowProfilePanel((value) => !value)}
           >
-            <span className="dashboardUserAvatar">{userInitials}</span>
+            <span className="dashboardUserAvatar">
+              {user?.profilePhotoUrl ? <SecureImage src={user.profilePhotoUrl} alt="" fallback={userInitials} /> : userInitials}
+            </span>
             <div className="dashboardUserName">{user?.name || "User"}</div>
             <img src={DOWN_ICON_SRC} alt="" className="dashboardInlineIcon dashboardUserChevronImg" />
           </button>
@@ -80,7 +83,9 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
                   x
                 </button>
               </div>
-              <div className="dashboardProfilePanelAvatar">{userInitials}</div>
+              <div className="dashboardProfilePanelAvatar">
+                {user?.profilePhotoUrl ? <SecureImage src={user.profilePhotoUrl} alt="" fallback={userInitials} /> : userInitials}
+              </div>
               <div className="dashboardProfilePanelGreeting">
                 Hey, <span className="dashboardProfilePanelName">{user?.name || "User"}</span>{" "}
                 <img src={HAND_ICON_SRC} alt="" className="dashboardInlineIcon dashboardHandIcon" />

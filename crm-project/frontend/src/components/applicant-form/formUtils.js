@@ -5,6 +5,7 @@ const EMPTY_FORM = {
   lastName: "",
   email: "",
   dob: "",
+  enrollmentDate: new Date(),
   age: "",
   education: "",
   customEducation: "",

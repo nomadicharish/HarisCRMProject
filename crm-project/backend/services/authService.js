@@ -56,7 +56,8 @@ async function getCurrentUserProfile(uid) {
     active: Boolean(userData.active),
     agencyId: userData.agencyId || null,
     employerId: userData.employerId || null,
-    rights: getEffectiveRights(userData)
+    rights: getEffectiveRights(userData),
+    profilePhotoUrl: userData.profilePhotoUrl || ""
   };
   setCachedUserProfile(uid, profile);
   return profile;
@@ -169,6 +170,7 @@ async function getSettings(uid) {
     role: userData.role || "",
     contactNumber,
     rights: getEffectiveRights(userData),
+    profilePhotoUrl: userData.profilePhotoUrl || "",
     passwordMasked: "********"
   };
 }
@@ -208,6 +210,42 @@ async function updateSettings(uid, { name, contactNumber }) {
   return { message: "Settings updated successfully", name };
 }
 
+async function uploadProfilePhoto(uid, file) {
+  if (!file || !String(file.mimetype || "").startsWith("image/")) throw new AppError("Please upload a JPEG or PNG image", 400);
+  const userRef = db.collection("users").doc(uid);
+  const userDoc = await userRef.get();
+  if (!userDoc.exists) throw new AppError("User profile not found", 404);
+  const safeFileName = String(file.originalname || "profile-photo").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `user-profiles/${uid}/profile_${Date.now()}_${safeFileName}`;
+  const bucket = admin.storage().bucket();
+  await bucket.file(storagePath).save(file.buffer, { metadata: { contentType: file.mimetype } });
+  const previousPath = String(userDoc.data()?.profilePhotoUrl || "");
+  await userRef.set({ profilePhotoUrl: storagePath, updatedAt: new Date() }, { merge: true });
+  if (previousPath && previousPath !== storagePath) await bucket.file(previousPath).delete({ ignoreNotFound: true });
+  invalidateCachedUserProfile(uid);
+  return { message: "Profile picture updated successfully", profilePhotoUrl: storagePath };
+}
+
+async function getCommonDocuments() {
+  const doc = await db.collection("settings").doc("commonDocuments").get();
+  const data = doc.exists ? doc.data() || {} : {};
+  return { standardReferenceFileName: data.standardReferenceFileName || "", standardReferenceUrl: data.standardReferenceUrl || "" };
+}
+
+async function uploadStandardReferenceDocument(file) {
+  if (!file) throw new AppError("Standard reference document is required", 400);
+  const ref = db.collection("settings").doc("commonDocuments");
+  const previous = await ref.get();
+  const safeFileName = String(file.originalname || "standard-reference").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `common-documents/standard-reference_${Date.now()}_${safeFileName}`;
+  const bucket = admin.storage().bucket();
+  await bucket.file(storagePath).save(file.buffer, { metadata: { contentType: file.mimetype } });
+  await ref.set({ standardReferenceFileName: file.originalname || safeFileName, standardReferenceUrl: storagePath, updatedAt: new Date() }, { merge: true });
+  const previousPath = String(previous.data()?.standardReferenceUrl || "");
+  if (previousPath && previousPath !== storagePath) await bucket.file(previousPath).delete({ ignoreNotFound: true });
+  return { message: "Standard reference document updated successfully", standardReferenceFileName: file.originalname || safeFileName, standardReferenceUrl: storagePath };
+}
+
 async function markPasswordUpdated(uid) {
   await db.collection("users").doc(uid).set(
     {
@@ -240,7 +278,10 @@ module.exports = {
   checkEmailExists,
   disableUser,
   getCurrentUserProfile,
+  getCommonDocuments,
   getSettings,
   markPasswordUpdated,
-  updateSettings
+  updateSettings,
+  uploadProfilePhoto,
+  uploadStandardReferenceDocument
 };

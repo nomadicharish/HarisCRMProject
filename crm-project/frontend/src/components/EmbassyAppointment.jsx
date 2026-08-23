@@ -7,6 +7,7 @@ import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import "../styles/applicantContract.css";
 
 function formatDate(value) {
@@ -107,15 +108,13 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
   const hasBiometricSlip = Boolean(biometricSlip?.fileUrl || biometricFromApi?.fileUrl);
   const isAppointmentPending = String(appointment?.status || "").toUpperCase() === "PENDING";
   const isSuperUser = isSuperUserLikeRole(user?.role);
-  const canEditAppointment =
-    (isSuperUser || user?.role === "EMPLOYER") &&
-    !hasBiometricSlip;
+  const canEditAppointment = hasRight(user, "INITIATE_EMBASSY_APPOINTMENT") && !hasBiometricSlip;
   const canApprove = isSuperUser && appointment && isAppointmentPending && !hasBiometricSlip;
   const canAddTicket =
-    user?.role === "AGENCY" &&
+    hasRight(user, "ADD_APPOINTMENT_TRAVEL") &&
     appointment &&
     ((!travelDetails && !hasBiometricSlip) || editingTravel);
-  const canUpdateTravel = user?.role === "AGENCY" && appointment && Boolean(travelDetails) && !hasBiometricSlip;
+  const canUpdateTravel = hasRight(user, "ADD_APPOINTMENT_TRAVEL") && appointment && Boolean(travelDetails) && !hasBiometricSlip;
   const isBusy = savingAppointment || savingTicket || approvingAppointment;
   const showAppointmentForm = canEditAppointment && (!appointment || editingAppointment);
 
@@ -167,9 +166,9 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
 
   const title = useMemo(() => {
     if (!appointment) return "Enter Embassy Appointment details";
-    if (!travelDetails && user?.role === "AGENCY" && !hasBiometricSlip) return "Ticket Upload";
+    if (!travelDetails && hasRight(user, "ADD_APPOINTMENT_TRAVEL") && !hasBiometricSlip) return "Ticket Upload";
     return "Embassy Appointment Details";
-  }, [appointment, travelDetails, user?.role, hasBiometricSlip]);
+  }, [appointment, travelDetails, user, hasBiometricSlip]);
 
   const handleSaveAppointment = async ({ closeAfter = true, refreshAfter = true } = {}) => {
     const formattedDate = formatDateForInput(appointmentDate);

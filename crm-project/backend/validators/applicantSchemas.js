@@ -74,6 +74,7 @@ const createApplicantSchema = z.object({
     lastName: optionalTrimmedString,
     email: optionalEmailSchema,
     dob: optionalTrimmedString,
+    enrollmentDate: optionalTrimmedString,
     age: z.union([z.coerce.number(), z.literal(""), z.null()]).optional(),
     placeOfBirth: optionalTrimmedString,
     passportNumber: optionalTrimmedString,

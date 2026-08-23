@@ -194,7 +194,7 @@ async function addTravelDetailsUseCase(req) {
   const applicantId = req.params.id;
   const { travelDate, time, ticketNumber } = req.body;
 
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agent can upload travel details", 403);
+  if (!hasRight(req.user, "ADD_APPOINTMENT_TRAVEL")) throw new AppError("Access denied", 403);
   if (!travelDate || !time) throw new AppError("Travel Date and Time are required", 400);
 
   let fileUrl = "";
@@ -264,7 +264,7 @@ async function getTravelDetailsUseCase(req) {
 
 async function uploadBiometricSlipUseCase(req) {
   const applicantId = req.params.id;
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agency can upload biometric slip", 403);
+  if (!hasRight(req.user, "ADD_APPOINTMENT_BIOMETRIC")) throw new AppError("Access denied", 403);
   if (!req.file) throw new AppError("File required", 400);
 
   const bucket = admin.storage().bucket();
@@ -411,8 +411,8 @@ async function addVisaCollectionUseCase(req) {
   const applicantId = req.params.id;
   const { date, time } = req.body;
 
-  if (!(req.user.role === "EMPLOYER" || isSuperUserLikeRole(req.user.role))) {
-    throw new AppError("Only Employer or Super User can add", 403);
+  if (!hasRight(req.user, "INITIATE_VISA_COLLECTION")) {
+    throw new AppError("Access denied", 403);
   }
   if (!date || !time) throw new AppError("Date & Time required", 400);
 
@@ -540,7 +540,7 @@ async function addVisaCollectionTravelUseCase(req) {
   const applicantId = req.params.id;
   const { date, time } = req.body;
 
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agency can add travel details", 403);
+  if (!hasRight(req.user, "ADD_VISA_TRAVEL")) throw new AppError("Access denied", 403);
   if (!date || !time) throw new AppError("Travel date and time are required", 400);
 
   const applicantRef = db.collection("applicants").doc(applicantId);
@@ -719,7 +719,9 @@ async function addVisaTravelUseCase(req) {
   const applicantId = req.params.id;
   const { date, time, ticketNumber, flightNumber, arrivalPlace, arrivalBusNumber, arrivalBusDate, arrivalBusTime, busArrivalPlace, hotelNameAddress, removeTravelFile, removeBusTicket } = req.body;
 
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agency can add travel details", 403);
+  if (!hasRight(req.user, "ADD_APPLICANT_ARRIVAL")) {
+    throw new AppError("Access denied", 403);
+  }
   if (!date || !time || !flightNumber || !arrivalPlace) {
     throw new AppError("Arrival date, arrival time, flight number and arrival place are required", 400);
   }
@@ -848,7 +850,7 @@ async function uploadResidencePermitUseCase(req) {
   const applicantId = req.params.id;
   const { type } = req.body;
 
-  if (req.user.role !== "AGENCY") throw new AppError("Only Agency allowed", 403);
+  if (!hasRight(req.user, "UPLOAD_TRC")) throw new AppError("Access denied", 403);
   if (!req.file) throw new AppError("File required", 400);
   if (!["FRONT", "BACK", "TRP"].includes(String(type || "TRP").toUpperCase())) {
     throw new AppError("type must be TRP, FRONT or BACK", 400);

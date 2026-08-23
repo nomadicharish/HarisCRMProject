@@ -6,7 +6,7 @@ import API from "../services/api";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import PageLoader from "../components/common/PageLoader";
 import ConfirmActionModal from "../components/common/ConfirmActionModal";
-import { getStoredUser } from "../utils/auth";
+import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { hasRight } from "../utils/rights";
 import { getCached } from "../services/cachedApi";
 import { DEFAULT_RIGHTS, roleLabel, USER_RIGHTS, USER_ROLES } from "../config/userRights";
@@ -27,6 +27,8 @@ function UsersManagement() {
   const storedUser = getStoredUser();
   const canAddUsers = hasRight(storedUser, "ADD_USERS");
   const canViewUsers = hasRight(storedUser, "VIEW_USERS");
+  const canDeleteUsers = hasRight(storedUser, "DELETE_USERS");
+  const isSuperUser = isSuperUserLikeRole(storedUser?.role);
   const [users, setUsers] = useState([]);
   const [countries, setCountries] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -39,6 +41,8 @@ function UsersManagement() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [userToDelete, setUserToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [userToReset, setUserToReset] = useState(null);
+  const [resettingPassword, setResettingPassword] = useState(false);
 
   const loadUsers = async () => {
     try {
@@ -98,6 +102,20 @@ function UsersManagement() {
     finally { setDeleting(false); }
   };
 
+  const resetUserPassword = async () => {
+    if (!userToReset) return;
+    try {
+      setResettingPassword(true);
+      setError("");
+      await API.post(`/users/${userToReset.uid}/reset-password`);
+      setUserToReset(null);
+    } catch (requestError) {
+      setError(requestError?.response?.data?.message || "Unable to reset user password");
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
   const isFormOpen = formOpen;
   return (
     <div className="settingsPage usersPage">
@@ -106,7 +124,7 @@ function UsersManagement() {
         <div className="settingsShellHeader"><h1 className="settingsShellTitle">Settings</h1></div>
         <div className="settingsShellBody">
         <aside className="settingsSidebar">
-          <button type="button" className="settingsNavItem" onClick={() => navigate("/settings")}>General</button><button type="button" className="settingsNavItem" onClick={() => navigate("/settings?section=bank-details")}>Bank Details</button><button type="button" className="settingsNavItem" onClick={() => navigate("/settings?section=countries")}>Countries</button><button type="button" className="settingsNavItem settingsNavItemActive">Users</button>
+          <button type="button" className="settingsNavItem" onClick={() => navigate("/settings")}>General</button><button type="button" className="settingsNavItem" onClick={() => navigate("/settings?section=bank-details")}>Bank Details</button><button type="button" className="settingsNavItem" onClick={() => navigate("/settings?section=countries")}>Countries</button><button type="button" className="settingsNavItem settingsNavItemActive">Users</button>{isSuperUser ? <button type="button" className="settingsNavItem" onClick={() => navigate("/settings?section=common-documents")}>Common Documents</button> : null}
         </aside>
         <main className="settingsContent usersContent">
           {isFormOpen ? <form onSubmit={saveUser} className="userFormPage">
@@ -123,11 +141,12 @@ function UsersManagement() {
             {error ? <div className="usersError">{error}</div> : null}<div className="usersActions"><button type="button" onClick={openAdd}>Cancel</button><button className="primary" disabled={saving}>{saving ? "Saving..." : editing ? "Save Changes" : "Create User"}</button></div>
           </form> : <>
             <header className="usersHeader"><div><h1>Users</h1><p>{canViewUsers ? "View and manage all users in the system." : "Create a new user and assign access rights."}</p></div>{canAddUsers ? <button className="primary" onClick={openNew}>+ Add User</button> : null}</header>
-            {canViewUsers ? <><div className="usersToolbar"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name" /><span>Showing {filteredUsers.length} users</span></div>{error ? <div className="usersError">{error}</div> : null}{loading ? <PageLoader label="Loading users..." /> : <div className="usersTableWrap"><table><thead><tr><th>Name</th><th>Contact Number</th><th>Email Address</th><th>User Role</th>{canAddUsers ? <th>Actions</th> : null}</tr></thead><tbody>{filteredUsers.map((user) => <tr key={user.uid}><td>{user.name}</td><td>{user.contactNumber || "-"}</td><td>{user.email}</td><td>{roleLabel(user.role)}</td>{canAddUsers ? <td><button className="usersIconButton" type="button" onClick={() => openEdit(user)} aria-label={`Edit ${user.name}`} title="Edit user"><EditIcon /></button><button className="usersIconButton danger" type="button" onClick={() => setUserToDelete(user)} aria-label={`Delete ${user.name}`} title="Delete user"><DeleteIcon /></button></td> : null}</tr>)}{!filteredUsers.length ? <tr><td colSpan={canAddUsers ? "5" : "4"}>No users found.</td></tr> : null}</tbody></table></div>}</> : <div className="usersError">You do not have permission to view the user list.</div>}
+            {canViewUsers ? <><div className="usersToolbar"><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by name" /><span>Showing {filteredUsers.length} users</span></div>{error ? <div className="usersError">{error}</div> : null}{loading ? <PageLoader label="Loading users..." /> : <div className="usersTableWrap"><table><thead><tr><th>Name</th><th>Contact Number</th><th>Email Address</th><th>User Role</th>{canAddUsers || canDeleteUsers ? <th>Actions</th> : null}</tr></thead><tbody>{filteredUsers.map((user) => <tr key={user.uid}><td>{user.name}</td><td>{user.contactNumber || "-"}</td><td>{user.email}</td><td>{roleLabel(user.role)}</td>{canAddUsers || canDeleteUsers ? <td>{canAddUsers ? <button className="usersIconButton" type="button" onClick={() => openEdit(user)} aria-label={`Edit ${user.name}`} title="Edit user"><EditIcon /></button> : null}{isSuperUser ? <button className="usersResetButton" type="button" onClick={() => setUserToReset(user)}>Reset Password</button> : null}{canDeleteUsers ? <button className="usersIconButton danger" type="button" onClick={() => setUserToDelete(user)} aria-label={`Delete ${user.name}`} title="Delete user"><DeleteIcon /></button> : null}</td> : null}</tr>)}{!filteredUsers.length ? <tr><td colSpan={canAddUsers || canDeleteUsers ? "5" : "4"}>No users found.</td></tr> : null}</tbody></table></div>}</> : <div className="usersError">You do not have permission to view the user list.</div>}
           </>}
         </main>
         </div></div>
       {userToDelete ? <ConfirmActionModal title="Delete User" message={`Are you sure you want to delete ${userToDelete.name}? Their account will be disabled.`} confirmLabel="Delete User" isBusy={deleting} onConfirm={deleteUser} onClose={() => !deleting && setUserToDelete(null)} /> : null}
+      {userToReset ? <ConfirmActionModal title="Reset Password" message={`Reset ${userToReset.name}'s password and email a new one-time password?`} confirmLabel="Reset Password" busyLabel="Sending email..." confirmClassName="btn btnPrimary" isBusy={resettingPassword} onConfirm={resetUserPassword} onClose={() => !resettingPassword && setUserToReset(null)} /> : null}
     </div>
   );
 }

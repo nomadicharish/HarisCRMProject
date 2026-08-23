@@ -623,8 +623,12 @@ async function getApplicantDocumentsContextUseCase(req) {
 
   const applicant = applicantSnap.data() || {};
   const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
-  const companyDoc = applicant.companyId ? await db.collection("companies").doc(applicant.companyId).get() : null;
+  const [companyDoc, commonDocumentsDoc] = await Promise.all([
+    applicant.companyId ? db.collection("companies").doc(applicant.companyId).get() : Promise.resolve(null),
+    db.collection("settings").doc("commonDocuments").get()
+  ]);
   const companyData = companyDoc?.exists ? companyDoc.data() || {} : {};
+  const commonDocuments = commonDocumentsDoc.exists ? commonDocumentsDoc.data() || {} : {};
   const documentConfigs = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyData, applicant) : [];
 
   return {
@@ -645,8 +649,8 @@ async function getApplicantDocumentsContextUseCase(req) {
       agencyId: applicant.agencyId || "",
       jobPositionId: applicant.jobPositionId || "",
       jobPositionName: applicant.jobPositionName || "",
-      standardReferenceFileName: companyData.standardReferenceFileName || "",
-      standardReferenceUrl: companyData.standardReferenceUrl || "",
+      standardReferenceFileName: commonDocuments.standardReferenceFileName || "",
+      standardReferenceUrl: commonDocuments.standardReferenceUrl || "",
       profilePhotoUrl
     },
     documentConfigs
