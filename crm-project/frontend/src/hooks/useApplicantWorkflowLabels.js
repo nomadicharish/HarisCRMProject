@@ -39,6 +39,7 @@ function useApplicantWorkflowLabels({
     const workflowFlags = applicant?.workflowFlags || {};
     const applicantStage = Number(applicant?.stage || 1);
     const isSuperUser = isSuperUserLikeRole(user?.role);
+    const canReviewPendingContract = isSuperUser || user?.role === "ADMIN";
     const canApproveProfile = isSuperUser && applicantStage === 1;
     const isEmployer = user?.role === "EMPLOYER";
     const candidateArrivalCompletedDate = formatCompletedStageDate(applicant?.completedAt);
@@ -57,15 +58,6 @@ function useApplicantWorkflowLabels({
     const rejectedRequired = hasRejectedDocumentsFromFlags || (hasAnyDocStateFromFlags || hasAnyDocumentsPayload ? docReviewState.rejectedRequired : false);
     const uploadedRequired = approvedRequired || pendingRequired || rejectedRequired || (hasAnyDocStateFromFlags || hasAnyDocumentsPayload ? docReviewState.uploadedRequired : false);
     const hasCompletedDocumentStage = applicantStage >= 3 && approvedRequired;
-    const employerContractStatus = String(contract?.status || applicant?.contract?.status || "").toUpperCase();
-    const hasEmployerContract = Boolean(
-      contract?.fileUrl ||
-      applicant?.contract?.fileUrl ||
-      workflowFlags.isContractPendingApproval === true ||
-      workflowFlags.isContractIssued === true ||
-      employerContractStatus === "PENDING" ||
-      employerContractStatus === "APPROVED"
-    );
     const hasDispatchMarker = Boolean(
       applicant?.documentDispatch?.hasDispatch === true ||
       Number(applicant?.dispatchSummary?.count || 0) > 0
@@ -76,8 +68,12 @@ function useApplicantWorkflowLabels({
       applicantStage < 7;
     const canIssueContract = applicantStage === 4 && hasRight(user, "ISSUE_CONTRACT");
     const isContractPendingApproval =
-      applicantStage === 4 &&
-      (workflowFlags.isContractPendingApproval ?? String(contract?.status || "").toUpperCase() === "PENDING");
+      workflowFlags.isContractPendingApproval ??
+      (String(contract?.status || applicant?.contract?.status || "").toUpperCase() === "PENDING");
+    // A contract can legitimately be awaiting approval while document review
+    // is still pending. Let a super user or admin review it without
+    // incorrectly advancing the document workflow.
+    const canApprovePendingContract = canReviewPendingContract && isContractPendingApproval;
     const isContractCompleted = Boolean(
       workflowFlags.isContractIssued ?? (applicantStage >= 5 && contract?.status === "APPROVED")
     );
@@ -347,7 +343,7 @@ function useApplicantWorkflowLabels({
     const hasVisaCollectionRecord = Boolean(
       workflowFlags.isVisaCollectionCreated ?? Boolean(visaCollection?.date && visaCollection?.time)
     );
-    const headerActionLabel = canIssueContract
+    const headerActionLabel = !canApprovePendingContract && canIssueContract
       ? isContractPendingApproval
         ? isSuperUser
           ? "Verify & Approve"
@@ -397,7 +393,7 @@ function useApplicantWorkflowLabels({
       ? "View & Approve Profile"
       : documentsButtonLabel;
     const canHeaderAction =
-      canIssueContract ||
+      (!canApprovePendingContract && canIssueContract) ||
       canUploadSignedContract ||
       canCompleteApplicantArrival ||
       canAddResidencePermit ||
@@ -420,6 +416,7 @@ function useApplicantWorkflowLabels({
       canEditDispatch,
       hasDocumentDispatch,
       canIssueContract,
+      canApprovePendingContract,
       canUploadSignedContract,
       canInitiateEmbassyAppointment,
       canAddTicket,

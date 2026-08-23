@@ -1,7 +1,7 @@
 const { db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
 const { resolveApplicantPaymentSnapshot, resolveApplicantPaymentStage } = require("./applicantDomainService");
-const { isSuperUserLikeRole } = require("../utils/roles");
+const { isAccountantRole, isSuperUserLikeRole } = require("../utils/roles");
 
 function toTimestamp(value) {
   if (!value) return null;
@@ -264,7 +264,7 @@ async function getDashboard({ user, query }) {
   const { companyId = "", agencyId = "", fromDate = "", toDate = "" } = query;
 
   let firestoreQuery = db.collection("applicants");
-  let filterApprovedForEmployer = false;
+  let filterApprovedApplicants = false;
 
   if (role === "AGENCY") {
     if (!user.agencyId) {
@@ -276,7 +276,12 @@ async function getDashboard({ user, query }) {
     firestoreQuery = linkedCompanyIds.length === 1
       ? firestoreQuery.where("companyId", "==", linkedCompanyIds[0])
       : firestoreQuery.where("companyId", "in", linkedCompanyIds.slice(0, 10));
-    filterApprovedForEmployer = true;
+    filterApprovedApplicants = true;
+  } else if (isAccountantRole(role)) {
+    // Pending applicant approvals are reserved for the creating agency and
+    // super-user/admin reviewers; accounting dashboards only receive approved
+    // applicants.
+    filterApprovedApplicants = true;
   }
 
   if (companyId) {
@@ -383,7 +388,7 @@ async function getDashboard({ user, query }) {
     return summary;
   }
 
-  const docs = filterApprovedForEmployer
+  const docs = filterApprovedApplicants
     ? scopedDocs.filter((doc) => {
         const data = doc.data() || {};
         const status = String(data.approvalStatus || "").toLowerCase();

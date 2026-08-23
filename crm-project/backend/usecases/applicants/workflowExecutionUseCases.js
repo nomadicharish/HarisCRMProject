@@ -14,8 +14,13 @@ const {
 const { safeSendCalendarInvite } = require("../../services/calendarInviteService");
 const { deleteStorageFileIfExists } = require("../../utils/storageFiles");
 const { isSuperUserLikeRole } = require("../../utils/roles");
+const { canAccessApplicant } = require("../../services/policyService");
 const { hasRight } = require("../../config/userRights");
 const SIGNED_DOCUMENT_MAX_BYTES = 5 * 1024 * 1024;
+
+function canReviewPendingContract(role) {
+  return isSuperUserLikeRole(role) || role === "ADMIN";
+}
 
 async function addDispatchUseCase(req) {
   const applicantId = req.params.id;
@@ -165,6 +170,9 @@ async function uploadContractForApplicant({ req, applicantId, notify = true }) {
 
   if (!hasRight(req.user, "ISSUE_CONTRACT")) throw new AppError("Access denied", 403);
   if (!contractFile) throw new AppError("File required", 400);
+  if (isEmployer && !(await canAccessApplicant(req.user, applicantId))) {
+    throw new AppError("Applicant is pending admin approval or outside employer scope", 403);
+  }
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnapBeforeUpdate = await applicantRef.get();
@@ -282,6 +290,9 @@ async function uploadBulkContractUseCase(req) {
   if (applicants.some((applicant) => applicant.countryId !== countryId || applicant.companyId !== companyId)) {
     throw new AppError("Selected applicants must belong to the selected country and company", 400);
   }
+  if (applicants.some((applicant) => String(applicant.approvalStatus || "").toLowerCase() !== "approved")) {
+    throw new AppError("You can upload contracts only for applicants approved by Super User or Admin", 403);
+  }
   if (isEmployer) {
     const employerDoc = req.user.employerId ? await db.collection("employers").doc(req.user.employerId).get() : null;
     const employer = employerDoc?.exists ? employerDoc.data() || {} : {};
@@ -292,9 +303,6 @@ async function uploadBulkContractUseCase(req) {
         : [];
     if (!employerCompanyIds.includes(companyId)) {
       throw new AppError("You can upload contracts only for your mapped companies", 403);
-    }
-    if (applicants.some((applicant) => String(applicant.approvalStatus || "").toLowerCase() !== "approved")) {
-      throw new AppError("You can upload contracts only for approved applicants", 403);
     }
   }
 
@@ -655,7 +663,9 @@ function assertNoRejectedSignedDocuments(applicant) {
 
 async function approveContractUseCase(req) {
   const applicantId = req.params.id;
-  if (!isSuperUserLikeRole(req.user.role)) throw new AppError("Only Super User can approve contract", 403);
+  if (!canReviewPendingContract(req.user.role)) {
+    throw new AppError("Only Super User or Admin can approve contract", 403);
+  }
 
   const applicantRef = db.collection("applicants").doc(applicantId);
   const applicantSnap = await applicantRef.get();
@@ -689,7 +699,7 @@ async function approveContractUseCase(req) {
       applicantId,
       fromStage: 4,
       toStage: 5,
-      role: "SUPER_USER",
+      role: req.user.role,
       action: "CONTRACT_APPROVED"
     });
   }
@@ -705,6 +715,9 @@ async function approveContractUseCase(req) {
 }
 
 async function getContractUseCase(req) {
+  if (req.user?.role === "EMPLOYER" && !(await canAccessApplicant(req.user, req.params.id))) {
+    throw new AppError("Applicant is pending admin approval or outside employer scope", 403);
+  }
   const doc = await db.collection("applicants").doc(req.params.id).get();
   const contract = doc.data()?.contract || null;
   if (!contract) return null;

@@ -149,9 +149,9 @@ function ApplicantPayments() {
   const paymentDashboardTabs = useMemo(() => {
     if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
     if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["home", "applicants", "companies"];
-    if (user?.role === "SENIOR_ACCOUNTANT") return ["home", "applicants"];
-    return ["applicants"];
-  }, [user?.role]);
+    if (user?.role === "SENIOR_ACCOUNTANT") return ["home", "applicants", ...(hasRight(user, "VIEW_COMPANIES") ? ["companies"] : [])];
+    return ["applicants", ...(hasRight(user, "VIEW_COMPANIES") ? ["companies"] : [])];
+  }, [user]);
   const handleDashboardTabChange = useCallback(
     (tabKey) => {
       if (!paymentDashboardTabs.includes(tabKey)) return;

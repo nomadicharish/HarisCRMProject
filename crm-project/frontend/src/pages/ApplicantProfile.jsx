@@ -78,8 +78,8 @@ function ApplicantProfile() {
   const profileDashboardTabs = useMemo(() => {
     if (isSuperUserLikeRole(user?.role)) return ["home", "applicants", "companies"];
     if (user?.role === "AGENCY" || user?.role === "EMPLOYER") return ["home", "applicants", "companies"];
-    return ["applicants"];
-  }, [user?.role]);
+    return ["applicants", ...(hasRight(user, "VIEW_COMPANIES") ? ["companies"] : [])];
+  }, [user]);
   const handleDashboardTabChange = useCallback(
     (tabKey) => {
       if (!profileDashboardTabs.includes(tabKey)) return;
@@ -218,6 +218,7 @@ function ApplicantProfile() {
     canEditDispatch,
     hasDocumentDispatch,
     canIssueContract,
+    canApprovePendingContract,
     canUploadSignedContract,
     canInitiateEmbassyAppointment,
     canAddTicket,
@@ -503,6 +504,8 @@ function ApplicantProfile() {
               hasDispatchHistory={hasDocumentDispatch}
               contractRowTitle={contractRowTitle}
               contractRowStatus={contractRowStatus}
+              contractActionLabel={canApprovePendingContract ? "Verify & Approve" : ""}
+              canContractAction={canApprovePendingContract}
               signedContractRowTitle={signedContractRowTitle}
               signedContractRowSubtitle={signedContractRowSubtitle}
               signedContractRowStatus={signedContractRowStatus}
@@ -537,7 +540,7 @@ function ApplicantProfile() {
                   ? handleShowDispatchDetails
                   : undefined
               }
-              onContractAction={applicantStage >= 4 ? openContractSection : undefined}
+              onContractAction={applicantStage >= 4 || canApprovePendingContract ? openContractSection : undefined}
               onSignedContractAction={applicantStage >= 5 ? openSignedContractSection : undefined}
               onEmbassyAppointmentAction={applicantStage >= 6 ? openEmbassyAppointmentSection : undefined}
               onBiometricSlipAction={
@@ -675,7 +678,7 @@ function ApplicantProfile() {
 
         <BlockingLoader
           open={approvingStage || completingProcess || deletingApplicant}
-          label={completingProcess ? "Completing candidate arrival..." : "Approving candidate and updating pipeline..."}
+          label={deletingApplicant ? "Deleting applicant..." : completingProcess ? "Completing candidate arrival..." : "Approving candidate and updating pipeline..."}
         />
       </div>
     </div>

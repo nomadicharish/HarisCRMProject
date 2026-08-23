@@ -777,6 +777,7 @@
   font-weight:700;
 }
 .dashboardUserAvatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.dashboardUserAvatar:has(img){background:transparent;color:transparent;}
 
 .dashboardUserChevron{
   color:#6b778c;
@@ -1715,8 +1716,8 @@
 }
 
 .bulkDispatchNoteField textarea{
-  min-height:78px;
-  padding:12px 14px 24px;
+  min-height:44px;
+  padding:8px 14px 8px;
   resize:vertical;
 }
 
@@ -2187,6 +2188,7 @@
   font-weight:700;
 }
 .dashboardProfilePanelAvatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.dashboardProfilePanelAvatar:has(img){background:transparent;color:transparent;}
 
 .dashboardProfilePanelGreeting{
   text-align:center;

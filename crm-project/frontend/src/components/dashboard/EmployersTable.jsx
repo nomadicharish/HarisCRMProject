@@ -43,7 +43,7 @@ function EmployersTable({ rows = [], companyMap = {}, countryMap = {}, onOpenEmp
     return (
       <div className="dashboardVirtualTable">
         <div className="dashboardVirtualHeader" style={{ gridTemplateColumns }}>
-          <div>Employer Name</div>
+          <div>European Agency Name</div>
           <div>Company</div>
           <div>Country</div>
           <div>Contact Number</div>
@@ -77,7 +77,7 @@ function EmployersTable({ rows = [], companyMap = {}, countryMap = {}, onOpenEmp
     <table className="dashboardTable">
       <thead>
         <tr>
-          <th>Employer Name</th>
+          <th>European Agency Name</th>
           <th>Company</th>
           <th>Country</th>
           <th>Contact Number</th>
@@ -88,7 +88,7 @@ function EmployersTable({ rows = [], companyMap = {}, countryMap = {}, onOpenEmp
         {rows.length === 0 ? (
           <tr>
             <td colSpan={5} className="dashboardEmptyState">
-              No employers found for the selected filters.
+              No European Agencies found for the selected filters.
             </td>
           </tr>
         ) : (

@@ -49,6 +49,7 @@
   color:#d09553;
   font-weight:700;
 }
+.settingsAvatarSmall:has(img){background:transparent;color:transparent;}
 
 .settingsShell{
   max-width:1300px;
@@ -185,6 +186,7 @@
   flex:0 0 auto;
 }
 .settingsAvatar img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
+.settingsAvatar:has(img){background:transparent;color:transparent;}
 .settingsAvatarUpload{border:0;cursor:pointer;padding:0;}
 .settingsAvatarUpload:disabled{cursor:wait;opacity:.7;}
 .settingsVisuallyHidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}

@@ -636,13 +636,13 @@ function CompanyFormPage() {
               {errors.countryId ? <div className="companyFormError">{errors.countryId}</div> : null}
             </div>
             <div>
-              <label>Employer POC</label>
+              <label>European Agency</label>
               <Select
                 isMulti
                 styles={selectStyles}
                 options={employerOptions}
                 value={selectedEmployers}
-                placeholder="Select employer POC"
+                placeholder="Select European Agency"
                 onChange={(selected) =>
                   setForm((prev) => ({ ...prev, employerIds: (selected || []).map((item) => item.value) }))
                 }

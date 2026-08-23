@@ -7,6 +7,7 @@ const { readEncryptedUserContactNumber, readEncryptedUserEmail, generateOneTimeP
 const { RIGHTS, getDefaultRights, normalizeRole } = require("../config/userRights");
 const { invalidateUserProfileCache } = require("../middleware/authMiddleware");
 const { isSuperUserLikeRole } = require("../utils/roles");
+const { uploadProfilePhoto } = require("../services/authService");
 
 const USER_ROLES = new Set(["SUPER_USER", "ADMIN", "AGENCY", "EMPLOYER", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]);
 
@@ -24,6 +25,12 @@ function sameRights(left = [], right = []) {
   const normalizedLeft = [...new Set(Array.isArray(left) ? left : [])].sort();
   const normalizedRight = [...new Set(Array.isArray(right) ? right : [])].sort();
   return normalizedLeft.length === normalizedRight.length && normalizedLeft.every((value, index) => value === normalizedRight[index]);
+}
+
+function normalizeIdList(value) {
+  return [...new Set((Array.isArray(value) ? value : value ? [value] : [])
+    .map((item) => String(item || "").trim())
+    .filter(Boolean))];
 }
 
 function validateUserPayload(payload = {}, { creating = false } = {}) {
@@ -49,7 +56,10 @@ async function serializeUser(doc) {
     role: data.role || "",
     rights: Array.isArray(data.rights) ? data.rights : getDefaultRights(data.role),
     countryId: data.countryId || "",
+    countryIds: normalizeIdList(data.countryIds).length ? normalizeIdList(data.countryIds) : normalizeIdList(data.countryId),
     companyId: data.companyId || "",
+    companyIds: normalizeIdList(data.companyIds).length ? normalizeIdList(data.companyIds) : normalizeIdList(data.companyId),
+    profilePhotoUrl: data.profilePhotoUrl || "",
     active: data.active !== false
   };
 }
@@ -77,6 +87,8 @@ async function createUser(req, res) {
   const parsed = validateUserPayload(req.body, { creating: true });
   if (parsed.error) return res.status(400).json({ message: parsed.error });
   const { name, email, role, contactNumber, rights } = parsed;
+  const countryIds = normalizeIdList(req.body.countryIds).length ? normalizeIdList(req.body.countryIds) : normalizeIdList(req.body.countryId);
+  const companyIds = normalizeIdList(req.body.companyIds).length ? normalizeIdList(req.body.companyIds) : normalizeIdList(req.body.companyId);
   const oneTimePassword = generateOneTimePassword();
   let userRecord;
   try {
@@ -85,7 +97,7 @@ async function createUser(req, res) {
     await db.collection("users").doc(userRecord.uid).set({
       name, emailEncrypted: await encryptText(email), normalizedEmail: normalizeEmailValue(email),
       contactNumberEncrypted: await encryptText(contactNumber), normalizedContactNumber: normalizePhoneValue(contactNumber),
-      role, rights, countryId: req.body.countryId || null, companyId: req.body.companyId || null,
+      role, rights, countryId: countryIds[0] || null, countryIds, companyId: companyIds[0] || null, companyIds,
       active: true, forcePasswordReset: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
@@ -106,13 +118,15 @@ async function updateUser(req, res) {
   const parsed = validateUserPayload({ ...current, ...req.body, email: req.body.email || await readEncryptedUserEmail(current) });
   if (parsed.error) return res.status(400).json({ message: parsed.error });
   const { name, email, role, contactNumber, rights } = parsed;
+  const countryIds = normalizeIdList(req.body.countryIds).length ? normalizeIdList(req.body.countryIds) : normalizeIdList(req.body.countryId);
+  const companyIds = normalizeIdList(req.body.companyIds).length ? normalizeIdList(req.body.companyIds) : normalizeIdList(req.body.companyId);
   const rightsChanged = !sameRights(current.rights || getDefaultRights(current.role), rights);
   await admin.auth().updateUser(req.params.uid, { displayName: name, email });
   await admin.auth().setCustomUserClaims(req.params.uid, { role });
   await doc.ref.set({
     name, role, rights, emailEncrypted: await encryptText(email), normalizedEmail: normalizeEmailValue(email),
     contactNumberEncrypted: await encryptText(contactNumber), normalizedContactNumber: normalizePhoneValue(contactNumber),
-    countryId: req.body.countryId || null, companyId: req.body.companyId || null,
+    countryId: countryIds[0] || null, countryIds, companyId: companyIds[0] || null, companyIds,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
   invalidateUserProfileCache(req.params.uid);
@@ -156,4 +170,10 @@ async function resetUserPassword(req, res) {
   return res.json({ message: "Password reset email sent successfully" });
 }
 
-module.exports = { createUser, getUser, listUsers, removeUser, resetUserPassword, updateUser };
+async function uploadUserProfilePhoto(req, res) {
+  if (!isSuperUserLikeRole(req.user?.role)) return res.status(403).json({ message: "Only Super User can update user profile photos" });
+  const data = await uploadProfilePhoto(req.params.uid, req.file);
+  return res.json(data);
+}
+
+module.exports = { createUser, getUser, listUsers, removeUser, resetUserPassword, updateUser, uploadUserProfilePhoto };

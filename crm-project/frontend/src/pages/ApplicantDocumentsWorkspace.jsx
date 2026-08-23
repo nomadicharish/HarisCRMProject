@@ -15,6 +15,7 @@ import SecureImage from "../components/common/SecureImage";
 import BlockingLoader from "../components/common/BlockingLoader";
 import PageLoader from "../components/common/PageLoader";
 import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
+import { hasRight } from "../utils/rights";
 import {
   ALLOWED_DOCUMENT_ACCEPT,
   DEFAULT_ALLOWED_DOCUMENT_EXTENSIONS,
@@ -287,8 +288,8 @@ function ApplicantDocumentsWorkspace() {
     : user?.role === "AGENCY" || user?.role === "EMPLOYER"
     ? ["home", "applicants", "companies"]
     : user?.role === "SENIOR_ACCOUNTANT"
-    ? ["home", "applicants"]
-    : ["applicants"];
+    ? ["home", "applicants", ...(hasRight(user, "VIEW_COMPANIES") ? ["companies"] : [])]
+    : ["applicants", ...(hasRight(user, "VIEW_COMPANIES") ? ["companies"] : [])];
 
   useEffect(() => {
     let cancelled = false;

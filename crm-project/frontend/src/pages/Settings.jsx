@@ -667,7 +667,7 @@ function Settings() {
                       {activeSection === "countries"
                         ? "Countries"
                         : activeSection === "employers"
-                        ? "Employers"
+                        ? "European Agencies"
                         : "Agencies"}
                     </h2>
                     <p className="settingsSectionDescription">
@@ -685,7 +685,7 @@ function Settings() {
                     + {activeSection === "countries"
                       ? "Add / Update Country"
                       : activeSection === "employers"
-                      ? "Add Employer"
+                      ? "Add European Agency"
                       : "Add Agency"}
                   </button>
                 </div>
@@ -725,7 +725,7 @@ function Settings() {
                         ))}
                     </select>
                     <span className="settingsOrganizationCount">
-                      Showing {activeSection === "employers" ? filteredEmployers.length : filteredAgencies.length} {activeSection}
+                      Showing {activeSection === "employers" ? filteredEmployers.length : filteredAgencies.length} {activeSection === "employers" ? "European Agencies" : "agencies"}
                     </span>
                   </div>
                 ) : null}

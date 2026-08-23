@@ -52,11 +52,12 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
   const [saving, setSaving] = useState(false);
 
   const isSuperUser = isSuperUserLikeRole(user?.role);
+  const canReviewPendingContract = isSuperUser || user?.role === "ADMIN";
   const canUpload =
     hasRight(user, "ISSUE_CONTRACT") &&
     !contract?.fileUrl &&
     contract?.status !== "APPROVED";
-  const canApprove = isSuperUser && contract?.status === "PENDING";
+  const canApprove = canReviewPendingContract && contract?.status === "PENDING";
 
   const loadContract = useCallback(async () => {
     try {

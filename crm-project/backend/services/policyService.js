@@ -33,8 +33,13 @@ async function canAccessApplicant(user = {}, applicantId = "") {
   }
 
   if (user.role === "EMPLOYER") {
-    if (!user.employerId) return false;
-    const employerDoc = await db.collection("employers").doc(user.employerId).get();
+    let employerId = user.employerId || "";
+    if (!employerId && user.uid) {
+      const userDoc = await db.collection("users").doc(user.uid).get();
+      employerId = userDoc.exists ? userDoc.data()?.employerId || "" : "";
+    }
+    if (!employerId) return false;
+    const employerDoc = await db.collection("employers").doc(employerId).get();
     const employer = employerDoc.exists ? employerDoc.data() || {} : {};
     const employerCompanyIds = Array.isArray(employer.companyIds) && employer.companyIds.length
       ? employer.companyIds

@@ -113,6 +113,8 @@ function ApplicantPipelineList({
   contractRowTitle = "Issue of the Contract",
   contractRowSubtitle = "",
   contractRowStatus = "",
+  contractActionLabel = "",
+  canContractAction = false,
   signedContractRowTitle = "Upload Signed Contract",
   signedContractRowSubtitle = "",
   signedContractRowStatus = "",
@@ -314,6 +316,11 @@ function ApplicantPipelineList({
             dispatchActionLabel &&
             typeof onDispatchDocuments === "function" &&
             Boolean(canDispatchAction);
+          const showContractActionButton =
+            item.id === 4 &&
+            contractActionLabel &&
+            typeof onContractAction === "function" &&
+            Boolean(canContractAction);
           const isLastRow = item.id === totalSteps;
 
           return (
@@ -341,6 +348,12 @@ function ApplicantPipelineList({
                     onClick={onDispatchDocuments}
                   >
                     {dispatchActionLabel}
+                  </button>
+                ) : null}
+
+                {!readOnly && showContractActionButton ? (
+                  <button className="btn bannerBtn btnSm pipeStageActionBtn" type="button" onClick={onContractAction}>
+                    {contractActionLabel}
                   </button>
                 ) : null}
 

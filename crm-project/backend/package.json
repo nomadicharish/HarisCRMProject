@@ -15,6 +15,7 @@
     "generate:openapi": "node scripts/generate-openapi.js",
     "backfill:search-index": "node scripts/backfill-search-index.js",
     "backfill:applicant-workflow-fields": "node scripts/backfill-applicant-workflow-fields.js",
+    "sync:user-default-rights": "node scripts/sync-user-default-rights.js",
     "migrate:notification-recipients": "node scripts/migrate-notification-recipients.js",
     "make-storage-private": "node scripts/make-storage-private.js",
     "migrate:storage-urls-to-paths": "node scripts/migrate-storage-urls-to-paths.js"

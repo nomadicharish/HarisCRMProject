@@ -99,7 +99,7 @@ function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = 
           <div className="applicantInfoSectionHeader">Application Details</div>
           <div className="applicantInfoGrid">
             <Field label="Country" value={countryName || applicant.countryName || applicant.country} />
-            <Field label="Employer" value={applicant.companyName} />
+            <Field label="European Agency" value={applicant.companyName} />
             <Field label="Job Position" value={applicant.jobPositionName} />
             {agencyName ? <Field label="Agency" value={agencyName} /> : null}
             {showPaymentDetails ? <Field label="Total Amount" value={totalAmount} /> : null}

@@ -16,7 +16,6 @@ const {
 } = require("../../services/applicantDomainService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../../utils/roles");
 const { normalizeCompanyJobPositions } = require("../../utils/normalizers");
-const { hasRight } = require("../../config/userRights");
 
 function parseList(value) {
   return String(value || "")
@@ -268,6 +267,10 @@ function isApprovedApplicantForEmployer(doc) {
   return status === "approved";
 }
 
+function isApplicantApprovalReviewerRole(role) {
+  return isSuperUserLikeRole(role) || role === "ADMIN";
+}
+
 async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId, employerId }) {
   let query = db.collection("applicants").select(...APPLICANT_LIST_SELECT_FIELDS);
 
@@ -283,9 +286,11 @@ async function buildRoleScopedApplicantQuery({ userRole, userId, agencyId, emplo
     return query.where("approvalStatus", "==", "approved");
   }
 
-  if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
+  if (isApplicantApprovalReviewerRole(userRole)) {
     return query;
   }
+
+  if (isAccountantRole(userRole)) return query.where("approvalStatus", "==", "approved");
 
   throw new AppError("Unauthorized", 403);
 }
@@ -340,8 +345,10 @@ async function resolveRoleScopedApplicantDocs({ userRole, userId, agencyId, empl
       ? query.where("companyId", "==", companyIds[0])
       : query.where("companyId", "in", companyIds.slice(0, 10));
     docs = (await query.get()).docs.filter(isApprovedApplicantForEmployer);
-  } else if (isSuperUserLikeRole(userRole) || isAccountantRole(userRole)) {
+  } else if (isApplicantApprovalReviewerRole(userRole)) {
     docs = (await query.get()).docs;
+  } else if (isAccountantRole(userRole)) {
+    docs = (await query.where("approvalStatus", "==", "approved").get()).docs;
   } else {
     throw new AppError("Unauthorized", 403);
   }
@@ -747,10 +754,6 @@ async function getApplicantsUseCase(req) {
   if (!userId) {
     throw new AppError("Unauthorized", 401);
   }
-  if (!isSuperUserLikeRole(userRole) && !isAccountantRole(userRole) && hasRight(req.user, "ISSUE_CONTRACT")) {
-    userRole = "SUPER_USER";
-  }
-
   const canUseFirestorePage = canUseFirestorePaginatedPath({
     paginated,
     searchQuery,

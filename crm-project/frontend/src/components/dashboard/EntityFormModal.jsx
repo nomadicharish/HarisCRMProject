@@ -85,11 +85,11 @@ const TYPE_CONFIG = {
     nameLabel: "Company Name"
   },
   employer: {
-    title: "Add Employer",
-    editTitle: "Edit Employer",
+    title: "Add European Agency",
+    editTitle: "Edit European Agency",
     createEndpoint: "/add-employer",
     updateEndpoint: "/employers",
-    nameLabel: "Employer Name"
+    nameLabel: "European Agency Name"
   }
 };
 
@@ -321,11 +321,11 @@ function EntityFormModal({
         }
 
         if (response?.data?.welcomeEmail?.sent === false) {
-          toast.warning(`${type === "agency" ? "Agency" : "Employer"} was added, but the welcome email was not sent.`);
+          toast.warning(`${type === "agency" ? "Agency" : "European Agency"} was added, but the welcome email was not sent.`);
         }
       }
 
-      const label = type === "agency" ? "Agency" : type === "employer" ? "Employer" : "Company";
+      const label = type === "agency" ? "Agency" : type === "employer" ? "European Agency" : "Company";
       toast.success(editData?.id ? `${label} updated successfully` : `${label} added successfully`);
 
       if (typeof onClose === "function") onClose();
@@ -355,7 +355,7 @@ function EntityFormModal({
         });
       }
 
-      const label = type === "agency" ? "Agency" : type === "employer" ? "Employer" : "Company";
+      const label = type === "agency" ? "Agency" : type === "employer" ? "European Agency" : "Company";
       toast.success(`${label} deleted successfully`);
 
       if (typeof onClose === "function") onClose();
@@ -373,7 +373,7 @@ function EntityFormModal({
 
   const handleResetPassword = async () => {
     if (!editData?.id || !isSuperUser || (type !== "agency" && type !== "employer")) return;
-    const label = type === "agency" ? "agent" : "employer";
+    const label = type === "agency" ? "agent" : "European Agency";
     if (!window.confirm(`Reset this ${label}'s password and email a new one-time password?`)) return;
 
     try {
@@ -491,7 +491,7 @@ function EntityFormModal({
             {type === "company" ? (
               <>
                 <div className="input-field dashboardEntityFullWidth">
-                  <label className="contractUploadLabel">Employer POC</label>
+                  <label className="contractUploadLabel">European Agency</label>
                   <Select
                     isMulti
                     className="dashboardSelect"
@@ -499,7 +499,7 @@ function EntityFormModal({
                     options={employerOptions}
                     value={employerOptions.filter((option) => form.employerIds.includes(option.value))}
                     onChange={(selected) => updateField("employerIds", (selected || []).map((option) => option.value))}
-                    placeholder="Select employers"
+                    placeholder="Select European Agencies"
                     styles={createSelectStyles(Boolean(errors.employerIds))}
                   />
                   {errors.employerIds ? <div className="dashboardInlineError">{errors.employerIds}</div> : null}
@@ -618,8 +618,8 @@ function EntityFormModal({
 
       {showDeleteConfirm ? (
         <ConfirmActionModal
-          title={`Delete ${type === "agency" ? "Agency" : "Employer"}`}
-          message={`Are you sure you want to delete this ${type}? This cannot be undone.`}
+          title={`Delete ${type === "agency" ? "Agency" : "European Agency"}`}
+          message={`Are you sure you want to delete this ${type === "agency" ? "Agency" : "European Agency"}? This cannot be undone.`}
           confirmLabel="Delete"
           isBusy={deleting}
           onConfirm={handleDelete}

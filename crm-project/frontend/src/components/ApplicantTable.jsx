@@ -14,7 +14,7 @@ const navigate = useNavigate();
           <th>Job Role</th>
           <th>Status</th>
           <th>Company</th>
-          <th>Employer POC</th>
+          <th>European Agency</th>
           <th>Payment Pending</th>
           <th>Edit</th>
         </tr>

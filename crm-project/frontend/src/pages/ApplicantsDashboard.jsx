@@ -488,18 +488,11 @@ function getApplicantDisplayName(applicant) {
   );
 }
 
-function hasApplicantDocumentDispatch(applicant = {}) {
-  return Boolean(
-    applicant?.documentDispatch?.hasDispatch === true ||
-    Number(applicant?.dispatchSummary?.count || 0) > 0
-  );
-}
-
 function isContractUploadEligibleApplicant(applicant = {}) {
   const stage = Number(applicant.stage || 1);
   const contractStatus = String(applicant.contract?.status || "").toUpperCase();
   return (
-    hasApplicantDocumentDispatch(applicant) &&
+    String(applicant.approvalStatus || "").toLowerCase() === "approved" &&
     stage < 6 &&
     !applicant.contract?.fileUrl &&
     contractStatus !== "APPROVED"
@@ -2111,7 +2104,7 @@ function ApplicantsDashboard() {
 
   const headerText = useMemo(() => {
     if (activeTab === "companies") return `Showing ${totalRows} companies`;
-    if (activeTab === "employers") return `Showing ${totalRows} employers`;
+    if (activeTab === "employers") return `Showing ${totalRows} European Agencies`;
     if (activeTab === "agencies") return `Showing ${totalRows} agencies`;
     if (activeTab === "applicants" && notificationApplicantIds.length) {
       return notificationTitle
@@ -2126,7 +2119,7 @@ function ApplicantsDashboard() {
 
   const searchPlaceholder = useMemo(() => {
     if (activeTab === "companies") return "Search by company name";
-    if (activeTab === "employers") return "Search by employer name";
+    if (activeTab === "employers") return "Search by European Agency name";
     if (activeTab === "agencies") return "Search by agency name";
     return "Search by name";
   }, [activeTab]);

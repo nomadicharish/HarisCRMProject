@@ -84,6 +84,12 @@ async function syncApplicantDocumentStageFromSummary(applicantId, applicant, use
 
 async function assertEmployerApplicantAccess(req, applicant) {
   if (req.user?.role !== "EMPLOYER") throw new AppError("Only Employer can access quick print assets", 403);
+  if (String(applicant?.approvalStatus || "").toLowerCase() !== "approved") {
+    // Keep direct profile, document, and file URLs consistent with the
+    // employer list: an employer must never be able to access an applicant
+    // before the applicant has been approved.
+    throw new AppError("Applicant is pending admin approval", 403);
+  }
   let employerId = req.user?.employerId || "";
   if (!employerId) {
     const userDoc = await db.collection("users").doc(req.user.uid).get();
@@ -173,6 +179,7 @@ async function getApplicantByIdUseCase(req) {
   if (!doc.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = doc.data() || {};
+  if (req.user?.role === "EMPLOYER") await assertEmployerApplicantAccess(req, applicant);
   const applicantData = await syncApplicantDocumentStageFromSummary(applicantId, applicant, req.user);
 
   const [companyDoc, countryDoc, agencyDoc] = await Promise.all([
@@ -301,6 +308,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = applicantSnap.data() || {};
+  if (req.user?.role === "EMPLOYER") await assertEmployerApplicantAccess(req, applicant);
   const applicantData = await syncApplicantDocumentStageFromSummary(applicantId, applicant, req.user);
   const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
 
@@ -622,6 +630,7 @@ async function getApplicantDocumentsContextUseCase(req) {
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
   const applicant = applicantSnap.data() || {};
+  if (req.user?.role === "EMPLOYER") await assertEmployerApplicantAccess(req, applicant);
   const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
   const [companyDoc, commonDocumentsDoc] = await Promise.all([
     applicant.companyId ? db.collection("companies").doc(applicant.companyId).get() : Promise.resolve(null),

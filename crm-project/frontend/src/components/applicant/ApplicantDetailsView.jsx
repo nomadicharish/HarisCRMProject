@@ -63,7 +63,7 @@ function ApplicantDetailsView({ applicant, showPaymentDetails = true }) {
         <Field label="WhatsApp number" value={formatPhoneWithSeparator(pd.whatsappNumber ?? pd.whatsapp ?? applicant?.whatsappNumber)} />
         <Field label="Address" value={pd.address ?? applicant?.address} />
         <Field label="Country" value={applicant?.countryName} />
-        <Field label="Employer" value={applicant?.companyName} />
+        <Field label="European Agency" value={applicant?.companyName} />
         <Field label="Job Position" value={applicant?.jobPositionName} />
         {showPaymentDetails ? <Field label="Total Amount" value={totalAmount} /> : null}
       </div>
