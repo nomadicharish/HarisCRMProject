@@ -326,19 +326,48 @@ async function drawDetailsPage(pdfDoc, applicant, assets, fonts) {
   drawDetail(page, { x: rightX, y: rows[4], width: columnWidth, icon: "bus", iconImage: assets.icons?.bus, label: "Bus Arrival Place", value: arrival.busArrivalPlace || arrival.arrivalBusPlace, ...fonts });
 }
 
+function appendUnavailableAttachmentPage(pdfDoc, attachment, fonts) {
+  const page = pdfDoc.addPage(A4);
+  page.drawText(attachment.title, { x: 30, y: 735, size: 14, font: fonts.bold, color: DARK_BLUE });
+  page.drawText("This ticket could not be embedded in the quick-print PDF.", {
+    x: 30,
+    y: 680,
+    size: 12,
+    font: fonts.regular,
+    color: TEXT
+  });
+  page.drawText("Please open the original ticket file separately.", {
+    x: 30,
+    y: 655,
+    size: 11,
+    font: fonts.regular,
+    color: MUTED
+  });
+}
+
 async function appendAttachment(pdfDoc, attachment, fonts, assetLoader) {
   if (!attachment?.url) return;
-  const { bytes, contentType } = await assetLoader(attachment.assetType);
-  const isPdf = contentType.includes("pdf") || /\.pdf(?:$|[?#])/i.test(attachment.url);
-  if (isPdf) {
-    const embeddedPages = await pdfDoc.embedPdf(bytes);
+  try {
+    const { bytes, contentType } = await assetLoader(attachment.assetType);
+    const isPdf = contentType.includes("pdf") || /\.pdf(?:$|[?#])/i.test(attachment.url);
+    if (isPdf) {
+    // Ticket PDFs supplied by airlines or transport providers can be marked
+    // encrypted even when they are viewable without a password. Loading the
+    // source explicitly lets pdf-lib embed those documents for quick print.
+    const attachmentPdf = await PDFDocument.load(bytes, { ignoreEncryption: true });
+    // pdf-lib defers decoding page streams until save(). Build and save this
+    // attachment in isolation first, so corrupt streams cannot break the
+    // complete applicant PDF after this function has returned.
+    const attachmentDoc = await PDFDocument.create();
+    const attachmentFont = await attachmentDoc.embedFont(StandardFonts.HelveticaBold);
+    const embeddedPages = await attachmentDoc.embedPages(attachmentPdf.getPages());
     embeddedPages.forEach((embeddedPage, index) => {
-      const page = pdfDoc.addPage(A4);
+      const page = attachmentDoc.addPage(A4);
       page.drawText(`${attachment.title}${embeddedPages.length > 1 ? ` - ${index + 1}` : ""}`, {
         x: 30,
         y: 735,
         size: 14,
-        font: fonts.bold,
+        font: attachmentFont,
         color: DARK_BLUE
       });
       const box = { x: 30, y: 65, width: 535, height: 650 };
@@ -352,15 +381,25 @@ async function appendAttachment(pdfDoc, attachment, fonts, assetLoader) {
         height
       });
     });
-    return;
-  }
+    const validatedAttachmentBytes = await attachmentDoc.save();
+    const validatedAttachment = await PDFDocument.load(validatedAttachmentBytes);
+    const copiedPages = await pdfDoc.copyPages(validatedAttachment, validatedAttachment.getPageIndices());
+    copiedPages.forEach((page) => pdfDoc.addPage(page));
+      return;
+    }
 
-  const image = contentType.includes("png") || /\.png(?:$|[?#])/i.test(attachment.url)
-    ? await pdfDoc.embedPng(bytes)
-    : await pdfDoc.embedJpg(bytes);
-  const page = pdfDoc.addPage(A4);
-  page.drawText(attachment.title, { x: 30, y: 735, size: 14, font: fonts.bold, color: DARK_BLUE });
-  drawImageContained(page, image, { x: 30, y: 65, width: 535, height: 650 });
+    const image = contentType.includes("png") || /\.png(?:$|[?#])/i.test(attachment.url)
+      ? await pdfDoc.embedPng(bytes)
+      : await pdfDoc.embedJpg(bytes);
+    const page = pdfDoc.addPage(A4);
+    page.drawText(attachment.title, { x: 30, y: 735, size: 14, font: fonts.bold, color: DARK_BLUE });
+    drawImageContained(page, image, { x: 30, y: 65, width: 535, height: 650 });
+  } catch (error) {
+    // A malformed ticket (for example, an invalid flate stream) must not
+    // prevent the applicant's arrival PDF from being generated.
+    console.warn(`Unable to embed ${attachment.title}`, error);
+    appendUnavailableAttachmentPage(pdfDoc, attachment, fonts);
+  }
 }
 
 export async function generateApplicantArrivalPdf(applicant, assetLoader) {

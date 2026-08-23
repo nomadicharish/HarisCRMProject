@@ -295,7 +295,6 @@ function buildApplicantListDerivedFields(applicant = {}) {
   const fullName = [firstName, lastName].filter(Boolean).join(" ").trim();
   const docSummary = applicant?.docSummary || applicant?.documentSummary || {};
   const approvalFlags = applicant?.approvalFlags || {};
-  const hasPendingDocumentApproval = Number(docSummary.pendingCount || 0) > 0;
   const hasPendingPipelineApproval =
     Boolean(approvalFlags?.hasPendingPipelineApproval) ||
     String(applicant?.approvalStatus || "").toLowerCase() !== "approved" ||
@@ -307,7 +306,6 @@ function buildApplicantListDerivedFields(applicant = {}) {
     String(applicant?.embassyInterview?.status || "").toUpperCase() === "PENDING" ||
     (Boolean(applicant?.embassyInterview?.dateTime) && !Boolean(applicant?.embassyInterview?.approved));
   const attentionRequired = Boolean(
-    hasPendingDocumentApproval ||
     hasPendingPipelineApproval ||
     hasPendingEmbassyInterviewApproval
   );

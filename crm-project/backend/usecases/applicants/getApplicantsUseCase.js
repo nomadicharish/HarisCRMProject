@@ -216,7 +216,7 @@ function canUseFirestorePaginatedPath({
   // exact counts require the compatibility mapper until those fields are
   // materialized and backfilled. Returning only the three aggregate workflow
   // counts here makes every detailed stage appear as zero.
-  if (userRole === "EMPLOYER" || isSuperUserLikeRole(userRole) || userRole === "SENIOR_ACCOUNTANT") return false;
+  if (userRole === "EMPLOYER" || isSuperUserLikeRole(userRole) || userRole === "ADMIN" || userRole === "SENIOR_ACCOUNTANT") return false;
   // Dashboard filters use this internal marker to force the in-memory matcher,
   // because their rules depend on dates and nested workflow data.
   if (searchQuery || typeFilters.length > 1 || typeFilters.includes("dashboard") || typeFilters.some((type) => type.startsWith("stage_"))) return false;
@@ -442,7 +442,6 @@ function mapApplicant({
   const rejectedRequired = Number(docSummary.rejectedCount || 0) > 0;
   const pendingRequired = Number(docSummary.pendingCount || 0) > 0;
   const uploadedRequired = Number(docSummary.totalCount || 0) > 0;
-  const hasPendingDocumentApproval = pendingRequired;
   const hasRejectedDocument = rejectedRequired;
   const hasDocumentUploadPending = Number(docSummary.uploadedCount || 0) < Number(docSummary.totalCount || 0);
   const hasDocuments = uploadedRequired;
@@ -467,7 +466,7 @@ function mapApplicant({
 
   const attentionRequired =
     isSuperUserLikeRole(userRole)
-      ? hasPendingDocumentApproval || hasPendingPipelineApproval || hasPendingEmbassyInterviewApproval
+      ? hasPendingPipelineApproval || hasPendingEmbassyInterviewApproval
       : userRole === "AGENCY"
       ? !isCandidateApprovalPending && (hasRejectedDocument || hasDocumentUploadPending)
       : false;
