@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import API from "../services/api";
 import PhoneInput from "react-phone-input-2";
+import Select from "react-select";
 import "react-phone-input-2/lib/style.css";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import PageLoader from "../components/common/PageLoader";
@@ -18,7 +19,7 @@ import "../styles/settings.css";
 import "../styles/applicantsDashboard.css";
 import "../styles/applicantDocuments.css";
 
-const SETTINGS_MODULE_VERSION = "2026-08-02.1";
+const SETTINGS_MODULE_VERSION = "2026-08-24.1";
 
 function getInitials(name) {
   const parts = String(name || "").trim().split(/\s+/).filter(Boolean).slice(0, 2);
@@ -60,6 +61,31 @@ function EditIcon() {
   );
 }
 
+function UploadFileIcon() {
+  return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M5 14v5h14v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
+}
+
+function formatReferenceUploadDate(value) {
+  const timestampSeconds = value?.seconds ?? value?._seconds;
+  const date = typeof value?.toDate === "function"
+    ? value.toDate()
+    : timestampSeconds != null
+      ? new Date(Number(timestampSeconds) * 1000)
+      : value
+        ? new Date(value)
+        : null;
+  return date && !Number.isNaN(date.getTime())
+    ? date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" })
+    : "-";
+}
+
+const referenceCountrySelectStyles = {
+  control: (base, state) => ({ ...base, minHeight: 44, borderRadius: 8, borderColor: state.isFocused ? "#2563eb" : "#d0d5dd", boxShadow: state.isFocused ? "0 0 0 3px rgba(37,99,235,.12)" : "none", "&:hover": { borderColor: state.isFocused ? "#2563eb" : "#b8c4d6" } }),
+  menu: (base) => ({ ...base, zIndex: 1600 }),
+  multiValue: (base) => ({ ...base, borderRadius: 6, background: "#eef4ff" }),
+  multiValueLabel: (base) => ({ ...base, color: "#0052cc", fontWeight: 600 })
+};
+
 function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -76,9 +102,14 @@ function Settings() {
   const [saving, setSaving] = useState(false);
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [commonDocumentsLoading, setCommonDocumentsLoading] = useState(false);
+  const [standardReferences, setStandardReferences] = useState([]);
+  const [referenceForm, setReferenceForm] = useState(null);
+  // Kept for backwards-compatible rendering of the legacy block while the
+  // country-mapped manager is used above it.
   const [standardReference, setStandardReference] = useState({ standardReferenceFileName: "", standardReferenceUrl: "" });
   const [standardReferenceFile, setStandardReferenceFile] = useState(null);
   const profilePhotoInputRef = useRef(null);
+  const referenceFileInputRef = useRef(null);
   const [bankAccountsLoading, setBankAccountsLoading] = useState(false);
   const [accountantsLoading, setAccountantsLoading] = useState(false);
   const [bankSaving, setBankSaving] = useState(false);
@@ -158,8 +189,12 @@ function Settings() {
     if (!isSuperUser) return;
     try {
       setCommonDocumentsLoading(true);
-      const response = await API.get("/auth/common-documents");
-      setStandardReference(response.data || {});
+      const [response, countriesData] = await Promise.all([
+        API.get("/auth/common-documents"),
+        getCached("/countries", { ttlMs: 120000 })
+      ]);
+      setStandardReferences(Array.isArray(response.data?.items) ? response.data.items : []);
+      setCountries(normalizeListResponse(countriesData));
     } catch (loadError) {
       setError(loadError?.response?.data?.message || "Unable to load common documents");
     } finally {
@@ -356,20 +391,36 @@ function Settings() {
     finally { setProfilePhotoUploading(false); }
   };
 
-  const handleStandardReferenceUpload = async () => {
-    const file = standardReferenceFile;
-    if (!file) return;
+  const openReferenceForm = (reference = null) => {
+    setReferenceForm(reference ? {
+      id: reference.id,
+      countryIds: Array.isArray(reference.countryIds) ? reference.countryIds : [],
+      file: null
+    } : { id: "", countryIds: [], file: null });
+    if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
+  };
+
+  const handleStandardReferenceSave = async () => {
+    if (!referenceForm.countryIds.length) { setError("Select at least one country"); return; }
+    if (!referenceForm.file) { setError(referenceForm.id ? "Upload the replacement document" : "Select a document to upload"); return; }
     try {
       setCommonDocumentsLoading(true);
+      setError("");
       const body = new FormData();
-      body.append("file", file);
-      const response = await API.post("/auth/common-documents/standard-reference", body, { headers: { "Content-Type": "multipart/form-data" } });
-      setStandardReference(response.data || {});
-      setStandardReferenceFile(null);
-      toast.success("Standard reference document updated successfully");
+      body.append("file", referenceForm.file);
+      body.append("countryIds", JSON.stringify(referenceForm.countryIds));
+      const response = referenceForm.id
+        ? await API.patch(`/auth/common-documents/standard-reference/${referenceForm.id}`, body, { headers: { "Content-Type": "multipart/form-data" } })
+        : await API.post("/auth/common-documents/standard-reference", body, { headers: { "Content-Type": "multipart/form-data" } });
+      const item = response.data?.item;
+      if (item) setStandardReferences((items) => referenceForm.id ? items.map((entry) => entry.id === item.id ? item : entry) : [...items, item]);
+      setReferenceForm(null);
+      toast.success(response.data?.message || "Standard reference document saved successfully");
     } catch (uploadError) { setError(uploadError?.response?.data?.message || "Unable to upload standard reference document"); }
     finally { setCommonDocumentsLoading(false); }
   };
+
+  const handleStandardReferenceUpload = () => {};
 
   const resetBankForm = () => {
     setBankForm({ beneficiaryName: "", accountNumber: "", bankNameBranch: "" });
@@ -590,6 +641,18 @@ function Settings() {
               </>
             ) : activeSection === "common-documents" ? (
               <div className="settingsAdminPanel">
+                {referenceForm ? <div className="settingsReferenceForm">
+                  <div className="settingsAdminHeader"><div><button type="button" className="settingsReferenceBack" onClick={() => setReferenceForm(null)} aria-label="Back to common documents">←</button><h2 className="settingsSectionTitle">{referenceForm.id ? "Update" : "Add"} Standard Reference Document</h2><p className="settingsSectionDescription">Map one document to one or more countries. Each country can have only one reference document.</p></div></div>
+                  <div className="settingsReferenceFields">
+                    <div className="settingsReferenceField"><label className="settingsLabel">{referenceForm.id ? "Replacement Document" : "Upload Document"} <span>*</span></label><label className="docsFileBox docsFileBoxUpload settingsReferenceFilePicker"><input ref={referenceFileInputRef} className="docsFileInput" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" disabled={commonDocumentsLoading} onChange={(event) => setReferenceForm((form) => ({ ...form, file: event.target.files?.[0] || null }))} /><div className="docsFileBoxLeft"><span className="docsUploadIcon"><UploadFileIcon /></span><div><div className="docsFileName">{referenceForm.file?.name || "Choose file"}</div><div className="docsFileMeta">PDF, DOC, DOCX, JPG or PNG (Max 5MB)</div></div></div></label></div>
+                    <div className="settingsReferenceField"><label className="settingsLabel">Select Country <span>*</span></label><Select isMulti options={countries.map((country) => ({ value: country.id, label: country.name }))} value={countries.filter((country) => referenceForm.countryIds.includes(country.id)).map((country) => ({ value: country.id, label: country.name }))} isDisabled={commonDocumentsLoading} placeholder="Select Country" styles={referenceCountrySelectStyles} onChange={(selected) => setReferenceForm((form) => ({ ...form, countryIds: (selected || []).map((option) => option.value) }))} /><p className="settingsModalHelp">Select the countries where this reference document is available.</p></div>
+                  </div>
+                  <div className="settingsInlineActions"><button type="button" className="settingsMutedBtn" disabled={commonDocumentsLoading} onClick={() => setReferenceForm(null)}>Cancel</button><button type="button" className="settingsPrimaryBtn" disabled={commonDocumentsLoading} onClick={handleStandardReferenceSave}>{commonDocumentsLoading ? "Saving..." : "Save Document"}</button></div>
+                </div> : <div className="settingsReferencePanel">
+                  <div className="settingsAdminHeader"><div><h2 className="settingsSectionTitle">Standard Reference Document</h2><p className="settingsSectionDescription">Reference documents available to users during applicant document upload.</p></div><button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" onClick={() => openReferenceForm()}>+ Add Document</button></div>
+                  {commonDocumentsLoading ? <PageLoader label="Loading standard reference documents..." /> : <div className="settingsAdminTableWrap settingsOrganizationTable"><table className="settingsAdminTable"><thead><tr><th>Document Name</th><th>Countries Mapped</th><th>Uploaded On</th><th>Actions</th></tr></thead><tbody>{standardReferences.length ? standardReferences.map((reference) => <tr key={reference.id}><td><strong>{reference.name || reference.fileName}</strong><div className="settingsModalHelp">{reference.fileName}</div></td><td>{reference.countryIds.map((countryId) => countryMap[countryId] || countryId).join(", ") || "-"}</td><td>{formatReferenceUploadDate(reference.createdAt || reference.updatedAt)}</td><td><button type="button" className="settingsAdminEditBtn" onClick={() => openReferenceForm(reference)} aria-label="Edit standard reference document"><EditIcon /></button></td></tr>) : <tr><td colSpan={4} className="settingsAdminEmpty">No standard reference documents added.</td></tr>}</tbody></table></div>}
+                </div>}
+                <div style={{ display: "none" }}>
                 <h2 className="settingsSectionTitle">Common Documents</h2>
                 <p className="settingsSectionDescription">This reference document is available to every applicant during document upload.</p>
                 <div className="settingsBlock">
@@ -603,6 +666,7 @@ function Settings() {
                   </div>
                   {standardReferenceFile ? <div className="settingsModalHelp">Selected: {standardReferenceFile.name}</div> : null}
                   {standardReference.standardReferenceUrl ? <a className="settingsTextLink" href={standardReference.standardReferenceUrl} target="_blank" rel="noreferrer">View current document: {standardReference.standardReferenceFileName || "Standard Reference"}</a> : null}
+                </div>
                 </div>
               </div>
             ) : activeSection === "bank-details" ? (

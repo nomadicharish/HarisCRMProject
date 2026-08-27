@@ -638,6 +638,8 @@ async function getApplicantDocumentsContextUseCase(req) {
   ]);
   const companyData = companyDoc?.exists ? companyDoc.data() || {} : {};
   const commonDocuments = commonDocumentsDoc.exists ? commonDocumentsDoc.data() || {} : {};
+  const countryReference = (Array.isArray(commonDocuments.standardReferences) ? commonDocuments.standardReferences : [])
+    .find((reference) => Array.isArray(reference?.countryIds) && reference.countryIds.includes(applicant.countryId));
   const documentConfigs = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyData, applicant) : [];
 
   return {
@@ -658,8 +660,8 @@ async function getApplicantDocumentsContextUseCase(req) {
       agencyId: applicant.agencyId || "",
       jobPositionId: applicant.jobPositionId || "",
       jobPositionName: applicant.jobPositionName || "",
-      standardReferenceFileName: commonDocuments.standardReferenceFileName || "",
-      standardReferenceUrl: commonDocuments.standardReferenceUrl || "",
+      standardReferenceFileName: countryReference?.fileName || commonDocuments.standardReferenceFileName || "",
+      standardReferenceUrl: countryReference?.fileUrl || commonDocuments.standardReferenceUrl || "",
       profilePhotoUrl
     },
     documentConfigs

@@ -36,8 +36,9 @@ router.post("/change-password", noStore, verifyToken, validate(changePasswordSch
 router.get("/settings", noStore, verifyToken, asyncHandler(authController.getSettings));
 router.patch("/settings", noStore, verifyToken, validate(updateSettingsSchema), asyncHandler(authController.updateSettings));
 router.post("/settings/profile-photo", noStore, verifyToken, upload.single("file"), asyncHandler(authController.uploadProfilePhoto));
-router.get("/common-documents", noStore, verifyToken, asyncHandler(authController.getCommonDocuments));
+router.get("/common-documents", noStore, verifyToken, requireRootSuperUser, asyncHandler(authController.getCommonDocuments));
 router.post("/common-documents/standard-reference", noStore, verifyToken, requireRootSuperUser, upload.single("file"), asyncHandler(authController.uploadStandardReferenceDocument));
+router.patch("/common-documents/standard-reference/:id", noStore, verifyToken, requireRootSuperUser, upload.single("file"), asyncHandler(authController.updateStandardReferenceDocument));
 router.get(
   "/bank-accounts",
   noStore,

@@ -27,6 +27,12 @@ function isApplicantDocumentUpload(req, file) {
   );
 }
 
+function isStandardReferenceUpload(req, file) {
+  const extension = String(file?.originalname || "").split(".").pop().toLowerCase();
+  return (extension === "doc" || extension === "docx") && LEGACY_WORD_MIME_TYPES.has(file?.mimetype) &&
+    String(req.originalUrl || "").includes("/common-documents/standard-reference");
+}
+
 const upload = multer({
   storage,
   limits: {
@@ -37,7 +43,7 @@ const upload = multer({
     fieldNameSize: 100
   },
   fileFilter(req, file, callback) {
-    if (!ALLOWED_MIME_TYPES.has(file.mimetype) && !isApplicantDocumentUpload(req, file)) {
+    if (!ALLOWED_MIME_TYPES.has(file.mimetype) && !isApplicantDocumentUpload(req, file) && !isStandardReferenceUpload(req, file)) {
       return callback(new AppError("Only PDF, JPEG, JPG, PNG, DOC and DOCX files are allowed", 400));
     }
 

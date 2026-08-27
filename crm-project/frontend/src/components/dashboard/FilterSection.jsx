@@ -1,10 +1,17 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
 function FilterSection({ title, items, selectedValues, onToggle, visible = true }) {
   // Sections start collapsed, and only the user can change that state.  In
   // particular, clearing the final selected checkbox must not re-collapse an
   // open section.
-  const [collapsed, setCollapsed] = useState(true);
+  const [collapsed, setCollapsed] = useState(() => selectedValues.length === 0);
+
+  // A selected filter must remain discoverable after navigating away from and
+  // back to the dashboard.  This also opens every section that has a selected
+  // value when several filter types are active.
+  useEffect(() => {
+    if (selectedValues.length) setCollapsed(false);
+  }, [selectedValues.length]);
 
   if (!visible) return null;
 

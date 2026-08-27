@@ -883,6 +883,15 @@
   margin-top:14px;
 }
 
+.dashboardEnrollmentFilter{border-top:1px solid #edf2f7;padding-top:18px;margin-top:14px;display:grid;gap:12px;}
+.dashboardEnrollmentFilter label{display:grid;gap:7px;color:#475467;font-size:12px;font-weight:600;}
+.dashboardEnrollmentFilter .react-datepicker-wrapper{display:block;width:100%;}
+.dashboardEnrollmentDateInput{width:100%;min-height:44px;box-sizing:border-box;display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid #cbd5e1;border-radius:8px;background:#fff;color:#64748b;padding:10px 12px;font:inherit;font-size:13px;cursor:pointer;text-align:left;}
+.dashboardEnrollmentDateInput svg{color:#526787;flex:0 0 auto;}
+.dashboardEnrollmentApplyBtn{border:1px solid #5b8cff;border-radius:7px;background:#fff;color:#1767ea;padding:10px 9px;font:inherit;font-size:12px;font-weight:700;cursor:pointer;}
+.dashboardEnrollmentApplyBtn{margin-top:2px;background:#1468ef;border-color:#1468ef;color:#fff;}
+.dashboardEnrollmentClearBtn{border:0;background:transparent;color:#1767ea;font:inherit;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;}
+
 .dashboardFilterTitle{
   font-size:14px;
   font-weight:600;

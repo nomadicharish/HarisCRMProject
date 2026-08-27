@@ -229,21 +229,114 @@ async function uploadProfilePhoto(uid, file) {
 async function getCommonDocuments() {
   const doc = await db.collection("settings").doc("commonDocuments").get();
   const data = doc.exists ? doc.data() || {} : {};
-  return { standardReferenceFileName: data.standardReferenceFileName || "", standardReferenceUrl: data.standardReferenceUrl || "" };
+  const items = Array.isArray(data.standardReferences) ? data.standardReferences : [];
+  return {
+    items: items.map((item) => ({
+      id: String(item.id || ""),
+      name: "Standard Reference Document",
+      fileName: String(item.fileName || item.standardReferenceFileName || ""),
+      fileUrl: String(item.fileUrl || item.standardReferenceUrl || ""),
+      countryIds: Array.isArray(item.countryIds) ? item.countryIds.filter(Boolean) : [],
+      createdAt: item.createdAt || null,
+      updatedAt: item.updatedAt || null,
+      createdByName: String(item.createdByName || "")
+    })),
+    // Retain these fields for clients that have not yet moved to country-mapped references.
+    standardReferenceFileName: data.standardReferenceFileName || "",
+    standardReferenceUrl: data.standardReferenceUrl || ""
+  };
 }
 
-async function uploadStandardReferenceDocument(file) {
+function parseCountryIds(countryIds) {
+  let raw;
+  try {
+    raw = Array.isArray(countryIds) ? countryIds : JSON.parse(String(countryIds || "[]"));
+  } catch {
+    throw new AppError("Country mapping must be a valid country list", 400);
+  }
+  if (!Array.isArray(raw)) throw new AppError("Country mapping must be a valid country list", 400);
+  return [...new Set(raw.map((countryId) => String(countryId || "").trim()).filter(Boolean))];
+}
+
+function normalizeStandardReferences(data = {}) {
+  return Array.isArray(data.standardReferences) ? data.standardReferences.filter((item) => item && item.id) : [];
+}
+
+function getConflictingCountryIds(items, countryIds, excludedId = "") {
+  const mappedCountryIds = new Set(
+    items
+      .filter((item) => item.id !== excludedId)
+      .flatMap((item) => Array.isArray(item.countryIds) ? item.countryIds : [])
+  );
+  return countryIds.filter((countryId) => mappedCountryIds.has(countryId));
+}
+
+async function uploadStandardReferenceDocument(file, { countryIds, user } = {}) {
   if (!file) throw new AppError("Standard reference document is required", 400);
+  const documentName = "Standard Reference Document";
+  const mappedCountryIds = parseCountryIds(countryIds);
+  if (!mappedCountryIds.length) throw new AppError("Select at least one country", 400);
   const ref = db.collection("settings").doc("commonDocuments");
-  const previous = await ref.get();
   const safeFileName = String(file.originalname || "standard-reference").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const storagePath = `common-documents/standard-reference_${Date.now()}_${safeFileName}`;
+  const id = `standard-reference_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  const storagePath = `common-documents/${id}_${safeFileName}`;
   const bucket = admin.storage().bucket();
   await bucket.file(storagePath).save(file.buffer, { metadata: { contentType: file.mimetype } });
-  await ref.set({ standardReferenceFileName: file.originalname || safeFileName, standardReferenceUrl: storagePath, updatedAt: new Date() }, { merge: true });
-  const previousPath = String(previous.data()?.standardReferenceUrl || "");
+  const item = {
+    id,
+    name: documentName,
+    fileName: file.originalname || safeFileName,
+    fileUrl: storagePath,
+    countryIds: mappedCountryIds,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    createdByName: String(user?.name || "")
+  };
+  try {
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      const items = normalizeStandardReferences(snapshot.data() || {});
+      const conflicts = getConflictingCountryIds(items, mappedCountryIds);
+      if (conflicts.length) throw new AppError("A standard reference document already exists for one or more selected countries", 409, { countryIds: conflicts });
+      transaction.set(ref, { standardReferences: [...items, item], updatedAt: new Date() }, { merge: true });
+    });
+  } catch (error) {
+    await bucket.file(storagePath).delete({ ignoreNotFound: true });
+    throw error;
+  }
+  return { message: "Standard reference document added successfully", item };
+}
+
+async function updateStandardReferenceDocument(id, file, { countryIds, user } = {}) {
+  if (!file) throw new AppError("Upload the replacement standard reference document", 400);
+  const documentName = "Standard Reference Document";
+  const mappedCountryIds = parseCountryIds(countryIds);
+  if (!mappedCountryIds.length) throw new AppError("Select at least one country", 400);
+  const ref = db.collection("settings").doc("commonDocuments");
+  const safeFileName = String(file.originalname || "standard-reference").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const storagePath = `common-documents/${id}_${Date.now()}_${safeFileName}`;
+  const bucket = admin.storage().bucket();
+  await bucket.file(storagePath).save(file.buffer, { metadata: { contentType: file.mimetype } });
+  let previousPath = "";
+  let updatedItem = null;
+  try {
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(ref);
+      const items = normalizeStandardReferences(snapshot.data() || {});
+      const current = items.find((item) => item.id === id);
+      if (!current) throw new AppError("Standard reference document not found", 404);
+      const conflicts = getConflictingCountryIds(items, mappedCountryIds, id);
+      if (conflicts.length) throw new AppError("A standard reference document already exists for one or more selected countries", 409, { countryIds: conflicts });
+      previousPath = String(current.fileUrl || "");
+      updatedItem = { ...current, name: documentName, fileName: file.originalname || safeFileName, fileUrl: storagePath, countryIds: mappedCountryIds, updatedAt: new Date(), updatedByName: String(user?.name || "") };
+      transaction.set(ref, { standardReferences: items.map((item) => item.id === id ? updatedItem : item), updatedAt: new Date() }, { merge: true });
+    });
+  } catch (error) {
+    await bucket.file(storagePath).delete({ ignoreNotFound: true });
+    throw error;
+  }
   if (previousPath && previousPath !== storagePath) await bucket.file(previousPath).delete({ ignoreNotFound: true });
-  return { message: "Standard reference document updated successfully", standardReferenceFileName: file.originalname || safeFileName, standardReferenceUrl: storagePath };
+  return { message: "Standard reference document updated successfully", item: updatedItem };
 }
 
 async function markPasswordUpdated(uid) {
@@ -283,5 +376,6 @@ module.exports = {
   markPasswordUpdated,
   updateSettings,
   uploadProfilePhoto,
-  uploadStandardReferenceDocument
+  uploadStandardReferenceDocument,
+  updateStandardReferenceDocument
 };

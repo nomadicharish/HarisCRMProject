@@ -252,8 +252,7 @@
 .settingsInlineActions{
   display:flex;
   align-items:center;
-  gap:16px;
-  margin-top:30px;
+  gap:16px; 
 }
 
 .settingsPrimaryBtn,
@@ -776,6 +775,16 @@
   font-weight:600;
 }
 
+.settingsReferencePanel,.settingsReferenceForm{min-width:0;}
+.settingsReferenceForm{display:grid;gap:10px;max-width:920px;}
+.settingsReferenceForm .settingsAdminHeader .settingsSectionDescription{white-space:nowrap;}
+.settingsReferenceFields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start;}
+.settingsReferenceField{min-width:0;}
+.settingsReferenceField .settingsLabel{display:block;margin-bottom:8px;}
+.settingsReferenceBack{float:left;margin:0 16px 10px 0;padding:0;border:0;background:transparent;color:#154682;font-size:30px;font-weight:700;line-height:1;cursor:pointer;}
+.settingsReferenceFilePicker{width:100%;min-height:64px;box-sizing:border-box;}
+.settingsReferenceNote{margin-top:18px;padding:14px 16px;border:1px solid #cddcf4;border-radius:8px;background:#f6f9ff;color:#38517f;font-size:14px;}
+
 @media (max-width: 900px){
   .settingsShell{
     margin:24px 16px 0;
@@ -783,6 +792,8 @@
 }
 
 @media (max-width: 768px){
+  .settingsReferenceForm .settingsAdminHeader .settingsSectionDescription{white-space:normal;}
+  .settingsReferenceFields{grid-template-columns:1fr;}
   .settingsTopbar{
     padding:0 16px;
   }

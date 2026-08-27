@@ -13,6 +13,7 @@ const APPLICANT_LIST_SELECT_FIELDS = [
   "personalDetails.email",
   "personalDetails.education",
   "personalDetails.dob",
+  "personalDetails.enrollmentDate",
   "personalDetails.placeOfBirth",
   "personalDetails.passportNumber",
   "personalDetails.phone",

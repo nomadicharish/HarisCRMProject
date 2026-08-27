@@ -1423,6 +1423,8 @@ function ApplicantsDashboard() {
   const notificationApplicantIds = useMemo(() => getMultiParam(searchParams, "notificationApplicants"), [searchParams]);
   const notificationTitle = searchParams.get("notificationTitle") || "";
   const dashboardFilter = searchParams.get("dashboardFilter") || "";
+  const enrollmentFromDate = searchParams.get("enrollmentFromDate") || "";
+  const enrollmentToDate = searchParams.get("enrollmentToDate") || "";
   const homeFromDate = searchParams.get("fromDate") || retainedHomeRange.fromDate;
   const homeToDate = searchParams.get("toDate") || retainedHomeRange.toDate;
   const currentPage = Math.max(1, Number(searchParams.get("page") || 1));
@@ -1522,7 +1524,9 @@ function ApplicantsDashboard() {
         notificationApplicants: notificationApplicantIds.join(","),
         dashboardFilter,
         fromDate: searchParams.get("fromDate") || "",
-        toDate: searchParams.get("toDate") || ""
+        toDate: searchParams.get("toDate") || "",
+        enrollmentFromDate,
+        enrollmentToDate
       };
       const entityParams = {
         paginated: "true",
@@ -1692,6 +1696,8 @@ function ApplicantsDashboard() {
     currentCursor,
     currentPage,
     dashboardFilter,
+    enrollmentFromDate,
+    enrollmentToDate,
     hasLoadedOnce,
     homeFromDate,
     homeToDate,
@@ -1716,7 +1722,9 @@ function ApplicantsDashboard() {
           notificationApplicants: notificationApplicantIds.join(","),
           dashboardFilter,
           fromDate: searchParams.get("fromDate") || "",
-          toDate: searchParams.get("toDate") || ""
+          toDate: searchParams.get("toDate") || "",
+          enrollmentFromDate,
+          enrollmentToDate
         }
       });
       const matchingApplicants = normalizeListResponse(response.data);
@@ -1970,6 +1978,24 @@ function ApplicantsDashboard() {
     setSearchParams(next, { replace: true });
   };
 
+  const applyEnrollmentDateRange = ({ fromDate, toDate }) => {
+    const start = parseDateInput(fromDate);
+    const end = parseDateInput(toDate);
+    if (!start || !end) {
+      toast.warning("Select both enrollment start and end dates.");
+      return;
+    }
+    if (start > end) {
+      toast.warning("Enrollment start date must be before the end date.");
+      return;
+    }
+    updateFilters({ enrollmentFromDate: fromDate, enrollmentToDate: toDate, page: 1 });
+  };
+
+  const clearEnrollmentDateRange = () => {
+    updateFilters({ enrollmentFromDate: "", enrollmentToDate: "", page: 1 });
+  };
+
   const handleOpenApplicant = (applicantId) => {
     if (canViewApplicantProfile) {
       prefetchCached(`/applicants/${applicantId}/workflow-bundle`, {
@@ -2090,6 +2116,8 @@ function ApplicantsDashboard() {
       companyIds.length ||
       agencyIds.length ||
       dashboardFilter ||
+      enrollmentFromDate ||
+      enrollmentToDate ||
       notificationApplicantIds.length
     );
   }, [
@@ -2098,6 +2126,8 @@ function ApplicantsDashboard() {
     applicantTypes.length,
     companyIds.length,
     dashboardFilter,
+    enrollmentFromDate,
+    enrollmentToDate,
     notificationApplicantIds.length,
     searchText
   ]);
@@ -2272,6 +2302,10 @@ function ApplicantsDashboard() {
               isSuperUser={isSuperUser}
               userRole={user?.role}
               onToggleFilterValue={toggleFilterValue}
+              enrollmentFromDate={enrollmentFromDate}
+              enrollmentToDate={enrollmentToDate}
+              onApplyEnrollmentDate={applyEnrollmentDateRange}
+              onClearEnrollmentDate={clearEnrollmentDateRange}
             />
 
             <main className="dashboardMain">

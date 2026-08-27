@@ -1,5 +1,45 @@
-import React from "react";
+import React, { useState } from "react";
+import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import FilterSection from "./FilterSection";
+
+function parseDateInput(value) {
+  if (!value) return null;
+  const [year, month, day] = String(value).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
+}
+
+function formatDateInput(date) {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+const EnrollmentDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
+  <button type="button" className="dashboardEnrollmentDateInput" onClick={onClick} ref={ref}>
+    <span>{value || placeholder}</span>
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8 3v2m8-2v2M4 10h16M6 5h12a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" /></svg>
+  </button>
+));
+
+EnrollmentDateInput.displayName = "EnrollmentDateInput";
+
+function EnrollmentDateFilter({ fromDate, toDate, onApply, onClear }) {
+  const [enrollmentDates, setEnrollmentDates] = useState({ fromDate, toDate });
+  const [collapsed, setCollapsed] = useState(() => !(fromDate || toDate));
+  return <section className="dashboardEnrollmentFilter">
+    <button type="button" className="dashboardFilterTitleBtn" onClick={() => setCollapsed((value) => !value)} aria-expanded={!collapsed}><span className="dashboardFilterTitle">Enrollment Date</span><span className={`dashboardFilterChevron ${collapsed ? "dashboardFilterChevronCollapsed" : ""}`}>^</span></button>
+    {!collapsed ? <>
+      <label>Start Date<DatePicker selected={parseDateInput(enrollmentDates.fromDate)} onChange={(date) => setEnrollmentDates((current) => ({ ...current, fromDate: formatDateInput(date) }))} maxDate={parseDateInput(enrollmentDates.toDate) || undefined} dateFormat="dd/MM/yyyy" showMonthDropdown showYearDropdown dropdownMode="select" shouldCloseOnSelect customInput={<EnrollmentDateInput placeholder="Select start date" />} /></label>
+      <label>End Date<DatePicker selected={parseDateInput(enrollmentDates.toDate)} onChange={(date) => setEnrollmentDates((current) => ({ ...current, toDate: formatDateInput(date) }))} minDate={parseDateInput(enrollmentDates.fromDate) || undefined} dateFormat="dd/MM/yyyy" showMonthDropdown showYearDropdown dropdownMode="select" shouldCloseOnSelect customInput={<EnrollmentDateInput placeholder="Select end date" />} /></label>
+      <button type="button" className="dashboardEnrollmentApplyBtn" onClick={() => onApply(enrollmentDates)}>Apply Enrollment Filter</button>
+      <button type="button" className="dashboardEnrollmentClearBtn" onClick={() => { setEnrollmentDates({ fromDate: "", toDate: "" }); onClear(); }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 7h16M10 11v6m4-6v6M6 7l1 13h10l1-13M9 7V4h6v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>Clear Enrollment Filter</button>
+    </> : null}
+  </section>;
+}
 
 function DashboardFiltersSidebar({
   searchPlaceholder,
@@ -17,7 +57,11 @@ function DashboardFiltersSidebar({
   agencyOptions,
   isSuperUser,
   userRole,
-  onToggleFilterValue
+  onToggleFilterValue,
+  enrollmentFromDate,
+  enrollmentToDate,
+  onApplyEnrollmentDate,
+  onClearEnrollmentDate
 }) {
   const hiddenStagesByRole = {
     EMPLOYER: new Set([
@@ -75,6 +119,8 @@ function DashboardFiltersSidebar({
           onToggle={(value) => onToggleFilterValue("type", applicantTypes, value)}
           visible={activeTab === "applicants" && userRole !== "JUNIOR_ACCOUNTANT"}
         />
+
+        {activeTab === "applicants" ? <EnrollmentDateFilter key={`${enrollmentFromDate}-${enrollmentToDate}`} fromDate={enrollmentFromDate} toDate={enrollmentToDate} onApply={onApplyEnrollmentDate} onClear={onClearEnrollmentDate} /> : null}
 
         <FilterSection
           title="Companies"

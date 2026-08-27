@@ -531,6 +531,7 @@ function mapApplicant({
       lastName,
       fullName: [firstName, lastName].filter(Boolean).join(" ").trim(),
       email: data?.email || data?.personalDetails?.email || "",
+      enrollmentDate: data?.enrollmentDate || data?.personalDetails?.enrollmentDate || "",
       stage: Number(data?.stage || 1),
       approvalStatus: data?.approvalStatus || "pending",
       companyId: data?.companyId || "",
@@ -659,7 +660,7 @@ async function getApplicantsFirestorePage({
   };
 }
 
-function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate, notificationApplicantIds, dashboardApplicantIds }) {
+function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilters, agencyFilters, typeFilters, dashboardFilter, fromDate, toDate, enrollmentFromDate, enrollmentToDate, notificationApplicantIds, dashboardApplicantIds }) {
   let applicants = [...items];
   if (notificationApplicantIds.length) {
     const allowedIds = new Set(notificationApplicantIds);
@@ -700,6 +701,9 @@ function applyApplicantFilters(items, { searchQuery, countryFilters, companyFilt
   }
   if (dashboardFilter) {
     applicants = applicants.filter((applicant) => matchesDashboardFilter(applicant, dashboardFilter, fromDate, toDate));
+  }
+  if (enrollmentFromDate || enrollmentToDate) {
+    applicants = applicants.filter((applicant) => isWithinRange(toDateValue(applicant.enrollmentDate || applicant?.personalDetails?.enrollmentDate), enrollmentFromDate, enrollmentToDate));
   }
   return applicants;
 }
@@ -748,6 +752,8 @@ async function getApplicantsUseCase(req) {
   const dashboardFilter = String(req.query?.dashboardFilter || "").trim();
   const fromDate = parseDateBoundary(req.query?.fromDate, false);
   const toDate = parseDateBoundary(req.query?.toDate, true);
+  const enrollmentFromDate = parseDateBoundary(req.query?.enrollmentFromDate, false);
+  const enrollmentToDate = parseDateBoundary(req.query?.enrollmentToDate, true);
   const effectiveLiteMode = dashboardFilter ? false : liteMode;
 
   if (!userId) {
@@ -756,7 +762,7 @@ async function getApplicantsUseCase(req) {
   const canUseFirestorePage = canUseFirestorePaginatedPath({
     paginated,
     searchQuery,
-    typeFilters: dashboardFilter || fromDate || toDate || notificationApplicantIds.length ? ["dashboard"] : typeFilters,
+    typeFilters: dashboardFilter || fromDate || toDate || enrollmentFromDate || enrollmentToDate || notificationApplicantIds.length ? ["dashboard"] : typeFilters,
     countryFilters,
     companyFilters,
     agencyFilters,
@@ -816,6 +822,8 @@ async function getApplicantsUseCase(req) {
     dashboardFilter,
     fromDate,
     toDate,
+    enrollmentFromDate,
+    enrollmentToDate,
     notificationApplicantIds,
     dashboardApplicantIds
   });

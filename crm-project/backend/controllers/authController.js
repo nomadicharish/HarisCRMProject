@@ -36,7 +36,12 @@ async function getCommonDocuments(req, res) {
 }
 
 async function uploadStandardReferenceDocument(req, res) {
-  const data = await authService.uploadStandardReferenceDocument(req.file);
+  const data = await authService.uploadStandardReferenceDocument(req.file, { ...req.body, user: req.user });
+  return res.json(data);
+}
+
+async function updateStandardReferenceDocument(req, res) {
+  const data = await authService.updateStandardReferenceDocument(req.params.id, req.file, { ...req.body, user: req.user });
   return res.json(data);
 }
 
@@ -60,5 +65,6 @@ module.exports = {
   markPasswordUpdated,
   updateSettings,
   uploadProfilePhoto,
-  uploadStandardReferenceDocument
+  uploadStandardReferenceDocument,
+  updateStandardReferenceDocument
 };
