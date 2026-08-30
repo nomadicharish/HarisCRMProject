@@ -24,6 +24,7 @@ import { hasRight } from "../utils/rights";
 import { formatCurrencyAmount, normalizeCurrency } from "../utils/currency";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { downloadApplicantsExcel } from "../utils/applicantExcelExport";
+import { formatDateInput, parseDateInput } from "../utils/dateInput";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantsDashboard.css";
 
@@ -75,28 +76,6 @@ const TAB_CONFIG = {
   applicants: { label: "Applicants", actionLabel: "Add Applicant" },
   companies: { label: "Companies", actionLabel: "Add Company" }
 };
-
-function formatDateInput(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateInput(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).split("-").map(Number);
-  if (!year || !month || !day) return null;
-  const date = new Date(year, month - 1, day);
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return null;
-  }
-  return date;
-}
 
 function isAccountantDashboardRole(role) {
   return role === "JUNIOR_ACCOUNTANT" || role === "SENIOR_ACCOUNTANT";
@@ -1240,7 +1219,6 @@ function DashboardHome({
         <>
 
       <section className="homeSection">
-        {/* <h2>Upcoming Actions</h2> */}
         <div className="homeCardGrid homeCardGridFour">
           <HomeMetricCard title="Embassy Appointments" count={upcoming.embassyAppointment?.count} tone="orange" icon="calendar" onClick={() => onOpenFilter("embassy_appointment", true)} />
           <HomeMetricCard title="Embassy Interviews" count={upcoming.embassyInterview?.count} tone="purple" icon="people" onClick={() => onOpenFilter("embassy_interview", true)} />
@@ -1253,7 +1231,6 @@ function DashboardHome({
 
       {showUploadPendingCards ? (
       <section className="homeSection">
-        {/* <h2>Action Pending (Overdue)</h2> */}
         <div className="homeCardGrid homeCardGridThree">
           <HomeMetricCard title="Biometric Upload Pending - Embassy Appointment" count={overdue.appointmentBiometricPending?.count} tone="blue" icon="calendar" onClick={() => onOpenFilter("appointment_biometric_pending", false)} />
           <HomeMetricCard title="Biometric Upload Pending - Embassy Interview" count={overdue.interviewBiometricPending?.count} tone="blue" icon="fingerprint" onClick={() => onOpenFilter("interview_biometric_pending", false)} />

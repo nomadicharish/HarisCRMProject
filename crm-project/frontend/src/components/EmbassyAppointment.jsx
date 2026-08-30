@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
@@ -207,7 +208,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
       return true;
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save appointment");
+      toast.error(getApiErrorMessage(error, "Failed to save appointment"));
       return false;
     } finally {
       setSavingAppointment(false);
@@ -257,7 +258,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save ticket details");
+      toast.error(getApiErrorMessage(error, "Failed to save ticket details"));
     } finally {
       setSavingTicket(false);
     }
@@ -275,7 +276,7 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to approve embassy appointment");
+      toast.error(getApiErrorMessage(error, "Failed to approve embassy appointment"));
     } finally {
       setApprovingAppointment(false);
     }

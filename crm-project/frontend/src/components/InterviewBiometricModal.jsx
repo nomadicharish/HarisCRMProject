@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import { hasRight } from "../utils/rights";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
@@ -123,7 +124,7 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to upload interview biometric slip");
+      toast.error(getApiErrorMessage(error, "Failed to upload interview biometric slip"));
     } finally {
       setSaving(false);
     }

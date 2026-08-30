@@ -1,17 +1,14 @@
 import React from "react";
 import Select from "react-select";
 import {
-  THEME,
   actions,
   btnPrimary,
   btnSecondary,
   errorText,
   getSelectStyles,
   grid,
-  input,
   label
 } from "./formStyles";
-import { CURRENCY_OPTIONS } from "../../utils/currency";
 import { isSuperUserLikeRole } from "../../utils/auth";
 
 function FieldIcon({ children }) {
@@ -51,7 +48,6 @@ function ApplicantFormStepTwo({
   countryOptions,
   companyOptions,
   jobPositionOptions = [],
-  agencyOptions,
   handleCountryChange,
   handleCompanyChange,
   handleChange,
@@ -65,22 +61,6 @@ function ApplicantFormStepTwo({
 }) {
   const customSelectStyles = getSelectStyles();
   const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
-  const showSuperUserPaymentFields = isSuperUserLikeRole(user?.role) && Boolean(editData);
-  const amountCurrencySelectStyles = {
-    ...customSelectStyles,
-    control: (base, state) => ({
-      ...customSelectStyles.control(base, state),
-      border: "none",
-      borderRight: `1px solid ${THEME.border}`,
-      borderRadius: "12px 0 0 12px",
-      background: "#f8fafc",
-      minWidth: 116
-    }),
-    valueContainer: (base) => ({
-      ...customSelectStyles.valueContainer(base),
-      padding: "0 10px"
-    })
-  };
   const globeIcon = (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.8" />
@@ -151,58 +131,6 @@ function ApplicantFormStepTwo({
           </SelectShell>
           {errors.jobPositionId && <div style={errorText}>{errors.jobPositionId}</div>}
         </div>
-
-        {showSuperUserPaymentFields && (
-          <div>
-            <label style={label}>Agency</label>
-            <SelectShell icon={buildingIcon}>
-              <Select
-                styles={customSelectStyles}
-                options={agencyOptions}
-                placeholder="Search agency..."
-                value={agencyOptions.find((agency) => agency.value === form.agencyId)}
-                onChange={(selected) => handleChange("agencyId", selected?.value || "")}
-                menuPortalTarget={menuPortalTarget}
-                menuPosition="fixed"
-                isDisabled={readOnly}
-              />
-            </SelectShell>
-            {errors.agencyId && <div style={errorText}>{errors.agencyId}</div>}
-          </div>
-        )}
-
-        {showSuperUserPaymentFields && (
-          <div>
-            <label style={label}>Total Amount</label>
-            <div className={errors.totalAmount ? "applicantFormAmountCurrencyRow applicantFormAmountCurrencyRowError" : "applicantFormAmountCurrencyRow"}>
-              <div className="applicantFormCurrencySelect">
-                <Select
-                  styles={amountCurrencySelectStyles}
-                  options={CURRENCY_OPTIONS}
-                  placeholder="Currency"
-                  value={CURRENCY_OPTIONS.find((currency) => currency.value === form.paymentCurrency)}
-                  onChange={(selected) => handleChange("paymentCurrency", selected?.value || "INR")}
-                  menuPortalTarget={menuPortalTarget}
-                  menuPosition="fixed"
-                  isDisabled={readOnly}
-                />
-              </div>
-              <input
-                style={{
-                  ...input,
-                  border: "none",
-                  borderRadius: "0 12px 12px 0",
-                  minHeight: "44px"
-                }}
-                value={form.totalAmount || ""}
-                placeholder="Total Amount"
-                onChange={(event) => handleChange("totalAmount", event.target.value)}
-                disabled={readOnly}
-              />
-            </div>
-            {errors.totalAmount && <div style={errorText}>{errors.totalAmount}</div>}
-          </div>
-        )}
 
       </div>
 

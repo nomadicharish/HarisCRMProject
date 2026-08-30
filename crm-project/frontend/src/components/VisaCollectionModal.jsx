@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
@@ -299,7 +300,7 @@ function VisaCollectionModal({
       return true;
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save visa collection");
+      toast.error(getApiErrorMessage(error, "Failed to save visa collection"));
       return false;
     } finally {
       setSavingCollection(false);
@@ -321,7 +322,7 @@ function VisaCollectionModal({
       if (typeof onClose === "function") onClose();
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to approve visa collection");
+      toast.error(getApiErrorMessage(error, "Failed to approve visa collection"));
     } finally {
       setSavingCollection(false);
     }
@@ -352,7 +353,7 @@ function VisaCollectionModal({
       if (typeof onClose === "function") onClose();
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save travel details");
+      toast.error(getApiErrorMessage(error, "Failed to save travel details"));
     } finally {
       setSavingCollection(false);
     }
@@ -396,7 +397,7 @@ function VisaCollectionModal({
       if (typeof onClose === "function") onClose();
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save applicant arrival details");
+      toast.error(getApiErrorMessage(error, "Failed to save applicant arrival details"));
     } finally {
       setSavingTicket(false);
     }

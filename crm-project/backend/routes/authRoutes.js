@@ -30,15 +30,29 @@ function requireRootSuperUser(req, res, next) {
   return next();
 }
 
+function requireCommonDocumentsAccess(req, res, next) {
+  if (!["SUPER_USER", "ADMIN", "AGENCY"].includes(req.user?.role)) {
+    return res.status(403).json({ message: "Access Denied" });
+  }
+  return next();
+}
+
+function requireCommonDocumentsManager(req, res, next) {
+  if (!["SUPER_USER", "ADMIN"].includes(req.user?.role)) {
+    return res.status(403).json({ message: "Access Denied" });
+  }
+  return next();
+}
+
 router.get("/me", noStore, verifyToken, asyncHandler(authController.getCurrentUser));
 router.post("/check-email", noStore, createAuthRateLimiter(), validate(checkEmailSchema), asyncHandler(authController.checkEmail));
 router.post("/change-password", noStore, verifyToken, validate(changePasswordSchema), asyncHandler(authController.changePassword));
 router.get("/settings", noStore, verifyToken, asyncHandler(authController.getSettings));
 router.patch("/settings", noStore, verifyToken, validate(updateSettingsSchema), asyncHandler(authController.updateSettings));
 router.post("/settings/profile-photo", noStore, verifyToken, upload.single("file"), asyncHandler(authController.uploadProfilePhoto));
-router.get("/common-documents", noStore, verifyToken, requireRootSuperUser, asyncHandler(authController.getCommonDocuments));
-router.post("/common-documents/standard-reference", noStore, verifyToken, requireRootSuperUser, upload.single("file"), asyncHandler(authController.uploadStandardReferenceDocument));
-router.patch("/common-documents/standard-reference/:id", noStore, verifyToken, requireRootSuperUser, upload.single("file"), asyncHandler(authController.updateStandardReferenceDocument));
+router.get("/common-documents", noStore, verifyToken, requireCommonDocumentsAccess, asyncHandler(authController.getCommonDocuments));
+router.post("/common-documents/standard-reference", noStore, verifyToken, requireCommonDocumentsManager, upload.single("file"), asyncHandler(authController.uploadStandardReferenceDocument));
+router.patch("/common-documents/standard-reference/:id", noStore, verifyToken, requireCommonDocumentsManager, upload.single("file"), asyncHandler(authController.updateStandardReferenceDocument));
 router.get(
   "/bank-accounts",
   noStore,

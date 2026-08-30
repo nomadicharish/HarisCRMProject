@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
@@ -110,7 +111,7 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
       if (typeof onClose === "function") onClose();
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to upload contract");
+      toast.error(getApiErrorMessage(error, "Failed to upload contract"));
     } finally {
       setSaving(false);
     }
@@ -126,7 +127,7 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
       if (typeof onClose === "function") onClose();
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to approve contract");
+      toast.error(getApiErrorMessage(error, "Failed to approve contract"));
     } finally {
       setSaving(false);
     }

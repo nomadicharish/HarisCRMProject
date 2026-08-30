@@ -17,7 +17,7 @@ async function createApplicantUseCase(req) {
   let assignedAgencyId = null;
   if (userRole === "AGENCY") {
     assignedAgencyId = req.user?.agencyId || userId;
-  } else if (isSuperUserLikeRole(userRole)) {
+  } else if (isSuperUserLikeRole(userRole) || userRole === "ADMIN") {
     assignedAgencyId = req.body.agencyId || null;
   } else {
     throw new AppError("Unauthorized", 403);
@@ -62,6 +62,9 @@ async function createApplicantUseCase(req) {
   }
 
   const requestedTotal = toNumber(totalApplicantPayment ?? totalAmount);
+  if ((isSuperUserLikeRole(userRole) || userRole === "ADMIN") && requestedTotal <= 0) {
+    throw new AppError("Total amount is required", 400);
+  }
   const normalizedTotalApplicantPayment = requestedTotal > 0 ? requestedTotal : 0;
   const normalizedTotalEmployerPayment = toNumber(totalEmployerPayment);
   const paymentCurrency = normalizePaymentCurrency(req.body.paymentCurrency || currency);

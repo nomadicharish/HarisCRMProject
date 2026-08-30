@@ -1,14 +1,18 @@
 import React from "react";
 import DatePicker from "react-datepicker";
 import PhoneInput from "react-phone-input-2";
+import Select from "react-select";
 import "react-datepicker/dist/react-datepicker.css";
 import "react-phone-input-2/lib/style.css";
 import { getCountries, getCountryCallingCode } from "libphonenumber-js";
+import { CURRENCY_OPTIONS } from "../../utils/currency";
+import { isSuperUserLikeRole } from "../../utils/auth";
 import {
   THEME,
   actionsRight,
   btnPrimary,
   errorText,
+  getSelectStyles,
   grid,
   handleBlur,
   handleFocus,
@@ -52,6 +56,15 @@ function InputShell({ children, icon, trailingIcon, error = false }) {
   );
 }
 
+function SelectShell({ children, icon }) {
+  return (
+    <div style={{ position: "relative", width: "100%" }}>
+      {icon ? <FieldIcon>{icon}</FieldIcon> : null}
+      <div className="applicantFormSelectShell">{children}</div>
+    </div>
+  );
+}
+
 const CustomDateInput = React.forwardRef(({ value, onClick, placeholder, error }, ref) => (
   <InputShell
     error={error}
@@ -89,10 +102,27 @@ function ApplicantFormStepOne({
   setForm,
   handleChange,
   calculateAge,
+  user,
+  agencyOptions = [],
   onNext,
   showActions = true,
   readOnly = false
 }) {
+  const isSuperUserOrAdmin = isSuperUserLikeRole(user?.role) || user?.role === "ADMIN";
+  const customSelectStyles = getSelectStyles();
+  const amountCurrencySelectStyles = {
+    ...customSelectStyles,
+    control: (base, state) => ({
+      ...customSelectStyles.control(base, state),
+      border: "none",
+      borderRight: `1px solid ${THEME.border}`,
+      borderRadius: "12px 0 0 12px",
+      background: "#f8fafc",
+      minWidth: 116
+    }),
+    valueContainer: (base) => ({ ...customSelectStyles.valueContainer(base), padding: "0 10px" })
+  };
+  const menuPortalTarget = typeof document !== "undefined" ? document.body : null;
   const resolvedPhoneCountry = PHONE_COUNTRY_CODES.has(String(form.phoneCountry || "IN").toUpperCase())
     ? String(form.phoneCountry || "IN").toUpperCase()
     : "IN";
@@ -382,6 +412,7 @@ function ApplicantFormStepOne({
               disabled={readOnly}
               onChange={(date) => handleChange("enrollmentDate", date)}
               dateFormat="dd/MM/yyyy"
+              shouldCloseOnSelect
               maxDate={new Date()}
               showMonthDropdown
               showYearDropdown
@@ -498,6 +529,53 @@ function ApplicantFormStepOne({
             </label>
           </div>
         </div>
+
+        {isSuperUserOrAdmin ? (
+          <div className="applicantFormContactRow">
+            <div>
+              <label style={label}>Agency</label>
+              <SelectShell icon={locationIcon}>
+                <Select
+                  styles={customSelectStyles}
+                  options={agencyOptions}
+                  placeholder="Search agency..."
+                  value={agencyOptions.find((agency) => agency.value === form.agencyId)}
+                  onChange={(selected) => handleChange("agencyId", selected?.value || "")}
+                  menuPortalTarget={menuPortalTarget}
+                  menuPosition="fixed"
+                  isDisabled={readOnly}
+                />
+              </SelectShell>
+              {errors.agencyId && <div style={errorText}>{errors.agencyId}</div>}
+            </div>
+
+            <div>
+              <label style={label}>Total Amount</label>
+              <div className={errors.totalAmount ? "applicantFormAmountCurrencyRow applicantFormAmountCurrencyRowError" : "applicantFormAmountCurrencyRow"}>
+                <div className="applicantFormCurrencySelect">
+                  <Select
+                    styles={amountCurrencySelectStyles}
+                    options={CURRENCY_OPTIONS}
+                    placeholder="Currency"
+                    value={CURRENCY_OPTIONS.find((currency) => currency.value === form.paymentCurrency)}
+                    onChange={(selected) => handleChange("paymentCurrency", selected?.value || "INR")}
+                    menuPortalTarget={menuPortalTarget}
+                    menuPosition="fixed"
+                    isDisabled={readOnly}
+                  />
+                </div>
+                <input
+                  style={{ ...input, border: "none", borderRadius: "0 12px 12px 0", minHeight: "44px" }}
+                  value={form.totalAmount || ""}
+                  placeholder="Total Amount"
+                  onChange={(event) => handleChange("totalAmount", event.target.value)}
+                  disabled={readOnly}
+                />
+              </div>
+              {errors.totalAmount && <div style={errorText}>{errors.totalAmount}</div>}
+            </div>
+          </div>
+        ) : null}
 
       </div>
 

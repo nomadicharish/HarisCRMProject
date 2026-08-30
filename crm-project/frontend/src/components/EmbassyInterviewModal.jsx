@@ -3,6 +3,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import BlockingLoader from "./common/BlockingLoader";
 import WorkflowPaymentStatus from "./WorkflowPaymentStatus";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
@@ -207,7 +208,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
       return true;
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save embassy interview");
+      toast.error(getApiErrorMessage(error, "Failed to save embassy interview"));
       return false;
     } finally {
       setSavingInterview(false);
@@ -233,7 +234,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to approve embassy interview");
+      toast.error(getApiErrorMessage(error, "Failed to approve embassy interview"));
     } finally {
       setSavingInterview(false);
     }
@@ -273,7 +274,7 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save interview ticket");
+      toast.error(getApiErrorMessage(error, "Failed to save interview ticket"));
     } finally {
       setSavingTicket(false);
     }

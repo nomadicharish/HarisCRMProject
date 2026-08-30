@@ -112,12 +112,12 @@ function ApplicantFormModal({
     if (!form.countryId) newErrors.countryId = "Select country";
     if (!form.companyId) newErrors.companyId = "Select company";
     if (!form.jobPositionId) newErrors.jobPositionId = "Select job position";
-    const isSuperUser = isSuperUserLikeRole(user?.role);
-    if (isSuperUser && !form.agencyId) newErrors.agencyId = "Select agency";
+    const isSuperUserOrAdmin = isSuperUserLikeRole(user?.role) || user?.role === "ADMIN";
+    if (isSuperUserOrAdmin && !form.agencyId) newErrors.agencyId = "Select agency";
 
     const totalAmountError = validateTotalAmount(
       form.totalAmount,
-      isSuperUser && Boolean(editData) ? "SUPER_USER" : user?.role
+      isSuperUserOrAdmin ? "SUPER_USER" : user?.role
     );
     if (totalAmountError) newErrors.totalAmount = totalAmountError;
     return newErrors;
@@ -397,7 +397,7 @@ function ApplicantFormModal({
         jobPositionId: form.jobPositionId,
         jobPositionName: selectedJobPosition?.title || selectedJobPosition?.name || "",
         countryId: form.countryId,
-        agencyId: isSuperUserLikeRole(user?.role) ? form.agencyId : user?.agencyId,
+        agencyId: (isSuperUserLikeRole(user?.role) || user?.role === "ADMIN") ? form.agencyId : user?.agencyId,
         totalApplicantPayment: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
         totalAmount: form.totalAmount ? parseAmountInput(form.totalAmount) : 0,
         paymentCurrency: normalizeCurrency(form.paymentCurrency),
@@ -585,9 +585,11 @@ function ApplicantFormModal({
                     errors={errors}
                     dob={dob}
                     setDob={setDob}
-                    setForm={setForm}
-                    handleChange={handleChange}
-                    calculateAge={calculateAge}
+                  setForm={setForm}
+                  handleChange={handleChange}
+                  calculateAge={calculateAge}
+                  user={user}
+                  agencyOptions={agencyOptions}
                     onNext={() => {}}
                     showActions={false}
                     readOnly={readOnly}
@@ -641,7 +643,6 @@ function ApplicantFormModal({
                     countryOptions={countryOptions}
                     companyOptions={companyOptions}
                     jobPositionOptions={jobPositionOptions}
-                    agencyOptions={agencyOptions}
                     handleCountryChange={handleCountryChange}
                     handleCompanyChange={handleCompanyChange}
                     handleChange={handleChange}
@@ -771,6 +772,8 @@ function ApplicantFormModal({
                 setForm={setForm}
                 handleChange={handleChange}
                 calculateAge={calculateAge}
+                user={user}
+                agencyOptions={agencyOptions}
                 onNext={() => {}}
                 showActions={false}
                 readOnly={readOnly}
@@ -824,7 +827,6 @@ function ApplicantFormModal({
                 countryOptions={countryOptions}
                 companyOptions={companyOptions}
                 jobPositionOptions={jobPositionOptions}
-                agencyOptions={agencyOptions}
                 handleCountryChange={handleCountryChange}
                 handleCompanyChange={handleCompanyChange}
                 handleChange={handleChange}

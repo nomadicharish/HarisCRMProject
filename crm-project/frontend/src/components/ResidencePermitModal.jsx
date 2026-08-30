@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
 import BlockingLoader from "./common/BlockingLoader";
 import { ALLOWED_DOCUMENT_ACCEPT, DOCUMENT_UPLOAD_HELP_TEXT, getValidatedDocumentFile, validateDocumentFiles } from "../utils/fileValidation";
 import { hasRight } from "../utils/rights";
@@ -86,7 +87,7 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to upload residence permit");
+      toast.error(getApiErrorMessage(error, "Failed to upload residence permit"));
     } finally {
       setSaving(false);
     }

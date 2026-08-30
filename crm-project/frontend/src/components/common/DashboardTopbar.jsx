@@ -23,6 +23,8 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
   const navigate = useNavigate();
   const [showProfilePanel, setShowProfilePanel] = useState(false);
   const userInitials = useMemo(() => getInitials(user?.name || "User"), [user?.name]);
+  const canManageUsers = user?.role === "SUPER_USER" || user?.role === "ADMIN";
+  const canAccessCommonDocuments = canManageUsers || user?.role === "AGENCY";
 
   const handleLogout = async () => {
     setShowProfilePanel(false);
@@ -101,6 +103,30 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
                 >
                   Settings
                 </button>
+                {canManageUsers ? (
+                  <button
+                    type="button"
+                    className="dashboardPaginationBtn dashboardProfilePanelBtn"
+                    onClick={() => {
+                      setShowProfilePanel(false);
+                      navigate("/settings/users");
+                    }}
+                  >
+                    Users
+                  </button>
+                ) : null}
+                {canAccessCommonDocuments ? (
+                  <button
+                    type="button"
+                    className="dashboardPaginationBtn dashboardProfilePanelBtn"
+                    onClick={() => {
+                      setShowProfilePanel(false);
+                      navigate("/settings?section=common-documents");
+                    }}
+                  >
+                    Common Documents
+                  </button>
+                ) : null}
                 <button type="button" className="dashboardProfilePanelSignout" onClick={handleLogout}>
                   Signout
                 </button>

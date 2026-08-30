@@ -97,6 +97,8 @@ function Settings() {
   const canManageBankDetails = canViewBankDetails || canAddBankDetails;
   const canManageUsers = hasAnyRight(currentUser, ["ADD_USERS", "VIEW_USERS"]);
   const isSuperUser = isSuperUserLikeRole(currentUser?.role);
+  const canManageCommonDocuments = isSuperUser || currentUser?.role === "ADMIN";
+  const canViewCommonDocuments = canManageCommonDocuments || currentUser?.role === "AGENCY";
   const activeSection = new URLSearchParams(location.search).get("section") || "general";
   const [loading, setLoading] = useState(!cachedSettings);
   const [saving, setSaving] = useState(false);
@@ -104,10 +106,6 @@ function Settings() {
   const [commonDocumentsLoading, setCommonDocumentsLoading] = useState(false);
   const [standardReferences, setStandardReferences] = useState([]);
   const [referenceForm, setReferenceForm] = useState(null);
-  // Kept for backwards-compatible rendering of the legacy block while the
-  // country-mapped manager is used above it.
-  const [standardReference, setStandardReference] = useState({ standardReferenceFileName: "", standardReferenceUrl: "" });
-  const [standardReferenceFile, setStandardReferenceFile] = useState(null);
   const profilePhotoInputRef = useRef(null);
   const referenceFileInputRef = useRef(null);
   const [bankAccountsLoading, setBankAccountsLoading] = useState(false);
@@ -186,7 +184,7 @@ function Settings() {
   }, [storedUser?.role]);
 
   const loadCommonDocuments = useCallback(async () => {
-    if (!isSuperUser) return;
+    if (!canViewCommonDocuments) return;
     try {
       setCommonDocumentsLoading(true);
       const [response, countriesData] = await Promise.all([
@@ -200,7 +198,7 @@ function Settings() {
     } finally {
       setCommonDocumentsLoading(false);
     }
-  }, [isSuperUser]);
+  }, [canViewCommonDocuments]);
 
   useEffect(() => { if (activeSection === "common-documents") loadCommonDocuments(); }, [activeSection, loadCommonDocuments]);
 
@@ -420,8 +418,6 @@ function Settings() {
     finally { setCommonDocumentsLoading(false); }
   };
 
-  const handleStandardReferenceUpload = () => {};
-
   const resetBankForm = () => {
     setBankForm({ beneficiaryName: "", accountNumber: "", bankNameBranch: "" });
     setBankFormErrors({});
@@ -607,7 +603,7 @@ function Settings() {
                 Users
               </button>
             ) : null}
-            {isSuperUser ? (
+            {canViewCommonDocuments ? (
               <button type="button" className={`settingsNavItem ${activeSection === "common-documents" ? "settingsNavItemActive" : ""}`} onClick={() => selectSection("common-documents")}>Common Documents</button>
             ) : null}
           </aside>
@@ -641,7 +637,7 @@ function Settings() {
               </>
             ) : activeSection === "common-documents" ? (
               <div className="settingsAdminPanel">
-                {referenceForm ? <div className="settingsReferenceForm">
+                {referenceForm && canManageCommonDocuments ? <div className="settingsReferenceForm">
                   <div className="settingsAdminHeader"><div><button type="button" className="settingsReferenceBack" onClick={() => setReferenceForm(null)} aria-label="Back to common documents">←</button><h2 className="settingsSectionTitle">{referenceForm.id ? "Update" : "Add"} Standard Reference Document</h2><p className="settingsSectionDescription">Map one document to one or more countries. Each country can have only one reference document.</p></div></div>
                   <div className="settingsReferenceFields">
                     <div className="settingsReferenceField"><label className="settingsLabel">{referenceForm.id ? "Replacement Document" : "Upload Document"} <span>*</span></label><label className="docsFileBox docsFileBoxUpload settingsReferenceFilePicker"><input ref={referenceFileInputRef} className="docsFileInput" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" disabled={commonDocumentsLoading} onChange={(event) => setReferenceForm((form) => ({ ...form, file: event.target.files?.[0] || null }))} /><div className="docsFileBoxLeft"><span className="docsUploadIcon"><UploadFileIcon /></span><div><div className="docsFileName">{referenceForm.file?.name || "Choose file"}</div><div className="docsFileMeta">PDF, DOC, DOCX, JPG or PNG (Max 5MB)</div></div></div></label></div>
@@ -649,25 +645,9 @@ function Settings() {
                   </div>
                   <div className="settingsInlineActions"><button type="button" className="settingsMutedBtn" disabled={commonDocumentsLoading} onClick={() => setReferenceForm(null)}>Cancel</button><button type="button" className="settingsPrimaryBtn" disabled={commonDocumentsLoading} onClick={handleStandardReferenceSave}>{commonDocumentsLoading ? "Saving..." : "Save Document"}</button></div>
                 </div> : <div className="settingsReferencePanel">
-                  <div className="settingsAdminHeader"><div><h2 className="settingsSectionTitle">Standard Reference Document</h2><p className="settingsSectionDescription">Reference documents available to users during applicant document upload.</p></div><button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" onClick={() => openReferenceForm()}>+ Add Document</button></div>
-                  {commonDocumentsLoading ? <PageLoader label="Loading standard reference documents..." /> : <div className="settingsAdminTableWrap settingsOrganizationTable"><table className="settingsAdminTable"><thead><tr><th>Document Name</th><th>Countries Mapped</th><th>Uploaded On</th><th>Actions</th></tr></thead><tbody>{standardReferences.length ? standardReferences.map((reference) => <tr key={reference.id}><td><strong>{reference.name || reference.fileName}</strong><div className="settingsModalHelp">{reference.fileName}</div></td><td>{reference.countryIds.map((countryId) => countryMap[countryId] || countryId).join(", ") || "-"}</td><td>{formatReferenceUploadDate(reference.createdAt || reference.updatedAt)}</td><td><button type="button" className="settingsAdminEditBtn" onClick={() => openReferenceForm(reference)} aria-label="Edit standard reference document"><EditIcon /></button></td></tr>) : <tr><td colSpan={4} className="settingsAdminEmpty">No standard reference documents added.</td></tr>}</tbody></table></div>}
+                  <div className="settingsAdminHeader"><div><h2 className="settingsSectionTitle">Standard Reference Document</h2><p className="settingsSectionDescription">Reference documents available to users during applicant document upload.</p></div>{canManageCommonDocuments ? <button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" onClick={() => openReferenceForm()}>+ Add Document</button> : null}</div>
+                  {commonDocumentsLoading ? <PageLoader label="Loading standard reference documents..." /> : <div className="settingsAdminTableWrap settingsOrganizationTable"><table className="settingsAdminTable"><thead><tr><th>Document Name</th><th>Countries Mapped</th><th>Uploaded On</th>{canManageCommonDocuments ? <th>Actions</th> : null}</tr></thead><tbody>{standardReferences.length ? standardReferences.map((reference) => <tr key={reference.id}><td><strong>{reference.name || reference.fileName}</strong><div className="settingsModalHelp">{reference.fileName}</div></td><td>{reference.countryIds.map((countryId) => countryMap[countryId] || countryId).join(", ") || "-"}</td><td>{formatReferenceUploadDate(reference.createdAt || reference.updatedAt)}</td>{canManageCommonDocuments ? <td><button type="button" className="settingsAdminEditBtn" onClick={() => openReferenceForm(reference)} aria-label="Edit standard reference document"><EditIcon /></button></td> : null}</tr>) : <tr><td colSpan={canManageCommonDocuments ? 4 : 3} className="settingsAdminEmpty">No standard reference documents added.</td></tr>}</tbody></table></div>}
                 </div>}
-                <div style={{ display: "none" }}>
-                <h2 className="settingsSectionTitle">Common Documents</h2>
-                <p className="settingsSectionDescription">This reference document is available to every applicant during document upload.</p>
-                <div className="settingsBlock">
-                  <label className="settingsLabel" htmlFor="standard-reference-document">Add Standard Reference Document</label>
-                  <div className="docsFileCell settingsCommonDocumentUpload">
-                    <label className="docsFileBox docsFileBoxUpload docsFileBoxEmpty">
-                      <input className="settingsVisuallyHidden" id="standard-reference-document" type="file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" disabled={commonDocumentsLoading} onChange={(event) => setStandardReferenceFile(event.target.files?.[0] || null)} />
-                      <span className="docsFileBoxLeft"><span className="docsUploadIcon">↑</span><span className="docsFileName">{standardReferenceFile?.name || "Select document"}</span></span>
-                    </label>
-                    <button type="button" className="settingsPrimaryBtn" disabled={!standardReferenceFile || commonDocumentsLoading} onClick={handleStandardReferenceUpload}>{commonDocumentsLoading ? "Uploading..." : "Upload"}</button>
-                  </div>
-                  {standardReferenceFile ? <div className="settingsModalHelp">Selected: {standardReferenceFile.name}</div> : null}
-                  {standardReference.standardReferenceUrl ? <a className="settingsTextLink" href={standardReference.standardReferenceUrl} target="_blank" rel="noreferrer">View current document: {standardReference.standardReferenceFileName || "Standard Reference"}</a> : null}
-                </div>
-                </div>
               </div>
             ) : activeSection === "bank-details" ? (
               <div className="settingsAdminPanel">

@@ -2,24 +2,10 @@ import React, { useCallback, useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import { toast } from "../utils/toast";
 import API from "../services/api";
+import { getApiErrorMessage } from "../utils/apiError";
+import { formatDateInput, parseDateInput } from "../utils/dateInput";
 import "react-datepicker/dist/react-datepicker.css";
 import "../styles/applicantDispatch.css";
-
-function formatDateInput(date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function parseDateInput(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).split("-").map(Number);
-  if (!year || !month || !day) return null;
-  const date = new Date(year, month - 1, day);
-  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
-  return date;
-}
 
 function formatDispatchDate(createdAt) {
   if (!createdAt) return "-";
@@ -145,7 +131,7 @@ function DispatchSection({
       }
     } catch (error) {
       console.error(error);
-      toast.error(error?.response?.data?.message || "Failed to save dispatch");
+      toast.error(getApiErrorMessage(error, "Failed to save dispatch"));
     } finally {
       setSaving(false);
     }

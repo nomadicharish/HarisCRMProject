@@ -2,21 +2,7 @@ import React, { useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import FilterSection from "./FilterSection";
-
-function parseDateInput(value) {
-  if (!value) return null;
-  const [year, month, day] = String(value).split("-").map(Number);
-  const date = new Date(year, month - 1, day);
-  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day ? date : null;
-}
-
-function formatDateInput(date) {
-  if (!date) return "";
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
+import { formatDateInput, parseDateInput } from "../../utils/dateInput";
 
 const EnrollmentDateInput = React.forwardRef(({ value, onClick, placeholder }, ref) => (
   <button type="button" className="dashboardEnrollmentDateInput" onClick={onClick} ref={ref}>

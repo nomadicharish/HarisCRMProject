@@ -1,273 +1,115 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import PageLoader from "../components/common/PageLoader";
 import API from "../services/api";
 import { getCached } from "../services/cachedApi";
-import PageLoader from "../components/common/PageLoader";
+import { getApiErrorMessage } from "../utils/apiError";
 import { isSuperUserLikeRole } from "../utils/auth";
+import { logError } from "../utils/logger";
+
+const INITIAL_FILTERS = { companyId: "", agencyId: "", fromDate: "", toDate: "" };
+const LOOKUP_CACHE_TTL_MS = 60_000;
+const USER_CACHE_TTL_MS = 120_000;
+const CARD_CONTAINER_STYLE = { display: "flex", gap: "20px" };
+const BASE_CARD_STYLE = { flex: 1, background: "#fff", padding: "20px", borderRadius: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.05)" };
+const FILTER_BAR_STYLE = { display: "flex", gap: "10px", marginBottom: "20px", background: "#fff", padding: "15px", borderRadius: "10px", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" };
+const PIPELINE_CONTAINER_STYLE = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "15px", marginTop: "15px" };
+const PIPELINE_CARD_STYLE = { background: "#fff", padding: "15px", borderRadius: "10px", textAlign: "center", boxShadow: "0 2px 5px rgba(0,0,0,0.05)" };
+const KPI_CARDS = [
+  { label: "Total Applicants", key: "totalApplicants", color: "#4CAF50" },
+  { label: "Ongoing", key: "ongoing", color: "#2196F3" },
+  { label: "Completed", key: "completed", color: "#FF9800" }
+];
+const ALERT_CARDS = [
+  { label: "Pending Documents", key: "pendingDocs" },
+  { label: "Pending Approvals", key: "pendingApproval" }
+];
+const PAYMENT_CARDS = [
+  { label: "Collected", key: "totalCollected" },
+  { label: "Pending", key: "totalPending" }
+];
 
 function normalizeListResponse(response) {
   if (Array.isArray(response)) return response;
-  if (Array.isArray(response?.items)) return response.items;
-  return [];
+  return Array.isArray(response?.items) ? response.items : [];
+}
+
+function compactFilters(filters) {
+  return Object.fromEntries(Object.entries(filters).filter(([, value]) => value));
 }
 
 function Dashboard() {
   const [data, setData] = useState(null);
+  const [filters, setFilters] = useState(INITIAL_FILTERS);
+  const [companies, setCompanies] = useState([]);
+  const [agencies, setAgencies] = useState([]);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const loadDashboard = async () => {
+  const loadDashboard = useCallback(async (activeFilters) => {
     try {
-
-      const cleanFilters = Object.fromEntries(
-        Object.entries(filters).filter(([_, v]) => v)
-      );
-
-      const query = new URLSearchParams(cleanFilters).toString();
-
-      const res = await API.get(`/dashboard?${query}`);
-
-      setData(res.data);
-
-    } catch (err) {
-      console.error(err);
+      setIsLoading(true);
+      setErrorMessage("");
+      const params = new URLSearchParams(compactFilters(activeFilters));
+      const response = await API.get(`/dashboard?${params.toString()}`);
+      setData(response.data);
+    } catch (error) {
+      logError("Unable to load legacy dashboard", error);
+      setErrorMessage(getApiErrorMessage(error, "Unable to load the dashboard. Please try again."));
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, []);
 
-   
-    const [filters, setFilters] = useState({
-    companyId: "",
-    agencyId: "",
-    fromDate: "",
-    toDate: ""
-      });
+  const loadLookupData = useCallback(async () => {
+    try {
+      const [companiesData, agenciesData] = await Promise.all([
+        getCached("/companies", { ttlMs: LOOKUP_CACHE_TTL_MS }),
+        getCached("/agencies", { ttlMs: LOOKUP_CACHE_TTL_MS })
+      ]);
+      setCompanies(normalizeListResponse(companiesData));
+      setAgencies(normalizeListResponse(agenciesData));
+    } catch (error) {
+      logError("Unable to load dashboard filter options", error);
+    }
+  }, []);
 
-    const [companies, setCompanies] = useState([]);
-    const [agencies, setAgencies] = useState([]);
+  const loadUser = useCallback(async () => {
+    try {
+      setUser(await getCached("/auth/me", { ttlMs: USER_CACHE_TTL_MS }));
+    } catch (error) {
+      logError("Unable to load dashboard user", error);
+    }
+  }, []);
 
-    const loadFilters = async () => {
-      try {
-        const [companiesData, agenciesData] = await Promise.all([
-          getCached("/companies", { ttlMs: 60000 }),
-          getCached("/agencies", { ttlMs: 60000 })
-        ]);
-        setCompanies(normalizeListResponse(companiesData));
-        setAgencies(normalizeListResponse(agenciesData));
-      } catch (err) {
-        console.error(err);
-      }
-    };
+  useEffect(() => {
+    void loadDashboard(INITIAL_FILTERS);
+    void loadLookupData();
+    void loadUser();
+  }, [loadDashboard, loadLookupData, loadUser]);
 
-    const [user, setUser] = useState(null);
+  const updateFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }));
 
-    const loadUser = async () => {
-      try {
-        const userData = await getCached("/auth/me", { ttlMs: 120000 });
-        setUser(userData);
-      } catch (err) {
-        console.error("Failed to load user", err);
-      }
-    };
-
-    const filterBar = {
-      display: "flex",
-      gap: "10px",
-      marginBottom: "20px",
-      background: "#fff",
-      padding: "15px",
-      borderRadius: "10px",
-      boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
-    };
-
-    const cardContainer = {
-      display: "flex",
-      gap: "20px"
-    };
-
-    const card = {
-      flex: 1,
-      background: "#fff",
-      padding: "20px",
-      borderRadius: "12px",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.05)"
-    };
-
-    const pipelineContainer = {
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))",
-      gap: "15px",
-      marginTop: "15px"
-    };
-
-    const pipelineCard = {
-      background: "#fff",
-      padding: "15px",
-      borderRadius: "10px",
-      textAlign: "center",
-      boxShadow: "0 2px 5px rgba(0,0,0,0.05)"
-    };
-
-    const alertCard = {
-      flex: 1,
-      background: "#fff",
-      padding: "20px",
-      borderRadius: "12px",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-      borderLeft: "5px solid red"
-    };
-
-    const paymentCard = {
-      flex: 1,
-      background: "#fff",
-      padding: "20px",
-      borderRadius: "12px",
-      boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-      borderLeft: "5px solid green"
-    };
-
-
-     useEffect(() => {
-      loadUser();
-      loadDashboard();
-      loadFilters();
-    }, []);
-
-
-  
-
-  if (!data) return <PageLoader label="Loading dashboard..." />;
+  if (isLoading && !data) return <PageLoader label="Loading dashboard..." />;
+  if (errorMessage && !data) return <div style={{ padding: "20px" }} role="alert"><p>{errorMessage}</p><button type="button" onClick={() => loadDashboard(filters)}>Try again</button></div>;
 
   return (
     <div style={{ padding: "20px", background: "#f5f7fb", minHeight: "100vh" }}>
-      
       <h2 style={{ marginBottom: "20px" }}>Dashboard</h2>
-
-      {/* 🔍 FILTER BAR */}
-      <div style={filterBar}>
-
-        <select
-          value={filters.companyId}
-          onChange={(e) =>
-            setFilters({ ...filters, companyId: e.target.value })
-          }
-        >
-          <option value="">All Companies</option>
-          {companies.map(c => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-
-        {user && isSuperUserLikeRole(user.role) && (
-          <select
-            value={filters.agencyId}
-            onChange={(e) =>
-              setFilters({ ...filters, agencyId: e.target.value })
-            }
-          >
-            <option value="">All Agencies</option>
-            {agencies.map(a => (
-              <option key={a.id} value={a.id}>{a.name}</option>
-            ))}
-          </select>
-        )}
-
-        <input
-          type="date"
-          value={filters.fromDate}
-          onChange={(e) =>
-            setFilters({ ...filters, fromDate: e.target.value })
-          }
-        />
-
-        <input
-          type="date"
-          value={filters.toDate}
-          onChange={(e) =>
-            setFilters({ ...filters, toDate: e.target.value })
-          }
-        />
-
-        <button onClick={loadDashboard}>Apply</button>
+      {errorMessage ? <p role="alert">{errorMessage}</p> : null}
+      <div style={FILTER_BAR_STYLE}>
+        <select value={filters.companyId} onChange={(event) => updateFilter("companyId", event.target.value)}><option value="">All Companies</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select>
+        {user && isSuperUserLikeRole(user.role) ? <select value={filters.agencyId} onChange={(event) => updateFilter("agencyId", event.target.value)}><option value="">All Agencies</option>{agencies.map((agency) => <option key={agency.id} value={agency.id}>{agency.name}</option>)}</select> : null}
+        <input type="date" value={filters.fromDate} onChange={(event) => updateFilter("fromDate", event.target.value)} />
+        <input type="date" value={filters.toDate} onChange={(event) => updateFilter("toDate", event.target.value)} />
+        <button type="button" onClick={() => loadDashboard(filters)} disabled={isLoading}>{isLoading ? "Loading..." : "Apply"}</button>
       </div>
-
-      {/* 📊 KPI CARDS */}
-      <div style={cardContainer}>
-
-        <div style={{ ...card, borderLeft: "5px solid #4CAF50" }}>
-          <p>Total Applicants</p>
-          <h2>{data.totalApplicants}</h2>
-        </div>
-
-        <div style={{ ...card, borderLeft: "5px solid #2196F3" }}>
-          <p>Ongoing</p>
-          <h2>{data.ongoing}</h2>
-        </div>
-
-        <div style={{ ...card, borderLeft: "5px solid #FF9800" }}>
-          <p>Completed</p>
-          <h2>{data.completed}</h2>
-        </div>
-
-      </div>
-
-      {/* 🚀 STAGE PIPELINE */}
-      <div style={{ marginTop: "30px" }}>
-        <h3>Pipeline Status</h3>
-
-        <div style={pipelineContainer}>
-          {Array.from({ length: 13 }, (_, i) => i + 1).map(stage => (
-            <div key={stage} style={pipelineCard}>
-              <p>Stage {stage}</p>
-              <h3>{data.stageCounts[stage] || 0}</h3>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div style={{ marginTop: "30px" }}>
-        <h3>Alerts</h3>
-
-        <div style={{ display: "flex", gap: "20px" }}>
-
-          <div style={alertCard}>
-            <p>📄 Pending Documents</p>
-            <h2>{data.alerts?.pendingDocs || 0}</h2>
-          </div>
-
-          <div style={alertCard}>
-            <p>⏳ Pending Approvals</p>
-            <h2>{data.alerts?.pendingApproval || 0}</h2>
-          </div>
-
-        </div>
-      </div>
-
-      <div style={{ marginTop: "30px" }}>
-        <h3>Payments</h3>
-
-        <div style={{ display: "flex", gap: "20px" }}>
-
-          <div style={paymentCard}>
-            <p>💰 Collected</p>
-            <h2>{data.payments?.totalCollected || 0}</h2>
-          </div>
-
-          <div style={paymentCard}>
-            <p>🧾 Pending</p>
-            <h2>{data.payments?.totalPending || 0}</h2>
-          </div>
-
-        </div>
-      </div>
-
+      <div style={CARD_CONTAINER_STYLE}>{KPI_CARDS.map((card) => <div key={card.key} style={{ ...BASE_CARD_STYLE, borderLeft: `5px solid ${card.color}` }}><p>{card.label}</p><h2>{data?.[card.key] || 0}</h2></div>)}</div>
+      <section style={{ marginTop: "30px" }}><h3>Pipeline Status</h3><div style={PIPELINE_CONTAINER_STYLE}>{Array.from({ length: 13 }, (_, index) => index + 1).map((stage) => <div key={stage} style={PIPELINE_CARD_STYLE}><p>Stage {stage}</p><h3>{data?.stageCounts?.[stage] || 0}</h3></div>)}</div></section>
+      <section style={{ marginTop: "30px" }}><h3>Alerts</h3><div style={CARD_CONTAINER_STYLE}>{ALERT_CARDS.map((card) => <div key={card.key} style={{ ...BASE_CARD_STYLE, borderLeft: "5px solid red" }}><p>{card.label}</p><h2>{data?.alerts?.[card.key] || 0}</h2></div>)}</div></section>
+      <section style={{ marginTop: "30px" }}><h3>Payments</h3><div style={CARD_CONTAINER_STYLE}>{PAYMENT_CARDS.map((card) => <div key={card.key} style={{ ...BASE_CARD_STYLE, borderLeft: "5px solid green" }}><p>{card.label}</p><h2>{data?.payments?.[card.key] || 0}</h2></div>)}</div></section>
     </div>
   );
 }
-
-const card = {
-  padding: "20px",
-  border: "1px solid #ddd", 
-  borderRadius: "10px",
-  width: "200px",
-  textAlign: "center",
-  background: "#f9f9f9"
-};
 
 export default Dashboard;
