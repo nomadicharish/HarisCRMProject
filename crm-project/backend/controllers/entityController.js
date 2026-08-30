@@ -110,6 +110,16 @@ async function uploadDocumentTemplate(req, res) {
   return res.json(data);
 }
 
+async function deleteDocumentTemplate(req, res) {
+  const data = await entityService.deleteCompanyDocumentTemplate(
+    req.params.id,
+    req.query.documentId,
+    req.query.jobPositionId,
+    req.query.templateType
+  );
+  return res.json(data);
+}
+
 module.exports = {
   addAgency,
   addCompany,
@@ -128,5 +138,6 @@ module.exports = {
   updateCompany,
   updateCountry,
   updateEmployer,
-  uploadDocumentTemplate
+  uploadDocumentTemplate,
+  deleteDocumentTemplate
 };

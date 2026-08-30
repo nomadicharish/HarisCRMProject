@@ -1,6 +1,7 @@
 const { db } = require("../../config/firebase");
 const { AppError } = require("../../lib/AppError");
 const { getCompanyDocumentsForApplicant } = require("../../utils/normalizers");
+const { getCommonDocumentType, getCommonDocumentTypeByTarget } = require("../../config/commonDocumentTypes");
 const {
   areLatestRequiredDocumentsApproved,
   syncApplicantDocumentStage
@@ -18,6 +19,35 @@ const {
 const { isSuperUserLikeRole } = require("../../utils/roles");
 const { admin } = require("../../config/firebase");
 const { extractStoragePath } = require("../../utils/storageFiles");
+
+function applyCommonDocumentOverrides(documents = [], commonDocuments = {}, countryId = "") {
+  const storedItems = Array.isArray(commonDocuments.documents) ? commonDocuments.documents : [];
+  const legacyItems = Array.isArray(commonDocuments.standardReferences) ? commonDocuments.standardReferences : [];
+  const items = [...storedItems, ...legacyItems.filter((legacyItem) => !storedItems.some((item) => item?.id === legacyItem?.id))];
+  const overrides = items.filter((item) => Array.isArray(item?.countryIds) && item.countryIds.includes(countryId));
+
+  return documents.map((document) => {
+    const matchingOverride = overrides.find((item) => {
+      const definition = getCommonDocumentType(item.documentType);
+      return definition?.targetField && getCommonDocumentTypeByTarget(document.id, definition.targetField, document.name)?.value === definition.value;
+    });
+    if (!matchingOverride) return document;
+    const definition = getCommonDocumentType(matchingOverride.documentType);
+    if (definition?.targetField === "reference") {
+      return { ...document, referenceFileName: matchingOverride.fileName || "", referenceUrl: matchingOverride.fileUrl || "" };
+    }
+    if (definition?.targetField === "documentToFill") {
+      return {
+        ...document,
+        documentToFillFileName: matchingOverride.fileName || "",
+        documentToFillUrl: matchingOverride.fileUrl || "",
+        templateFileName: matchingOverride.fileName || "",
+        templateFileUrl: matchingOverride.fileUrl || ""
+      };
+    }
+    return document;
+  });
+}
 
 function projectAccountantApplicant(applicant = {}) {
   const personalDetails = applicant.personalDetails || {};
@@ -638,9 +668,18 @@ async function getApplicantDocumentsContextUseCase(req) {
   ]);
   const companyData = companyDoc?.exists ? companyDoc.data() || {} : {};
   const commonDocuments = commonDocumentsDoc.exists ? commonDocumentsDoc.data() || {} : {};
-  const countryReference = (Array.isArray(commonDocuments.standardReferences) ? commonDocuments.standardReferences : [])
-    .find((reference) => Array.isArray(reference?.countryIds) && reference.countryIds.includes(applicant.countryId));
-  const documentConfigs = companyDoc?.exists ? getCompanyDocumentsForApplicant(companyData, applicant) : [];
+  const storedCommonDocuments = Array.isArray(commonDocuments.documents) ? commonDocuments.documents : [];
+  const legacyCommonDocuments = Array.isArray(commonDocuments.standardReferences) ? commonDocuments.standardReferences : [];
+  const commonDocumentItems = [
+    ...storedCommonDocuments,
+    ...legacyCommonDocuments.filter((legacyItem) => !storedCommonDocuments.some((item) => item?.id === legacyItem?.id))
+  ];
+  const countryReference = commonDocumentItems.find(
+    (reference) => reference.documentType === "standard_reference_document" && Array.isArray(reference?.countryIds) && reference.countryIds.includes(applicant.countryId)
+  );
+  const documentConfigs = companyDoc?.exists
+    ? applyCommonDocumentOverrides(getCompanyDocumentsForApplicant(companyData, applicant), commonDocuments, applicant.countryId)
+    : [];
 
   return {
     applicant: {

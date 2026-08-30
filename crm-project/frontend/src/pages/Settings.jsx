@@ -7,6 +7,7 @@ import "react-phone-input-2/lib/style.css";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import PageLoader from "../components/common/PageLoader";
 import SecureImage from "../components/common/SecureImage";
+import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import CountryManagerModal from "../components/dashboard/CountryManagerModal";
 import EntityFormModal from "../components/dashboard/EntityFormModal";
 import EmployersTable from "../components/dashboard/EmployersTable";
@@ -65,6 +66,15 @@ function UploadFileIcon() {
   return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m0 0-4 4m4-4 4 4M5 14v5h14v-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
 
+function ViewIcon() {
+  return (
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6-10-6-10-6Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 function formatReferenceUploadDate(value) {
   const timestampSeconds = value?.seconds ?? value?._seconds;
   const date = typeof value?.toDate === "function"
@@ -86,6 +96,10 @@ const referenceCountrySelectStyles = {
   multiValueLabel: (base) => ({ ...base, color: "#0052cc", fontWeight: 600 })
 };
 
+const COMMON_DOCUMENT_TYPE_OPTIONS = [
+  "Standard Reference Document", "CV Reference Document", "Experience Reference Document", "Passport Reference Document", "Photo Reference Document", "Education Document Reference Document", "Podpis Tujca Reference Document", "Podpis Tujca Document to fill", "Tax Authorization Reference Document", "Tax Authorization Document to fill", "Pan card Reference Document", "Application Authorization Reference Document", "Application Authorization Document to fill", "Appointment Authorization Reference Document", "Appointment Authorization Document to fill", "Medical certificate Reference Document", "Medical certificate Document to fill", "Workwear measurement Reference Document", "Workwear measurement Document to fill", "AFFIDAVIT Document to fill", "AFFIDAVIT Reference Document", "PCC Reference Document", "PCC Document to fill", "Advisory Document"
+].map((label) => ({ value: label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, ""), label })).sort((a, b) => a.label.localeCompare(b.label));
+
 function Settings() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -105,7 +119,10 @@ function Settings() {
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [commonDocumentsLoading, setCommonDocumentsLoading] = useState(false);
   const [standardReferences, setStandardReferences] = useState([]);
+  const [commonDocumentSearch, setCommonDocumentSearch] = useState("");
   const [referenceForm, setReferenceForm] = useState(null);
+  const [commonDocumentToRemove, setCommonDocumentToRemove] = useState(null);
+  const [removingCommonDocument, setRemovingCommonDocument] = useState(false);
   const profilePhotoInputRef = useRef(null);
   const referenceFileInputRef = useRef(null);
   const [bankAccountsLoading, setBankAccountsLoading] = useState(false);
@@ -153,6 +170,10 @@ function Settings() {
     passwordMasked: cachedSettings?.passwordMasked || "********"
     ,profilePhotoUrl: cachedSettings?.profilePhotoUrl || ""
   });
+  const filteredCommonDocuments = useMemo(
+    () => standardReferences.filter((document) => (document.name || "").toLowerCase().includes(commonDocumentSearch.trim().toLowerCase())),
+    [commonDocumentSearch, standardReferences]
+  );
 
   const dashboardTabs = useMemo(() => {
     const role = form.role || cachedSettings?.role || storedUser?.role;
@@ -392,13 +413,20 @@ function Settings() {
   const openReferenceForm = (reference = null) => {
     setReferenceForm(reference ? {
       id: reference.id,
+      documentType: reference.documentType || "standard_reference_document",
       countryIds: Array.isArray(reference.countryIds) ? reference.countryIds : [],
-      file: null
-    } : { id: "", countryIds: [], file: null });
+      file: null,
+      source: reference.source || "",
+      sourceCompanyId: reference.sourceCompanyId || "",
+      sourceJobPositionId: reference.sourceJobPositionId || "",
+      sourceDocumentId: reference.sourceDocumentId || "",
+      sourceTemplateType: reference.sourceTemplateType || ""
+    } : { id: "", documentType: "", countryIds: [], file: null, source: "" });
     if (referenceFileInputRef.current) referenceFileInputRef.current.value = "";
   };
 
   const handleStandardReferenceSave = async () => {
+    if (!referenceForm.documentType) { setError("Select a document type"); return; }
     if (!referenceForm.countryIds.length) { setError("Select at least one country"); return; }
     if (!referenceForm.file) { setError(referenceForm.id ? "Upload the replacement document" : "Select a document to upload"); return; }
     try {
@@ -406,16 +434,38 @@ function Settings() {
       setError("");
       const body = new FormData();
       body.append("file", referenceForm.file);
+      body.append("documentType", referenceForm.documentType);
       body.append("countryIds", JSON.stringify(referenceForm.countryIds));
-      const response = referenceForm.id
+      // A document originating from a company is a legacy company-only file. Saving it
+      // from Common Documents promotes it to a country-mapped common document, so all
+      // selected countries (including those without a company yet) are retained.
+      const isExistingCommonDocument = Boolean(referenceForm.id && referenceForm.source !== "company");
+      const response = isExistingCommonDocument
         ? await API.patch(`/auth/common-documents/standard-reference/${referenceForm.id}`, body, { headers: { "Content-Type": "multipart/form-data" } })
         : await API.post("/auth/common-documents/standard-reference", body, { headers: { "Content-Type": "multipart/form-data" } });
       const item = response.data?.item;
-      if (item) setStandardReferences((items) => referenceForm.id ? items.map((entry) => entry.id === item.id ? item : entry) : [...items, item]);
+      if (item) setStandardReferences((items) => isExistingCommonDocument ? items.map((entry) => entry.id === item.id ? item : entry) : [...items, item]);
       setReferenceForm(null);
-      toast.success(response.data?.message || "Standard reference document saved successfully");
-    } catch (uploadError) { setError(uploadError?.response?.data?.message || "Unable to upload standard reference document"); }
+      if (referenceForm.source === "company") await loadCommonDocuments();
+      toast.success(response.data?.message || "Common document saved successfully");
+    } catch (uploadError) { setError(uploadError?.response?.data?.message || "Unable to upload common document"); }
     finally { setCommonDocumentsLoading(false); }
+  };
+
+  const handleRemoveCommonDocument = async () => {
+    if (!commonDocumentToRemove) return;
+    try {
+      setRemovingCommonDocument(true);
+      if (commonDocumentToRemove.source === "company") {
+        await API.delete(`/companies/${commonDocumentToRemove.sourceCompanyId}/document-template`, { params: { documentId: commonDocumentToRemove.sourceDocumentId, jobPositionId: commonDocumentToRemove.sourceJobPositionId, templateType: commonDocumentToRemove.sourceTemplateType } });
+      } else {
+        await API.delete(`/auth/common-documents/${commonDocumentToRemove.id}`);
+      }
+      setCommonDocumentToRemove(null);
+      await loadCommonDocuments();
+      toast.success("Document deleted successfully");
+    } catch (removeError) { setError(removeError?.response?.data?.message || "Unable to delete document"); }
+    finally { setRemovingCommonDocument(false); }
   };
 
   const resetBankForm = () => {
@@ -638,15 +688,16 @@ function Settings() {
             ) : activeSection === "common-documents" ? (
               <div className="settingsAdminPanel">
                 {referenceForm && canManageCommonDocuments ? <div className="settingsReferenceForm">
-                  <div className="settingsAdminHeader"><div><button type="button" className="settingsReferenceBack" onClick={() => setReferenceForm(null)} aria-label="Back to common documents">←</button><h2 className="settingsSectionTitle">{referenceForm.id ? "Update" : "Add"} Standard Reference Document</h2><p className="settingsSectionDescription">Map one document to one or more countries. Each country can have only one reference document.</p></div></div>
+                  <div className="settingsAdminHeader"><div><button type="button" className="settingsReferenceBack" onClick={() => setReferenceForm(null)} aria-label="Back to common documents">←</button><h2 className="settingsSectionTitle">{referenceForm.id ? "Update" : "Add"} Common Document</h2><p className="settingsSectionDescription">Upload a document type and map it to one or more countries.</p></div></div>
                   <div className="settingsReferenceFields">
                     <div className="settingsReferenceField"><label className="settingsLabel">{referenceForm.id ? "Replacement Document" : "Upload Document"} <span>*</span></label><label className="docsFileBox docsFileBoxUpload settingsReferenceFilePicker"><input ref={referenceFileInputRef} className="docsFileInput" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" disabled={commonDocumentsLoading} onChange={(event) => setReferenceForm((form) => ({ ...form, file: event.target.files?.[0] || null }))} /><div className="docsFileBoxLeft"><span className="docsUploadIcon"><UploadFileIcon /></span><div><div className="docsFileName">{referenceForm.file?.name || "Choose file"}</div><div className="docsFileMeta">PDF, DOC, DOCX, JPG or PNG (Max 5MB)</div></div></div></label></div>
+                    <div className="settingsReferenceField"><label className="settingsLabel">Document Type <span>*</span></label><Select options={COMMON_DOCUMENT_TYPE_OPTIONS} value={COMMON_DOCUMENT_TYPE_OPTIONS.find((option) => option.value === referenceForm.documentType) || null} isDisabled={commonDocumentsLoading} placeholder="Select document type" styles={referenceCountrySelectStyles} onChange={(selected) => setReferenceForm((form) => ({ ...form, documentType: selected?.value || "" }))} /></div>
                     <div className="settingsReferenceField"><label className="settingsLabel">Select Country <span>*</span></label><Select isMulti options={countries.map((country) => ({ value: country.id, label: country.name }))} value={countries.filter((country) => referenceForm.countryIds.includes(country.id)).map((country) => ({ value: country.id, label: country.name }))} isDisabled={commonDocumentsLoading} placeholder="Select Country" styles={referenceCountrySelectStyles} onChange={(selected) => setReferenceForm((form) => ({ ...form, countryIds: (selected || []).map((option) => option.value) }))} /><p className="settingsModalHelp">Select the countries where this reference document is available.</p></div>
                   </div>
-                  <div className="settingsInlineActions"><button type="button" className="settingsMutedBtn" disabled={commonDocumentsLoading} onClick={() => setReferenceForm(null)}>Cancel</button><button type="button" className="settingsPrimaryBtn" disabled={commonDocumentsLoading} onClick={handleStandardReferenceSave}>{commonDocumentsLoading ? "Saving..." : "Save Document"}</button></div>
+                  <div className="settingsInlineActions" style={{ justifyContent: "flex-end" }}><button type="button" className="settingsMutedBtn" disabled={commonDocumentsLoading} onClick={() => setReferenceForm(null)}>Cancel</button><button type="button" className="settingsPrimaryBtn" disabled={commonDocumentsLoading} onClick={handleStandardReferenceSave}>{commonDocumentsLoading ? "Saving..." : "Save Document"}</button></div>
                 </div> : <div className="settingsReferencePanel">
-                  <div className="settingsAdminHeader"><div><h2 className="settingsSectionTitle">Standard Reference Document</h2><p className="settingsSectionDescription">Reference documents available to users during applicant document upload.</p></div>{canManageCommonDocuments ? <button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" onClick={() => openReferenceForm()}>+ Add Document</button> : null}</div>
-                  {commonDocumentsLoading ? <PageLoader label="Loading standard reference documents..." /> : <div className="settingsAdminTableWrap settingsOrganizationTable"><table className="settingsAdminTable"><thead><tr><th>Document Name</th><th>Countries Mapped</th><th>Uploaded On</th>{canManageCommonDocuments ? <th>Actions</th> : null}</tr></thead><tbody>{standardReferences.length ? standardReferences.map((reference) => <tr key={reference.id}><td><strong>{reference.name || reference.fileName}</strong><div className="settingsModalHelp">{reference.fileName}</div></td><td>{reference.countryIds.map((countryId) => countryMap[countryId] || countryId).join(", ") || "-"}</td><td>{formatReferenceUploadDate(reference.createdAt || reference.updatedAt)}</td>{canManageCommonDocuments ? <td><button type="button" className="settingsAdminEditBtn" onClick={() => openReferenceForm(reference)} aria-label="Edit standard reference document"><EditIcon /></button></td> : null}</tr>) : <tr><td colSpan={canManageCommonDocuments ? 4 : 3} className="settingsAdminEmpty">No standard reference documents added.</td></tr>}</tbody></table></div>}
+                  <div className="settingsAdminHeader"><div><h2 className="settingsSectionTitle">Common Documents</h2><p className="settingsSectionDescription">Documents available to users during applicant document upload.</p></div><div style={{ display: "flex", alignItems: "center", gap: 10 }}><input className="settingsInput" style={{ minHeight: 36, width: 230 }} value={commonDocumentSearch} onChange={(event) => setCommonDocumentSearch(event.target.value)} placeholder="Search document type" />{canManageCommonDocuments ? <button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" onClick={() => openReferenceForm()}>+ Add Document</button> : null}</div></div>
+                  {commonDocumentsLoading ? <PageLoader label="Loading common documents..." /> : <div className="settingsAdminTableWrap settingsOrganizationTable"><table className="settingsAdminTable"><thead><tr><th>Document Name</th><th>Countries Mapped</th><th>Uploaded On</th><th>Actions</th></tr></thead><tbody>{[...filteredCommonDocuments].sort((a, b) => (a.name || "").localeCompare(b.name || "")).length ? [...filteredCommonDocuments].sort((a, b) => (a.name || "").localeCompare(b.name || "")).map((reference) => <tr key={reference.id}><td><strong>{reference.name || reference.fileName}</strong><div className="settingsModalHelp">{reference.fileName}</div></td><td>{reference.countryIds.map((countryId) => countryMap[countryId] || countryId).join(", ") || "-"}</td><td>{formatReferenceUploadDate(reference.updatedAt || reference.createdAt)}</td><td><span className="settingsRowActions"><a className="settingsAdminEditBtn" href={reference.fileUrl} target="_blank" rel="noreferrer" aria-label="View common document" title="View document"><ViewIcon /></a>{canManageCommonDocuments ? <><button type="button" className="settingsAdminEditBtn" onClick={() => openReferenceForm(reference)} aria-label="Edit common document"><EditIcon /></button><button type="button" className="settingsAdminDeleteBtn" onClick={() => setCommonDocumentToRemove(reference)} aria-label="Delete common document"><TrashIcon /></button></> : null}</span></td></tr>) : <tr><td colSpan={4} className="settingsAdminEmpty">No common documents added.</td></tr>}</tbody></table></div>}
                 </div>}
               </div>
             ) : activeSection === "bank-details" ? (
@@ -918,6 +969,7 @@ function Settings() {
           </div>
         </div></div>
       ) : null}
+      {commonDocumentToRemove ? <ConfirmActionModal title="Delete Document" message={`Are you sure you want to delete ${commonDocumentToRemove.name || "this document"}? This cannot be undone.`} confirmLabel="Delete Document" isBusy={removingCommonDocument} onConfirm={handleRemoveCommonDocument} onClose={() => !removingCommonDocument && setCommonDocumentToRemove(null)} /> : null}
     </div>
   );
 }

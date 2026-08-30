@@ -53,6 +53,7 @@ router.post("/settings/profile-photo", noStore, verifyToken, upload.single("file
 router.get("/common-documents", noStore, verifyToken, requireCommonDocumentsAccess, asyncHandler(authController.getCommonDocuments));
 router.post("/common-documents/standard-reference", noStore, verifyToken, requireCommonDocumentsManager, upload.single("file"), asyncHandler(authController.uploadStandardReferenceDocument));
 router.patch("/common-documents/standard-reference/:id", noStore, verifyToken, requireCommonDocumentsManager, upload.single("file"), asyncHandler(authController.updateStandardReferenceDocument));
+router.delete("/common-documents/:id", noStore, verifyToken, requireCommonDocumentsManager, asyncHandler(authController.deleteCommonDocument));
 router.get(
   "/bank-accounts",
   noStore,

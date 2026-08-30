@@ -34,12 +34,13 @@ router.get("/companies", verifyToken, requireRight("VIEW_COMPANIES"), noStore, v
 router.post(
   "/companies/:id/document-template",
   verifyToken,
-  allowRoles("SUPER_USER"),
+  allowRoles("SUPER_USER", "ADMIN"),
   upload.single("file"),
   validate(documentTemplateParamsSchema, "params"),
   validate(documentTemplateBodySchema),
   asyncHandler(entityController.uploadDocumentTemplate)
 );
+router.delete("/companies/:id/document-template", verifyToken, allowRoles("SUPER_USER", "ADMIN"), asyncHandler(entityController.deleteDocumentTemplate));
 
 router.post("/add-agency", verifyToken, allowRoles("SUPER_USER"), validate(agencyPayloadSchema), asyncHandler(entityController.addAgency));
 router.patch("/agencies/:id", verifyToken, allowRoles("SUPER_USER"), validate(idParamSchema, "params"), validate(agencyPayloadSchema), asyncHandler(entityController.updateAgency));

@@ -31,7 +31,7 @@ async function uploadProfilePhoto(req, res) {
 }
 
 async function getCommonDocuments(req, res) {
-  const data = await authService.getCommonDocuments();
+  const data = await authService.getCommonDocuments(req.user);
   return res.json(data);
 }
 
@@ -42,6 +42,11 @@ async function uploadStandardReferenceDocument(req, res) {
 
 async function updateStandardReferenceDocument(req, res) {
   const data = await authService.updateStandardReferenceDocument(req.params.id, req.file, { ...req.body, user: req.user });
+  return res.json(data);
+}
+
+async function deleteCommonDocument(req, res) {
+  const data = await authService.deleteCommonDocument(req.params.id);
   return res.json(data);
 }
 
@@ -61,6 +66,7 @@ module.exports = {
   disableUser,
   getCurrentUser,
   getCommonDocuments,
+  deleteCommonDocument,
   getSettings,
   markPasswordUpdated,
   updateSettings,

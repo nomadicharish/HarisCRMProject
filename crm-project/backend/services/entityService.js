@@ -20,6 +20,7 @@ const {
 const { recordCompanyAssignmentNotification } = require("./notificationService");
 const { isAccountantRole, isSuperUserLikeRole } = require("../utils/roles");
 const { hasRight } = require("../config/userRights");
+const { getCommonDocumentType, getCommonDocumentTypeByTarget } = require("../config/commonDocumentTypes");
 
 function buildNormalizedFields({ email = "", contactNumber = "" } = {}) {
   return {
@@ -488,11 +489,39 @@ async function updateCountry(id, { name }) {
   return { message: "Country updated", id };
 }
 
+async function applySavedCommonDocumentsToCompany(countryId, jobPositions = []) {
+  if (!countryId) return jobPositions;
+  const settingsDoc = await db.collection("settings").doc("commonDocuments").get();
+  const settings = settingsDoc.exists ? settingsDoc.data() || {} : {};
+  const storedItems = Array.isArray(settings.documents) ? settings.documents : [];
+  const legacyItems = Array.isArray(settings.standardReferences) ? settings.standardReferences : [];
+  const commonItems = [...storedItems, ...legacyItems.filter((legacyItem) => !storedItems.some((item) => item?.id === legacyItem?.id))]
+    .filter((item) => Array.isArray(item?.countryIds) && item.countryIds.includes(countryId));
+  if (!commonItems.length) return jobPositions;
+  return jobPositions.map((position) => ({
+    ...position,
+    documents: position.documents.map((document) => {
+      const commonItem = commonItems.find((item) => {
+        const definition = getCommonDocumentType(item.documentType);
+        return definition?.targetField && getCommonDocumentTypeByTarget(document.id, definition.targetField, document.name)?.value === definition.value;
+      });
+      if (!commonItem) return document;
+      const definition = getCommonDocumentType(commonItem.documentType);
+      return definition.targetField === "reference"
+        ? { ...document, referenceFileName: commonItem.fileName || "", referenceUrl: commonItem.fileUrl || "" }
+        : { ...document, documentToFillFileName: commonItem.fileName || "", documentToFillUrl: commonItem.fileUrl || "", templateFileName: commonItem.fileName || "", templateFileUrl: commonItem.fileUrl || "" };
+    })
+  }));
+}
+
 async function addCompany(payload) {
   const normalizedEmployerIds = normalizeIdList(payload.employerIds);
   const normalizedAgencyIds = normalizeIdList(payload.agencyIds);
   const documentsNeeded = normalizeCompanyDocuments(payload.documentsNeeded);
-  const jobPositions = normalizeCompanyJobPositions(payload.jobPositions, documentsNeeded);
+  const jobPositions = await applySavedCommonDocumentsToCompany(
+    payload.countryId,
+    normalizeCompanyJobPositions(payload.jobPositions, documentsNeeded)
+  );
   const docRef = await db.collection("companies").add({
     name: payload.name,
     countryId: payload.countryId,
@@ -535,7 +564,10 @@ async function updateCompany(id, payload) {
     : await getAgencyIdsAssignedToCompany(id);
   const normalizedAgencyIds = normalizeIdList(payload.agencyIds);
   const documentsNeeded = normalizeCompanyDocuments(payload.documentsNeeded);
-  const jobPositions = normalizeCompanyJobPositions(payload.jobPositions, documentsNeeded);
+  const jobPositions = await applySavedCommonDocumentsToCompany(
+    payload.countryId,
+    normalizeCompanyJobPositions(payload.jobPositions, documentsNeeded)
+  );
 
   await companyRef.set(
     {
@@ -1096,6 +1128,7 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
 
   const fileNameField = templateType === "reference" ? "referenceFileName" : "documentToFillFileName";
   const fileUrlField = templateType === "reference" ? "referenceUrl" : "documentToFillUrl";
+  const previousPath = String(documentsNeeded[targetIndex][fileUrlField] || "");
 
   documentsNeeded[targetIndex] = {
     ...documentsNeeded[targetIndex],
@@ -1130,10 +1163,39 @@ async function uploadCompanyDocumentTemplate(companyId, documentId, file, jobPos
     );
   }
 
+  if (previousPath && previousPath !== fileUrl && previousPath.startsWith("companies/")) {
+    await bucket.file(previousPath).delete({ ignoreNotFound: true });
+  }
+
   return {
     message: "Template uploaded successfully",
     document: documentsNeeded[targetIndex]
   };
+}
+
+async function deleteCompanyDocumentTemplate(companyId, documentId, jobPositionIdValue = "", templateTypeValue = "documentToFill") {
+  const companyRef = db.collection("companies").doc(String(companyId || ""));
+  const companyDoc = await companyRef.get();
+  if (!companyDoc.exists) throw new AppError("Company not found", 404);
+  const templateType = String(templateTypeValue) === "reference" ? "reference" : "documentToFill";
+  const jobPositionId = String(jobPositionIdValue || "").trim();
+  const jobPositions = normalizeCompanyJobPositions(companyDoc.data()?.jobPositions, companyDoc.data()?.documentsNeeded);
+  const targetPositionIndex = jobPositionId ? jobPositions.findIndex((position) => position.id === jobPositionId) : -1;
+  const documents = targetPositionIndex >= 0 ? jobPositions[targetPositionIndex].documents : normalizeCompanyDocuments(companyDoc.data()?.documentsNeeded);
+  const targetIndex = documents.findIndex((document) => document.id === String(documentId || "").trim());
+  if (targetIndex < 0) throw new AppError("Company document not found", 404);
+  const fileNameField = templateType === "reference" ? "referenceFileName" : "documentToFillFileName";
+  const fileUrlField = templateType === "reference" ? "referenceUrl" : "documentToFillUrl";
+  const previousPath = String(documents[targetIndex][fileUrlField] || "");
+  documents[targetIndex] = { ...documents[targetIndex], [fileNameField]: "", [fileUrlField]: "", ...(templateType === "documentToFill" ? { templateFileName: "", templateFileUrl: "" } : {}), updatedAt: new Date() };
+  if (targetPositionIndex >= 0) {
+    jobPositions[targetPositionIndex] = { ...jobPositions[targetPositionIndex], documents, updatedAt: new Date() };
+    await companyRef.set({ jobPositions, documentsNeeded: jobPositions[0]?.documents || [], updatedAt: new Date() }, { merge: true });
+  } else {
+    await companyRef.set({ documentsNeeded: documents, updatedAt: new Date() }, { merge: true });
+  }
+  if (previousPath.startsWith("companies/")) await admin.storage().bucket().file(previousPath).delete({ ignoreNotFound: true });
+  return { message: "Company document deleted successfully" };
 }
 
 module.exports = {
@@ -1155,5 +1217,6 @@ module.exports = {
   updateCompany,
   updateCountry,
   updateEmployer,
-  uploadCompanyDocumentTemplate
+  uploadCompanyDocumentTemplate,
+  deleteCompanyDocumentTemplate
 };

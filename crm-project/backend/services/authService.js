@@ -1,5 +1,8 @@
 const { admin, db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
+const { getCommonDocumentType, getCommonDocumentTypeByTarget } = require("../config/commonDocumentTypes");
+const { recordCommonDocumentNotification } = require("./notificationService");
+const { normalizeCompanyJobPositions } = require("../utils/normalizers");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
 const { decryptText, encryptText } = require("../utils/crypto");
 const { validatePassword } = require("../utils/password");
@@ -226,21 +229,105 @@ async function uploadProfilePhoto(uid, file) {
   return { message: "Profile picture updated successfully", profilePhotoUrl: storagePath };
 }
 
-async function getCommonDocuments() {
-  const doc = await db.collection("settings").doc("commonDocuments").get();
+async function getCommonDocuments(user = {}) {
+  const [doc, companiesSnapshot] = await Promise.all([
+    db.collection("settings").doc("commonDocuments").get(),
+    db.collection("companies").select("countryId", "documentsNeeded", "jobPositions", "createdAt", "updatedAt").get()
+  ]);
   const data = doc.exists ? doc.data() || {} : {};
-  const items = Array.isArray(data.standardReferences) ? data.standardReferences : [];
-  return {
-    items: items.map((item) => ({
+  const legacyItems = Array.isArray(data.standardReferences) ? data.standardReferences : [];
+  const storedItems = Array.isArray(data.documents) ? data.documents : [];
+  const items = [...storedItems, ...legacyItems.filter((legacyItem) => !storedItems.some((item) => item?.id === legacyItem?.id))].length
+    ? [...storedItems, ...legacyItems.filter((legacyItem) => !storedItems.some((item) => item?.id === legacyItem?.id))]
+    : data.standardReferenceUrl
+      ? [{ id: "legacy_standard_reference", documentType: "standard_reference_document", fileName: data.standardReferenceFileName, fileUrl: data.standardReferenceUrl, countryIds: [] }]
+      : [];
+  const commonDocumentItems = items.map((item) => ({
       id: String(item.id || ""),
-      name: "Standard Reference Document",
+      documentType: getCommonDocumentType(item.documentType)?.value || "standard_reference_document",
+      name: getCommonDocumentType(item.documentType)?.label || "Standard Reference Document",
       fileName: String(item.fileName || item.standardReferenceFileName || ""),
       fileUrl: String(item.fileUrl || item.standardReferenceUrl || ""),
       countryIds: Array.isArray(item.countryIds) ? item.countryIds.filter(Boolean) : [],
       createdAt: item.createdAt || null,
       updatedAt: item.updatedAt || null,
       createdByName: String(item.createdByName || "")
-    })),
+    }));
+  const companyDocumentItems = [];
+  companiesSnapshot.forEach((companyDoc) => {
+    const company = companyDoc.data() || {};
+    const positions = Array.isArray(company.jobPositions) && company.jobPositions.length
+      ? company.jobPositions
+      : [{ id: "default", documents: Array.isArray(company.documentsNeeded) ? company.documentsNeeded : [] }];
+    positions.forEach((position, positionIndex) => {
+      const documents = Array.isArray(position?.documents) && position.documents.length
+        ? position.documents
+        : Array.isArray(position?.documentsNeeded) && position.documentsNeeded.length
+          ? position.documentsNeeded
+          : positionIndex === 0 && Array.isArray(company.documentsNeeded)
+            ? company.documentsNeeded
+            : [];
+      documents.forEach((document, documentIndex) => {
+        ["reference", "documentToFill"].forEach((targetField) => {
+          const definition = getCommonDocumentTypeByTarget(document?.id, targetField, document?.name);
+          const fileUrl = targetField === "reference"
+            ? document?.referenceUrl || document?.referenceDocumentUrl
+            : document?.documentToFillUrl || document?.fillDocumentUrl || document?.templateFileUrl;
+          const fileName = targetField === "reference"
+            ? document?.referenceFileName || document?.referenceDocumentFileName
+            : document?.documentToFillFileName || document?.fillDocumentFileName || document?.templateFileName;
+          if (!fileUrl) return;
+          const documentName = String(document?.name || document?.id || "Company Document").trim();
+          companyDocumentItems.push({
+            id: `company_${companyDoc.id}_${position?.id || positionIndex}_${document?.id || documentIndex}_${targetField}`,
+            documentType: definition?.value || "company_existing_document",
+            name: definition?.label || `${documentName} ${targetField === "reference" ? "Reference Document" : "Document to fill"}`,
+            fileName: String(fileName || ""),
+            fileUrl: String(fileUrl || ""),
+            countryIds: company.countryId ? [String(company.countryId)] : [],
+            createdAt: company.updatedAt || company.createdAt || null,
+            updatedAt: company.updatedAt || null,
+            createdByName: "",
+            source: "company",
+            sourceCompanyId: companyDoc.id,
+            sourceJobPositionId: String(position?.id || ""),
+            sourceDocumentId: String(document?.id || ""),
+            sourceTemplateType: targetField
+          });
+        });
+      });
+    });
+  });
+  const effectiveItems = [...commonDocumentItems];
+  const seenCompanyDocumentKeys = new Set();
+  companyDocumentItems.forEach((item) => {
+    const isCoveredByCommonDocument = commonDocumentItems.some(
+      (commonItem) => commonItem.documentType === item.documentType && (commonItem.countryIds || []).some((countryId) => (item.countryIds || []).includes(countryId))
+    );
+    const companyKey = `${item.documentType}:${(item.countryIds || []).slice().sort().join(",")}:${item.documentType === "company_existing_document" ? item.name : ""}`;
+    if (isCoveredByCommonDocument || seenCompanyDocumentKeys.has(companyKey)) return;
+    seenCompanyDocumentKeys.add(companyKey);
+    effectiveItems.push(item);
+  });
+  let visibleItems = effectiveItems;
+  if (user?.role === "AGENCY") {
+    const agencyId = String(user.agencyId || user.uid || "");
+    const agencyDoc = agencyId ? await db.collection("agencies").doc(agencyId).get() : null;
+    const assignedCompanyIds = agencyDoc?.exists && Array.isArray(agencyDoc.data()?.assignedCompanyIds)
+      ? new Set(agencyDoc.data().assignedCompanyIds.map((id) => String(id || "")).filter(Boolean))
+      : new Set();
+    const allowedCountryIds = new Set(
+      companiesSnapshot.docs
+        .filter((companyDoc) => assignedCompanyIds.has(companyDoc.id))
+        .map((companyDoc) => String(companyDoc.data()?.countryId || ""))
+        .filter(Boolean)
+    );
+    visibleItems = effectiveItems
+      .map((item) => ({ ...item, countryIds: (item.countryIds || []).filter((countryId) => allowedCountryIds.has(String(countryId))) }))
+      .filter((item) => item.countryIds.length);
+  }
+  return {
+    items: visibleItems,
     // Retain these fields for clients that have not yet moved to country-mapped references.
     standardReferenceFileName: data.standardReferenceFileName || "",
     standardReferenceUrl: data.standardReferenceUrl || ""
@@ -259,21 +346,62 @@ function parseCountryIds(countryIds) {
 }
 
 function normalizeStandardReferences(data = {}) {
-  return Array.isArray(data.standardReferences) ? data.standardReferences.filter((item) => item && item.id) : [];
+  const storedItems = Array.isArray(data.documents) ? data.documents : [];
+  const legacyItems = Array.isArray(data.standardReferences) ? data.standardReferences : [];
+  const mergedItems = [...storedItems, ...legacyItems.filter((legacyItem) => !storedItems.some((item) => item?.id === legacyItem?.id))];
+  const items = mergedItems.length
+    ? mergedItems
+    : data.standardReferenceUrl
+      ? [{ id: "legacy_standard_reference", documentType: "standard_reference_document", fileName: data.standardReferenceFileName || "", fileUrl: data.standardReferenceUrl, countryIds: [] }]
+      : [];
+  return items.map((item) => ({ ...item, documentType: getCommonDocumentType(item.documentType)?.value || "standard_reference_document" })).filter((item) => item && item.id);
 }
 
-function getConflictingCountryIds(items, countryIds, excludedId = "") {
+function getConflictingCountryIds(items, countryIds, documentType, excludedId = "") {
   const mappedCountryIds = new Set(
     items
-      .filter((item) => item.id !== excludedId)
+      .filter((item) => item.id !== excludedId && item.documentType === documentType)
       .flatMap((item) => Array.isArray(item.countryIds) ? item.countryIds : [])
   );
   return countryIds.filter((countryId) => mappedCountryIds.has(countryId));
 }
 
-async function uploadStandardReferenceDocument(file, { countryIds, user } = {}) {
-  if (!file) throw new AppError("Standard reference document is required", 400);
-  const documentName = "Standard Reference Document";
+async function syncCommonDocumentToCompanyRequirements(item = {}) {
+  const definition = getCommonDocumentType(item.documentType);
+  if (!definition?.targetDocumentId || !definition.targetField) return;
+  const countryIds = new Set(Array.isArray(item.countryIds) ? item.countryIds : []);
+  if (!countryIds.size) return;
+  const snapshot = await db.collection("companies").get();
+  const replacedStoragePaths = new Set();
+  await Promise.all(snapshot.docs.filter((companyDoc) => countryIds.has(String(companyDoc.data()?.countryId || ""))).map(async (companyDoc) => {
+    const company = companyDoc.data() || {};
+    const jobPositions = normalizeCompanyJobPositions(company.jobPositions, company.documentsNeeded);
+    let changed = false;
+    const nextPositions = jobPositions.map((position) => ({
+      ...position,
+      documents: position.documents.map((document) => {
+        const matchedType = getCommonDocumentTypeByTarget(document.id, definition.targetField, document.name);
+        if (matchedType?.value !== definition.value) return document;
+        const oldPath = definition.targetField === "reference" ? document.referenceUrl : document.documentToFillUrl || document.templateFileUrl;
+        if (oldPath && oldPath !== item.fileUrl && String(oldPath).startsWith("companies/")) replacedStoragePaths.add(oldPath);
+        changed = true;
+        return definition.targetField === "reference"
+          ? { ...document, referenceFileName: item.fileName, referenceUrl: item.fileUrl, updatedAt: new Date() }
+          : { ...document, documentToFillFileName: item.fileName, documentToFillUrl: item.fileUrl, templateFileName: item.fileName, templateFileUrl: item.fileUrl, updatedAt: new Date() };
+      }),
+      updatedAt: new Date()
+    }));
+    if (changed) await companyDoc.ref.set({ jobPositions: nextPositions, documentsNeeded: nextPositions[0]?.documents || [], updatedAt: new Date() }, { merge: true });
+  }));
+  const bucket = admin.storage().bucket();
+  await Promise.all([...replacedStoragePaths].map((path) => bucket.file(path).delete({ ignoreNotFound: true })));
+}
+
+async function uploadStandardReferenceDocument(file, { countryIds, documentType, user } = {}) {
+  if (!file) throw new AppError("Common document is required", 400);
+  const documentDefinition = getCommonDocumentType(documentType);
+  if (!documentDefinition) throw new AppError("Select a valid document type", 400);
+  const documentName = documentDefinition.label;
   const mappedCountryIds = parseCountryIds(countryIds);
   if (!mappedCountryIds.length) throw new AppError("Select at least one country", 400);
   const ref = db.collection("settings").doc("commonDocuments");
@@ -285,6 +413,7 @@ async function uploadStandardReferenceDocument(file, { countryIds, user } = {}) 
   const item = {
     id,
     name: documentName,
+    documentType: documentDefinition.value,
     fileName: file.originalname || safeFileName,
     fileUrl: storagePath,
     countryIds: mappedCountryIds,
@@ -296,20 +425,24 @@ async function uploadStandardReferenceDocument(file, { countryIds, user } = {}) 
     await db.runTransaction(async (transaction) => {
       const snapshot = await transaction.get(ref);
       const items = normalizeStandardReferences(snapshot.data() || {});
-      const conflicts = getConflictingCountryIds(items, mappedCountryIds);
-      if (conflicts.length) throw new AppError("A standard reference document already exists for one or more selected countries", 409, { countryIds: conflicts });
-      transaction.set(ref, { standardReferences: [...items, item], updatedAt: new Date() }, { merge: true });
+      const conflicts = getConflictingCountryIds(items, mappedCountryIds, documentDefinition.value);
+      if (conflicts.length) throw new AppError("This document type already exists for one or more selected countries", 409, { countryIds: conflicts });
+      transaction.set(ref, { documents: [...items, item], updatedAt: new Date() }, { merge: true });
     });
   } catch (error) {
     await bucket.file(storagePath).delete({ ignoreNotFound: true });
     throw error;
   }
-  return { message: "Standard reference document added successfully", item };
+  await syncCommonDocumentToCompanyRequirements(item);
+  await recordCommonDocumentNotification({ documentId: item.id, documentName: item.name, countryIds: item.countryIds, user, isUpdate: false });
+  return { message: "Common document added successfully", item };
 }
 
-async function updateStandardReferenceDocument(id, file, { countryIds, user } = {}) {
-  if (!file) throw new AppError("Upload the replacement standard reference document", 400);
-  const documentName = "Standard Reference Document";
+async function updateStandardReferenceDocument(id, file, { countryIds, documentType, user } = {}) {
+  if (!file) throw new AppError("Upload the replacement common document", 400);
+  const documentDefinition = getCommonDocumentType(documentType);
+  if (!documentDefinition) throw new AppError("Select a valid document type", 400);
+  const documentName = documentDefinition.label;
   const mappedCountryIds = parseCountryIds(countryIds);
   if (!mappedCountryIds.length) throw new AppError("Select at least one country", 400);
   const ref = db.collection("settings").doc("commonDocuments");
@@ -325,18 +458,31 @@ async function updateStandardReferenceDocument(id, file, { countryIds, user } = 
       const items = normalizeStandardReferences(snapshot.data() || {});
       const current = items.find((item) => item.id === id);
       if (!current) throw new AppError("Standard reference document not found", 404);
-      const conflicts = getConflictingCountryIds(items, mappedCountryIds, id);
-      if (conflicts.length) throw new AppError("A standard reference document already exists for one or more selected countries", 409, { countryIds: conflicts });
+      const conflicts = getConflictingCountryIds(items, mappedCountryIds, documentDefinition.value, id);
+      if (conflicts.length) throw new AppError("This document type already exists for one or more selected countries", 409, { countryIds: conflicts });
       previousPath = String(current.fileUrl || "");
-      updatedItem = { ...current, name: documentName, fileName: file.originalname || safeFileName, fileUrl: storagePath, countryIds: mappedCountryIds, updatedAt: new Date(), updatedByName: String(user?.name || "") };
-      transaction.set(ref, { standardReferences: items.map((item) => item.id === id ? updatedItem : item), updatedAt: new Date() }, { merge: true });
+      updatedItem = { ...current, name: documentName, documentType: documentDefinition.value, fileName: file.originalname || safeFileName, fileUrl: storagePath, countryIds: mappedCountryIds, updatedAt: new Date(), updatedByName: String(user?.name || "") };
+      transaction.set(ref, { documents: items.map((item) => item.id === id ? updatedItem : item), updatedAt: new Date() }, { merge: true });
     });
   } catch (error) {
     await bucket.file(storagePath).delete({ ignoreNotFound: true });
     throw error;
   }
   if (previousPath && previousPath !== storagePath) await bucket.file(previousPath).delete({ ignoreNotFound: true });
-  return { message: "Standard reference document updated successfully", item: updatedItem };
+  await syncCommonDocumentToCompanyRequirements(updatedItem);
+  await recordCommonDocumentNotification({ documentId: updatedItem.id, documentName: updatedItem.name, countryIds: updatedItem.countryIds, user, isUpdate: true });
+  return { message: "Common document updated successfully", item: updatedItem };
+}
+
+async function deleteCommonDocument(id) {
+  const ref = db.collection("settings").doc("commonDocuments");
+  const snapshot = await ref.get();
+  const items = normalizeStandardReferences(snapshot.data() || {});
+  const item = items.find((entry) => entry.id === id);
+  if (!item) throw new AppError("Common document not found", 404);
+  await ref.set({ documents: items.filter((entry) => entry.id !== id), updatedAt: new Date() }, { merge: true });
+  if (String(item.fileUrl || "").startsWith("common-documents/")) await admin.storage().bucket().file(item.fileUrl).delete({ ignoreNotFound: true });
+  return { message: "Common document deleted successfully" };
 }
 
 async function markPasswordUpdated(uid) {
@@ -372,6 +518,7 @@ module.exports = {
   disableUser,
   getCurrentUserProfile,
   getCommonDocuments,
+  deleteCommonDocument,
   getSettings,
   markPasswordUpdated,
   updateSettings,

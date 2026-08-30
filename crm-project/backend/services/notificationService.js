@@ -81,6 +81,8 @@ const ACTION_META = {
   ARRIVAL_DETAILS_UPDATED: { title: "Arrival Details Updated", tone: "blue", icon: "send", verb: "updated arrival details" },
   PROCESS_COMPLETED: { title: "Candidate Arrival Completed", tone: "green", icon: "send", verb: "marked candidate arrival and completion" },
   COMPANY_ASSIGNED: { title: "New Company Added", tone: "blue", icon: "building", verb: "added company" },
+  COMMON_DOCUMENT_ADDED: { title: "Common Document Added", tone: "blue", icon: "document", verb: "added common document" },
+  COMMON_DOCUMENT_UPDATED: { title: "Common Document Updated", tone: "blue", icon: "document", verb: "updated common document" },
   TRC_ADDED: { title: "TRC Added", tone: "green", icon: "document", verb: "added TRC" },
   TRC_UPDATED: { title: "TRC Updated", tone: "green", icon: "document", verb: "updated TRC" }
 };
@@ -244,8 +246,8 @@ function actorLabel(payload = {}) {
   return "User";
 }
 
-function getUnreadNotificationGroupId({ actionKey = "", actorId = "", userId = "" } = {}) {
-  return Buffer.from(`${actionKey}:${actorId}:${userId}`).toString("base64url");
+function getUnreadNotificationGroupId({ actionKey = "", actorId = "", userId = "", documentId = "" } = {}) {
+  return Buffer.from(`${actionKey}:${actorId}:${userId}:${documentId}`).toString("base64url");
 }
 
 async function getApplicantStages(applicantIds = []) {
@@ -308,6 +310,9 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
     recipientCompanyId: payload.recipientCompanyId || "",
     recipientEmployerId: payload.recipientEmployerId || "",
     companyName: payload.companyName || "",
+    documentId: payload.documentId || "",
+    documentName: payload.documentName || "",
+    navigationTarget: payload.navigationTarget || "",
     createdAt,
     read: false
   };
@@ -351,7 +356,7 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
       ? chunk.map(([userId]) => db.collection(APP_NOTIFICATION_COLLECTION).doc(
         sourceEventId
           ? `${sourceEventId}_${userId}`
-          : `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId })}`
+          : `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId, documentId: event.documentId })}`
       ))
       : [];
     const existingDocs = deterministicRefs.length ? await db.getAll(...deterministicRefs) : [];
@@ -362,7 +367,7 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
         ? db.collection(APP_NOTIFICATION_COLLECTION).doc(`${sourceEventId}_${userId}`)
         : shouldGroupUnread
           ? db.collection(APP_NOTIFICATION_COLLECTION).doc(
-            `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId })}`
+            `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId, documentId: event.documentId })}`
           )
         : db.collection(APP_NOTIFICATION_COLLECTION).doc();
       const existing = existingById.get(eventRef.id);
@@ -428,6 +433,47 @@ async function recordCompanyAssignmentNotification({
     recipientCompanyId: companyId,
     recipientEmployerId
   });
+}
+
+async function recordCommonDocumentNotification({ documentId = "", documentName = "Common Document", countryIds = [], user = {}, isUpdate = false } = {}) {
+  const selectedCountryIds = new Set((Array.isArray(countryIds) ? countryIds : []).map((id) => String(id || "")).filter(Boolean));
+  if (!selectedCountryIds.size) return;
+
+  const [companiesSnapshot, agenciesSnapshot] = await Promise.all([
+    db.collection("companies").select("countryId", "agencyIds").get(),
+    db.collection("agencies").select("assignedCompanyIds").get()
+  ]);
+  const matchingCompanyIds = new Set();
+  const agencyIds = new Set();
+  companiesSnapshot.forEach((companyDoc) => {
+    const company = companyDoc.data() || {};
+    if (!selectedCountryIds.has(String(company.countryId || ""))) return;
+    matchingCompanyIds.add(companyDoc.id);
+    (Array.isArray(company.agencyIds) ? company.agencyIds : []).forEach((agencyId) => {
+      if (agencyId) agencyIds.add(String(agencyId));
+    });
+  });
+  // Keep compatibility with companies created before agencyIds was stored.
+  agenciesSnapshot.forEach((agencyDoc) => {
+    const assignedCompanyIds = Array.isArray(agencyDoc.data()?.assignedCompanyIds) ? agencyDoc.data().assignedCompanyIds : [];
+    if (assignedCompanyIds.some((companyId) => matchingCompanyIds.has(String(companyId)))) agencyIds.add(agencyDoc.id);
+  });
+
+  const actionKey = isUpdate ? "COMMON_DOCUMENT_UPDATED" : "COMMON_DOCUMENT_ADDED";
+  const actorName = await resolveActorName(user, "Super User");
+  await Promise.all([...agencyIds].map((agencyId) => safeAddDailyEvent({
+    type: "APP_NOTIFICATION",
+    actionKey,
+    actionLabel: ACTION_META[actionKey].title,
+    actorId: user.uid || "",
+    actorRole: user.role || "",
+    actorName,
+    documentId,
+    documentName,
+    navigationTarget: "common-documents",
+    recipientRoles: ["AGENCY"],
+    recipientAgencyId: agencyId
+  })));
 }
 
 function defaultRecipientRoles({ actionKey, applicant = {}, user = {} } = {}) {
@@ -609,6 +655,9 @@ function buildNotificationMessage(group = {}, { recipientRole = "" } = {}) {
   const hideActorName = recipientRole === "EMPLOYER";
   if (group.actionKey === "COMPANY_ASSIGNED") {
     return `New company added: ${group.companyName || group.companyId || "Company"}.`;
+  }
+  if (group.actionKey === "COMMON_DOCUMENT_ADDED" || group.actionKey === "COMMON_DOCUMENT_UPDATED") {
+    return `${actor} ${group.actionKey === "COMMON_DOCUMENT_UPDATED" ? "updated" : "added"} the ${group.documentName || "Common Document"}.`;
   }
   // For creation verbs prefer "{Actor} created {n} applicants." phrasing
   if (/created applicant/i.test(verb) || /applicants added/i.test(group.title || "")) {
@@ -1032,6 +1081,7 @@ module.exports = {
   recordAdminApproval,
   recordAgencyTask,
   recordCompanyAssignmentNotification,
+  recordCommonDocumentNotification,
   recordEmployerWorkflowInitiated,
   recordBulkContractUpload,
   recordNotificationAction,

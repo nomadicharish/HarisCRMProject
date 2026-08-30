@@ -36,6 +36,10 @@ function BellSvg() {
 }
 
 function openNotification(navigate, item) {
+  if (item?.navigationTarget === "common-documents") {
+    navigate("/settings?section=common-documents");
+    return;
+  }
   const params = new URLSearchParams();
   params.set("tab", "applicants");
   if (item?.applicantIds?.length) params.set("notificationApplicants", item.applicantIds.join(","));
