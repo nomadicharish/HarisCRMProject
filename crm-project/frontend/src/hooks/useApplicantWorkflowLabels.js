@@ -40,7 +40,10 @@ function useApplicantWorkflowLabels({
     const applicantStage = Number(applicant?.stage || 1);
     const isSuperUser = isSuperUserLikeRole(user?.role);
     const canReviewPendingContract = isSuperUser || user?.role === "ADMIN";
-    const canApproveProfile = isSuperUser && applicantStage === 1;
+    const canApproveProfile =
+      (isSuperUser || user?.role === "ADMIN") &&
+      applicantStage === 1 &&
+      String(applicant?.approvalStatus || "").toLowerCase() !== "approved";
     const isEmployer = user?.role === "EMPLOYER";
     const candidateArrivalCompletedDate = formatCompletedStageDate(applicant?.completedAt);
 
@@ -155,12 +158,13 @@ function useApplicantWorkflowLabels({
     const shouldShowDocumentAction =
       canManageDocuments &&
       !hasCompletedDocumentStage &&
-      applicantStage >= 2 &&
-      (!isSuperUser || hasDocuments || uploadedRequired || pendingRequired);
+      applicantStage >= 2;
     const documentsButtonLabel = !shouldShowDocumentAction
       ? ""
       : isSuperUser
-      ? "Verify Documents"
+      ? hasDocuments || uploadedRequired || pendingRequired
+        ? "Verify Documents"
+        : "Upload Documents"
       : rejectedRequired
       ? "Reupload Document"
       : "Upload Documents";

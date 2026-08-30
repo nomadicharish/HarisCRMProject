@@ -340,7 +340,7 @@ function ApplicantDocumentsWorkspace() {
   });
 
   const hasAnySelection = Object.values(selectedFiles).some((entry) => Boolean(entry?.file));
-  const canSendForApproval = !canReview && hasAnySelection && requiredSelected;
+  const canSendForApproval = hasAnySelection && requiredSelected;
   const hasRejectedSelections = reviewState.requiredDocs.some(
     (doc) => reviewState.latestByType[doc.key]?.status === "REJECTED" && Boolean(selectedFiles[doc.key]?.file)
   );
@@ -657,7 +657,7 @@ function ApplicantDocumentsWorkspace() {
             const isPending = latest?.status === "PENDING";
             const isApproved = latest?.status === "APPROVED";
             const showReviewActions = canReview && latest?.status === "PENDING";
-            const canAgentUpload = !dispatchStarted && !canReview && (!latest || latest.status === "REJECTED" || !latest.fileUrl);
+            const canAgentUpload = !dispatchStarted && (!latest || latest.status === "REJECTED" || !latest.fileUrl);
             const selectedFileEntry = selectedFiles[doc.key] || null;
             const selectedFile = selectedFileEntry?.file || null;
             const fileName = getDocumentFileName(doc.key, latest, selectedFile);
@@ -832,17 +832,17 @@ function ApplicantDocumentsWorkspace() {
         </div>
 
             {saving ? <div className="docsBusyLayer">Please wait...</div> : null}
-            {!canReview ? (
+            {!canReview || hasAnySelection ? (
               <div className="docsReviewFooter">
-                <div className="docsFooterNote">Please refer to the reference document before uploading. All documents will be reviewed by the admin.</div>
-                {topBar.actionLabel ? (
+                {!canReview ? <div className="docsFooterNote">Please refer to the reference document before uploading. All documents will be reviewed by the admin.</div> : null}
+                {(!canReview ? topBar.actionLabel : hasAnySelection) ? (
                 <button
                   type="button"
                   className="btn docsTopBarButton docsBottomSubmitButton"
                   disabled={!canSendForApproval || saving}
                   onClick={handleSendForApproval}
                 >
-                  {saving ? "Submitting..." : topBar.actionLabel}
+                  {saving ? "Submitting..." : canReview ? "Upload Documents" : topBar.actionLabel}
                 </button>
                 ) : null}
               </div>

@@ -92,6 +92,38 @@ function shouldProjectAccountantApplicant(role) {
   return role === "JUNIOR_ACCOUNTANT" || role === "SENIOR_ACCOUNTANT";
 }
 
+async function autoApprovePrivilegedCreatorApplicant(applicantId, applicant = {}) {
+  const approvalStatus = String(applicant.approvalStatus || "").trim().toLowerCase();
+  // This is a one-time compatibility repair for applicants created before
+  // privileged creators were automatically approved. Do not override an
+  // applicant that has progressed to any other explicit approval state.
+  if (approvalStatus && approvalStatus !== "pending") return applicant;
+  if (!applicant.createdBy) return applicant;
+
+  const creatorDoc = await db.collection("users").doc(applicant.createdBy).get();
+  const creatorRole = String(creatorDoc.exists ? creatorDoc.data()?.role || "" : "").toUpperCase();
+  if (creatorRole !== "SUPER_USER" && creatorRole !== "ADMIN") return applicant;
+
+  const approvedApplicant = {
+    ...applicant,
+    approvalStatus: "approved",
+    approvedBy: applicant.approvedBy || applicant.createdBy,
+    applicantBannerStatus: "Document upload pending",
+    stage: Math.max(2, Number(applicant.stage || 1))
+  };
+
+  await db.collection("applicants").doc(applicantId).update({
+    approvalStatus: approvedApplicant.approvalStatus,
+    approvedBy: approvedApplicant.approvedBy,
+    approvedAt: applicant.approvedAt || admin.firestore.FieldValue.serverTimestamp(),
+    applicantBannerStatus: approvedApplicant.applicantBannerStatus,
+    stage: approvedApplicant.stage,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  return approvedApplicant;
+}
+
 async function getApplicantProfilePhotoUrl(applicantId) {
   const docsRef = db.collection("applicants").doc(applicantId).collection("documents");
   const [photoDoc, legacyPhotoDoc] = await Promise.all([
@@ -208,7 +240,7 @@ async function getApplicantByIdUseCase(req) {
   const doc = await db.collection("applicants").doc(applicantId).get();
   if (!doc.exists) throw new AppError("Applicant not found", 404);
 
-  const applicant = doc.data() || {};
+  const applicant = await autoApprovePrivilegedCreatorApplicant(applicantId, doc.data() || {});
   if (req.user?.role === "EMPLOYER") await assertEmployerApplicantAccess(req, applicant);
   const applicantData = await syncApplicantDocumentStageFromSummary(applicantId, applicant, req.user);
 
@@ -337,7 +369,7 @@ async function getApplicantWorkflowBundleUseCase(req) {
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
-  const applicant = applicantSnap.data() || {};
+  const applicant = await autoApprovePrivilegedCreatorApplicant(applicantId, applicantSnap.data() || {});
   if (req.user?.role === "EMPLOYER") await assertEmployerApplicantAccess(req, applicant);
   const applicantData = await syncApplicantDocumentStageFromSummary(applicantId, applicant, req.user);
   const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
@@ -659,7 +691,7 @@ async function getApplicantDocumentsContextUseCase(req) {
   const applicantSnap = await applicantRef.get();
   if (!applicantSnap.exists) throw new AppError("Applicant not found", 404);
 
-  const applicant = applicantSnap.data() || {};
+  const applicant = await autoApprovePrivilegedCreatorApplicant(applicantId, applicantSnap.data() || {});
   if (req.user?.role === "EMPLOYER") await assertEmployerApplicantAccess(req, applicant);
   const profilePhotoUrl = await getApplicantProfilePhotoUrl(applicantId);
   const [companyDoc, commonDocumentsDoc] = await Promise.all([

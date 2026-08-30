@@ -68,7 +68,8 @@ async function createApplicantUseCase(req) {
   const normalizedTotalApplicantPayment = requestedTotal > 0 ? requestedTotal : 0;
   const normalizedTotalEmployerPayment = toNumber(totalEmployerPayment);
   const paymentCurrency = normalizePaymentCurrency(req.body.paymentCurrency || currency);
-  const approvalStatus = userRole === "AGENCY" ? "pending" : "approved";
+  const isPrivilegedCreator = isSuperUserLikeRole(userRole) || userRole === "ADMIN";
+  const approvalStatus = isPrivilegedCreator ? "approved" : "pending";
 
   const referenceFields = await resolveApplicantReferenceFields({
     countryId,
@@ -108,8 +109,12 @@ async function createApplicantUseCase(req) {
     ...referenceFields,
     createdBy: userId,
     approvalStatus,
+    approvedBy: isPrivilegedCreator ? userId : null,
+    approvedAt: isPrivilegedCreator ? admin.firestore.FieldValue.serverTimestamp() : null,
     applicantBannerStatus: approvalStatus === "approved" ? "Document upload pending" : "Candidate created. Pending for Admin approval",
-    stage: 1,
+    // Manual approval advances the applicant to the document-upload stage.
+    // Keep automatically approved privileged creations on that same stage.
+    stage: isPrivilegedCreator ? 2 : 1,
     stageStatus: "ongoing",
     totalApplicantPayment: normalizedTotalApplicantPayment,
     totalAmount: normalizedTotalApplicantPayment,
@@ -147,7 +152,8 @@ async function createApplicantUseCase(req) {
 
   return {
     message: "Applicant created successfully",
-    applicantId
+    applicantId,
+    approvalStatus
   };
 }
 
