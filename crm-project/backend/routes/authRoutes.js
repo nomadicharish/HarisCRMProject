@@ -51,6 +51,7 @@ router.get("/settings", noStore, verifyToken, asyncHandler(authController.getSet
 router.patch("/settings", noStore, verifyToken, validate(updateSettingsSchema), asyncHandler(authController.updateSettings));
 router.post("/settings/profile-photo", noStore, verifyToken, upload.single("file"), asyncHandler(authController.uploadProfilePhoto));
 router.get("/common-documents", noStore, verifyToken, requireCommonDocumentsAccess, asyncHandler(authController.getCommonDocuments));
+router.post("/common-documents/types", noStore, verifyToken, requireRootSuperUser, asyncHandler(authController.createCommonDocumentType));
 router.post("/common-documents/standard-reference", noStore, verifyToken, requireCommonDocumentsManager, upload.single("file"), asyncHandler(authController.uploadStandardReferenceDocument));
 router.patch("/common-documents/standard-reference/:id", noStore, verifyToken, requireCommonDocumentsManager, upload.single("file"), asyncHandler(authController.updateStandardReferenceDocument));
 router.delete("/common-documents/:id", noStore, verifyToken, requireCommonDocumentsManager, asyncHandler(authController.deleteCommonDocument));

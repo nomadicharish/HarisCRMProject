@@ -1,6 +1,6 @@
 const { admin, db } = require("../config/firebase");
 const { AppError } = require("../lib/AppError");
-const { getCommonDocumentType, getCommonDocumentTypeByTarget } = require("../config/commonDocumentTypes");
+const { COMMON_DOCUMENT_TYPES, getCommonDocumentType, getCommonDocumentTypeByTarget } = require("../config/commonDocumentTypes");
 const { recordCommonDocumentNotification } = require("./notificationService");
 const { normalizeCompanyJobPositions } = require("../utils/normalizers");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
@@ -242,17 +242,21 @@ async function getCommonDocuments(user = {}) {
     : data.standardReferenceUrl
       ? [{ id: "legacy_standard_reference", documentType: "standard_reference_document", fileName: data.standardReferenceFileName, fileUrl: data.standardReferenceUrl, countryIds: [] }]
       : [];
-  const commonDocumentItems = items.map((item) => ({
+  const documentTypes = getConfiguredDocumentTypes(data);
+  const commonDocumentItems = items.map((item) => {
+    const definition = getConfiguredDocumentType(data, item.documentType);
+    return {
       id: String(item.id || ""),
-      documentType: getCommonDocumentType(item.documentType)?.value || "standard_reference_document",
-      name: getCommonDocumentType(item.documentType)?.label || "Standard Reference Document",
+      documentType: definition?.value || "standard_reference_document",
+      name: definition?.label || "Standard Reference Document",
       fileName: String(item.fileName || item.standardReferenceFileName || ""),
       fileUrl: String(item.fileUrl || item.standardReferenceUrl || ""),
       countryIds: Array.isArray(item.countryIds) ? item.countryIds.filter(Boolean) : [],
       createdAt: item.createdAt || null,
       updatedAt: item.updatedAt || null,
       createdByName: String(item.createdByName || "")
-    }));
+    };
+  });
   const companyDocumentItems = [];
   companiesSnapshot.forEach((companyDoc) => {
     const company = companyDoc.data() || {};
@@ -328,10 +332,59 @@ async function getCommonDocuments(user = {}) {
   }
   return {
     items: visibleItems,
+    documentTypes,
     // Retain these fields for clients that have not yet moved to country-mapped references.
     standardReferenceFileName: data.standardReferenceFileName || "",
     standardReferenceUrl: data.standardReferenceUrl || ""
   };
+}
+
+function normalizeCustomDocumentType(type = {}) {
+  const value = String(type?.value || "").trim();
+  const label = String(type?.label || "").trim();
+  return value && label ? { value, label } : null;
+}
+
+function getConfiguredDocumentTypes(data = {}) {
+  const configuredTypes = Array.isArray(data.documentTypes) ? data.documentTypes.map(normalizeCustomDocumentType).filter(Boolean) : [];
+  const knownValues = new Set(COMMON_DOCUMENT_TYPES.map((type) => type.value));
+  return [...COMMON_DOCUMENT_TYPES, ...configuredTypes.filter((type) => !knownValues.has(type.value))]
+    .map((type) => ({ value: type.value, label: type.label }))
+    .sort((left, right) => left.label.localeCompare(right.label));
+}
+
+function getConfiguredDocumentType(data = {}, value = "") {
+  return getCommonDocumentType(value) || getConfiguredDocumentTypes(data).find((type) => type.value === String(value || "").trim()) || null;
+}
+
+function buildCustomDocumentTypeValue(label = "") {
+  const value = String(label)
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 80);
+  if (!value) throw new AppError("Document type name must contain letters or numbers", 400);
+  return `custom_${value}`;
+}
+
+async function createCommonDocumentType(label, user = {}) {
+  const normalizedLabel = String(label || "").trim().replace(/\s+/g, " ");
+  if (!normalizedLabel) throw new AppError("Document type name is required", 400);
+  if (normalizedLabel.length > 100) throw new AppError("Document type name must be 100 characters or fewer", 400);
+  const value = buildCustomDocumentTypeValue(normalizedLabel);
+  const ref = db.collection("settings").doc("commonDocuments");
+  const type = { value, label: normalizedLabel, createdAt: new Date(), createdByName: String(user?.name || "") };
+  await db.runTransaction(async (transaction) => {
+    const snapshot = await transaction.get(ref);
+    const existingTypes = getConfiguredDocumentTypes(snapshot.data() || {});
+    if (existingTypes.some((item) => item.value === value || item.label.toLowerCase() === normalizedLabel.toLowerCase())) {
+      throw new AppError("This document type already exists", 409);
+    }
+    const currentCustomTypes = Array.isArray(snapshot.data()?.documentTypes) ? snapshot.data().documentTypes : [];
+    transaction.set(ref, { documentTypes: [...currentCustomTypes, type], updatedAt: new Date() }, { merge: true });
+  });
+  return { message: "Document type added successfully", type: { value: type.value, label: type.label } };
 }
 
 function parseCountryIds(countryIds) {
@@ -354,7 +407,7 @@ function normalizeStandardReferences(data = {}) {
     : data.standardReferenceUrl
       ? [{ id: "legacy_standard_reference", documentType: "standard_reference_document", fileName: data.standardReferenceFileName || "", fileUrl: data.standardReferenceUrl, countryIds: [] }]
       : [];
-  return items.map((item) => ({ ...item, documentType: getCommonDocumentType(item.documentType)?.value || "standard_reference_document" })).filter((item) => item && item.id);
+  return items.map((item) => ({ ...item, documentType: getConfiguredDocumentType(data, item.documentType)?.value || "standard_reference_document" })).filter((item) => item && item.id);
 }
 
 function getConflictingCountryIds(items, countryIds, documentType, excludedId = "") {
@@ -399,12 +452,13 @@ async function syncCommonDocumentToCompanyRequirements(item = {}) {
 
 async function uploadStandardReferenceDocument(file, { countryIds, documentType, user } = {}) {
   if (!file) throw new AppError("Common document is required", 400);
-  const documentDefinition = getCommonDocumentType(documentType);
-  if (!documentDefinition) throw new AppError("Select a valid document type", 400);
-  const documentName = documentDefinition.label;
   const mappedCountryIds = parseCountryIds(countryIds);
   if (!mappedCountryIds.length) throw new AppError("Select at least one country", 400);
   const ref = db.collection("settings").doc("commonDocuments");
+  const settingsSnapshot = await ref.get();
+  const documentDefinition = getConfiguredDocumentType(settingsSnapshot.data() || {}, documentType);
+  if (!documentDefinition) throw new AppError("Select a valid document type", 400);
+  const documentName = documentDefinition.label;
   const safeFileName = String(file.originalname || "standard-reference").replace(/[^a-zA-Z0-9._-]/g, "_");
   const id = `standard-reference_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   const storagePath = `common-documents/${id}_${safeFileName}`;
@@ -440,12 +494,13 @@ async function uploadStandardReferenceDocument(file, { countryIds, documentType,
 
 async function updateStandardReferenceDocument(id, file, { countryIds, documentType, user } = {}) {
   if (!file) throw new AppError("Upload the replacement common document", 400);
-  const documentDefinition = getCommonDocumentType(documentType);
-  if (!documentDefinition) throw new AppError("Select a valid document type", 400);
-  const documentName = documentDefinition.label;
   const mappedCountryIds = parseCountryIds(countryIds);
   if (!mappedCountryIds.length) throw new AppError("Select at least one country", 400);
   const ref = db.collection("settings").doc("commonDocuments");
+  const settingsSnapshot = await ref.get();
+  const documentDefinition = getConfiguredDocumentType(settingsSnapshot.data() || {}, documentType);
+  if (!documentDefinition) throw new AppError("Select a valid document type", 400);
+  const documentName = documentDefinition.label;
   const safeFileName = String(file.originalname || "standard-reference").replace(/[^a-zA-Z0-9._-]/g, "_");
   const storagePath = `common-documents/${id}_${Date.now()}_${safeFileName}`;
   const bucket = admin.storage().bucket();
@@ -518,6 +573,7 @@ module.exports = {
   disableUser,
   getCurrentUserProfile,
   getCommonDocuments,
+  createCommonDocumentType,
   deleteCommonDocument,
   getSettings,
   markPasswordUpdated,

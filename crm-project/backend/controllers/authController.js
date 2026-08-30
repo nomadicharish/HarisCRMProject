@@ -35,6 +35,11 @@ async function getCommonDocuments(req, res) {
   return res.json(data);
 }
 
+async function createCommonDocumentType(req, res) {
+  const data = await authService.createCommonDocumentType(req.body?.label, req.user);
+  return res.status(201).json(data);
+}
+
 async function uploadStandardReferenceDocument(req, res) {
   const data = await authService.uploadStandardReferenceDocument(req.file, { ...req.body, user: req.user });
   return res.json(data);
@@ -66,6 +71,7 @@ module.exports = {
   disableUser,
   getCurrentUser,
   getCommonDocuments,
+  createCommonDocumentType,
   deleteCommonDocument,
   getSettings,
   markPasswordUpdated,

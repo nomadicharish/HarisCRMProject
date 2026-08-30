@@ -119,6 +119,10 @@ function Settings() {
   const [profilePhotoUploading, setProfilePhotoUploading] = useState(false);
   const [commonDocumentsLoading, setCommonDocumentsLoading] = useState(false);
   const [standardReferences, setStandardReferences] = useState([]);
+  const [commonDocumentTypes, setCommonDocumentTypes] = useState(COMMON_DOCUMENT_TYPE_OPTIONS);
+  const [newCommonDocumentType, setNewCommonDocumentType] = useState("");
+  const [addingCommonDocumentType, setAddingCommonDocumentType] = useState(false);
+  const [showAddCommonDocumentTypeModal, setShowAddCommonDocumentTypeModal] = useState(false);
   const [commonDocumentSearch, setCommonDocumentSearch] = useState("");
   const [referenceForm, setReferenceForm] = useState(null);
   const [commonDocumentToRemove, setCommonDocumentToRemove] = useState(null);
@@ -213,6 +217,7 @@ function Settings() {
         getCached("/countries", { ttlMs: 120000 })
       ]);
       setStandardReferences(Array.isArray(response.data?.items) ? response.data.items : []);
+      setCommonDocumentTypes(Array.isArray(response.data?.documentTypes) && response.data.documentTypes.length ? response.data.documentTypes : COMMON_DOCUMENT_TYPE_OPTIONS);
       setCountries(normalizeListResponse(countriesData));
     } catch (loadError) {
       setError(loadError?.response?.data?.message || "Unable to load common documents");
@@ -452,6 +457,25 @@ function Settings() {
     finally { setCommonDocumentsLoading(false); }
   };
 
+  const handleAddCommonDocumentType = async () => {
+    const label = newCommonDocumentType.trim();
+    if (!label) { setError("Enter a document type name"); return; }
+    try {
+      setAddingCommonDocumentType(true);
+      setError("");
+      const response = await API.post("/auth/common-documents/types", { label });
+      const type = response.data?.type;
+      if (type) {
+        setCommonDocumentTypes((types) => [...types.filter((item) => item.value !== type.value), type].sort((left, right) => left.label.localeCompare(right.label)));
+        setReferenceForm((form) => ({ ...form, documentType: type.value }));
+      }
+      setNewCommonDocumentType("");
+      setShowAddCommonDocumentTypeModal(false);
+      toast.success(response.data?.message || "Document type added successfully");
+    } catch (typeError) { setError(typeError?.response?.data?.message || "Unable to add document type"); }
+    finally { setAddingCommonDocumentType(false); }
+  };
+
   const handleRemoveCommonDocument = async () => {
     if (!commonDocumentToRemove) return;
     try {
@@ -688,10 +712,10 @@ function Settings() {
             ) : activeSection === "common-documents" ? (
               <div className="settingsAdminPanel">
                 {referenceForm && canManageCommonDocuments ? <div className="settingsReferenceForm">
-                  <div className="settingsAdminHeader"><div><button type="button" className="settingsReferenceBack" onClick={() => setReferenceForm(null)} aria-label="Back to common documents">←</button><h2 className="settingsSectionTitle">{referenceForm.id ? "Update" : "Add"} Common Document</h2><p className="settingsSectionDescription">Upload a document type and map it to one or more countries.</p></div></div>
+                  <div className="settingsAdminHeader"><div><button type="button" className="settingsReferenceBack" onClick={() => setReferenceForm(null)} aria-label="Back to common documents">←</button><h2 className="settingsSectionTitle">{referenceForm.id ? "Update" : "Add"} Common Document</h2><p className="settingsSectionDescription">Upload a document type and map it to one or more countries.</p></div>{isSuperUser ? <button type="button" className="settingsPrimaryBtn settingsAddAdminBtn" disabled={commonDocumentsLoading || addingCommonDocumentType} onClick={() => { setNewCommonDocumentType(""); setError(""); setShowAddCommonDocumentTypeModal(true); }}>+ Add Document Type</button> : null}</div>
                   <div className="settingsReferenceFields">
                     <div className="settingsReferenceField"><label className="settingsLabel">{referenceForm.id ? "Replacement Document" : "Upload Document"} <span>*</span></label><label className="docsFileBox docsFileBoxUpload settingsReferenceFilePicker"><input ref={referenceFileInputRef} className="docsFileInput" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" disabled={commonDocumentsLoading} onChange={(event) => setReferenceForm((form) => ({ ...form, file: event.target.files?.[0] || null }))} /><div className="docsFileBoxLeft"><span className="docsUploadIcon"><UploadFileIcon /></span><div><div className="docsFileName">{referenceForm.file?.name || "Choose file"}</div><div className="docsFileMeta">PDF, DOC, DOCX, JPG or PNG (Max 5MB)</div></div></div></label></div>
-                    <div className="settingsReferenceField"><label className="settingsLabel">Document Type <span>*</span></label><Select options={COMMON_DOCUMENT_TYPE_OPTIONS} value={COMMON_DOCUMENT_TYPE_OPTIONS.find((option) => option.value === referenceForm.documentType) || null} isDisabled={commonDocumentsLoading} placeholder="Select document type" styles={referenceCountrySelectStyles} onChange={(selected) => setReferenceForm((form) => ({ ...form, documentType: selected?.value || "" }))} /></div>
+                    <div className="settingsReferenceField"><label className="settingsLabel">Document Type <span>*</span></label><Select options={commonDocumentTypes} value={commonDocumentTypes.find((option) => option.value === referenceForm.documentType) || null} isDisabled={commonDocumentsLoading || addingCommonDocumentType} placeholder="Select document type" styles={referenceCountrySelectStyles} onChange={(selected) => setReferenceForm((form) => ({ ...form, documentType: selected?.value || "" }))} /></div>
                     <div className="settingsReferenceField"><label className="settingsLabel">Select Country <span>*</span></label><Select isMulti options={countries.map((country) => ({ value: country.id, label: country.name }))} value={countries.filter((country) => referenceForm.countryIds.includes(country.id)).map((country) => ({ value: country.id, label: country.name }))} isDisabled={commonDocumentsLoading} placeholder="Select Country" styles={referenceCountrySelectStyles} onChange={(selected) => setReferenceForm((form) => ({ ...form, countryIds: (selected || []).map((option) => option.value) }))} /><p className="settingsModalHelp">Select the countries where this reference document is available.</p></div>
                   </div>
                   <div className="settingsInlineActions" style={{ justifyContent: "flex-end" }}><button type="button" className="settingsMutedBtn" disabled={commonDocumentsLoading} onClick={() => setReferenceForm(null)}>Cancel</button><button type="button" className="settingsPrimaryBtn" disabled={commonDocumentsLoading} onClick={handleStandardReferenceSave}>{commonDocumentsLoading ? "Saving..." : "Save Document"}</button></div>
@@ -887,6 +911,14 @@ function Settings() {
             setCountries(normalizeListResponse(countriesData));
           }}
         />
+      ) : null}
+
+      {showAddCommonDocumentTypeModal ? (
+        <div className="settingsModalBackdrop"><div className="settingsModal settingsAddAdminModal">
+          {addingCommonDocumentType ? <PageLoader label="Adding document type..." /> : <><div className="settingsModalHeader"><h3>Add Document Type</h3><button type="button" className="settingsModalCloseBtn" onClick={() => { setShowAddCommonDocumentTypeModal(false); setNewCommonDocumentType(""); setError(""); }}>x</button></div>
+          <div className="settingsModalField"><label>Document Type <span>*</span></label><input autoFocus value={newCommonDocumentType} maxLength={100} placeholder="Enter document type" onChange={(event) => setNewCommonDocumentType(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleAddCommonDocumentType(); } }} />{error ? <div className="settingsInlineError">{error}</div> : null}</div>
+          <div className="settingsModalActions"><button type="button" className="settingsMutedBtn" onClick={() => { setShowAddCommonDocumentTypeModal(false); setNewCommonDocumentType(""); setError(""); }}>Close</button><button type="button" className="settingsPrimaryBtn" onClick={handleAddCommonDocumentType}>Save</button></div></>}
+        </div></div>
       ) : null}
 
       {showAddBankModal ? (
