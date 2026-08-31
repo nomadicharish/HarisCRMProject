@@ -295,8 +295,8 @@ function EmbassyInterviewModal({ applicantId, user, applicant, interviewBiometri
             <h3 className="dashboardModalTitle">{title}</h3>
             <div className="workflowModalSubtitle">Review interview, travel and biometric details.</div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose} disabled={isBusy}>
+            X
           </button>
         </div>
 

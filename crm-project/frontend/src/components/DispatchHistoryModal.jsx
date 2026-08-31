@@ -32,11 +32,11 @@ function DispatchHistoryModal({ applicantId, open, onClose, canEdit = false, onS
           </div>
           <button
             type="button"
-            className="dashboardModalCloseBtn dispatchModalCloseBtn"
+            className="dashboardModalCloseBtn dispatchModalCloseBtn appCloseButton"
             onClick={onClose}
             aria-label="Close dispatch dialog"
           >
-            &times;
+            X
           </button>
         </div>
 

@@ -60,6 +60,7 @@ function ApplicantFormModal({
   user: userProp = null,
   onApproveStage,
   autoApproveAfterSave = false,
+  editSubmitLabel = "",
   asPage = false,
   readOnly = false,
   initialApplicationDetails = null,
@@ -465,7 +466,7 @@ function ApplicantFormModal({
     : editData
     ? isSuperUserLikeRole(user?.role) && autoApproveAfterSave
       ? "Approve Profile"
-      : "Update Profile"
+      : editSubmitLabel || "Update Profile"
     : "Create Profile";
   const pageCancelHandler = () => {
     if (typeof onClose === "function") onClose();
@@ -513,32 +514,41 @@ function ApplicantFormModal({
           >
             <BlockingLoader open={loading} label={editData ? "Updating profile..." : "Creating profile..."} />
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6, alignItems: "center" }}>
-              <div>
+              <div style={{ display: "flex", alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="usersBack"
+                  onClick={pageCancelHandler}
+                  aria-label={editData ? "Back to applicant profile" : "Back to applicants"}
+                >
+                  ←
+                </button>
                 <h2 style={{ margin: 0, fontSize: 22, fontWeight: 700, color: "#101828" }}>
                   {editData ? "Applicant Details" : "Add Applicant Details"}
                 </h2>
-                <div style={{ ...stepText, marginBottom: 0, marginTop: 4 }}>Update the applicant details below</div>
               </div>
               <button
                 type="button"
+                className="appCloseButton"
                 onClick={pageCancelHandler}
                 aria-label="Close"
                 style={{
                   width: 40,
                   height: 40,
                   borderRadius: 10,
-                  border: "1px solid rgba(148,163,184,0.35)",
+                  border: "1px solid #98A2B3",
                   background: "#ffffff",
                   display: "inline-flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 20,
+                  fontSize: 16,
+                  fontWeight: 700,
                   lineHeight: 1,
                   color: "#344054",
                   cursor: "pointer"
                 }}
               >
-                ×
+                X
               </button>
             </div>
 
@@ -705,24 +715,26 @@ function ApplicantFormModal({
           </div>
           <button
             type="button"
+            className="appCloseButton"
             onClick={pageCancelHandler}
             aria-label="Close"
             style={{
               width: 40,
               height: 40,
               borderRadius: 10,
-              border: "1px solid rgba(148,163,184,0.35)",
+              border: "1px solid #98A2B3",
               background: "#ffffff",
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              fontSize: 20,
+              fontSize: 16,
+              fontWeight: 700,
               lineHeight: 1,
               color: "#344054",
               cursor: "pointer"
             }}
           >
-            ×
+            X
           </button>
         </div>
 

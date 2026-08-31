@@ -647,8 +647,8 @@ function ApplicantPayments() {
                     Pending Amount: {formatPaymentCurrency(pendingAmount, true)}
                   </div>
                 </div>
-                <button type="button" className="dashboardModalCloseBtn" onClick={() => setShowAddPaymentModal(false)}>
-                  x
+                <button type="button" className="dashboardModalCloseBtn appCloseButton" onClick={() => setShowAddPaymentModal(false)}>
+                  X
                 </button>
               </div>
 
@@ -899,13 +899,13 @@ function ApplicantPayments() {
                 </div>
                 <button
                   type="button"
-                  className="dashboardModalCloseBtn"
+                  className="dashboardModalCloseBtn appCloseButton"
                   onClick={() => {
                     setSelectedPayment(null);
                     setReviewConfirmed(false);
                   }}
                 >
-                  &times;
+                  X
                 </button>
               </div>
 

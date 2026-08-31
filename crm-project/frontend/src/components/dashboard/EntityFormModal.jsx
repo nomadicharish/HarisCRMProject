@@ -421,8 +421,8 @@ function EntityFormModal({
                   <TrashIcon />
                 </button>
               ) : null}
-              <button type="button" className="dashboardModalCloseBtn" onClick={onClose}>
-                x
+              <button type="button" className="dashboardModalCloseBtn appCloseButton" onClick={onClose}>
+                X
               </button>
             </div>
           </div>

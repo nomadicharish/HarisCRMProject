@@ -915,7 +915,7 @@ function Settings() {
 
       {showAddCommonDocumentTypeModal ? (
         <div className="settingsModalBackdrop"><div className="settingsModal settingsAddAdminModal">
-          {addingCommonDocumentType ? <PageLoader label="Adding document type..." /> : <><div className="settingsModalHeader"><h3>Add Document Type</h3><button type="button" className="settingsModalCloseBtn" onClick={() => { setShowAddCommonDocumentTypeModal(false); setNewCommonDocumentType(""); setError(""); }}>x</button></div>
+          {addingCommonDocumentType ? <PageLoader label="Adding document type..." /> : <><div className="settingsModalHeader"><h3>Add Document Type</h3><button type="button" className="settingsModalCloseBtn appCloseButton" onClick={() => { setShowAddCommonDocumentTypeModal(false); setNewCommonDocumentType(""); setError(""); }}>X</button></div>
           <div className="settingsModalField"><label>Document Type <span>*</span></label><input autoFocus value={newCommonDocumentType} maxLength={100} placeholder="Enter document type" onChange={(event) => setNewCommonDocumentType(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); handleAddCommonDocumentType(); } }} />{error ? <div className="settingsInlineError">{error}</div> : null}</div>
           <div className="settingsModalActions"><button type="button" className="settingsMutedBtn" onClick={() => { setShowAddCommonDocumentTypeModal(false); setNewCommonDocumentType(""); setError(""); }}>Close</button><button type="button" className="settingsPrimaryBtn" onClick={handleAddCommonDocumentType}>Save</button></div></>}
         </div></div>
@@ -923,7 +923,7 @@ function Settings() {
 
       {showAddBankModal ? (
         <div className="settingsModalBackdrop"><div className="settingsModal settingsAddAdminModal">
-          <div className="settingsModalHeader"><h3>{editingBankAccount ? "Edit Bank Account" : "Add Bank Account"}</h3><button type="button" className="settingsModalCloseBtn" onClick={() => { setShowAddBankModal(false); setEditingBankAccount(null); resetBankForm(); }}>x</button></div>
+          <div className="settingsModalHeader"><h3>{editingBankAccount ? "Edit Bank Account" : "Add Bank Account"}</h3><button type="button" className="settingsModalCloseBtn appCloseButton" onClick={() => { setShowAddBankModal(false); setEditingBankAccount(null); resetBankForm(); }}>X</button></div>
           {[
             ["beneficiaryName", "Beneficiary Name"],
             ["accountNumber", "Account Number"],
@@ -945,7 +945,7 @@ function Settings() {
 
       {showAddAccountantModal ? (
         <div className="settingsModalBackdrop"><div className="settingsModal settingsAddAdminModal">
-          <div className="settingsModalHeader"><h3>{editingAccountant ? "Edit Accountant" : "Add Accountant"}</h3><button type="button" className="settingsModalCloseBtn" onClick={() => { setShowAddAccountantModal(false); setEditingAccountant(null); resetAccountantForm(); }}>x</button></div>
+          <div className="settingsModalHeader"><h3>{editingAccountant ? "Edit Accountant" : "Add Accountant"}</h3><button type="button" className="settingsModalCloseBtn appCloseButton" onClick={() => { setShowAddAccountantModal(false); setEditingAccountant(null); resetAccountantForm(); }}>X</button></div>
           <div className="settingsModalField">
             <label>Name <span>*</span></label>
             <input value={accountantForm.name} onChange={(event) => setAccountantForm((prev) => ({ ...prev, name: event.target.value }))} />

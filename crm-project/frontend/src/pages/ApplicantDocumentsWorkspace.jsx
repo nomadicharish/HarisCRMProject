@@ -327,7 +327,9 @@ function ApplicantDocumentsWorkspace() {
     return <div style={{ padding: "40px" }}>Applicant not found</div>;
   }
 
-  const canReview = isSuperUserLikeRole(user?.role);
+  // This workspace deliberately uses one agent-style upload experience for
+  // every role, without role-specific review controls.
+  const canReview = false;
   const visibleDocs = getVisibleApplicantDocuments(applicant, documentConfigs);
   const reviewState = getDocumentReviewState(documents, applicant, documentConfigs);
   const dispatchStarted = Number(applicant.stage || 0) >= 3;

@@ -174,7 +174,7 @@ function App() {
         <Route
           path="/applicants/:id/documents"
           element={
-            <ProtectedRoute requiredRight="VIEW_DOCUMENTS">
+            <ProtectedRoute requiredAnyRight={["VIEW_DOCUMENTS", "UPLOAD_DOCUMENT"]}>
               <ApplicantDocumentsWorkspace />
             </ProtectedRoute>
           }

@@ -154,8 +154,8 @@ function ApplicantSummaryCard({
             }}
             aria-label="Edit applicant"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path d="M12 12h.01M19 12h.01M5 12h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="m14.5 5.5 4 4M4 20l4.2-1 10-10a2.8 2.8 0 0 0-4-4l-10 10L4 20Z" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
         ) : null}

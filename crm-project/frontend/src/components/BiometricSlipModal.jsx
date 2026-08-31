@@ -148,8 +148,8 @@ function BiometricSlipModal({ applicantId, user, fallbackBiometricSlip, open, on
             <h3 className="dashboardModalTitle">{title}</h3>
             <div className="workflowModalSubtitle">View appointment, travel and biometric document details.</div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose} disabled={saving}>
+            X
           </button>
         </div>
 

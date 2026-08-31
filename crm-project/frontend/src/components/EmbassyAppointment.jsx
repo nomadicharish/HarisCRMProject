@@ -298,8 +298,8 @@ function EmbassyAppointment({ applicantId, user, applicant, biometricSlip, open,
             <h3 className="dashboardModalTitle">{title}</h3>
             <div className="workflowModalSubtitle">View appointment, travel and document details.</div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose} disabled={isBusy}>
+            X
           </button>
         </div>
 

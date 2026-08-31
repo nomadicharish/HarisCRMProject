@@ -144,7 +144,10 @@ function ApplicantProfile() {
   }, [applicant?.countryName, applicant?.country]);
 
   const openEditProfile = (context = "default") => {
-    navigate(`/applicants/${id}/edit${context === "stage1" ? "?context=stage1" : ""}`);
+    const query = new URLSearchParams();
+    if (context === "stage1" || context === "postApproval") query.set("context", "stage1");
+    if (context === "postApproval") query.set("edit", "approved");
+    navigate(`/applicants/${id}/edit${query.size ? `?${query.toString()}` : ""}`);
   };
 
   const openContractSection = () => {
@@ -468,8 +471,8 @@ function ApplicantProfile() {
                   ? formatCurrencyAmount(sidebarPendingOverride, currency, true)
                   : formattedPendingAmount
               }
-              canEdit={false}
-              onEdit={() => openEditProfile("default")}
+              canEdit={isSuperUserLikeRole(user?.role) && !isCandidateApprovalPending}
+              onEdit={() => openEditProfile("postApproval")}
               onPendingClick={!isEmployer && !isCandidateApprovalPending ? () => {
                   prefetchCached(`/applicants/${id}/payments-page`, { ttlMs: 120000 });
                 navigate(`/applicants/${id}/payments`);
@@ -636,10 +639,10 @@ function ApplicantProfile() {
                 <h3 className="dashboardModalTitle">Candidate Arrived</h3>
                 <button
                   type="button"
-                  className="dashboardModalCloseBtn"
+                  className="dashboardModalCloseBtn appCloseButton"
                   onClick={() => setShowCompleteProcessModal(false)}
                 >
-                  x
+                  X
                 </button>
               </div>
 

@@ -79,10 +79,10 @@ function DashboardTopbar({ user, showTabs = false, tabs = [], activeTab = "", on
               <div className="dashboardProfilePanelClose">
                 <button
                   type="button"
-                  className="dashboardProfilePanelCloseBtn"
+                  className="dashboardProfilePanelCloseBtn appCloseButton"
                   onClick={() => setShowProfilePanel(false)}
                 >
-                  x
+                  X
                 </button>
               </div>
               <div className="dashboardProfilePanelAvatar">

@@ -1,3 +1,15 @@
+.applicantFormPage .usersBack {
+  margin-right: 16px;
+  padding: 0 0 2px;
+  border: 0;
+  background: transparent;
+  color: #154682;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
 .page-container{
   padding:clamp(16px, 3vw, 40px);
   padding-top:calc(64px + clamp(16px, 3vw, 40px));

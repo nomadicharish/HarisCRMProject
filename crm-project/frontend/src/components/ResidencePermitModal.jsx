@@ -112,8 +112,8 @@ function ResidencePermitModal({ applicantId, user, fallbackResidencePermit, open
             <h3 className="dashboardModalTitle">TRC Document</h3>
             <div className="workflowModalSubtitle">Upload and view the TRC document below.</div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose} disabled={saving}>
+            X
           </button>
         </div>
 

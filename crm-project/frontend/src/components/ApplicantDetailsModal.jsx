@@ -65,8 +65,8 @@ function ApplicantDetailsModal({ applicant, open, onClose, showPaymentDetails = 
             <h3 className="dashboardModalTitle">Applicant Details</h3>
             <div className="applicantInfoModalSubtitle">View profile, contact and application details.</div>
           </div>
-          <button onClick={onClose} className="dashboardModalCloseBtn applicantInfoModalCloseBtn" type="button">
-            x
+          <button onClick={onClose} className="dashboardModalCloseBtn applicantInfoModalCloseBtn appCloseButton" type="button">
+            X
           </button>
         </div>
 

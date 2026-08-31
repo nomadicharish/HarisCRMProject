@@ -305,8 +305,8 @@ function SignedContractModal({ applicantId, user, fallbackSignedContract, open, 
                 : "Upload the signed contract received from the applicant."}
             </div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving || Boolean(rejectingId)}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose} disabled={saving || Boolean(rejectingId)}>
+            X
           </button>
         </div>
 

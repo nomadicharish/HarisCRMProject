@@ -153,8 +153,8 @@ function ContractSection({ applicantId, user, applicant, open, onClose, onUpdate
               {contract?.fileUrl ? "View the issued contract details below." : "Upload and manage the candidate contract."}
             </div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose}>
+            X
           </button>
         </div>
 

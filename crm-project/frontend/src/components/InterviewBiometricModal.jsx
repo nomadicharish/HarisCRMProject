@@ -147,8 +147,8 @@ function InterviewBiometricModal({ applicantId, user, fallbackInterviewBiometric
             <h3 className="dashboardModalTitle">Interview Biometric Details</h3>
             <div className="workflowModalSubtitle">Review interview, travel and biometric slip details.</div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={saving}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose} disabled={saving}>
+            X
           </button>
         </div>
 

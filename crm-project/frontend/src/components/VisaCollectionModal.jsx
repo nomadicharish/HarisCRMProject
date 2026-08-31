@@ -426,8 +426,8 @@ function VisaCollectionModal({
                 : "Enter the date and time when the visa was collected."}
             </div>
           </div>
-          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn" onClick={onClose} disabled={isBusy}>
-            x
+          <button type="button" className="dashboardModalCloseBtn workflowModalCloseBtn appCloseButton" onClick={onClose} disabled={isBusy}>
+            X
           </button>
         </div>
 

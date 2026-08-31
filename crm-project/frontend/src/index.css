@@ -241,3 +241,25 @@ a {
   }
 }
 
+button.appCloseButton {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0 !important;
+  border: 1px solid #98A2B3 !important;
+  border-radius: 8px;
+  background: #ffffff !important;
+  color: #344054 !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px !important;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+button.appCloseButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

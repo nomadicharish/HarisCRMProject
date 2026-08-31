@@ -267,8 +267,8 @@ function HomePaymentStageModal({ open, paymentStages, onClose, onOpenFilter }) {
               <p>View pending payment totals by workflow stage.</p>
             </div>
           </div>
-          <button type="button" className="homePaymentModalClose" onClick={onClose} aria-label="Close pending payment by stage">
-            x
+          <button type="button" className="homePaymentModalClose appCloseButton" onClick={onClose} aria-label="Close pending payment by stage">
+            X
           </button>
         </div>
 
@@ -301,8 +301,8 @@ function HomePaymentAgencyModal({ open, agencies, onClose }) {
               <p>Showing agencies with their pending payment amounts.</p>
             </div>
           </div>
-          <button type="button" className="homePaymentModalClose" onClick={onClose} aria-label="Close pending payment by agencies">
-            x
+          <button type="button" className="homePaymentModalClose appCloseButton" onClick={onClose} aria-label="Close pending payment by agencies">
+            X
           </button>
         </div>
 
@@ -658,8 +658,8 @@ function BulkDispatchModal({
             <h2 id="bulk-dispatch-title">Add Dispatch</h2>
             <p>Add dispatch details and apply to multiple applicants.</p>
           </div>
-          <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close bulk dispatch">
-            x
+          <button type="button" className="bulkDispatchCloseBtn appCloseButton" onClick={onClose} aria-label="Close bulk dispatch">
+            X
           </button>
         </div>
 
@@ -964,8 +964,8 @@ function BulkContractUploadModal({ open, countries, companies, onClose }) {
             <h2 id="bulk-contract-title">Upload Contract</h2>
             <p>Select the country, company and applicant, then upload the contract file.</p>
           </div>
-          <button type="button" className="bulkDispatchCloseBtn" onClick={onClose} aria-label="Close contract upload">
-            x
+          <button type="button" className="bulkDispatchCloseBtn appCloseButton" onClick={onClose} aria-label="Close contract upload">
+            X
           </button>
         </div>
 

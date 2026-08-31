@@ -98,8 +98,8 @@ function CountryManagerModal({ countries = [], onClose, onSaved }) {
       <div className="contractModalCard dashboardCountryModal">
         <div className="dashboardModalHeader">
           <h3 className="dashboardModalTitle">Add / Update Country</h3>
-          <button type="button" className="dashboardModalCloseBtn" onClick={onClose}>
-            x
+          <button type="button" className="dashboardModalCloseBtn appCloseButton" onClick={onClose}>
+            X
           </button>
         </div>
 

@@ -38,9 +38,12 @@ function CreateApplicant() {
     return <PageLoader label="Loading applicant data..." />;
   }
 
-  const shouldAutoApprove = Boolean(id) && searchParams.get("context") === "stage1";
+  const isPostApprovalEdit = Boolean(id) && searchParams.get("edit") === "approved";
+  const shouldAutoApprove =
+    Boolean(id) && searchParams.get("context") === "stage1" && !isPostApprovalEdit;
   const applicantContextParams = new URLSearchParams(searchParams);
   applicantContextParams.delete("context");
+  applicantContextParams.delete("edit");
   const applicantContextSuffix = applicantContextParams.toString() ? `?${applicantContextParams.toString()}` : "";
   const applicantListPath = () => {
     const params = new URLSearchParams(applicantContextParams);
@@ -62,6 +65,7 @@ function CreateApplicant() {
       editData={editData}
       initialApplicationDetails={initialApplicationDetails}
       keepOpenAfterCreate={!id}
+      editSubmitLabel={isPostApprovalEdit ? "Save" : ""}
       autoApproveAfterSave={shouldAutoApprove}
       onApproveStage={
         shouldAutoApprove
