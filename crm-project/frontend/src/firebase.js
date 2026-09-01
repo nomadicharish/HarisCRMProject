@@ -1,5 +1,6 @@
 import { initializeApp } from "firebase/app";
 import { browserLocalPersistence, getAuth, setPersistence } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const DEV_FIREBASE_CONFIG = {
   apiKey: "AIzaSyDQ-F_CiygxjubGnc3Q8qJ2oroZ3Bvzc4I",
@@ -56,6 +57,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+export const firestore = getFirestore(app);
 
 export const authReady = setPersistence(auth, browserLocalPersistence).catch((error) => {
   console.error("Failed to set auth persistence", error);

@@ -166,6 +166,7 @@ const verifyToken = async (req, res, next) => {
       agentScopes: Array.isArray(userProfile?.agentScopes) ? userProfile.agentScopes : [],
       forcePasswordReset: Boolean(userProfile?.forcePasswordReset),
       active: Boolean(userProfile?.active),
+      notificationUnreadCount: Math.max(0, Number(userProfile?.notificationUnreadCount || 0)),
       rights: getEffectiveRights(userProfile)
     };
 

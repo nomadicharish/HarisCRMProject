@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { doc, onSnapshot } from "firebase/firestore";
 import API from "../../services/api";
+import { auth, authReady, firestore } from "../../firebase";
 import { getStoredUser } from "../../utils/auth";
+import { mergeNotificationItems, readNotificationCache, writeNotificationCache } from "../../utils/notificationCache";
 import "../../styles/notifications.css";
 
 function NotificationIcon({ type = "document" }) {
@@ -83,7 +86,7 @@ function NotificationBell() {
   const userRole = getStoredUser()?.role || "";
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
-  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [hasLoadedNotifications, setHasLoadedNotifications] = useState(false);
 
   const loadUnreadCount = useCallback(async () => {
     try {
@@ -95,26 +98,52 @@ function NotificationBell() {
   }, []);
 
   useEffect(() => {
-    const initialLoadId = window.setTimeout(loadUnreadCount, 0);
-    const intervalId = window.setInterval(loadUnreadCount, 60_000);
+    let unsubscribe = () => {};
+    let disposed = false;
+    authReady.then(() => {
+      const uid = auth.currentUser?.uid;
+      if (!uid || disposed) return;
+      unsubscribe = onSnapshot(
+        doc(firestore, "users", uid),
+        (snapshot) => setUnreadCount(Math.max(0, Number(snapshot.data()?.notificationUnreadCount || 0))),
+        () => loadUnreadCount()
+      );
+    }).catch(() => loadUnreadCount());
     return () => {
-      window.clearTimeout(initialLoadId);
-      window.clearInterval(intervalId);
+      disposed = true;
+      unsubscribe();
     };
   }, [loadUnreadCount]);
 
   useEffect(() => {
     if (!open) return undefined;
     const controller = new AbortController();
-    API.get("/notifications", { params: { limit: 5 }, signal: controller.signal })
+    const uid = auth.currentUser?.uid || getStoredUser()?.uid || "";
+    const cached = readNotificationCache(uid, "preview");
+    if (cached) {
+      setNotifications(cached.items);
+      setHasLoadedNotifications(true);
+    }
+    API.get("/notifications", {
+      params: { limit: 5, preview: "true", since: cached?.syncCursor || undefined },
+      signal: controller.signal
+    })
       .then((response) => {
-        setNotifications(Array.isArray(response.data?.items) ? response.data.items : []);
-        setUnreadCount(Number(response.data?.unreadCount || 0));
+        const incoming = Array.isArray(response.data?.items) ? response.data.items : [];
+        const nextItems = response.data?.isDelta
+          ? mergeNotificationItems(cached?.items || [], incoming)
+          : incoming;
+        setNotifications(nextItems);
+        setHasLoadedNotifications(true);
+        writeNotificationCache(uid, "preview", {
+          items: nextItems,
+          syncCursor: response.data?.syncCursor || cached?.syncCursor,
+          hasMore: false
+        });
       })
       .catch((error) => {
         if (error?.code !== "ERR_CANCELED") console.error(error);
       })
-      .finally(() => setLoadingNotifications(false));
     return () => controller.abort();
   }, [open]);
 
@@ -136,7 +165,6 @@ function NotificationBell() {
   };
 
   const toggleNotifications = () => {
-    if (!open) setLoadingNotifications(true);
     setOpen((value) => !value);
   };
 
@@ -154,8 +182,7 @@ function NotificationBell() {
             <button type="button" onClick={markAllRead}>Mark all as read</button>
           </div>
           <div className="notificationOverlayList">
-            {loadingNotifications ? <div className="notificationEmpty">Loading notifications...</div> : null}
-            {!loadingNotifications && notifications.length === 0 ? <div className="notificationEmpty">No notifications yet.</div> : null}
+            {hasLoadedNotifications && notifications.length === 0 ? <div className="notificationEmpty">No notifications yet.</div> : null}
             {notifications.map((item) => (
               <NotificationListItem
                 key={item.id}
@@ -166,8 +193,14 @@ function NotificationBell() {
                   if (notification.unread) {
                     try {
                       const response = await API.patch(`/notifications/${notification.id}/read`);
-                      setUnreadCount(Number(response.data?.unreadCount || 0));
-                      setNotifications((items) => items.map((item) => item.id === notification.id ? { ...item, unread: false } : item));
+                      if (response.data?.wasMarkedRead) setUnreadCount((count) => Math.max(0, count - 1));
+                      setNotifications((items) => {
+                        const nextItems = items.map((item) => item.id === notification.id ? { ...item, unread: false } : item);
+                        const uid = auth.currentUser?.uid || getStoredUser()?.uid || "";
+                        const cached = readNotificationCache(uid, "preview");
+                        writeNotificationCache(uid, "preview", { ...cached, items: nextItems });
+                        return nextItems;
+                      });
                     } catch (error) {
                       console.error(error);
                     }

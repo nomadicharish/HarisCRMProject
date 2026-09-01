@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../services/api";
+import { auth } from "../firebase";
 import DashboardTopbar from "../components/common/DashboardTopbar";
 import { NotificationListItem, openNotification } from "../components/common/NotificationBell";
 import { getStoredUser } from "../utils/auth";
+import { mergeNotificationItems, readNotificationCache, writeNotificationCache } from "../utils/notificationCache";
 import "../styles/notifications.css";
 
 const PAGE_SIZE = 20;
@@ -20,18 +22,43 @@ function Notifications() {
   const [marking, setMarking] = useState(false);
 
   const load = useCallback(async (nextCursor = null, nextPage = 1, history = []) => {
-    try {
-      setLoading(true);
-      const [me, notifications] = await Promise.all([
-        user ? Promise.resolve(user) : API.get("/auth/me").then((res) => res.data),
-        API.get("/notifications", { params: { cursor: nextCursor || undefined, limit: PAGE_SIZE } }).then((res) => res.data)
-      ]);
-      setUser(me || null);
-      setItems(Array.isArray(notifications?.items) ? notifications.items : []);
-      setCursor(notifications?.nextCursor || null);
-      setHasMore(Boolean(notifications?.hasMore));
+    const uid = auth.currentUser?.uid || user?.uid || "";
+    const cached = !nextCursor && nextPage === 1 ? readNotificationCache(uid, "list") : null;
+    if (cached) {
+      setItems(cached.items.slice(0, PAGE_SIZE));
+      setCursor(cached.nextCursor || null);
+      setHasMore(Boolean(cached.hasMore));
       setCursorHistory(history);
       setPage(nextPage);
+      setLoading(false);
+    }
+    try {
+      if (!cached) setLoading(true);
+      const notificationParams = cached
+        ? { since: cached.syncCursor, limit: 100 }
+        : { cursor: nextCursor || undefined, limit: PAGE_SIZE };
+      const [me, notifications] = await Promise.all([
+        user ? Promise.resolve(user) : API.get("/auth/me").then((res) => res.data),
+        API.get("/notifications", { params: notificationParams }).then((res) => res.data)
+      ]);
+      setUser(me || null);
+      const incoming = Array.isArray(notifications?.items) ? notifications.items : [];
+      const mergedItems = notifications?.isDelta
+        ? mergeNotificationItems(cached?.items || [], incoming)
+        : incoming;
+      setItems(mergedItems.slice(0, PAGE_SIZE));
+      setCursor(notifications?.nextCursor || cached?.nextCursor || null);
+      setHasMore(notifications?.isDelta ? Boolean(cached?.hasMore) : Boolean(notifications?.hasMore));
+      setCursorHistory(history);
+      setPage(nextPage);
+      if (!nextCursor && nextPage === 1) {
+        writeNotificationCache(uid, "list", {
+          items: mergedItems,
+          syncCursor: notifications?.syncCursor || cached?.syncCursor,
+          hasMore: notifications?.isDelta ? cached?.hasMore : notifications?.hasMore,
+          nextCursor: notifications?.nextCursor || cached?.nextCursor
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -45,7 +72,13 @@ function Notifications() {
     try {
       setMarking(true);
       await API.patch("/notifications/read");
-      await load(cursorHistory[cursorHistory.length - 1] || null, page, cursorHistory);
+      setItems((currentItems) => {
+        const nextItems = currentItems.map((item) => ({ ...item, unread: false }));
+        const uid = auth.currentUser?.uid || user?.uid || "";
+        const cached = readNotificationCache(uid, "list");
+        writeNotificationCache(uid, "list", { ...cached, items: nextItems });
+        return nextItems;
+      });
     } finally {
       setMarking(false);
     }
@@ -55,7 +88,13 @@ function Notifications() {
     if (notification.unread) {
       try {
         await API.patch(`/notifications/${notification.id}/read`);
-        setItems((currentItems) => currentItems.map((item) => item.id === notification.id ? { ...item, unread: false } : item));
+        setItems((currentItems) => {
+          const nextItems = currentItems.map((item) => item.id === notification.id ? { ...item, unread: false } : item);
+          const uid = auth.currentUser?.uid || user?.uid || "";
+          const cached = readNotificationCache(uid, "list");
+          writeNotificationCache(uid, "list", { ...cached, items: nextItems });
+          return nextItems;
+        });
       } catch (error) {
         console.error(error);
       }

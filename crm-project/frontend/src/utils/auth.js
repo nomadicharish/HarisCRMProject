@@ -1,5 +1,6 @@
 import { signOut } from "firebase/auth";
 import { auth } from "../firebase";
+import { clearNotificationCaches } from "./notificationCache";
 
 export const SESSION_DURATION_MS = 24 * 60 * 60 * 1000;
 export const HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY = "crm_home_dashboard_date_range";
@@ -51,6 +52,7 @@ export async function clearSession({ redirectTo = "/login" } = {}) {
   localStorage.removeItem("session_expires_at");
   localStorage.removeItem(HOME_DASHBOARD_DATE_RANGE_STORAGE_KEY);
   localStorage.removeItem("rights_cached_at");
+  clearNotificationCaches();
 
   try {
     await signOut(auth);

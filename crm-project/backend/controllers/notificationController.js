@@ -8,7 +8,9 @@ const {
 async function listNotifications(req, res) {
   const payload = await listNotificationsForUser(req.user, {
     limit: req.query?.limit,
-    cursor: req.query?.cursor
+    cursor: req.query?.cursor,
+    since: req.query?.since,
+    preview: req.query?.preview === "true"
   });
   return res.json(payload);
 }

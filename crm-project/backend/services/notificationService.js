@@ -246,8 +246,15 @@ function actorLabel(payload = {}) {
   return "User";
 }
 
-function getUnreadNotificationGroupId({ actionKey = "", actorId = "", userId = "", documentId = "" } = {}) {
-  return Buffer.from(`${actionKey}:${actorId}:${userId}:${documentId}`).toString("base64url");
+function getUnreadNotificationGroupId({ actionKey = "", actorId = "", userId = "", documentId = "", applicantIds = [], applicantStages = {} } = {}) {
+  // A workflow notification is unique to the applicant and stage where it was
+  // raised. Without these values, a later applicant's notification reused the
+  // same document and overwrote the earlier one.
+  const applicantStageKey = [...new Set(applicantIds)]
+    .sort()
+    .map((applicantId) => `${applicantId}:${Number(applicantStages?.[applicantId] || 0)}`)
+    .join(",");
+  return Buffer.from(`${actionKey}:${actorId}:${userId}:${documentId}:${applicantStageKey}`).toString("base64url");
 }
 
 async function getApplicantStages(applicantIds = []) {
@@ -314,6 +321,7 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
     documentName: payload.documentName || "",
     navigationTarget: payload.navigationTarget || "",
     createdAt,
+    updatedAt: now,
     read: false
   };
 
@@ -356,7 +364,14 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
       ? chunk.map(([userId]) => db.collection(APP_NOTIFICATION_COLLECTION).doc(
         sourceEventId
           ? `${sourceEventId}_${userId}`
-          : `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId, documentId: event.documentId })}`
+          : `unread_${getUnreadNotificationGroupId({
+            actionKey: event.actionKey,
+            actorId: event.actorId,
+            userId,
+            documentId: event.documentId,
+            applicantIds: event.applicantIds,
+            applicantStages: event.applicantStages
+          })}`
       ))
       : [];
     const existingDocs = deterministicRefs.length ? await db.getAll(...deterministicRefs) : [];
@@ -367,7 +382,14 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
         ? db.collection(APP_NOTIFICATION_COLLECTION).doc(`${sourceEventId}_${userId}`)
         : shouldGroupUnread
           ? db.collection(APP_NOTIFICATION_COLLECTION).doc(
-            `unread_${getUnreadNotificationGroupId({ actionKey: event.actionKey, actorId: event.actorId, userId, documentId: event.documentId })}`
+            `unread_${getUnreadNotificationGroupId({
+              actionKey: event.actionKey,
+              actorId: event.actorId,
+              userId,
+              documentId: event.documentId,
+              applicantIds: event.applicantIds,
+              applicantStages: event.applicantStages
+            })}`
           )
         : db.collection(APP_NOTIFICATION_COLLECTION).doc();
       const existing = existingById.get(eventRef.id);
@@ -379,6 +401,7 @@ async function addAppNotificationEvent(payload = {}, { sourceEventId = "" } = {}
           ...event,
           userId,
           createdAt: now,
+          updatedAt: now,
           read: false,
           applicantStages: {
             ...(existing.data()?.applicantStages || {}),
@@ -702,7 +725,13 @@ function groupNotificationItems(items = [], recipientRole = "") {
       return;
     }
 
-    const key = `action:${item.actionKey}:${item.actorId}`;
+    // Do not combine different applicants or workflow stages. Each is a
+    // separate task and needs its own notification and navigation target.
+    const applicantStageKey = item.applicantIds
+      .map((applicantId) => `${applicantId}:${Number(item.applicantStages?.[applicantId] || 0)}`)
+      .sort()
+      .join(",");
+    const key = `action:${item.actionKey}:${item.actorId}:${applicantStageKey}`;
     const current = grouped.get(key);
     if (!current) {
       grouped.set(key, { ...item, applicantIds: [...item.applicantIds] });
@@ -817,82 +846,103 @@ function mapNotificationDocument(doc) {
   };
 }
 
-async function getActionableUnreadNotificationCount(user = {}) {
-  const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
-    .where("userId", "==", user.uid)
-    .where("read", "==", false)
-    .limit(NOTIFICATION_SCAN_LIMIT)
-    .get();
-  const items = await filterInactiveDocumentNotificationApplicants(
-    groupNotificationItems(snapshot.docs.map(mapNotificationDocument), user.role),
-    user
-  );
-  return items.filter((item) => item.unread).length;
-}
+async function listNotificationsForUser(user = {}, { limit = 20, cursor = "", since = "", preview = false } = {}) {
+  const safeLimit = Math.max(1, Math.min(since ? 100 : 20, Number(limit || 20)));
+  const syncAt = new Date();
+  const sinceDate = since ? new Date(since) : null;
+  if (sinceDate && !Number.isNaN(sinceDate.getTime())) {
+    const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
+      .where("userId", "==", user.uid)
+      .where("updatedAt", ">=", sinceDate)
+      .orderBy("updatedAt", "asc")
+      .limit(safeLimit + 1)
+      .get();
+    const rawItems = snapshot.docs
+      .map(mapNotificationDocument)
+      .map((item) => ({ ...item, message: buildNotificationMessage(item, { recipientRole: user.role }) }));
+    const hasMore = rawItems.length > safeLimit;
+    const items = rawItems.slice(0, safeLimit);
+    return {
+      items,
+      isDelta: true,
+      hasMore,
+      // When a delta page is full, continue from its last update. The client
+      // deliberately uses an inclusive cursor and safely merges duplicates.
+      syncCursor: (hasMore && items.length ? items[items.length - 1].updatedAt : syncAt).toISOString()
+    };
+  }
 
-async function listNotificationsForUser(user = {}, { limit = 20, cursor = "" } = {}) {
-  const safeLimit = Math.max(1, Math.min(20, Number(limit || 20)));
+  const pageLimit = preview ? Math.min(5, safeLimit) : safeLimit;
   let query = db.collection(APP_NOTIFICATION_COLLECTION)
     .where("userId", "==", user.uid)
     .orderBy("createdAt", "desc")
-    // Fetch the same window used by the unread-count calculation before
-    // filtering obsolete workflow events. Limiting the raw query to the five
-    // newest documents could otherwise leave the bell empty while its badge
-    // still represented older, actionable notifications.
-    .limit(NOTIFICATION_SCAN_LIMIT);
+    // Fetch one extra record for paging. Read notifications intentionally stay
+    // visible for seven days, so no applicant-state scans are needed here.
+    .limit(pageLimit + (preview ? 0 : 1));
   if (cursor) {
     const cursorDate = new Date(cursor);
     if (!Number.isNaN(cursorDate.getTime())) query = query.startAfter(cursorDate);
   }
   const snapshot = await query.get();
-  const rawItems = snapshot.docs.map(mapNotificationDocument);
-  const actionableItems = await filterInactiveDocumentNotificationApplicants(
-    groupNotificationItems(rawItems, user.role),
-    user
-  );
-  const hasMore = actionableItems.length > safeLimit;
-  const items = actionableItems.slice(0, safeLimit);
+  const rawItems = snapshot.docs
+    .map(mapNotificationDocument)
+    .map((item) => ({ ...item, message: buildNotificationMessage(item, { recipientRole: user.role }) }));
+  const hasMore = preview ? false : rawItems.length > pageLimit;
+  const items = rawItems.slice(0, pageLimit);
   return {
     items,
-    unreadCount: await getActionableUnreadNotificationCount(user),
-    limit: safeLimit,
+    limit: pageLimit,
     hasMore,
-    nextCursor: hasMore && items.length ? items[items.length - 1].createdAt.toDate().toISOString() : null
+    nextCursor: hasMore && items.length ? items[items.length - 1].createdAt.toDate().toISOString() : null,
+    syncCursor: syncAt.toISOString()
   };
 }
 
 async function getUnreadNotificationCount(user = {}) {
-  return { unreadCount: await getActionableUnreadNotificationCount(user) };
+  // Authentication already reads the user profile. Reusing its counter avoids
+  // a second Firestore read for every badge refresh.
+  return { unreadCount: Math.max(0, Number(user.notificationUnreadCount || 0)) };
 }
 
 async function markNotificationRead(user = {}, notificationId = "") {
-  if (!notificationId) return getUnreadNotificationCount(user);
+  if (!notificationId) return { wasMarkedRead: false };
   const notificationRef = db.collection(APP_NOTIFICATION_COLLECTION).doc(notificationId);
   const notification = await notificationRef.get();
   if (notification.exists && notification.data()?.userId === user.uid && notification.data()?.read !== true) {
+    const now = new Date();
     const batch = db.batch();
-    batch.update(notificationRef, { read: true, readAt: new Date() });
+    batch.update(notificationRef, {
+      read: true,
+      readAt: now,
+      updatedAt: now,
+      // Firestore TTL provides a reliable storage-level fallback; the daily
+      // cleanup below removes the records promptly as well.
+      expiresAt: new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    });
     batch.set(db.collection("users").doc(user.uid), {
       notificationUnreadCount: admin.firestore.FieldValue.increment(-1),
-      notificationUpdatedAt: new Date()
+      notificationUpdatedAt: now
     }, { merge: true });
     await batch.commit();
+    return { wasMarkedRead: true };
   }
-  return getUnreadNotificationCount(user);
+  return { wasMarkedRead: false };
 }
 
 async function markNotificationsRead(user = {}) {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   while (true) {
     const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
       .where("userId", "==", user.uid).where("read", "==", false).limit(400).get();
     if (snapshot.empty) break;
     const batch = db.batch();
-    snapshot.docs.forEach((doc) => batch.update(doc.ref, { read: true, readAt: new Date() }));
+    snapshot.docs.forEach((doc) => batch.update(doc.ref, { read: true, readAt: now, updatedAt: now, expiresAt }));
     await batch.commit();
   }
   await db.collection("users").doc(user.uid).set({
     notificationUnreadCount: 0,
-    notificationUpdatedAt: new Date()
+    notificationUpdatedAt: now
   }, { merge: true });
   return { message: "Notifications marked as read" };
 }
@@ -902,7 +952,7 @@ async function deleteOldReadNotifications() {
   let deleted = 0;
   while (true) {
     const snapshot = await db.collection(APP_NOTIFICATION_COLLECTION)
-      .where("read", "==", true).where("createdAt", "<", cutoff).limit(400).get();
+      .where("read", "==", true).where("readAt", "<", cutoff).limit(400).get();
     if (snapshot.empty) break;
     const batch = db.batch();
     snapshot.docs.forEach((doc) => batch.delete(doc.ref));

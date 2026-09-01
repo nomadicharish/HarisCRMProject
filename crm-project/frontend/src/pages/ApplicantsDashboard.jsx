@@ -12,6 +12,7 @@ import DashboardFiltersSidebar from "../components/dashboard/DashboardFiltersSid
 import DashboardResultsHeader from "../components/dashboard/DashboardResultsHeader";
 import PageLoader from "../components/common/PageLoader";
 import BlockingLoader from "../components/common/BlockingLoader";
+import ConfirmActionModal from "../components/common/ConfirmActionModal";
 import { getCached, hasFreshCache, invalidateCache, prefetchCached } from "../services/cachedApi";
 import API from "../services/api";
 import {
@@ -1363,6 +1364,7 @@ function ApplicantsDashboard() {
   const [showBulkDispatchModal, setShowBulkDispatchModal] = useState(false);
   const [showBulkContractModal, setShowBulkContractModal] = useState(false);
   const [isExportingApplicants, setIsExportingApplicants] = useState(false);
+  const [showExportConfirmation, setShowExportConfirmation] = useState(false);
   const [homeSummary, setHomeSummary] = useState(null);
   const [homeApplyLoading, setHomeApplyLoading] = useState(false);
   const isSuperUser = isSuperUserLikeRole(user?.role);
@@ -2302,7 +2304,7 @@ function ApplicantsDashboard() {
                 showContractUploadAction={canIssueContract && activeTab === "applicants"}
                 onOpenContractUpload={() => setShowBulkContractModal(true)}
                 showExportApplicantsAction={(isSuperUser || isEmployer || isAgency) && activeTab === "applicants"}
-                onExportApplicants={handleExportApplicants}
+                onExportApplicants={() => setShowExportConfirmation(true)}
                 isExportingApplicants={isExportingApplicants}
                 showViewAllApplicants={
                   hasApplicantListScope
@@ -2408,6 +2410,22 @@ function ApplicantsDashboard() {
         companies={companies}
         onClose={() => setShowBulkContractModal(false)}
       />
+
+      {showExportConfirmation ? (
+        <ConfirmActionModal
+          title="Export applicants to Excel"
+          message="Export all applicants matching the current filters to an Excel file?"
+          confirmLabel="Export to Excel"
+          busyLabel="Exporting..."
+          confirmClassName="btn btnPrimary"
+          isBusy={isExportingApplicants}
+          onConfirm={async () => {
+            await handleExportApplicants();
+            setShowExportConfirmation(false);
+          }}
+          onClose={() => !isExportingApplicants && setShowExportConfirmation(false)}
+        />
+      ) : null}
 
       {entityModalType ? (
         <Suspense fallback={null}>
