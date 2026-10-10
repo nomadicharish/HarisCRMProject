@@ -94,9 +94,11 @@ function UsersManagement() {
 
   const filteredUsers = useMemo(() => {
     const query = search.trim().toLowerCase();
-    const nonSuperUsers = users.filter((user) => user.role !== "SUPER_USER");
-    return query ? nonSuperUsers.filter((user) => user.name.toLowerCase().includes(query)) : nonSuperUsers;
-  }, [search, users]);
+    const visibleUsers = isSuperUser
+      ? users.filter((user) => user.uid !== storedUser?.uid)
+      : users.filter((user) => user.role !== "SUPER_USER");
+    return query ? visibleUsers.filter((user) => user.name.toLowerCase().includes(query)) : visibleUsers;
+  }, [isSuperUser, search, storedUser?.uid, users]);
   const countryOptions = useMemo(
     () => countries.map((country) => ({ value: country.id, label: country.name })),
     [countries]

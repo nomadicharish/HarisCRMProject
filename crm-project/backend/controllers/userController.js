@@ -68,8 +68,19 @@ async function listUsers(req, res) {
   if (!requireUserRight(req, res, "VIEW_USERS")) return;
   const search = String(req.query.search || "").trim().toLowerCase();
   const snapshot = await db.collection("users").orderBy("name").limit(200).get();
+  const viewerIsSuperUser = isSuperUserLikeRole(req.user?.role);
   const users = await Promise.all(snapshot.docs
-    .filter((doc) => doc.data()?.active !== false && doc.data()?.role !== "SUPER_USER")
+    .filter((doc) => {
+      const user = doc.data() || {};
+      if (user.active === false) return false;
+
+      // Super Users can manage every other account, including other Super
+      // Users, but must never receive their own account in this list.
+      if (viewerIsSuperUser) return doc.id !== req.user.uid;
+
+      // Preserve the existing restriction for non-Super-User viewers.
+      return user.role !== "SUPER_USER";
+    })
     .map(serializeUser));
   const items = search ? users.filter((user) => user.name.toLowerCase().includes(search)) : users;
   return res.json({ items, total: items.length });
