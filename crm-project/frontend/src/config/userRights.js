@@ -1,8 +1,8 @@
 export const USER_ROLES = [
   { value: "EMPLOYER", label: "European Agency" },
   { value: "AGENCY", label: "Agent" },
-  { value: "JUNIOR_ACCOUNTANT", label: "Juniour Accountant" },
-  { value: "SENIOR_ACCOUNTANT", label: "Seniour Accountant" },
+  { value: "JUNIOR_ACCOUNTANT", label: "Junior Accountant" },
+  { value: "SENIOR_ACCOUNTANT", label: "Senior Accountant" },
   { value: "ADMIN", label: "Admin" }
 ];
 
