@@ -31,6 +31,17 @@ const PASSWORD_RESET_ALLOWED_PATHS = new Set([
   "/api/auth/change-password",
   "/api/auth/password-updated"
 ]);
+const SUPER_USER_OTP_ALLOWED_PATHS = new Set([
+  "/api/auth/login-otp/request",
+  "/api/auth/login-otp/verify"
+]);
+
+function isSuperUserOtpEnabled() {
+  const configured = String(process.env.SUPER_USER_OTP_ENABLED || "").trim().toLowerCase();
+  if (configured === "true") return true;
+  if (configured === "false") return false;
+  return String(process.env.FIREBASE_ENVIRONMENT || "qa").trim().toLowerCase() === "qa";
+}
 
 function getBearerToken(req) {
   const authHeader = req.headers.authorization;
@@ -161,6 +172,7 @@ const verifyToken = async (req, res, next) => {
       uid: decoded.uid,
       role,
       tokenIssuedAt: decoded.iat || 0,
+      tokenAuthTime: decoded.auth_time || 0,
       agencyId: userProfile?.agencyId || null,
       employerId: userProfile?.employerId || null,
       agentScopes: Array.isArray(userProfile?.agentScopes) ? userProfile.agentScopes : [],
@@ -171,6 +183,14 @@ const verifyToken = async (req, res, next) => {
     };
 
     const requestPath = String(req.originalUrl || req.path || "").split("?")[0];
+    if (
+      isSuperUserOtpEnabled() &&
+      req.user.role === "SUPER_USER" &&
+      !SUPER_USER_OTP_ALLOWED_PATHS.has(requestPath) &&
+      Number(userProfile.otpVerifiedAuthTime || 0) !== req.user.tokenAuthTime
+    ) {
+      return res.status(403).json({ message: "Email verification is required", code: "OTP_VERIFICATION_REQUIRED" });
+    }
     if (req.user.forcePasswordReset && !PASSWORD_RESET_ALLOWED_PATHS.has(requestPath)) {
       return res.status(403).json({ message: "Password reset is required", code: "PASSWORD_RESET_REQUIRED" });
     }

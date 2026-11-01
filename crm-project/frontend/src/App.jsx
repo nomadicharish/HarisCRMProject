@@ -41,6 +41,7 @@ const Notifications = lazyWithReload(() => import("./pages/Notifications"));
 const Settings = lazyWithReload(() => import("./pages/Settings"));
 const SettingsChangePassword = lazyWithReload(() => import("./pages/SettingsChangePassword"));
 const UsersManagement = lazyWithReload(() => import("./pages/UsersManagement"));
+const VerifyOtp = lazyWithReload(() => import("./pages/VerifyOtp"));
 
 function App() {
   useEffect(() => {
@@ -69,6 +70,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/verify-otp" element={<VerifyOtp />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/change-password" element={<ChangePassword />} />
 

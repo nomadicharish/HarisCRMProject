@@ -18,6 +18,7 @@ const {
   changePasswordSchema,
   checkEmailSchema,
   disableUserParamsSchema,
+  verifyLoginOtpSchema,
   updateSettingsSchema
 } = require("../validators/authSchemas");
 
@@ -46,6 +47,8 @@ function requireCommonDocumentsManager(req, res, next) {
 
 router.get("/me", noStore, verifyToken, asyncHandler(authController.getCurrentUser));
 router.post("/check-email", noStore, createAuthRateLimiter(), validate(checkEmailSchema), asyncHandler(authController.checkEmail));
+router.post("/login-otp/request", noStore, verifyToken, createAuthRateLimiter(), asyncHandler(authController.requestLoginOtp));
+router.post("/login-otp/verify", noStore, verifyToken, createAuthRateLimiter(), validate(verifyLoginOtpSchema), asyncHandler(authController.verifyLoginOtp));
 router.post("/change-password", noStore, verifyToken, validate(changePasswordSchema), asyncHandler(authController.changePassword));
 router.get("/settings", noStore, verifyToken, asyncHandler(authController.getSettings));
 router.patch("/settings", noStore, verifyToken, validate(updateSettingsSchema), asyncHandler(authController.updateSettings));

@@ -1,4 +1,6 @@
 const authService = require("../services/authService");
+const superUserOtpService = require("../services/superUserOtpService");
+const { invalidateUserProfileCache } = require("../middleware/authMiddleware");
 
 async function getCurrentUser(req, res) {
   const data = await authService.getCurrentUserProfile(req.user.uid);
@@ -7,6 +9,25 @@ async function getCurrentUser(req, res) {
 
 async function checkEmail(req, res) {
   const data = await authService.checkEmailExists(req.body.email);
+  return res.json(data);
+}
+
+async function requestLoginOtp(req, res) {
+  const data = await superUserOtpService.issueOtp({
+    uid: req.user.uid,
+    tokenAuthTime: req.user.tokenAuthTime,
+    userProfile: req.user
+  });
+  return res.json(data);
+}
+
+async function verifyLoginOtp(req, res) {
+  const data = await superUserOtpService.verifyOtp({
+    uid: req.user.uid,
+    tokenAuthTime: req.user.tokenAuthTime,
+    otp: req.body.otp
+  });
+  invalidateUserProfileCache(req.user.uid);
   return res.json(data);
 }
 
@@ -68,6 +89,8 @@ async function disableUser(req, res) {
 module.exports = {
   changePassword,
   checkEmail,
+  requestLoginOtp,
+  verifyLoginOtp,
   disableUser,
   getCurrentUser,
   getCommonDocuments,

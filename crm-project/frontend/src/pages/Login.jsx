@@ -104,6 +104,20 @@ function Login() {
       await authReady;
       const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
       const token = await userCredential.user.getIdToken(true);
+      const otpResponse = await API.post("/auth/login-otp/request", {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (otpResponse.data?.otpRequired) {
+        sessionStorage.setItem("super_user_otp_pending", JSON.stringify({
+          maskedEmail: otpResponse.data.maskedEmail,
+          expiresAtMs: otpResponse.data.expiresAtMs,
+          resendAvailableAtMs: otpResponse.data.resendAvailableAtMs,
+          requestedPath
+        }));
+        navigate("/verify-otp", { replace: true });
+        return;
+      }
       const response = await API.get("/auth/me", {
         headers: { Authorization: `Bearer ${token}` }
       });

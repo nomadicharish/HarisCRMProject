@@ -1,5 +1,6 @@
 const { admin, db } = require("../config/firebase");
 const { logger } = require("../lib/logger");
+const { AppError } = require("../lib/AppError");
 const { hasRight } = require("../config/userRights");
 const { encryptText } = require("../utils/crypto");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
@@ -10,6 +11,7 @@ const { isSuperUserLikeRole } = require("../utils/roles");
 const { uploadProfilePhoto } = require("../services/authService");
 
 const USER_ROLES = new Set(["SUPER_USER", "ADMIN", "AGENCY", "EMPLOYER", "JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]);
+const ACCOUNTANT_ROLES = new Set(["JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]);
 
 function requireUserRight(req, res, right) {
   if (hasRight(req.user, right)) return true;
@@ -31,6 +33,21 @@ function normalizeIdList(value) {
   return [...new Set((Array.isArray(value) ? value : value ? [value] : [])
     .map((item) => String(item || "").trim())
     .filter(Boolean))];
+}
+
+async function resolveAssignedCompanyIds({ role, countryIds, companyIds, assignAllCompanies }) {
+  if (!assignAllCompanies) return companyIds;
+  if (!ACCOUNTANT_ROLES.has(role)) {
+    throw new AppError("All companies can only be assigned to an accountant", 400);
+  }
+  if (!countryIds.length) {
+    throw new AppError("Select at least one country before assigning all companies", 400);
+  }
+
+  const snapshot = await db.collection("companies").get();
+  return snapshot.docs
+    .filter((company) => countryIds.includes(String(company.data()?.countryId || "")))
+    .map((company) => company.id);
 }
 
 function validateUserPayload(payload = {}, { creating = false } = {}) {
@@ -59,6 +76,7 @@ async function serializeUser(doc) {
     countryIds: normalizeIdList(data.countryIds).length ? normalizeIdList(data.countryIds) : normalizeIdList(data.countryId),
     companyId: data.companyId || "",
     companyIds: normalizeIdList(data.companyIds).length ? normalizeIdList(data.companyIds) : normalizeIdList(data.companyId),
+    allCompaniesForSelectedCountries: Boolean(data.allCompaniesForSelectedCountries),
     profilePhotoUrl: data.profilePhotoUrl || "",
     active: data.active !== false
   };
@@ -99,7 +117,14 @@ async function createUser(req, res) {
   if (parsed.error) return res.status(400).json({ message: parsed.error });
   const { name, email, role, contactNumber, rights } = parsed;
   const countryIds = normalizeIdList(req.body.countryIds).length ? normalizeIdList(req.body.countryIds) : normalizeIdList(req.body.countryId);
-  const companyIds = normalizeIdList(req.body.companyIds).length ? normalizeIdList(req.body.companyIds) : normalizeIdList(req.body.companyId);
+  const requestedCompanyIds = normalizeIdList(req.body.companyIds).length ? normalizeIdList(req.body.companyIds) : normalizeIdList(req.body.companyId);
+  const allCompaniesForSelectedCountries = Boolean(req.body.allCompaniesForSelectedCountries) && ACCOUNTANT_ROLES.has(role);
+  const companyIds = await resolveAssignedCompanyIds({
+    role,
+    countryIds,
+    companyIds: requestedCompanyIds,
+    assignAllCompanies: allCompaniesForSelectedCountries
+  });
   const oneTimePassword = generateOneTimePassword();
   let userRecord;
   try {
@@ -109,6 +134,7 @@ async function createUser(req, res) {
       name, emailEncrypted: await encryptText(email), normalizedEmail: normalizeEmailValue(email),
       contactNumberEncrypted: await encryptText(contactNumber), normalizedContactNumber: normalizePhoneValue(contactNumber),
       role, rights, countryId: countryIds[0] || null, countryIds, companyId: companyIds[0] || null, companyIds,
+      allCompaniesForSelectedCountries,
       active: true, forcePasswordReset: true,
       createdAt: admin.firestore.FieldValue.serverTimestamp(), updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
@@ -130,7 +156,14 @@ async function updateUser(req, res) {
   if (parsed.error) return res.status(400).json({ message: parsed.error });
   const { name, email, role, contactNumber, rights } = parsed;
   const countryIds = normalizeIdList(req.body.countryIds).length ? normalizeIdList(req.body.countryIds) : normalizeIdList(req.body.countryId);
-  const companyIds = normalizeIdList(req.body.companyIds).length ? normalizeIdList(req.body.companyIds) : normalizeIdList(req.body.companyId);
+  const requestedCompanyIds = normalizeIdList(req.body.companyIds).length ? normalizeIdList(req.body.companyIds) : normalizeIdList(req.body.companyId);
+  const allCompaniesForSelectedCountries = Boolean(req.body.allCompaniesForSelectedCountries) && ACCOUNTANT_ROLES.has(role);
+  const companyIds = await resolveAssignedCompanyIds({
+    role,
+    countryIds,
+    companyIds: requestedCompanyIds,
+    assignAllCompanies: allCompaniesForSelectedCountries
+  });
   const rightsChanged = !sameRights(current.rights || getDefaultRights(current.role), rights);
   await admin.auth().updateUser(req.params.uid, { displayName: name, email });
   await admin.auth().setCustomUserClaims(req.params.uid, { role });
@@ -138,6 +171,7 @@ async function updateUser(req, res) {
     name, role, rights, emailEncrypted: await encryptText(email), normalizedEmail: normalizeEmailValue(email),
     contactNumberEncrypted: await encryptText(contactNumber), normalizedContactNumber: normalizePhoneValue(contactNumber),
     countryId: countryIds[0] || null, countryIds, companyId: companyIds[0] || null, companyIds,
+    allCompaniesForSelectedCountries,
     updatedAt: admin.firestore.FieldValue.serverTimestamp()
   }, { merge: true });
   invalidateUserProfileCache(req.params.uid);

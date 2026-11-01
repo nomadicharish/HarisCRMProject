@@ -1,6 +1,6 @@
 # Firebase environments
 
-The backend selects its Firebase project from `FIREBASE_ENVIRONMENT`, which must be `dev`, `qa`, or `production` and defaults to `qa`.
+The backend selects its Firebase project from `FIREBASE_ENVIRONMENT`, which must be `dev`, `qa`, or `production` and defaults to `qa`. QA is the `haris-business-crm` Firebase project; its frontend and backend must use the same Firebase Auth project.
 
 For now, both environment variables point to the existing Firebase Storage bucket. This preserves the current QA and production behavior.
 

@@ -49,9 +49,15 @@ function ForgotPassword() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      await sendPasswordResetEmail(auth, normalizedEmail, {
-        url: `${window.location.origin}/change-password`
-      });
+      // A local hostname is not necessarily listed in Firebase Auth's
+      // authorized domains. Without an explicitly configured, authorized
+      // continue URL, use Firebase's hosted password-reset page instead.
+      const continueUrl = String(import.meta.env.VITE_PASSWORD_RESET_CONTINUE_URL || "").trim();
+      await sendPasswordResetEmail(
+        auth,
+        normalizedEmail,
+        continueUrl ? { url: continueUrl } : undefined
+      );
 
       setSuccessMessage("Password reset link sent to your registered email.");
     } catch (err) {

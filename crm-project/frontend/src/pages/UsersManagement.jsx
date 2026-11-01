@@ -14,7 +14,9 @@ import { getCached } from "../services/cachedApi";
 import { DEFAULT_RIGHTS, roleLabel, USER_RIGHTS, USER_ROLES } from "../config/userRights";
 import "../styles/usersManagement.css";
 
-const EMPTY_FORM = { name: "", email: "", contactNumber: "", role: "", countryId: "", countryIds: [], companyId: "", companyIds: [], rights: [] };
+const ALL_COMPANIES_OPTION = "__ALL_COMPANIES_FOR_SELECTED_COUNTRIES__";
+const ACCOUNTANT_ROLES = new Set(["JUNIOR_ACCOUNTANT", "SENIOR_ACCOUNTANT"]);
+const EMPTY_FORM = { name: "", email: "", contactNumber: "", role: "", countryId: "", countryIds: [], companyId: "", companyIds: [], allCompaniesForSelectedCountries: false, rights: [] };
 
 const multiSelectStyles = {
   control: (base, state) => ({
@@ -109,6 +111,13 @@ function UsersManagement() {
       .map((company) => ({ value: company.id, label: company.name })),
     [companies, form.countryIds]
   );
+  const isAccountant = ACCOUNTANT_ROLES.has(form.role);
+  const companySelectOptions = useMemo(
+    () => isAccountant && form.countryIds.length
+      ? [{ value: ALL_COMPANIES_OPTION, label: "All Companies" }, ...companyOptions]
+      : companyOptions,
+    [companyOptions, form.countryIds.length, isAccountant]
+  );
 
   const resetPhoto = () => {
     if (profilePhotoPreview.startsWith("blob:")) URL.revokeObjectURL(profilePhotoPreview);
@@ -120,17 +129,28 @@ function UsersManagement() {
   const openEdit = (user) => {
     setError("");
     setEditing(user);
+    const countryIds = Array.isArray(user.countryIds) && user.countryIds.length ? user.countryIds : user.countryId ? [user.countryId] : [];
+    const savedCompanyIds = Array.isArray(user.companyIds) && user.companyIds.length ? user.companyIds : user.companyId ? [user.companyId] : [];
+    const allCompaniesForSelectedCountries = Boolean(user.allCompaniesForSelectedCountries);
     setForm({
       ...EMPTY_FORM,
       ...user,
-      countryIds: Array.isArray(user.countryIds) && user.countryIds.length ? user.countryIds : user.countryId ? [user.countryId] : [],
-      companyIds: Array.isArray(user.companyIds) && user.companyIds.length ? user.companyIds : user.companyId ? [user.companyId] : [],
+      countryIds,
+      companyIds: savedCompanyIds.length || !allCompaniesForSelectedCountries
+        ? savedCompanyIds
+        : companies.filter((company) => countryIds.includes(company.countryId)).map((company) => company.id),
+      allCompaniesForSelectedCountries,
       rights: user.rights || DEFAULT_RIGHTS[user.role] || []
     });
     resetPhoto();
     setFormOpen(true);
   };
-  const updateRole = (nextRole) => setForm((current) => ({ ...current, role: nextRole, rights: [...(DEFAULT_RIGHTS[nextRole] || [])] }));
+  const updateRole = (nextRole) => setForm((current) => ({
+    ...current,
+    role: nextRole,
+    allCompaniesForSelectedCountries: ACCOUNTANT_ROLES.has(nextRole) ? current.allCompaniesForSelectedCountries : false,
+    rights: [...(DEFAULT_RIGHTS[nextRole] || [])]
+  }));
   const toggleRight = (right) => setForm((current) => ({ ...current, rights: current.rights.includes(right) ? current.rights.filter((item) => item !== right) : [...current.rights, right] }));
 
   const selectProfilePhoto = (event) => {
@@ -213,23 +233,31 @@ function UsersManagement() {
               <label>User Role *<select value={form.role} onChange={(e) => updateRole(e.target.value)}><option value="">Select user role</option>{USER_ROLES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
               <label>Country<Select isMulti options={countryOptions} value={countryOptions.filter((option) => form.countryIds.includes(option.value))} onChange={(selected) => {
                 const countryIds = (selected || []).map((option) => option.value);
+                const eligibleCompanyIds = companies
+                  .filter((company) => countryIds.includes(company.countryId))
+                  .map((company) => company.id);
                 setForm((current) => ({
                   ...current,
                   countryIds,
                   countryId: countryIds[0] || "",
-                  companyIds: current.companyIds.filter((companyId) => {
+                  // Keep the resolved company IDs visible when this user was
+                  // assigned to all companies. This makes an edit reopen with
+                  // every assigned company already selected in the input.
+                  companyIds: current.allCompaniesForSelectedCountries ? eligibleCompanyIds : current.companyIds.filter((companyId) => {
                     const company = companies.find((item) => item.id === companyId);
                     return company && countryIds.includes(company.countryId);
                   }),
-                  companyId: current.companyIds.find((companyId) => {
+                  companyId: current.allCompaniesForSelectedCountries ? eligibleCompanyIds[0] || "" : current.companyIds.find((companyId) => {
                     const company = companies.find((item) => item.id === companyId);
                     return company && countryIds.includes(company.countryId);
                   }) || ""
                 }));
               }} placeholder="Select countries" styles={multiSelectStyles} /></label>
-              <label>Company<Select isMulti options={companyOptions} value={companyOptions.filter((option) => form.companyIds.includes(option.value))} onChange={(selected) => {
-                const companyIds = (selected || []).map((option) => option.value);
-                setForm((current) => ({ ...current, companyIds, companyId: companyIds[0] || "" }));
+              <label>Company<Select isMulti options={companySelectOptions} value={companyOptions.filter((option) => form.companyIds.includes(option.value))} onChange={(selected) => {
+                const selectedValues = (selected || []).map((option) => option.value);
+                const allCompaniesForSelectedCountries = selectedValues.includes(ALL_COMPANIES_OPTION);
+                const companyIds = allCompaniesForSelectedCountries ? companyOptions.map((option) => option.value) : selectedValues;
+                setForm((current) => ({ ...current, allCompaniesForSelectedCountries, companyIds, companyId: companyIds[0] || "" }));
               }} isDisabled={!form.countryIds.length} placeholder={form.countryIds.length ? "Select companies" : "Select countries first"} styles={multiSelectStyles} /></label>
             </div></section>
             <section><h2>2. Assign Rights</h2><p>Select the rights you want to grant to this user.</p><div className="rightsGrid">{USER_RIGHTS.map(([key, label], index) => <label key={key} className="rightToggle"><span>{index + 1}. {label}</span><input type="checkbox" checked={form.rights.includes(key)} onChange={() => toggleRight(key)} /><i /></label>)}</div></section>
