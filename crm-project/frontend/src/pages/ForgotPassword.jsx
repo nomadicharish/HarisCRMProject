@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { sendPasswordResetEmail } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import { auth } from "../firebase";
+import API from "../services/api";
 import BrandLogo from "../components/common/BrandLogo";
 import "../styles/auth.css";
 import { validateEmail } from "../utils/auth";
@@ -49,25 +48,11 @@ function ForgotPassword() {
     try {
       const normalizedEmail = email.trim().toLowerCase();
 
-      // A local hostname is not necessarily listed in Firebase Auth's
-      // authorized domains. Without an explicitly configured, authorized
-      // continue URL, use Firebase's hosted password-reset page instead.
-      const continueUrl = String(import.meta.env.VITE_PASSWORD_RESET_CONTINUE_URL || "").trim();
-      await sendPasswordResetEmail(
-        auth,
-        normalizedEmail,
-        continueUrl ? { url: continueUrl } : undefined
-      );
+      await API.post("/auth/forgot-password", { email: normalizedEmail });
 
       setSuccessMessage("Password reset link sent to your registered email.");
     } catch (err) {
-      const firebaseError =
-        err?.code === "auth/too-many-requests"
-          ? "Too many reset attempts. Please try again after some time."
-          : err?.code === "auth/invalid-continue-uri" || err?.code === "auth/unauthorized-continue-uri"
-          ? "Reset link configuration is invalid. Please contact admin."
-          : "";
-      setError(err?.response?.data?.message || firebaseError || "Unable to send password reset email");
+      setError(err?.response?.data?.message || "Unable to send password reset email");
     } finally {
       setLoading(false);
     }

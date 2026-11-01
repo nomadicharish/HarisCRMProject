@@ -77,7 +77,12 @@ async function issueOtp({ uid, tokenAuthTime, userProfile }) {
       to: email,
       subject: "Your Talent Acquisition login verification code",
       text: `Your login verification code is ${code}. It expires in ${Math.ceil(OTP_TTL_MS / 60_000)} minutes. Do not share this code.`,
-      html: `<p>Your Talent Acquisition login verification code is <strong>${escapeHtml(code)}</strong>.</p><p>It expires in ${Math.ceil(OTP_TTL_MS / 60_000)} minutes. Do not share this code.</p>`
+      html: `<p>Your Talent Acquisition login verification code is <strong>${escapeHtml(code)}</strong>.</p><p>It expires in ${Math.ceil(OTP_TTL_MS / 60_000)} minutes. Do not share this code.</p>`,
+      recipient: {
+        email,
+        name: profile.name || userProfile?.name || userProfile?.displayName || "User",
+        role: profile.role || userProfile?.role || "USER"
+      }
     });
     if (result?.skipped) throw new Error(result.reason || "email_not_sent");
   } catch (error) {

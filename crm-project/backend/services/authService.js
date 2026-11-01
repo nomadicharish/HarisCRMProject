@@ -6,6 +6,7 @@ const { normalizeCompanyJobPositions } = require("../utils/normalizers");
 const { normalizeEmailValue, normalizePhoneValue } = require("../utils/normalizers");
 const { decryptText, encryptText } = require("../utils/crypto");
 const { validatePassword } = require("../utils/password");
+const { sendEmail } = require("./emailService");
 const {
   readEncryptedUserContactNumber,
   readEncryptedUserEmail
@@ -143,6 +144,36 @@ async function checkEmailExists(email) {
   }
 
   return { exists: true };
+}
+
+async function requestPasswordReset(email) {
+  const normalizedEmail = normalizeEmailValue(email);
+  let authUser;
+  try {
+    authUser = await admin.auth().getUserByEmail(normalizedEmail);
+  } catch (error) {
+    if (error?.code === "auth/user-not-found") {
+      return { message: "If an account exists for this email, a password reset link has been sent." };
+    }
+    throw error;
+  }
+
+  const userDoc = await db.collection("users").doc(authUser.uid).get();
+  const userData = userDoc.exists ? userDoc.data() || {} : {};
+  const resetUrl = await admin.auth().generatePasswordResetLink(normalizedEmail);
+  const result = await sendEmail({
+    to: normalizedEmail,
+    subject: "Reset your Talent Acquisition password",
+    text: `Use this secure link to reset your password:\n${resetUrl}\n\nIf you did not request a password reset, you can safely ignore this email.`,
+    html: `<p>Use this secure link to reset your password:</p><p><a href="${resetUrl}">Reset Password</a></p><p>If you did not request a password reset, you can safely ignore this email.</p>`,
+    recipient: {
+      email: normalizedEmail,
+      name: userData.name || authUser.displayName || "User",
+      role: userData.role || "USER"
+    }
+  });
+  if (result?.skipped) throw new AppError("Password reset email could not be sent", 502);
+  return { message: "If an account exists for this email, a password reset link has been sent." };
 }
 
 async function getSettings(uid) {
@@ -577,6 +608,7 @@ module.exports = {
   deleteCommonDocument,
   getSettings,
   markPasswordUpdated,
+  requestPasswordReset,
   updateSettings,
   uploadProfilePhoto,
   uploadStandardReferenceDocument,

@@ -154,10 +154,7 @@ async function sendAccountSetupEmail({ email, name, role, oneTimePassword }) {
   const displayRole = role === "AGENCY" ? "agency" : role === "EMPLOYER" ? "employer" : String(role || "user").toLowerCase();
   const loginUrl = getAppLoginUrl();
   const subject = `Welcome to ${APP_NAME}`;
-  const greetingName = name || "User";
   const text = [
-    `Hi ${greetingName},`,
-    "",
     `Your ${displayRole} account has been created for ${APP_NAME}.`,
     `Your one-time password: ${oneTimePassword}`,
     `Login to ${APP_NAME}: ${loginUrl}`,
@@ -166,14 +163,13 @@ async function sendAccountSetupEmail({ email, name, role, oneTimePassword }) {
   ].join("\n");
 
   const html = `
-    <p>Hi ${escapeHtml(greetingName)},</p>
     <p>Your ${displayRole} account has been created for ${APP_NAME}.</p>
     <p>Your one-time password is: <strong>${escapeHtml(oneTimePassword)}</strong></p>
     <p><a href="${escapeHtml(loginUrl)}">Log in to ${APP_NAME}</a>.</p>
     <p>Use this password to log in once. You will be required to create a new password immediately after your first login.</p>
   `;
 
-  return sendEmail({ to: email, subject, text, html });
+  return sendEmail({ to: email, subject, text, html, recipient: { email, name, role } });
 }
 
 async function syncLinkedUserAccount({ email, name, role, agencyId = null, employerId = null, contactNumber = "" }) {

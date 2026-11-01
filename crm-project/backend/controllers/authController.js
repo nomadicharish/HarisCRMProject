@@ -12,6 +12,11 @@ async function checkEmail(req, res) {
   return res.json(data);
 }
 
+async function forgotPassword(req, res) {
+  const data = await authService.requestPasswordReset(req.body.email);
+  return res.json(data);
+}
+
 async function requestLoginOtp(req, res) {
   const data = await superUserOtpService.issueOtp({
     uid: req.user.uid,
@@ -92,6 +97,7 @@ module.exports = {
   requestLoginOtp,
   verifyLoginOtp,
   disableUser,
+  forgotPassword,
   getCurrentUser,
   getCommonDocuments,
   createCommonDocumentType,

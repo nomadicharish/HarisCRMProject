@@ -17,6 +17,7 @@ const {
   bankAccountSchema,
   changePasswordSchema,
   checkEmailSchema,
+  forgotPasswordSchema,
   disableUserParamsSchema,
   verifyLoginOtpSchema,
   updateSettingsSchema
@@ -47,6 +48,7 @@ function requireCommonDocumentsManager(req, res, next) {
 
 router.get("/me", noStore, verifyToken, asyncHandler(authController.getCurrentUser));
 router.post("/check-email", noStore, createAuthRateLimiter(), validate(checkEmailSchema), asyncHandler(authController.checkEmail));
+router.post("/forgot-password", noStore, createAuthRateLimiter(), validate(forgotPasswordSchema), asyncHandler(authController.forgotPassword));
 router.post("/login-otp/request", noStore, verifyToken, createAuthRateLimiter(), asyncHandler(authController.requestLoginOtp));
 router.post("/login-otp/verify", noStore, verifyToken, createAuthRateLimiter(), validate(verifyLoginOtpSchema), asyncHandler(authController.verifyLoginOtp));
 router.post("/change-password", noStore, verifyToken, validate(changePasswordSchema), asyncHandler(authController.changePassword));

@@ -6,6 +6,10 @@ const checkEmailSchema = z.object({
   email: z.email("Valid email is required").transform((value) => value.trim().toLowerCase())
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.email("Valid email is required").transform((value) => value.trim().toLowerCase())
+});
+
 const verifyLoginOtpSchema = z.object({
   otp: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit verification code")
 });
@@ -47,6 +51,7 @@ module.exports = {
   changePasswordSchema,
   checkEmailSchema,
   disableUserParamsSchema,
+  forgotPasswordSchema,
   verifyLoginOtpSchema,
   updateSettingsSchema
 };
