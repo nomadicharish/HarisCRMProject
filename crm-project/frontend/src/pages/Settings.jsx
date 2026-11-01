@@ -408,7 +408,9 @@ function Settings() {
       body.append("file", file);
       const response = await API.post("/auth/settings/profile-photo", body, { headers: { "Content-Type": "multipart/form-data" } });
       const profilePhotoUrl = response.data?.profilePhotoUrl || "";
-      setForm((current) => ({ ...current, profilePhotoUrl }));
+      const nextSettings = { ...form, profilePhotoUrl };
+      setForm(nextSettings);
+      writeCached("/auth/settings", nextSettings, { ttlMs: 120000 });
       updateStoredUser({ profilePhotoUrl });
       toast.success("Profile picture updated successfully");
     } catch (uploadError) { setError(uploadError?.response?.data?.message || "Unable to upload profile picture"); }
@@ -690,7 +692,7 @@ function Settings() {
                   </button>
                   <div><div className="settingsProfileName">{form.name || "-"}</div><div className="settingsProfileEmail">{form.email || "-"}</div></div>
                 </div>
-                <input ref={profilePhotoInputRef} className="settingsVisuallyHidden" type="file" accept="image/jpeg,image/png" disabled={profilePhotoUploading} onChange={(event) => handleProfilePhotoUpload(event.target.files?.[0])} />
+                <input ref={profilePhotoInputRef} className="settingsVisuallyHidden" type="file" accept="image/jpeg,image/png" disabled={profilePhotoUploading} onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; handleProfilePhotoUpload(file); }} />
                 {profilePhotoUploading ? <div className="settingsModalHelp">Uploading picture...</div> : null}
                 <div className="settingsBlock">
                   <label className="settingsLabel" htmlFor="settings-name">Name</label>

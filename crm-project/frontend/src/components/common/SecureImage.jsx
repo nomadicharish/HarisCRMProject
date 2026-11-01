@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { getSecureFileBlob, getStoragePath } from "../../utils/secureFiles";
 
-function SecureImage({ src, fallback = null, ...imageProps }) {
+function SecureImage({ src, fallback = null, onError, ...imageProps }) {
   const [resolvedSrc, setResolvedSrc] = useState(() => (getStoragePath(src) ? "" : src || ""));
 
   useEffect(() => {
@@ -27,7 +27,18 @@ function SecureImage({ src, fallback = null, ...imageProps }) {
     };
   }, [src]);
 
-  return resolvedSrc ? <img src={resolvedSrc} {...imageProps} /> : fallback;
+  return resolvedSrc ? (
+    <img
+      src={resolvedSrc}
+      {...imageProps}
+      onError={(event) => {
+        onError?.(event);
+        // A successful secure-file request can still contain an unreadable image.
+        // Clear it so callers consistently receive their visible fallback.
+        setResolvedSrc("");
+      }}
+    />
+  ) : fallback;
 }
 
 export default SecureImage;

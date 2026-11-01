@@ -12,6 +12,7 @@ import { getStoredUser, isSuperUserLikeRole } from "../utils/auth";
 import { hasRight } from "../utils/rights";
 import { getCached } from "../services/cachedApi";
 import { DEFAULT_RIGHTS, roleLabel, USER_RIGHTS, USER_ROLES } from "../config/userRights";
+import "../styles/settings.css";
 import "../styles/usersManagement.css";
 
 const ALL_COMPANIES_OPTION = "__ALL_COMPANIES_FOR_SELECTED_COUNTRIES__";
